@@ -21,3 +21,6 @@ data/
 # Secrets
 *.env
 .env*
+
+# installers
+Anaconda3*.sh
