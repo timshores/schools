@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+env/
+venv/
+
+# Editors
+.vscode/
+.idea/
+
+# Data (keep local)
+data/
+*.xlsx
+*.csv
+
+# Secrets
+*.env
+.env*
