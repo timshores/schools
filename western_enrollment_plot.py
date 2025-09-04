@@ -161,49 +161,62 @@ def load_enrollment(xlsx_path: Path):
     return best, region_col_found
 
 def attach_regions(enroll_df: pd.DataFrame, region_col_in_excel: bool, regions_csv: Path) -> pd.DataFrame:
-    # 1) If the enrollment sheet already had a region column (via REGION_COL_OVERRIDE), just use it.
+    # If the enrollment sheet already had a region column (via REGION_COL_OVERRIDE), just use it.
     if region_col_in_excel:
         return enroll_df.copy()
 
-    # 2) Prefer the mapping embedded in the workbook (sheet: "District Regions")
+    # Prefer the mapping embedded in the workbook (sheet: "District Regions")
     xlsx_path = EXCEL_FILE
     try:
         xls = pd.ExcelFile(xlsx_path, engine="openpyxl")
         if "District Regions" in xls.sheet_names:
             reg_df = pd.read_excel(xls, sheet_name="District Regions", engine="openpyxl", dtype=str)
             cols = {c.lower(): c for c in reg_df.columns}
-            name_col = cols.get("district_name")
+            name_col   = cols.get("district_name")
             region_col = cols.get("eohhs_region")
+            type_col   = cols.get("school_type")  # <-- NEW (optional)
             if name_col and region_col:
                 left = enroll_df.copy()
                 left["District_key"] = left["District"].str.upper().str.strip()
-                right = reg_df[[name_col, region_col]].copy()
+                keep_cols = [name_col, region_col]
+                if type_col:  # carry school_type if present
+                    keep_cols.append(type_col)
+                right = reg_df[keep_cols].copy()
                 right["District_key"] = right[name_col].str.upper().str.strip()
-                out = left.merge(right[["District_key", region_col]], on="District_key", how="left")
-                out = out.drop(columns=["District_key"]).rename(columns={region_col: "eohhs_region"})
+                out = left.merge(right, on="District_key", how="left")
+                out = out.drop(columns=["District_key"])
+                out = out.rename(columns={region_col: "eohhs_region"})
+                if type_col and type_col in out.columns:
+                    out.rename(columns={type_col: "school_type"}, inplace=True)
                 return out
     except Exception:
-        pass  # fall through to CSV option
+        pass  # fall back to CSV
 
-    # 3) Fall back to CSV mapping if present
+    # CSV fallback
     if regions_csv.exists():
         map_df = pd.read_csv(regions_csv, dtype=str)
         cols = {c.lower(): c for c in map_df.columns}
-        name_col = cols.get("district_name")
+        name_col   = cols.get("district_name")
         region_col = cols.get("eohhs_region")
+        type_col   = cols.get("school_type")  # optional
         if not (name_col and region_col):
             raise RuntimeError(f"Mapping CSV at {regions_csv} is missing district_name/eohhs_region.")
         left = enroll_df.copy()
         left["District_key"] = left["District"].str.upper().str.strip()
-        right = map_df[[name_col, region_col]].copy()
+        keep_cols = [name_col, region_col]
+        if type_col:
+            keep_cols.append(type_col)
+        right = map_df[keep_cols].copy()
         right["District_key"] = right[name_col].str.upper().str.strip()
-        out = left.merge(right[["District_key", region_col]], on="District_key", how="left")
+        out = left.merge(right, on="District_key", how="left")
         out = out.drop(columns=["District_key"]).rename(columns={region_col: "eohhs_region"})
+        if type_col and type_col in out.columns:
+            out.rename(columns={type_col: "school_type"}, inplace=True)
         return out
 
     raise RuntimeError(
-        "No region info found. The workbook has a 'District Regions' sheet—keep it as-is, "
-        "or provide ma_districts_with_eohhs_regions_complete.csv in .\\data."
+        "No region info found. Keep the workbook's 'District Regions' sheet (now with school_type), "
+        "or provide ma_districts_with_eohhs_regions_complete.csv in .\\data (with school_type)."
     )
 
 def filter_western(df: pd.DataFrame) -> pd.DataFrame:
@@ -273,7 +286,7 @@ def main():
     plt.close()
 
     # 6b) Stacked area by district (Top K + Others)
-    K = 12
+    K = 50
     pivot = overlay.pivot(index="School Year", columns="District", values="Total Enrollment").fillna(0).sort_index()
     last = pivot.iloc[-1].copy()
     topk = last.sort_values(ascending=False).head(K).index.tolist()
@@ -344,8 +357,8 @@ def main():
     plt.savefig(out_grouped, dpi=200, bbox_inches="tight")
     plt.close()
 
-    # 6d) NEW: per-bucket stacked area plots (increasing / flat / decreasing)
-    def stacked_by_group(overlay_df, trend_table, bucket_label, top_k=12):
+    # 6d) Per-bucket stacked area plots (increasing / flat / decreasing)
+    def stacked_by_group(overlay_df, trend_table, bucket_label, top_k=20):
         districts_in_bucket = trend_table.loc[trend_table["bucket"] == bucket_label, "District"].unique().tolist()
         if not districts_in_bucket:
             return None, None
@@ -386,11 +399,192 @@ def main():
         plt.close()
         return out_path, len(districts_in_bucket)
 
-    out_inc, n_inc = stacked_by_group(overlay, trend_df, "increasing", top_k=12)
-    out_flat, n_flat = stacked_by_group(overlay, trend_df, "flat", top_k=12)
-    out_dec,  n_dec  = stacked_by_group(overlay, trend_df, "decreasing", top_k=12)
+    out_inc, n_inc = stacked_by_group(overlay, trend_df, "increasing", top_k=80)
+    out_flat, n_flat = stacked_by_group(overlay, trend_df, "flat", top_k=80)
+    out_dec,  n_dec  = stacked_by_group(overlay, trend_df, "decreasing", top_k=80)
 
-    # 6e) Small multiples PDF (per-district)
+    # 6e) Western region stacked by school_type (Traditional / Charter / Vocational) ---
+    # --- with 2025 % labels + dimension arrows ---
+    # --- Build pivot for school_type stacks ---
+    west_types = west.copy()
+    if "school_type" not in west_types.columns:
+        west_types["school_type"] = "Unknown"
+    west_types["school_type"] = west_types["school_type"].fillna("Unknown").str.title().str.strip()
+
+    type_totals = (
+        west_types.groupby(["School Year", "school_type"], as_index=False)["Total Enrollment"].sum()
+    )
+
+    desired_order = ["Traditional", "Charter", "Vocational", "Unknown"]
+    type_pivot = (
+        type_totals.pivot(index="School Year", columns="school_type", values="Total Enrollment")
+                  .reindex(columns=[c for c in desired_order if c in set(type_totals["school_type"])])
+                  .fillna(0)
+                  .sort_index()
+    )
+
+    labels = list(type_pivot.columns)
+    years = type_pivot.index.to_numpy()
+    facecolors = [
+        {"Traditional": "#0072B2", "Charter": "#009E73", "Vocational": "#D55E00", "Unknown": "#999999"}.get(c, "#666666")
+        for c in labels
+    ]
+    plt.figure(figsize=(14, 8))
+    ax = plt.gca()
+    ax.stackplot(years, [type_pivot[c].to_numpy() for c in labels], labels=labels, colors=facecolors, linewidth=0.5)
+    ax.set_title(f"Western Region — Stacked Enrollment by School Type ({yr_min}–{yr_max})", pad=10)
+    ax.set_xlabel("School Year"); ax.set_ylabel("Total Enrollment")
+    ax.set_ylim(bottom=0)
+    ax.grid(alpha=0.25); ax.set_facecolor(BG)
+    [s.set_alpha(0.5) for s in ax.spines.values()]
+    leg = ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5))
+    ax.yaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
+
+    # ---- Annotate 2025 slice with percentages + dimension arrows ----
+    year_target = 2025
+    if year_target in type_pivot.index:
+        # Values at 2025 by type (in the current column order `labels`)
+        vals_2025 = type_pivot.loc[year_target, labels].fillna(0).to_numpy()
+        total_2025 = float(vals_2025.sum())
+        if total_2025 > 0:
+            # Cumulative bounds for the vertical stack at 2025
+            cum = np.cumsum(vals_2025)
+            bottoms = np.concatenate(([0], cum[:-1]))
+            tops = cum
+
+            # Where to place the annotations/arrows on the x-axis
+            x_label = year_target  # labels centered on the slice
+            x_arrow = year_target + 0.35  # small offset to draw dimension arrows beside the slice
+
+            for i, (lab, v, y0, y1, color) in enumerate(zip(labels, vals_2025, bottoms, tops, facecolors)):
+                if v <= 0:
+                    continue
+                pct = 100.0 * v / total_2025
+                y_mid = (y0 + y1) / 2.0
+
+                # Percentage label inside/near the slice
+                ax.text(x_label, y_mid, f"{lab}: {pct:.1f}%",
+                        ha="center", va="center",
+                        fontsize=9, color="black",
+                        bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.65, edgecolor="none"))
+
+                # Dimension arrow (double-headed) showing the “thickness” of this band at 2025
+                # A tiny vertical wiggle so short segments still show arrowheads
+                y0_draw = y0 + max(0.002 * total_2025, 5)
+                y1_draw = y1 - max(0.002 * total_2025, 5)
+                if y1_draw > y0_draw:
+                    ax.annotate("",
+                                xy=(x_arrow, y1_draw), xytext=(x_arrow, y0_draw),
+                                arrowprops=dict(arrowstyle="<->", lw=1.5, color=color, shrinkA=0, shrinkB=0))
+                    # Small tick marks at ends (like technical drawings)
+                    tick_w = 0.08
+                    ax.plot([x_arrow - tick_w, x_arrow + tick_w], [y0_draw, y0_draw], color=color, lw=1.2)
+                    ax.plot([x_arrow - tick_w, x_arrow + tick_w], [y1_draw, y1_draw], color=color, lw=1.2)
+
+            # Add a subtle vertical guide at 2025
+            ax.axvline(year_target, color="k", lw=1, alpha=0.25, zorder=0)
+
+    plt.tight_layout()
+    out_type = OUTPUT_DIR / "western_enrollment_stacked_by_school_type.png"
+    plt.savefig(out_type, dpi=200, bbox_inches="tight")
+    plt.close()
+
+    # 6e) Custom stack for selected districts of interest ---
+    selected_raw = [
+        "Amherst",
+        "Leverett",
+        "Pelham",
+        "Shutesbury",
+        "Amherst-Pelham",
+        "Hilltown Cooperative Charter Public (District)",
+        "Pioneer Valley Chinese Immersion Charter (District)",
+        "Pioneer Valley Performing Arts Charter Public (District)",
+    ]
+
+    # Light aliasing to improve matches
+    alias_map = {
+        "SHUTEBURY": "SHUTESBURY",  # fix common typo
+        # add more aliases here if needed
+    }
+
+    # Build lookup for districts present in overlay (case-insensitive)
+    present_keys = {d.upper().strip(): d for d in overlay["District"].unique()}
+
+    resolved = []
+    missing = []
+    for name in selected_raw:
+        key = name.upper().strip()
+        key = alias_map.get(key, key)
+        # try exact (case-insensitive) first
+        if key in present_keys:
+            resolved.append(present_keys[key])
+            continue
+        # try a loose contains match among available districts
+        candidates = [present_keys[k] for k in present_keys if key in k]
+        if len(candidates) == 1:
+            resolved.append(candidates[0])
+        elif len(candidates) > 1:
+            # pick the shortest name (usually the canonical) if ambiguous
+            resolved.append(sorted(candidates, key=len)[0])
+        else:
+            missing.append(name)
+
+    if missing:
+        print(f"[warn] Requested districts not found: {missing}")
+
+    # If nothing resolved, skip plotting
+    if resolved:
+        # Pivot to year x district for just these selections
+        sel = overlay[overlay["District"].isin(resolved)]
+        sel_pivot = (sel.pivot(index="School Year", columns="District", values="Total Enrollment")
+                        .fillna(0)
+                        .sort_index())
+
+        # Keep the order as the user listed (for legend readability)
+        ordered_cols = [c for c in [present_keys.get(alias_map.get(n.upper().strip(), n.upper().strip()), n) for n in selected_raw]
+                        if c in sel_pivot.columns]
+        # Fallback to alphabetical for anything unmatched by order list
+        ordered_cols += [c for c in sel_pivot.columns if c not in ordered_cols]
+
+        sel_pivot = sel_pivot[ordered_cols]
+        years_sel = sel_pivot.index.to_numpy()
+        series_sel = [sel_pivot[c].to_numpy() for c in sel_pivot.columns]
+
+        # Color cycle
+        colors_sel = [PALETTE[i % len(PALETTE)] for i in range(len(sel_pivot.columns))]
+
+        plt.figure(figsize=(14, 8))
+        ax = plt.gca()
+        ax.stackplot(years_sel, series_sel, labels=list(sel_pivot.columns), colors=colors_sel, linewidth=0.5)
+        ax.set_title(f"Western Region — Stacked Enrollment (Selected Districts), {yr_min}–{yr_max}", pad=10)
+        ax.set_xlabel("School Year"); ax.set_ylabel("Total Enrollment")
+        ax.set_ylim(bottom=0)
+        ax.grid(alpha=0.25); ax.set_facecolor(BG)
+        [s.set_alpha(0.5) for s in ax.spines.values()]
+        ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=9)
+        ax.yaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
+        plt.tight_layout()
+        out_selected = OUTPUT_DIR / "western_enrollment_stacked_selected_districts.png"
+        plt.savefig(out_selected, dpi=200, bbox_inches="tight")
+        plt.close()
+
+        # Optional: write a tiny QA CSV of what was included/missing
+        qa_csv = OUTPUT_DIR / "western_enrollment_selected_districts_qa.csv"
+        pd.DataFrame({
+            "requested": selected_raw,
+            "resolved_or_missing": [present_keys.get(alias_map.get(n.upper().strip(), n.upper().strip()), n) for n in selected_raw],
+            "status": ["resolved" if (alias_map.get(n.upper().strip(), n.upper().strip()) in present_keys) or
+                                any(alias_map.get(n.upper().strip(), n.upper().strip()) in k for k in present_keys)
+                    else "missing" for n in selected_raw]
+        }).to_csv(qa_csv, index=False)
+
+        print(f"✓ Wrote: {out_selected}")
+        print(f"✓ Wrote: {qa_csv}")
+    else:
+        print("[warn] No selected districts could be resolved; skipping selected stack plot.")
+
+
+    # 6g) Small multiples PDF (per-district)
     per_page, rows, cols = 12, 4, 3
     pages = int(math.ceil(len(districts)/per_page))
     out_pdf = OUTPUT_DIR / "western_enrollment_small_multiples.pdf"
