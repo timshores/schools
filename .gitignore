@@ -14,9 +14,7 @@ venv/
 .idea/
 
 # Data (keep local)
-data/
-*.xlsx
-*.csv
+
 
 # Secrets
 *.env
