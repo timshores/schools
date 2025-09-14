@@ -70,6 +70,68 @@ BG = "white"
 # ----------------------
 # Helpers
 # ----------------------
+
+def annotate_stack_at_year(
+    ax,
+    pivot_df,                 # index = years, columns = labels, values = totals
+    labels_in_order,          # list of column names in the plotted order
+    colors_in_order,          # same length as labels
+    year,                     # integer year to annotate
+    side="right",             # "right" or "left" (arrows offset to that side)
+    min_pct_to_label=1.0,     # skip labels below this %
+    min_abs_thickness=5.0,    # data-units guard so thin slices still show arrowheads
+    arrow_dx=0.35,            # horizontal offset for the dimension arrows
+    show_vline=True,          # draw a faint vertical guide line at the slice
+):
+    """
+    Adds % labels centered in each band + a double-headed arrow showing band thickness
+    at a specific x = year for a stackplot.
+
+    Assumes 'pivot_df' already aligned to the stack order used for plotting.
+    """
+    if year not in pivot_df.index:
+        return
+
+    vals = pivot_df.loc[year, labels_in_order].fillna(0).to_numpy()
+    total = float(vals.sum())
+    if total <= 0:
+        return
+
+    cum = np.cumsum(vals)
+    bottoms = np.concatenate(([0.0], cum[:-1]))
+    tops = cum
+
+    x_label = year
+    x_arrow = year + (arrow_dx if side == "right" else -arrow_dx)
+
+    for lab, v, y0, y1, color in zip(labels_in_order, vals, bottoms, tops, colors_in_order):
+        if v <= 0:
+            continue
+        pct = 100.0 * v / total
+        if pct < min_pct_to_label:
+            continue
+
+        y_mid = (y0 + y1) / 2.0
+
+        # Centered % label
+        ax.text(x_label, y_mid, f"{lab}: {pct:.1f}%",
+                ha="center", va="center", fontsize=9, color="black",
+                bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.65, edgecolor="none"))
+
+        # Dimension arrow (slightly inset from the band ends)
+        y0_draw = y0 + max(0.002 * total, min_abs_thickness)
+        y1_draw = y1 - max(0.002 * total, min_abs_thickness)
+        if y1_draw > y0_draw:
+            ax.annotate("",
+                        xy=(x_arrow, y1_draw), xytext=(x_arrow, y0_draw),
+                        arrowprops=dict(arrowstyle="<->", lw=1.5, color=color, shrinkA=0, shrinkB=0))
+            tick_w = 0.08
+            ax.plot([x_arrow - tick_w, x_arrow + tick_w], [y0_draw, y0_draw], color=color, lw=1.2)
+            ax.plot([x_arrow - tick_w, x_arrow + tick_w], [y1_draw, y1_draw], color=color, lw=1.2)
+
+    if show_vline:
+        ax.axvline(year, color="k", lw=1, alpha=0.25, zorder=0)
+
 def find_first_col(df, candidates):
     for c in candidates:
         if c in df.columns:
@@ -127,13 +189,22 @@ def load_enrollment(xlsx_path: Path):
             continue
 
         keep = [dcol, ycol, ecol]
+        if "ORG_TYPE" in df.columns:
+            keep.append("ORG_TYPE")
         # Region: prefer explicit override, else any candidate present
         rcol = REGION_COL_OVERRIDE or next((c for c in REGION_CANDS if c in df.columns), None)
-        if rcol: keep.append(rcol)
+        if rcol: 
+            keep.append(rcol)
 
         tmp = df[keep].copy()
         tmp = tmp.rename(columns={dcol: "District", ycol: "School Year", ecol: "Total Enrollment"})
-        if rcol: tmp = tmp.rename(columns={rcol: "eohhs_region"})
+        if rcol: 
+            tmp = tmp.rename(columns={rcol: "eohhs_region"})
+
+        # --- filter only district rows ---
+        if "ORG_TYPE" in tmp.columns:
+            tmp = tmp[tmp["ORG_TYPE"].astype(str).str.upper().str.strip() == "DISTRICT"]
+            tmp = tmp.drop(columns=["ORG_TYPE"])
 
         tmp["School Year"] = tmp["School Year"].map(coerce_year)
         tmp["Total Enrollment"] = pd.to_numeric(tmp["Total Enrollment"], errors="coerce")
@@ -156,7 +227,8 @@ def load_enrollment(xlsx_path: Path):
         )
 
     best["District"] = best["District"].astype(str).str.strip()
-    best = best.drop_duplicates(subset=["District","School Year"], keep="last")
+    # this is a bug, you may delete.
+    # best = best.drop_duplicates(subset=["District","School Year"], keep="last")
     print(f"Using sheet: {used_sheet} | rows: {len(best)} | region_in_excel: {bool(region_col_found)}")
     return best, region_col_found
 
@@ -440,56 +512,44 @@ def main():
     leg = ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5))
     ax.yaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
 
-    # ---- Annotate 2025 slice with percentages + dimension arrows ----
-    year_target = 2025
-    if year_target in type_pivot.index:
-        # Values at 2025 by type (in the current column order `labels`)
-        vals_2025 = type_pivot.loc[year_target, labels].fillna(0).to_numpy()
-        total_2025 = float(vals_2025.sum())
-        if total_2025 > 0:
-            # Cumulative bounds for the vertical stack at 2025
-            cum = np.cumsum(vals_2025)
-            bottoms = np.concatenate(([0], cum[:-1]))
-            tops = cum
+    # ---- Annotate left and right slices with percentages + dimension arrows ----
+    year_left   = int(type_pivot.index.min())
+    year_right  = 2025 if 2025 in type_pivot.index else int(type_pivot.index.max())
 
-            # Where to place the annotations/arrows on the x-axis
-            x_label = year_target  # labels centered on the slice
-            x_arrow = year_target + 0.35  # small offset to draw dimension arrows beside the slice
+    # Left side (earliest year)
+    annotate_stack_at_year(
+        ax=ax,
+        pivot_df=type_pivot,
+        labels_in_order=labels,
+        colors_in_order=facecolors,
+        year=year_left,
+        side="left",
+        min_pct_to_label=1.0,
+        min_abs_thickness=5.0,
+        arrow_dx=0.35,
+        show_vline=True,
+    )
 
-            for i, (lab, v, y0, y1, color) in enumerate(zip(labels, vals_2025, bottoms, tops, facecolors)):
-                if v <= 0:
-                    continue
-                pct = 100.0 * v / total_2025
-                y_mid = (y0 + y1) / 2.0
-
-                # Percentage label inside/near the slice
-                ax.text(x_label, y_mid, f"{lab}: {pct:.1f}%",
-                        ha="center", va="center",
-                        fontsize=9, color="black",
-                        bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.65, edgecolor="none"))
-
-                # Dimension arrow (double-headed) showing the “thickness” of this band at 2025
-                # A tiny vertical wiggle so short segments still show arrowheads
-                y0_draw = y0 + max(0.002 * total_2025, 5)
-                y1_draw = y1 - max(0.002 * total_2025, 5)
-                if y1_draw > y0_draw:
-                    ax.annotate("",
-                                xy=(x_arrow, y1_draw), xytext=(x_arrow, y0_draw),
-                                arrowprops=dict(arrowstyle="<->", lw=1.5, color=color, shrinkA=0, shrinkB=0))
-                    # Small tick marks at ends (like technical drawings)
-                    tick_w = 0.08
-                    ax.plot([x_arrow - tick_w, x_arrow + tick_w], [y0_draw, y0_draw], color=color, lw=1.2)
-                    ax.plot([x_arrow - tick_w, x_arrow + tick_w], [y1_draw, y1_draw], color=color, lw=1.2)
-
-            # Add a subtle vertical guide at 2025
-            ax.axvline(year_target, color="k", lw=1, alpha=0.25, zorder=0)
+    # Right side (target/last year)
+    annotate_stack_at_year(
+        ax=ax,
+        pivot_df=type_pivot,
+        labels_in_order=labels,
+        colors_in_order=facecolors,
+        year=year_right,
+        side="right",
+        min_pct_to_label=1.0,
+        min_abs_thickness=5.0,
+        arrow_dx=0.35,
+        show_vline=True,
+    )
 
     plt.tight_layout()
     out_type = OUTPUT_DIR / "western_enrollment_stacked_by_school_type.png"
     plt.savefig(out_type, dpi=200, bbox_inches="tight")
     plt.close()
 
-    # 6e) Custom stack for selected districts of interest ---
+    # 6f) Custom stack for selected districts of interest ---
     selected_raw = [
         "Amherst",
         "Leverett",
@@ -563,6 +623,40 @@ def main():
         [s.set_alpha(0.5) for s in ax.spines.values()]
         ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=9)
         ax.yaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
+
+        # Annotate left and right slices with % labels + dimension arrows (mirrors school-types plot)
+        year_left  = int(sel_pivot.index.min())
+        year_right = 2025 if 2025 in sel_pivot.index else int(sel_pivot.index.max())
+
+        # Left side (earliest year)
+        annotate_stack_at_year(
+            ax=ax,
+            pivot_df=sel_pivot,
+            labels_in_order=list(sel_pivot.columns),
+            colors_in_order=colors_sel,
+            year=year_left,
+            side="left",
+            min_pct_to_label=1.0,
+            min_abs_thickness=5.0,
+            arrow_dx=0.35,
+            show_vline=True,
+        )
+
+        # Right side (target/last year)
+        annotate_stack_at_year(
+            ax=ax,
+            pivot_df=sel_pivot,
+            labels_in_order=list(sel_pivot.columns),
+            colors_in_order=colors_sel,
+            year=year_right,
+            side="right",
+            min_pct_to_label=1.0,
+            min_abs_thickness=5.0,
+            arrow_dx=0.35,
+            show_vline=True,
+        )
+
+
         plt.tight_layout()
         out_selected = OUTPUT_DIR / "western_enrollment_stacked_selected_districts.png"
         plt.savefig(out_selected, dpi=200, bbox_inches="tight")
