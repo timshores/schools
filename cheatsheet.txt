@@ -1,0 +1,18 @@
+cd /path/to/project
+python3 -m venv .venv && source .venv/bin/activate \
+&& python -m pip install --upgrade pip \
+&& python -m pip install -r requirements.txt
+&& python -m ipykernel install --user --name "$(basename "$PWD")" --display-name "Python ($(basename "$PWD"))"
+
+When (and only when) a Jupyter notebook complains:
+Run a one-time, per-project kernel install from your active venv. No need to track it in requirements:
+python -m pip install --disable-pip-version-check -q ipykernel
+python -m ipykernel install --user \
+  --name "$(basename "$PWD")" \
+  --display-name "Python ($(basename "$PWD"))"
+
+If you ever want to clean it up:
+jupyter kernelspec remove -y "$(basename "$PWD")"
+
+
+https://chatgpt.com/c/68c97067-ff0c-832b-a014-98a4b547019f
