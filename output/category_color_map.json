@@ -1,0 +1,26 @@
+{
+  "SMALL": {
+    "administration": "#0072B2",
+    "guidance, counseling and testing": "#009E73",
+    "instructional leadership": "#D55E00",
+    "instructional materials, equipment and technology": "#CC79A7",
+    "insurance, retirement programs and other": "#F0E442",
+    "operations and maintenance": "#56B4E9",
+    "other teaching services": "#E69F00",
+    "professional development": "#6A3D9A",
+    "pupil services": "#332288",
+    "teachers": "#88CCEE"
+  },
+  "LARGE": {
+    "administration": "#264653",
+    "guidance, counseling and testing": "#2A9D8F",
+    "instructional leadership": "#E9C46A",
+    "instructional materials, equipment and technology": "#F4A261",
+    "insurance, retirement programs and other": "#E76F51",
+    "operations and maintenance": "#8AB17D",
+    "other teaching services": "#7A5195",
+    "professional development": "#2A9D8F",
+    "pupil services": "#C7F464",
+    "teachers": "#FF6B6B"
+  }
+}
