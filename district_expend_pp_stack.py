@@ -76,10 +76,10 @@ plt.rcParams.update({
     "ytick.labelsize": 12,
 })
 
-
-FTE_LINEWIDTH = 2.8
-FTE_MARKER_SIZE = 6
-FTE_MARKER_EDGEWIDTH = 1.2
+### plot line and bar constants
+FTE_LINEWIDTH = 5.6
+FTE_MARKER_SIZE = 10
+FTE_MARKER_EDGEWIDTH = 2.0
 BAR_WIDTH = 0.70
 
 # ---------------------------
