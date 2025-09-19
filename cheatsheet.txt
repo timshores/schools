@@ -1,8 +1,15 @@
 cd /path/to/project
-python3 -m venv .venv && source .venv/bin/activate \
-&& python -m pip install --upgrade pip \
-&& python -m pip install -r requirements.txt
-&& python -m ipykernel install --user --name "$(basename "$PWD")" --display-name "Python ($(basename "$PWD"))"
+create a new venv one time only: 
+python -m venv .venv 
+
+Reenter venv whenever you want: 
+if (!(Test-Path .venv)) { py -m venv .venv }; .\.venv\Scripts\Activate.ps1; python -m pip install --upgrade pip; python -m pip install -r requirements.txt
+
+
+exit venv: 
+deactivate
+
+python -m ipykernel install --user --name "$(basename "$PWD")" --display-name "Python ($(basename "$PWD"))"
 
 When (and only when) a Jupyter notebook complains:
 Run a one-time, per-project kernel install from your active venv. No need to track it in requirements:
