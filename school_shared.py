@@ -83,7 +83,6 @@ UNIFIED_PALETTE = {
 }
 
 # ---------------- Enrollment line/swatch colors (unified) ----------------
-# Canonical labels (match ENROLL_KEYS) + a legacy alias for robustness.
 ENROLL_IN  = "In-District FTE Pupils"
 ENROLL_OUT = "Out-of-District Placed FTE Pupils"
 

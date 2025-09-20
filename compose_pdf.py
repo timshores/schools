@@ -22,7 +22,7 @@ from school_shared import (
 )
 
 # ===== code version =====
-CODE_VERSION = "v2025.09.20-ALPS-9"
+CODE_VERSION = "v2025.09.20-ALPS-11"
 
 # ---- Tunables ----
 # Shade only when |district CAGR − Western CAGR| >= 2 percentage points
@@ -273,7 +273,7 @@ def build_pdf(pages: List[dict], out_path: Path):
             im.drawWidth = doc.width; im.drawHeight = doc.width * ratio
             if p.get("graph_only"):
                 name = img_path.name.lower()
-                max_chart_h = doc.height * (0.74 if "ppe_change_bars_alps_and_peers" in name else 0.62)
+                max_chart_h = doc.height * (0.80 if "ppe_change_bars_alps_and_peers" in name else 0.62)
             else:
                 max_chart_h = doc.height * 0.40
             if im.drawHeight > max_chart_h:
@@ -306,15 +306,14 @@ def build_pdf(pages: List[dict], out_path: Path):
         legend_rows = []
         legend_positions = None
         if p.get("page_type") == "district":
-            bucket_suffix = _abbr_bucket_suffix(p.get("baseline_title",""))
-            rule_text = f"Shading compares each district CAGR to Western MA {bucket_suffix} (same category)."
-            red_text  = f"Higher than Western MA {bucket_suffix}"
-            grn_text  = f"Lower than Western MA {bucket_suffix}"
+            rule_text = "Shading vs Western baseline: absolute ΔCAGR threshold = 2.0 percentage points; variable intensity by distance."
+            red_text  = "Higher than Western MA (>/<500 pupils)"
+            grn_text  = "Lower than Western MA (>/<500 pupils)"
             legend_rows = [
-                ["", Paragraph(rule_text, style_legend), "", Paragraph(red_text, style_legend), "", ""],  # row 1 (red)
-                ["", Paragraph("CAGR = (End/Start)^(1/years) − 1", style_legend), "", Paragraph(grn_text, style_legend), "", ""],  # row 2 (green)
+                ["", Paragraph(rule_text, style_legend), "", Paragraph(red_text, style_legend), "", ""],
+                ["", Paragraph("CAGR = (End/Start)^(1/years) − 1", style_legend), "", Paragraph(grn_text, style_legend), "", ""],
             ]
-            legend_positions = ("red", "green", bucket_suffix)
+            legend_positions = ("red", "green")
 
         cat_data = [cat_header] + cat_rows_rl + [total] + legend_rows
         cat_tbl = Table(cat_data,
@@ -339,26 +338,22 @@ def build_pdf(pages: List[dict], out_path: Path):
         ts += [("BACKGROUND",(0,total_row_idx),(-1,total_row_idx),colors.whitesmoke),
                ("FONT",(0,total_row_idx),(-1,total_row_idx),"Helvetica-Bold",9)]
 
-        # District-page legend formatting: rows immediately under Total
+        # District-page legend formatting: rows immediately under Total, with spans and color fills across CAGR columns
         if legend_positions:
             red_row   = total_row_idx + 1
             green_row = total_row_idx + 2
-
-            # Left explainer spans Category + $/pupil; right-justified
             ts += [("SPAN", (1, red_row), (2, red_row)),
                    ("SPAN", (1, green_row), (2, green_row)),
                    ("ALIGN",(1, red_row), (2, red_row), "RIGHT"),
-                   ("ALIGN",(1, green_row), (2, green_row), "RIGHT")]
-
-            # Right: colored blocks across CAGR columns with text inside
-            ts += [("SPAN", (3, red_row), (5, red_row)),
+                   ("ALIGN",(1, green_row), (2, green_row), "RIGHT"),
+                   ("SPAN", (3, red_row), (5, red_row)),
                    ("SPAN", (3, green_row), (5, green_row)),
                    ("BACKGROUND", (3, red_row), (5, red_row), HexColor("#F5B8B8")),
                    ("BACKGROUND", (3, green_row), (5, green_row), HexColor("#C4E6D7")),
                    ("ALIGN", (3, red_row), (5, red_row), "CENTER"),
                    ("ALIGN", (3, green_row), (5, green_row), "CENTER")]
 
-        # -------- Cell-level shading vs. Western MA (bucket-aligned) --------
+        # -------- Cell-level shading vs. Western MA (2% materiality threshold) --------
         if p.get("page_type") == "district":
             base_map = p.get("baseline_map", {})
             for row_idx, row_raw in enumerate(p["cat_rows"], start=1):
@@ -408,7 +403,7 @@ def build_pdf(pages: List[dict], out_path: Path):
     doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
     print(f"[OK] Wrote PDF: {out_path}")
 
-# ---- CAGR helper (kept here to avoid circular refs) ----
+# ---- CAGR helper ----
 def compute_cagr_last(series: pd.Series, years_back: int) -> float:
     if series is None or series.empty: return float("nan")
     s = series.sort_index().astype(float).replace([np.inf,-np.inf], np.nan).dropna()
