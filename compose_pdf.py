@@ -16,12 +16,13 @@ from school_shared import (
     OUTPUT_DIR, load_data, create_or_load_color_map, color_for,
     ENROLL_KEYS, DISTRICTS_OF_INTEREST,
     context_for_district, prepare_district_epp_lines, prepare_western_epp_lines, context_for_western,
-    LINE_COLORS_DIST, LINE_COLORS_WESTERN, canonical_order_bottom_to_top,
-    add_alps_pk12
+    canonical_order_bottom_to_top,
+    add_alps_pk12,
+    FTE_LINE_COLORS,
 )
 
 # ===== code version =====
-CODE_VERSION = "v2025.09.19-ALPS-7"
+CODE_VERSION = "v2025.09.20-ALPS-9"
 
 # ---- Tunables ----
 # Shade only when |district CAGR − Western CAGR| >= 2 percentage points
@@ -89,11 +90,9 @@ def _abbr_bucket_suffix(full: str) -> str:
     return ""
 
 def _shade_for_delta(delta: float):
-    """Return HexColor based on sign and magnitude; None if below threshold."""
     if delta != delta or abs(delta) < DELTA_THRESHOLD_ABS:
         return None
-    bins = SHADE_BINS
-    idx = max(0, min(len(RED_SHADES)-1, bisect.bisect_right(bins, abs(delta)) - 1))
+    idx = max(0, min(len(RED_SHADES)-1, bisect.bisect_right(SHADE_BINS, abs(delta)) - 1))
     return HexColor(RED_SHADES[idx]) if delta > 0 else HexColor(GRN_SHADES[idx])
 
 # ---- Page dicts ----
@@ -141,7 +140,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
             s = lines_alps.get(label)
             if s is None or s.empty: continue
             r5=compute_cagr_last(s,5); r10=compute_cagr_last(s,10); r15=compute_cagr_last(s,15)
-            fte_rows.append((LINE_COLORS_DIST[label], label,
+            fte_rows.append((FTE_LINE_COLORS[label], label,
                              ("—" if latest_fte_year not in s.index else f"{float(s.loc[latest_fte_year]):,.0f}"),
                              fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
 
@@ -192,7 +191,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
             if s is None or s.empty: continue
             r5=compute_cagr_last(s,5); r10=compute_cagr_last(s,10); r15=compute_cagr_last(s,15)
             val = "—" if latest_fte_year not in s.index else f"{float(s.loc[latest_fte_year]):,.0f}"
-            fte_rows.append((LINE_COLORS_WESTERN[label], label, val, fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
+            fte_rows.append((FTE_LINE_COLORS[label], label, val, fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
 
         pages.append(dict(title=title,
                           subtitle="Expenditures Per Pupil vs Enrollment — Not including charters and vocationals",
@@ -230,7 +229,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
             s = lines.get(label)
             if s is None or s.empty: continue
             r5=compute_cagr_last(s,5); r10=compute_cagr_last(s,10); r15=compute_cagr_last(s,15)
-            fte_rows.append((LINE_COLORS_DIST[label], label,
+            fte_rows.append((FTE_LINE_COLORS[label], label,
                              ("—" if latest_fte_year not in s.index else f"{float(s.loc[latest_fte_year]):,.0f}"),
                              fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
 
@@ -362,12 +361,10 @@ def build_pdf(pages: List[dict], out_path: Path):
         # -------- Cell-level shading vs. Western MA (bucket-aligned) --------
         if p.get("page_type") == "district":
             base_map = p.get("baseline_map", {})
-            # Iterate over category rows (table rows 1..len(cat_rows_rl))
             for row_idx, row_raw in enumerate(p["cat_rows"], start=1):
                 subcat = row_raw[0]
                 base = base_map.get(subcat)
                 if not base: continue
-                # columns: 3=5y, 4=10y, 5=15y
                 vals = [parse_pct_str_to_float(row_raw[2]), parse_pct_str_to_float(row_raw[3]), parse_pct_str_to_float(row_raw[4])]
                 bases= [base.get("5"), base.get("10"), base.get("15")]
                 for c_off, (dv, bv) in enumerate(zip(vals, bases), start=3):

@@ -15,13 +15,14 @@ from school_shared import (
     prepare_district_epp_lines, prepare_western_epp_lines,
     DISTRICTS_OF_INTEREST, ENROLL_KEYS,
     compute_global_dollar_ylim, compute_districts_fte_ylim,
-    LINE_COLORS_DIST, LINE_COLORS_WESTERN,
     canonical_order_bottom_to_top,
     add_alps_pk12, EXCLUDE_SUBCATS, aggregate_to_canonical,
+    FTE_LINE_COLORS, PPE_PEERS_YMAX, PPE_PEERS_REMOVE_SPINES, PPE_PEERS_BAR_EDGES,
+    MICRO_AREA_FILL, MICRO_AREA_EDGE,
 )
 
 # ===== version footer for images =====
-CODE_VERSION = "v2025.09.19-ALPS-6"
+CODE_VERSION = "v2025.09.20-ALPS-9"
 
 def _stamp(fig):
     fig.text(0.99, 0.01, f"Code: {CODE_VERSION}", ha="right", va="bottom", fontsize=8.5, color="#666666")
@@ -33,7 +34,7 @@ def _boost_plot_fonts():
         "xtick.labelsize": 12,
         "ytick.labelsize": 12,
         "legend.fontsize": 12,
-        "axes.titlesize": 14,  # we won't use titles on charts, but keep consistent
+        "axes.titlesize": 14,
     })
 
 def comma_formatter():
@@ -65,7 +66,7 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
                     edgecolor="white", linewidth=0.5, zorder=1)
             bottom = bottom + vals
 
-    # Lines (left axis)
+    # Lines (left axis) — unified black/red mapping
     for _key, label in ENROLL_KEYS:
         s = lines.get(label)
         if s is None or s.empty: continue
@@ -126,17 +127,14 @@ def _western_all_total_series(df: pd.DataFrame, reg: pd.DataFrame) -> tuple[pd.S
 
 def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
                          districts: list[str], year_lag: int = 5,
-                         title: str | None = None):  # title intentionally unused (removed from PNG)
+                         title: str | None = None):  # title intentionally unused
     BLUE_BASE   = "#8fbcd4"
     BLUE_DELTA  = "#1b6ca8"
     PURP_DECL   = "#955196"
-    MINI_FILL   = "#F5CBA7"  # pale orange fill for enrollment mini-areas
-    MINI_EDGE   = "#C97E2C"  # darker orange for stroke/markers
-    bar_width   = 0.7
+    bar_width   = 0.72
     dot_offset  = 0.22
 
-    latest = int(df["YEAR"].max())
-    t0 = latest - year_lag
+    latest = int(df["YEAR"].max()); t0 = latest - year_lag
 
     labels, p0s, p1s = [], [], []
     series_list: List[pd.Series | None] = []
@@ -145,12 +143,10 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
         piv, lines = prepare_district_epp_lines(df, name)
         if piv.empty: return
         total = _total_ppe_series_from_pivot(piv)
-        p0 = total.get(t0, np.nan)
-        p1 = total.get(latest, np.nan)
+        p0 = total.get(t0, np.nan); p1 = total.get(latest, np.nan)
         s = lines.get("In-District FTE Pupils", None)
         if np.isnan(p0) or np.isnan(p1): return
-        labels.append(name)
-        p0s.append(float(p0)); p1s.append(float(p1))
+        labels.append(name); p0s.append(float(p0)); p1s.append(float(p1))
         series_list.append(s.sort_index() if isinstance(s, pd.Series) and not s.empty else None)
 
     for d in districts:
@@ -167,71 +163,66 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
         print("[WARN] comparative plot: no districts with both years.")
         return
 
-    p0_arr = np.array(p0s); p1_arr = np.array(p1s)
-    delta  = p1_arr - p0_arr
+    p0_arr = np.array(p0s); p1_arr = np.array(p1s); delta = p1_arr - p0_arr
 
     order = np.argsort(p1_arr)
-    labels = [labels[i] for i in order]
-    p0_arr = p0_arr[order]; p1_arr = p1_arr[order]
-    delta  = delta[order]
+    labels = [labels[i] for i in order]; p0_arr = p0_arr[order]; p1_arr = p1_arr[order]; delta = delta[order]
     series_list = [series_list[i] for i in order]
 
     x = np.arange(len(labels))
-    fig, ax = plt.subplots(figsize=(max(12.0, 1.05*len(labels)+4), 10.4))  # taller + room for larger fonts
+    fig, ax = plt.subplots(figsize=(max(12.0, 1.05*len(labels)+4), 10.5))
 
-    ax.bar(x, p0_arr, width=bar_width, color=BLUE_BASE, edgecolor="white", linewidth=0.8, label=f"{t0} PPE")
+    edge = "white" if PPE_PEERS_BAR_EDGES else None
+    ax.bar(x, p0_arr, width=bar_width, color=BLUE_BASE, edgecolor=edge, linewidth=0.0, label=f"{t0} PPE")
 
     pos = np.clip(delta, 0, None)
-    pos_lbl = f"{latest} PPE increase from {t0} (↑)"
     if np.any(pos > 0):
-        ax.bar(x, pos, bottom=p0_arr, width=bar_width, color=BLUE_DELTA, edgecolor="white", linewidth=0.8, label=pos_lbl)
+        ax.bar(x, pos, bottom=p0_arr, width=bar_width, color=BLUE_DELTA, edgecolor=edge, linewidth=0.0, label=f"{latest} increase from {t0}")
 
     neg = np.clip(delta, None, 0)
     has_neg = np.any(neg < 0)
     if has_neg:
-        ax.bar(x, neg, bottom=p0_arr, width=bar_width, color=PURP_DECL, edgecolor="white", linewidth=0.8,
-               label=f"{latest} PPE decrease from {t0} (↓)")
+        ax.bar(x, neg, bottom=p0_arr, width=bar_width, color=PURP_DECL, edgecolor=edge, linewidth=0.0, label=f"{latest} decrease from {t0}")
 
+    # Fixed Y and remove ALL spines (boundary lines)
+    ax.set_ylim(0, PPE_PEERS_YMAX)
+    if PPE_PEERS_REMOVE_SPINES:
+        for s in ("top","right","left","bottom"):
+            ax.spines[s].set_visible(False)
+
+    # Micro-areas breathing room (per-bar headroom)
     bar_tops = np.maximum(p0_arr + np.clip(delta, 0, None), p0_arr)
-    Ymax = np.nanmax(np.maximum(p0_arr, p1_arr))
-    y_gap = 0.08 * Ymax
-    amp   = 0.20 * Ymax
-
-    handles: List = [Patch(facecolor=BLUE_BASE, edgecolor="white", label=f"{t0} PPE")]
-    if np.any(pos > 0):
-        handles.append(Patch(facecolor=BLUE_DELTA, edgecolor="white", label=pos_lbl))
-    if has_neg:
-        handles.append(Patch(facecolor=PURP_DECL, edgecolor="white", label=f"{latest} PPE decrease from {t0} (↓)"))
-    handles.append(Line2D([0], [0], color=MINI_EDGE, lw=2.0, marker="o",
-                          markerfacecolor="white", markeredgecolor=MINI_EDGE,
-                          label=f"Enrollment change (FTE) {t0} -> {latest}"))
+    headroom = np.maximum(0.0, PPE_PEERS_YMAX - bar_tops)
+    default_gap, default_amp = 2400.0, 6000.0
+    min_gap, min_amp = 400.0, 800.0
 
     for i, s in enumerate(series_list):
-        if s is None or len(s) < 2:
-            continue
-        s = s.dropna()
-        ys = s.values.astype(float)
-        span = float(ys.max() - ys.min()) if len(ys) else 0.0
-        y_norm = (ys - ys.min()) / (span if span > 0 else 1.0)
-        y_base = bar_tops[i] + y_gap
-        y_area = y_base + y_norm * amp
-        xs = np.linspace(x[i] - dot_offset, x[i] + dot_offset, num=len(ys))
-        ax.fill_between(xs, y_base, y_area, color=MINI_FILL, alpha=0.35, linewidth=0.0, zorder=4)
-        ax.plot(xs, y_area, color=MINI_EDGE, lw=1.6, zorder=5)
+        if s is None or len(s) < 2: continue
+        s = s.dropna(); ys = s.values.astype(float)
+        span = float(ys.max() - ys.min()); y_norm = (ys - ys.min()) / (span if span > 0 else 1.0)
 
-        # Endpoints: dots + thousands labels
-        left_y, right_y = y_area[0], y_area[-1]
-        ax.scatter([xs[0], xs[-1]], [left_y, right_y], s=28, color=MINI_EDGE, zorder=6)
-        ax.text(xs[0]-0.035, left_y + 0.012*Ymax, f"{int(round(ys[0])):,}", ha="right", va="bottom", fontsize=11, color=MINI_EDGE)
-        ax.text(xs[-1]+0.035, right_y + 0.012*Ymax, f"{int(round(ys[-1])):,}", ha="left", va="bottom", fontsize=11, color=MINI_EDGE)
+        gap_i = min(default_gap, max(min_gap, headroom[i] * 0.22))
+        amp_i = min(default_amp, max(min_amp, headroom[i] - gap_i - 300.0))
+        y_base = bar_tops[i] + gap_i
+        y_area = y_base + y_norm * max(0.0, amp_i)
+
+        xs = np.linspace(x[i] - dot_offset, x[i] + dot_offset, num=len(ys))
+        ax.fill_between(xs, y_base, y_area, color=MICRO_AREA_FILL, alpha=0.35, linewidth=0.0, zorder=4)
+        ax.plot(xs, y_area, color=MICRO_AREA_EDGE, lw=1.7, zorder=5)
+        ax.scatter([xs[0], xs[-1]], [y_area[0], y_area[-1]], s=30, color=MICRO_AREA_EDGE, zorder=6)
+        ax.text(xs[0]-0.035, y_area[0] + 120, f"{int(round(ys[0])):,}", ha="right", va="bottom", fontsize=11, color=MICRO_AREA_EDGE)
+        ax.text(xs[-1]+0.035, y_area[-1] + 120, f"{int(round(ys[-1])):,}", ha="left", va="bottom", fontsize=11, color=MICRO_AREA_EDGE)
 
     ax.set_xticks(x, labels, rotation=30, ha="right")
     ax.set_ylabel("$ per pupil")
-    # no PNG title (moved to PDF page title)
     ax.yaxis.set_major_formatter(comma_formatter())
-    ax.set_ylim(0, Ymax * 1.30)
     ax.grid(axis="y", alpha=0.12); ax.set_axisbelow(True)
 
+    handles = [Patch(facecolor=BLUE_BASE, edgecolor=edge, label=f"{t0} PPE")]
+    if np.any(pos > 0): handles.append(Patch(facecolor=BLUE_DELTA, edgecolor=edge, label=f"{latest} increase from {t0}"))
+    if has_neg:         handles.append(Patch(facecolor=PURP_DECL, edgecolor=edge, label=f"{latest} decrease from {t0}"))
+    handles.append(Line2D([0],[0], color=MICRO_AREA_EDGE, lw=2.0, marker="o", markerfacecolor="white", markeredgecolor=MICRO_AREA_EDGE,
+                          label=f"Enrollment change (FTE) {t0}→{latest}"))
     ax.legend(handles=handles, frameon=False, loc="upper left", ncols=2)
 
     _stamp(fig)
@@ -273,7 +264,7 @@ if __name__ == "__main__":
         _title, piv, lines_sum = western_prepared[bucket]
         context = context_for_western(bucket)
         out = OUTPUT_DIR / f"regional_expenditures_per_pupil_Western_Traditional_{bucket}.png"
-        plot_one(out, piv, lines_sum, context, right_ylim, None, LINE_COLORS_WESTERN, cmap_all)
+        plot_one(out, piv, lines_sum, context, right_ylim, None, FTE_LINE_COLORS, cmap_all)
 
     # District plots (uniform left axis)
     ordered = ["Amherst-Pelham"] + [d for d in DISTRICTS_OF_INTEREST if d != "Amherst-Pelham"]
@@ -281,16 +272,16 @@ if __name__ == "__main__":
         piv, lines = district_prepared[dist]
         context = context_for_district(df, dist)
         out = OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}.png"
-        plot_one(out, piv, lines, context, right_ylim, left_ylim_districts, LINE_COLORS_DIST, cmap_all)
+        plot_one(out, piv, lines, context, right_ylim, left_ylim_districts, FTE_LINE_COLORS, cmap_all)
 
-    # ALPS-only plot: use its OWN enrollment y-scale so the line sits nicely on-chart
+    # ALPS-only plot: own enrollment y-scale
     piv_alps, lines_alps = prepare_district_epp_lines(df, "ALPS PK-12")
     ctx_alps = context_for_district(df, "ALPS PK-12")
     out_alps = OUTPUT_DIR / "expenditures_per_pupil_vs_enrollment_ALPS_PK-12.png"
     left_ylim_alps = compute_districts_fte_ylim([lines_alps], pad=1.08, step=50)
-    plot_one(out_alps, piv_alps, lines_alps, ctx_alps, right_ylim, left_ylim_alps, LINE_COLORS_DIST, cmap_all)
+    plot_one(out_alps, piv_alps, lines_alps, ctx_alps, right_ylim, left_ylim_alps, FTE_LINE_COLORS, cmap_all)
 
-    # Comparative PPE bars incl. ALPS & peer PK-12 districts (taller)
+    # Comparative PPE bars incl. ALPS & peer PK-12 districts
     peers = [
         "ALPS PK-12",
         "Greenfield", "Easthampton", "South Hadley", "Northampton",
@@ -300,6 +291,5 @@ if __name__ == "__main__":
     ]
     plot_ppe_change_bars(
         OUTPUT_DIR / "ppe_change_bars_ALPS_and_peers.png",
-        df, reg, peers, year_lag=5,
-        title=None  # PDF will provide the title
+        df, reg, peers, year_lag=5, title=None
     )

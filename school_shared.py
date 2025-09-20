@@ -70,7 +70,7 @@ SUBCAT_TO_CANON = {
     "food services": "Other",
 }
 
-# ---------------- Unified colorblind-safe palette (Okabe–Ito) ----------------
+# ---------------- BARS - Unified colorblind-safe palette (Okabe–Ito) ----------------
 UNIFIED_PALETTE = {
     "Teachers":                                   "#0072B2",
     "Insurance, Retirement Programs and Other":    "#E69F00",
@@ -82,9 +82,26 @@ UNIFIED_PALETTE = {
     "Other":                                       "#B0B0B0",
 }
 
-# FTE line colors
-LINE_COLORS_DIST    = {"In-District FTE Pupils": "#000000", "Out-of-District FTE Pupils": "#AA0000"}
-LINE_COLORS_WESTERN = {"In-District FTE Pupils": "#1B7837", "Out-of-District FTE Pupils": "#5E3C99"}
+# ---------------- Enrollment line/swatch colors (unified) ----------------
+# Canonical labels (match ENROLL_KEYS) + a legacy alias for robustness.
+ENROLL_IN  = "In-District FTE Pupils"
+ENROLL_OUT = "Out-of-District Placed FTE Pupils"
+
+FTE_LINE_COLORS = {
+    ENROLL_IN:  "#000000",  # black
+    ENROLL_OUT: "#D32F2F",  # red
+    "Out-of-District FTE Pupils": "#D32F2F",  # legacy alias
+}
+
+# ---------------- Peers PNG (ALPS & peers) styling ----------------
+PPE_PEERS_YMAX          = 30000.0
+PPE_PEERS_REMOVE_SPINES = True   # remove all boundary lines
+PPE_PEERS_BAR_EDGES     = False  # no bar edge lines
+
+# Micro-area (enrollment sparkline) colors
+MICRO_AREA_FILL = "#F5CBA7"  # pale orange
+MICRO_AREA_EDGE = "#C97E2C"  # darker orange
+
 
 # ---------------- Loaders & year coercion ----------------
 def find_sheet_name(xls: pd.ExcelFile, target: str) -> str:
