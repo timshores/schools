@@ -21,9 +21,20 @@ from school_shared import (
 )
 
 # ===== version footer for images =====
-CODE_VERSION = "v2025.09.19-ALPS-3"
+CODE_VERSION = "v2025.09.19-ALPS-6"
+
 def _stamp(fig):
-    fig.text(0.99, 0.01, f"Code: {CODE_VERSION}", ha="right", va="bottom", fontsize=7, color="#666666")
+    fig.text(0.99, 0.01, f"Code: {CODE_VERSION}", ha="right", va="bottom", fontsize=8.5, color="#666666")
+
+def _boost_plot_fonts():
+    plt.rcParams.update({
+        "font.size": 12,
+        "axes.labelsize": 14,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12,
+        "legend.fontsize": 12,
+        "axes.titlesize": 14,  # we won't use titles on charts, but keep consistent
+    })
 
 def comma_formatter():
     return FuncFormatter(lambda x, pos: f"{x:,.0f}")
@@ -37,7 +48,7 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
     years = (epp_pivot.index.tolist() if cols
              else sorted(set().union(*(set(s.index) for s in lines.values() if s is not None))))
 
-    fig, axL = plt.subplots(figsize=(10.5, 6.2))
+    fig, axL = plt.subplots(figsize=(11.0, 6.6))
     axR = axL.twinx()
 
     # Lines in FRONT
@@ -51,7 +62,7 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
             vals = epp_pivot[sc].reindex(years).fillna(0.0).values
             col = color_for(cmap_all, context, sc)
             axR.bar(years, vals, bottom=bottom, color=col, width=0.8,
-                    edgecolor="white", linewidth=0.3, zorder=1)
+                    edgecolor="white", linewidth=0.5, zorder=1)
             bottom = bottom + vals
 
     # Lines (left axis)
@@ -60,8 +71,8 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
         if s is None or s.empty: continue
         y = s.reindex(years).values
         lc = line_colors[label]
-        axL.plot(years, y, color=lc, lw=3.0, marker="o", ms=7,
-                 markerfacecolor="white", markeredgecolor=lc, markeredgewidth=1.8,
+        axL.plot(years, y, color=lc, lw=3.2, marker="o", ms=7.5,
+                 markerfacecolor="white", markeredgecolor=lc, markeredgewidth=2.0,
                  zorder=6, clip_on=False)
 
     axL.set_xlabel("School Year")
@@ -77,7 +88,7 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
     axL.margins(x=0.02); axR.margins(x=0.02)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path, dpi=230, bbox_inches="tight")
+    fig.savefig(out_path, dpi=320, bbox_inches="tight")
     plt.close(fig)
     print(f"[OK] Saved {out_path}")
 
@@ -115,7 +126,7 @@ def _western_all_total_series(df: pd.DataFrame, reg: pd.DataFrame) -> tuple[pd.S
 
 def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
                          districts: list[str], year_lag: int = 5,
-                         title: str = "Per-Pupil Expenditure: Five-Year Change — ALPS PK-12 & Peers"):
+                         title: str | None = None):  # title intentionally unused (removed from PNG)
     BLUE_BASE   = "#8fbcd4"
     BLUE_DELTA  = "#1b6ca8"
     PURP_DECL   = "#955196"
@@ -166,7 +177,7 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
     series_list = [series_list[i] for i in order]
 
     x = np.arange(len(labels))
-    fig, ax = plt.subplots(figsize=(max(11.5, 0.95*len(labels)+4), 9.5))  # taller
+    fig, ax = plt.subplots(figsize=(max(12.0, 1.05*len(labels)+4), 10.4))  # taller + room for larger fonts
 
     ax.bar(x, p0_arr, width=bar_width, color=BLUE_BASE, edgecolor="white", linewidth=0.8, label=f"{t0} PPE")
 
@@ -178,22 +189,22 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
     neg = np.clip(delta, None, 0)
     has_neg = np.any(neg < 0)
     if has_neg:
-        ax.bar(x, neg, bottom=p0_arr, width=bar_width, color="#955196", edgecolor="white", linewidth=0.8,
+        ax.bar(x, neg, bottom=p0_arr, width=bar_width, color=PURP_DECL, edgecolor="white", linewidth=0.8,
                label=f"{latest} PPE decrease from {t0} (↓)")
 
     bar_tops = np.maximum(p0_arr + np.clip(delta, 0, None), p0_arr)
     Ymax = np.nanmax(np.maximum(p0_arr, p1_arr))
-    y_gap = 0.07 * Ymax          # more space from bars
-    amp   = 0.18 * Ymax          # bigger mini-plot amplitude
+    y_gap = 0.08 * Ymax
+    amp   = 0.20 * Ymax
 
     handles: List = [Patch(facecolor=BLUE_BASE, edgecolor="white", label=f"{t0} PPE")]
     if np.any(pos > 0):
         handles.append(Patch(facecolor=BLUE_DELTA, edgecolor="white", label=pos_lbl))
     if has_neg:
-        handles.append(Patch(facecolor="#955196", edgecolor="white", label=f"{latest} PPE decrease from {t0} (↓)"))
-    handles.append(Line2D([0], [0], color=MINI_EDGE, lw=1.6, marker="o",
+        handles.append(Patch(facecolor=PURP_DECL, edgecolor="white", label=f"{latest} PPE decrease from {t0} (↓)"))
+    handles.append(Line2D([0], [0], color=MINI_EDGE, lw=2.0, marker="o",
                           markerfacecolor="white", markeredgecolor=MINI_EDGE,
-                          label=f"Enrollment change (FTE) {t0} → {latest}"))
+                          label=f"Enrollment change (FTE) {t0} -> {latest}"))
 
     for i, s in enumerate(series_list):
         if s is None or len(s) < 2:
@@ -206,31 +217,32 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
         y_area = y_base + y_norm * amp
         xs = np.linspace(x[i] - dot_offset, x[i] + dot_offset, num=len(ys))
         ax.fill_between(xs, y_base, y_area, color=MINI_FILL, alpha=0.35, linewidth=0.0, zorder=4)
-        ax.plot(xs, y_area, color=MINI_EDGE, lw=1.2, zorder=5)
+        ax.plot(xs, y_area, color=MINI_EDGE, lw=1.6, zorder=5)
 
         # Endpoints: dots + thousands labels
         left_y, right_y = y_area[0], y_area[-1]
-        ax.scatter([xs[0], xs[-1]], [left_y, right_y], s=22, color=MINI_EDGE, zorder=6)
-        ax.text(xs[0]-0.03, left_y + 0.01*Ymax, f"{int(round(ys[0])):,}", ha="right", va="bottom", fontsize=8.5, color=MINI_EDGE)
-        ax.text(xs[-1]+0.03, right_y + 0.01*Ymax, f"{int(round(ys[-1])):,}", ha="left", va="bottom", fontsize=8.5, color=MINI_EDGE)
+        ax.scatter([xs[0], xs[-1]], [left_y, right_y], s=28, color=MINI_EDGE, zorder=6)
+        ax.text(xs[0]-0.035, left_y + 0.012*Ymax, f"{int(round(ys[0])):,}", ha="right", va="bottom", fontsize=11, color=MINI_EDGE)
+        ax.text(xs[-1]+0.035, right_y + 0.012*Ymax, f"{int(round(ys[-1])):,}", ha="left", va="bottom", fontsize=11, color=MINI_EDGE)
 
     ax.set_xticks(x, labels, rotation=30, ha="right")
     ax.set_ylabel("$ per pupil")
-    ax.set_title(title + f"  ({t0} → {latest})", pad=10)
+    # no PNG title (moved to PDF page title)
     ax.yaxis.set_major_formatter(comma_formatter())
-    ax.set_ylim(0, Ymax * 1.26)
+    ax.set_ylim(0, Ymax * 1.30)
     ax.grid(axis="y", alpha=0.12); ax.set_axisbelow(True)
 
     ax.legend(handles=handles, frameon=False, loc="upper left", ncols=2)
 
     _stamp(fig)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path, dpi=300, bbox_inches="tight")
+    fig.savefig(out_path, dpi=320, bbox_inches="tight")
     plt.close(fig)
     print(f"[OK] Saved {out_path}")
 
 # ---- main ----
 if __name__ == "__main__":
+    _boost_plot_fonts()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     df, reg = load_data()
     df = add_alps_pk12(df)
@@ -289,5 +301,5 @@ if __name__ == "__main__":
     plot_ppe_change_bars(
         OUTPUT_DIR / "ppe_change_bars_ALPS_and_peers.png",
         df, reg, peers, year_lag=5,
-        title="Per-Pupil Expenditure: Five-Year Change — ALPS PK-12 & Peers"
+        title=None  # PDF will provide the title
     )
