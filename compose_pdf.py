@@ -18,7 +18,11 @@ from school_shared import (
     ENROLL_KEYS, EXCLUDE_SUBCATS, DISTRICTS_OF_INTEREST,
     context_for_district, prepare_district_epp_lines, prepare_western_epp_lines, context_for_western,
     LINE_COLORS_DIST, LINE_COLORS_WESTERN, N_THRESHOLD, canonical_order_bottom_to_top,
+    add_alps_pk12
 )
+
+# ===== code version =====
+CODE_VERSION = "v2025.09.19-ALPS-1"
 
 # ---- Tunables ----
 MATERIAL_DELTA_PCTPTS = 0.02
@@ -50,6 +54,7 @@ def draw_footer(canvas, doc):
     canvas.drawString(doc.leftMargin, y2, SOURCE_LINE2)
     x_right = doc.pagesize[0] - doc.rightMargin
     canvas.drawRightString(x_right, y1, f"Page {canvas.getPageNumber()}")
+    canvas.drawRightString(x_right, y2, f"Code: {CODE_VERSION}")
     canvas.restoreState()
 
 # ---- Flowables ----
@@ -197,6 +202,49 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
                           latest_year=latest_year, latest_year_fte=latest_fte_year,
                           cat_rows=rows, cat_total=total, fte_rows=fte_rows,
                           page_type="district", baseline_title=base_title, baseline_map=base_map))
+        
+        # ===== ALPS PK-12 page (same format) =====
+    try:
+        epp, lines = prepare_district_epp_lines(df, "ALPS PK-12")
+        if not (epp.empty and not lines):
+            bottom_top = canonical_order_bottom_to_top(epp.columns.tolist())
+            top_bottom = list(reversed(bottom_top))
+            latest_year = int(epp.index.max()) if not epp.empty else 0
+            context = context_for_district(df, "ALPS PK-12")
+
+            rows = []
+            for sc in top_bottom:
+                latest_val = float(epp.loc[latest_year, sc]) if (latest_year and sc in epp.columns) else 0.0
+                c5 = compute_cagr_last(epp[sc],5); c10=compute_cagr_last(epp[sc],10); c15=compute_cagr_last(epp[sc],15)
+                rows.append((sc, f"${latest_val:,.0f}", fmt_pct(c5), fmt_pct(c10), fmt_pct(c15),
+                             color_for(cmap_all, context, sc), latest_val))
+
+            latest_vals = [epp.loc[latest_year, sc] if sc in epp.columns else 0.0 for sc in epp.columns]
+            def mean_clean(arr): arr=[a for a in arr if a==a]; return float(np.mean(arr)) if arr else float("nan")
+            total = ("Total", f"${float(np.nansum(latest_vals)):,.0f}",
+                     fmt_pct(mean_clean([compute_cagr_last(epp[sc],5)  for sc in epp.columns])),
+                     fmt_pct(mean_clean([compute_cagr_last(epp[sc],10) for sc in epp.columns])),
+                     fmt_pct(mean_clean([compute_cagr_last(epp[sc],15) for sc in epp.columns])))
+
+            # Use large/small baseline by ALPS size
+            bucket = "le_500" if context == "SMALL" else "gt_500"
+            base_title = f"All Western MA Traditional Districts {'≤500' if bucket=='le_500' else '>500'} Students"
+            base_map = {}
+            title_w, epp_w, _ls, _lm = prepare_western_epp_lines(df, reg, bucket)
+            if not epp_w.empty:
+                for sc in epp_w.columns:
+                    s=epp_w[sc]; base_map[sc]={"5":compute_cagr_last(s,5),"10":compute_cagr_last(s,10),"15":compute_cagr_last(s,15)}
+
+            pages.append(dict(
+                title="ALPS PK-12: Expenditures Per Pupil vs Enrollment",
+                chart_path=str(district_png("ALPS_PK-12")),
+                latest_year=latest_year, latest_year_fte=latest_year,
+                cat_rows=rows, cat_total=total, fte_rows=[],
+                page_type="district", baseline_title=base_title, baseline_map=base_map
+            ))
+    except Exception:
+        pass
+
     return pages
 
 # ---- Build PDF ----
@@ -351,6 +399,8 @@ def build_pdf(pages: List[dict], out_path: Path):
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     df, reg = load_data()
+    # ===== add ALPS virtual district rows =====
+    df = add_alps_pk12(df)
     pages = build_page_dicts(df, reg)
     if not pages:
         print("[WARN] No pages to write."); return

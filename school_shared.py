@@ -280,6 +280,88 @@ def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str) 
         lines_mean[label] = sub.groupby("YEAR")["IND_VALUE"].mean().sort_index()
     return title, piv, lines_sum, lines_mean
 
+# ===== Virtual district (ALPS PK-12) =====
+ALPS_COMPONENTS = {
+    "amherst", "leverett", "pelham", "shutesbury", "amherst-pelham"
+}
+
+def _weighted_epp_from_parts(df_parts: pd.DataFrame) -> pd.DataFrame:
+    """
+    Input is rows for several districts (one YEAR, IND_SUBCAT per district) in
+    the 'Expenditures Per Pupil' IND_CAT, plus matching In-District FTE weights.
+    Returns a pivot YEAR x IND_SUBCAT of enrollment-weighted EPP (category-level),
+    canonical-aggregated to your 8 buckets.
+    """
+    epp = df_parts[df_parts["IND_CAT"].str.lower() == "expenditures per pupil"].copy()
+    epp = epp[~epp["IND_SUBCAT"].str.lower().isin(EXCLUDE_SUBCATS)].copy()
+
+    wts = df_parts[
+        (df_parts["IND_CAT"].str.lower() == "student enrollment")
+        & (df_parts["IND_SUBCAT"].str.lower() == "in-district fte pupils")
+    ][["DIST_NAME", "YEAR", "IND_VALUE"]].rename(columns={"IND_VALUE": "WEIGHT"}).copy()
+
+    m = epp.merge(wts, on=["DIST_NAME", "YEAR"], how="left")
+    m["WEIGHT"] = pd.to_numeric(m["WEIGHT"], errors="coerce").fillna(0.0)
+    m["P"] = m["IND_VALUE"] * m["WEIGHT"]
+
+    out = m.groupby(["YEAR", "IND_SUBCAT"], as_index=False).agg(
+        NUM=("P", "sum"),
+        DEN=("WEIGHT", "sum"),
+        MEAN=("IND_VALUE", "mean")
+    )
+    out["VALUE"] = np.where(out["DEN"] > 0, out["NUM"] / out["DEN"], out["MEAN"])
+    piv_raw = out.pivot(index="YEAR", columns="IND_SUBCAT", values="VALUE").sort_index().fillna(0.0)
+    return aggregate_to_canonical(piv_raw)
+
+def add_alps_pk12(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Append a virtual district rowset called 'ALPS PK-12', built from the five inputs:
+    Amherst, Leverett, Pelham, Shutesbury, Amherst-Pelham (Region).
+    - EPP categories: enrollment-weighted combination (like your Western agg).
+    - Enrollment lines: sums across the five for each YEAR and pupil-group key.
+    Returns a new DF with those rows added (schema matches the base).
+    """
+    base = df[df["DIST_NAME"].str.lower().isin(ALPS_COMPONENTS)].copy()
+    if base.empty:
+        return df
+
+    # 1) Category EPP (weighted, by subcategory → canonical columns)
+    piv_epp = _weighted_epp_from_parts(base)
+    # Reinflate to row-form (YEAR, IND_SUBCAT, IND_VALUE) for append
+    epp_rows = piv_epp.stack().reset_index()
+    epp_rows = epp_rows.rename(columns={"level_1": "IND_SUBCAT", 0: "IND_VALUE"})
+    epp_rows["DIST_NAME"] = "ALPS PK-12"
+    epp_rows["IND_CAT"] = "Expenditures Per Pupil"
+
+    # 2) Enrollment lines: sum across components for each key in ENROLL_KEYS
+    enr_parts = []
+    for key, _label in ENROLL_KEYS:
+        sub = base[
+            (base["IND_CAT"].str.lower() == "student enrollment")
+            & (base["IND_SUBCAT"].str.lower() == key)
+        ][["YEAR", "IND_VALUE"]].copy()
+        if sub.empty:
+            continue
+        s = sub.groupby("YEAR")["IND_VALUE"].sum().sort_index()
+        out = s.reset_index().rename(columns={"IND_VALUE": "IND_VALUE"})
+        out["DIST_NAME"] = "ALPS PK-12"
+        out["IND_CAT"] = "Student Enrollment"
+        out["IND_SUBCAT"] = key
+        enr_parts.append(out)
+
+    rows_enroll = pd.concat(enr_parts, ignore_index=True) if enr_parts else pd.DataFrame(
+        columns=["YEAR","IND_VALUE","DIST_NAME","IND_CAT","IND_SUBCAT"]
+    )
+
+    # Union and column order to match source
+    to_add = pd.concat([epp_rows[["DIST_NAME","YEAR","IND_SUBCAT","IND_VALUE","IND_CAT"]],
+                        rows_enroll[["DIST_NAME","YEAR","IND_SUBCAT","IND_VALUE","IND_CAT"]]],
+                       ignore_index=True)
+    to_add = to_add.astype({"DIST_NAME": str, "IND_CAT": str, "IND_SUBCAT": str})
+    out = pd.concat([df, to_add], ignore_index=True)
+    return out
+
+
 # ---------------- Axis helpers ----------------
 def _nice_ceiling(x: float, step: int) -> float:
     if x <= 0: return step
