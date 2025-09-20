@@ -1,4 +1,3 @@
-# school_shared.py
 from __future__ import annotations
 
 import json, math, re
@@ -48,6 +47,9 @@ CANON_CATS_BOTTOM_TO_TOP = [
 ]
 
 # Map raw SUBCAT -> canonical (anything unlisted falls into "Other")
+def norm_label(s: str) -> str:
+    return re.sub(r"\s+", " ", str(s or "").strip()).lower()
+
 SUBCAT_TO_CANON = {
     "teachers": "Teachers",
     "insurance, retirement programs and other": "Insurance, Retirement Programs and Other",
@@ -68,24 +70,20 @@ SUBCAT_TO_CANON = {
     "food services": "Other",
 }
 
-def norm_label(s: str) -> str:
-    return re.sub(r"\s+", " ", str(s or "").strip()).lower()
-
 # ---------------- Unified colorblind-safe palette (Okabe–Ito) ----------------
-# 7 distinct hues for the 7 named categories (exclude black); "Other" = gray.
 UNIFIED_PALETTE = {
-    "Teachers":                                   "#0072B2",  # blue
-    "Insurance, Retirement Programs and Other":    "#E69F00",  # orange
-    "Pupil Services":                              "#009E73",  # bluish green
-    "Other Teaching Services":                     "#CC79A7",  # reddish purple
-    "Operations and Maintenance":                  "#56B4E9",  # sky blue
-    "Instructional Leadership":                    "#F0E442",  # yellow
-    "Administration":                              "#D55E00",  # vermillion
-    "Other":                                       "#B0B0B0",  # gray (fixed)
+    "Teachers":                                   "#0072B2",
+    "Insurance, Retirement Programs and Other":    "#E69F00",
+    "Pupil Services":                              "#009E73",
+    "Other Teaching Services":                     "#CC79A7",
+    "Operations and Maintenance":                  "#56B4E9",
+    "Instructional Leadership":                    "#F0E442",
+    "Administration":                              "#D55E00",
+    "Other":                                       "#B0B0B0",
 }
 
 # FTE line colors
-LINE_COLORS_DIST = {"In-District FTE Pupils": "#000000", "Out-of-District FTE Pupils": "#AA0000"}
+LINE_COLORS_DIST    = {"In-District FTE Pupils": "#000000", "Out-of-District FTE Pupils": "#AA0000"}
 LINE_COLORS_WESTERN = {"In-District FTE Pupils": "#1B7837", "Out-of-District FTE Pupils": "#5E3C99"}
 
 # ---------------- Loaders & year coercion ----------------
@@ -114,7 +112,7 @@ def coalesce_year_column(df: pd.DataFrame) -> pd.DataFrame:
     def parse_to_year(val):
         if pd.isna(val): return np.nan
         if isinstance(val, (int, float)) and not pd.isna(val):
-            v = int(val); 
+            v = int(val)
             if 1900 <= v <= 2100: return v
         s = str(val).strip()
         m = re.search(r"\b((?:19|20)\d{2})\s*[–\-/]\s*(\d{2,4})\b", s)
@@ -193,7 +191,6 @@ def aggregate_to_canonical(piv: pd.DataFrame) -> pd.DataFrame:
 
 # ---------------- Color map (unified for both contexts) ----------------
 def _rebuild_color_map() -> Dict[str, Dict[str, str]]:
-    # Keep SMALL/LARGE keys so downstream code doesn't change, but both map to the same palette.
     return {"_version": COLOR_MAP_VERSION, "SMALL": UNIFIED_PALETTE, "LARGE": UNIFIED_PALETTE, "_mode": "unified"}
 
 def create_or_load_color_map(_df: pd.DataFrame) -> Dict[str, Dict[str, str]]:
@@ -211,7 +208,7 @@ def create_or_load_color_map(_df: pd.DataFrame) -> Dict[str, Dict[str, str]]:
 def color_for(cmap_all: Dict[str, Dict[str, str]], context: str, canon_label: str) -> str:
     return (cmap_all.get("SMALL") or {}).get(canon_label, "#777777")  # unified palette regardless of context
 
-# ---------------- Context & prep (unchanged except aggregation calls) ----------------
+# ---------------- Context & prep ----------------
 def latest_total_fte(df: pd.DataFrame, dist: str) -> float:
     ddf = df[(df["DIST_NAME"].str.lower() == dist.lower()) & (df["IND_CAT"].str.lower() == "student enrollment") & (df["IND_SUBCAT"].str.lower() == TOTAL_FTE_KEY)]
     if ddf.empty:
@@ -269,7 +266,7 @@ def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str) 
     m["WEIGHT"] = pd.to_numeric(m["WEIGHT"], errors="coerce").fillna(0.0)
     m["P"] = m["IND_VALUE"] * m["WEIGHT"]
     out = m.groupby(["YEAR", "IND_SUBCAT"], as_index=False).agg(NUM=("P", "sum"), DEN=("WEIGHT", "sum"), MEAN=("IND_VALUE", "mean"))
-    out["VALUE"] = np.where(out["DEN"] > 0, out["NUM"] / out["DEN"], out["MEAN"])
+    out["VALUE"] = np.where(out["DEN"] > 0, out["NUM"]/out["DEN"], out["MEAN"])
     piv_raw = out.pivot(index="YEAR", columns="IND_SUBCAT", values="VALUE").sort_index().fillna(0.0)
     piv = aggregate_to_canonical(piv_raw)
     lines_sum, lines_mean = {}, {}
@@ -281,59 +278,38 @@ def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str) 
     return title, piv, lines_sum, lines_mean
 
 # ===== Virtual district (ALPS PK-12) =====
-ALPS_COMPONENTS = {
-    "amherst", "leverett", "pelham", "shutesbury", "amherst-pelham"
-}
+ALPS_COMPONENTS = {"amherst", "leverett", "pelham", "shutesbury", "amherst-pelham"}
 
 def _weighted_epp_from_parts(df_parts: pd.DataFrame) -> pd.DataFrame:
-    """
-    Input is rows for several districts (one YEAR, IND_SUBCAT per district) in
-    the 'Expenditures Per Pupil' IND_CAT, plus matching In-District FTE weights.
-    Returns a pivot YEAR x IND_SUBCAT of enrollment-weighted EPP (category-level),
-    canonical-aggregated to your 8 buckets.
-    """
     epp = df_parts[df_parts["IND_CAT"].str.lower() == "expenditures per pupil"].copy()
     epp = epp[~epp["IND_SUBCAT"].str.lower().isin(EXCLUDE_SUBCATS)].copy()
-
     wts = df_parts[
         (df_parts["IND_CAT"].str.lower() == "student enrollment")
         & (df_parts["IND_SUBCAT"].str.lower() == "in-district fte pupils")
     ][["DIST_NAME", "YEAR", "IND_VALUE"]].rename(columns={"IND_VALUE": "WEIGHT"}).copy()
-
     m = epp.merge(wts, on=["DIST_NAME", "YEAR"], how="left")
     m["WEIGHT"] = pd.to_numeric(m["WEIGHT"], errors="coerce").fillna(0.0)
     m["P"] = m["IND_VALUE"] * m["WEIGHT"]
-
     out = m.groupby(["YEAR", "IND_SUBCAT"], as_index=False).agg(
-        NUM=("P", "sum"),
-        DEN=("WEIGHT", "sum"),
-        MEAN=("IND_VALUE", "mean")
+        NUM=("P", "sum"), DEN=("WEIGHT", "sum"), MEAN=("IND_VALUE", "mean")
     )
     out["VALUE"] = np.where(out["DEN"] > 0, out["NUM"] / out["DEN"], out["MEAN"])
     piv_raw = out.pivot(index="YEAR", columns="IND_SUBCAT", values="VALUE").sort_index().fillna(0.0)
     return aggregate_to_canonical(piv_raw)
 
 def add_alps_pk12(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Append a virtual district rowset called 'ALPS PK-12', built from the five inputs:
-    Amherst, Leverett, Pelham, Shutesbury, Amherst-Pelham (Region).
-    - EPP categories: enrollment-weighted combination (like your Western agg).
-    - Enrollment lines: sums across the five for each YEAR and pupil-group key.
-    Returns a new DF with those rows added (schema matches the base).
-    """
     base = df[df["DIST_NAME"].str.lower().isin(ALPS_COMPONENTS)].copy()
     if base.empty:
         return df
 
     # 1) Category EPP (weighted, by subcategory → canonical columns)
     piv_epp = _weighted_epp_from_parts(base)
-    # Reinflate to row-form (YEAR, IND_SUBCAT, IND_VALUE) for append
     epp_rows = piv_epp.stack().reset_index()
     epp_rows = epp_rows.rename(columns={"level_1": "IND_SUBCAT", 0: "IND_VALUE"})
     epp_rows["DIST_NAME"] = "ALPS PK-12"
     epp_rows["IND_CAT"] = "Expenditures Per Pupil"
 
-    # 2) Enrollment lines: sum across components for each key in ENROLL_KEYS
+    # 2) Enrollment lines: sum across components for each key
     enr_parts = []
     for key, _label in ENROLL_KEYS:
         sub = base[
@@ -353,14 +329,13 @@ def add_alps_pk12(df: pd.DataFrame) -> pd.DataFrame:
         columns=["YEAR","IND_VALUE","DIST_NAME","IND_CAT","IND_SUBCAT"]
     )
 
-    # Union and column order to match source
-    to_add = pd.concat([epp_rows[["DIST_NAME","YEAR","IND_SUBCAT","IND_VALUE","IND_CAT"]],
-                        rows_enroll[["DIST_NAME","YEAR","IND_SUBCAT","IND_VALUE","IND_CAT"]]],
-                       ignore_index=True)
+    to_add = pd.concat([
+        epp_rows[["DIST_NAME","YEAR","IND_SUBCAT","IND_VALUE","IND_CAT"]],
+        rows_enroll[["DIST_NAME","YEAR","IND_SUBCAT","IND_VALUE","IND_CAT"]]
+    ], ignore_index=True)
     to_add = to_add.astype({"DIST_NAME": str, "IND_CAT": str, "IND_SUBCAT": str})
     out = pd.concat([df, to_add], ignore_index=True)
     return out
-
 
 # ---------------- Axis helpers ----------------
 def _nice_ceiling(x: float, step: int) -> float:

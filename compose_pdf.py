@@ -1,4 +1,3 @@
-# compose_pdf.py
 from __future__ import annotations
 
 import bisect, re
@@ -22,14 +21,17 @@ from school_shared import (
 )
 
 # ===== code version =====
-CODE_VERSION = "v2025.09.19-ALPS-1"
+CODE_VERSION = "v2025.09.19-ALPS-4"
 
 # ---- Tunables ----
 MATERIAL_DELTA_PCTPTS = 0.02
 MATERIAL_MIN_LATEST_DOLLARS = 0.0
 
-def district_png(dist: str) -> Path: return OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}.png"
-def regional_png(bucket: str) -> Path: return OUTPUT_DIR / f"regional_expenditures_per_pupil_Western_Traditional_{bucket}.png"
+def district_png(dist: str) -> Path:
+    return OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}.png"
+
+def regional_png(bucket: str) -> Path:
+    return OUTPUT_DIR / f"regional_expenditures_per_pupil_Western_Traditional_{bucket}.png"
 
 # ---- Styles ----
 styles = getSampleStyleSheet()
@@ -72,9 +74,11 @@ class LineSwatch(Flowable):
 def fmt_pct(v: float) -> str:
     if v is None or (isinstance(v, float) and np.isnan(v)): return "—"
     return f"{v * 100:+.1f}%"
+
 def parse_pct_str_to_float(s: str) -> float:
     try: return float((s or "").replace("%","").replace("+","").strip())/100.0
     except Exception: return float("nan")
+
 def compute_cagr_last(series: pd.Series, years_back: int) -> float:
     if series is None or series.empty: return float("nan")
     s = series.sort_index().astype(float).replace([np.inf,-np.inf], np.nan).dropna()
@@ -87,6 +91,7 @@ def compute_cagr_last(series: pd.Series, years_back: int) -> float:
     a = float(s.loc[start_year]); b = float(s.loc[end_year])
     if a <= 0 or b <= 0: return float("nan")
     return (b/a)**(1.0/n) - 1.0
+
 DIFF_BINS  = [0.00, 0.02, 0.05, 0.08, 0.12]
 RED_SHADES = ["#FDE2E2", "#FAD1D1", "#F5B8B8", "#EF9E9E", "#E88080"]
 GRN_SHADES = ["#E6F4EA", "#D5EDE0", "#C4E6D7", "#B3DFCD", "#A1D8C4"]
@@ -94,19 +99,35 @@ def shade_for_delta(delta: float):
     if delta is None or not (delta == delta) or abs(delta) < 1e-6: return None
     idx = max(0, min(len(DIFF_BINS)-1, bisect.bisect_right(DIFF_BINS, abs(delta)) - 1))
     return HexColor(RED_SHADES[idx]) if delta > 0 else HexColor(GRN_SHADES[idx])
+
 def _abbr_bucket_suffix(full: str) -> str:
     if re.search(r"≤\s*500", full or "", flags=re.I): return "(≤500)"
     if re.search(r">\s*500", full or "", flags=re.I): return "(>500)"
     return ""
+
 def para_num_auto(text: str) -> Paragraph:
     return Paragraph(text, style_num_neg if (text or "").strip().startswith("-") else style_num)
 
 # ---- Page dicts ----
 def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
-    cmap_all = create_or_load_color_map(df)
     pages: List[dict] = []
 
-    # Western baselines for shading
+    # PAGE 1: ALPS + Peers (graph-only)
+    pages.append(dict(
+        title="ALPS PK-12 & Peers: PPE Change and Enrollment",
+        chart_path=str(OUTPUT_DIR / "ppe_change_bars_ALPS_and_peers.png"),
+        graph_only=True
+    ))
+
+    # PAGE 2: ALPS-only (graph-only)
+    pages.append(dict(
+        title="ALPS PK-12: Expenditures Per Pupil vs Enrollment",
+        chart_path=str(district_png("ALPS PK-12")),
+        graph_only=True
+    ))
+
+    # Western and District pages with tables follow as usual
+    cmap_all = create_or_load_color_map(df)
     baseline: Dict[str, dict] = {}
     for bucket in ("le_500", "gt_500"):
         title_w, epp_w, _ls, _lm = prepare_western_epp_lines(df, reg, bucket)
@@ -117,7 +138,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
                 base_map[sc] = {"5": compute_cagr_last(s,5), "10": compute_cagr_last(s,10), "15": compute_cagr_last(s,15)}
         baseline[bucket] = {"title": title_w, "map": base_map}
 
-    # Western pages first
+    # Western pages
     for bucket in ("le_500", "gt_500"):
         title, epp, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket)
         if epp.empty and not lines_sum: continue
@@ -154,7 +175,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
                           latest_year=latest_year, latest_year_fte=latest_fte_year,
                           cat_rows=rows, cat_total=total, fte_rows=fte_rows, page_type="western"))
 
-    # Districts
+    # District pages with tables
     for dist in ["Amherst-Pelham"] + [d for d in DISTRICTS_OF_INTEREST if d != "Amherst-Pelham"]:
         epp, lines = prepare_district_epp_lines(df, dist)
         if epp.empty and not lines: continue
@@ -202,48 +223,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
                           latest_year=latest_year, latest_year_fte=latest_fte_year,
                           cat_rows=rows, cat_total=total, fte_rows=fte_rows,
                           page_type="district", baseline_title=base_title, baseline_map=base_map))
-        
-        # ===== ALPS PK-12 page (same format) =====
-    try:
-        epp, lines = prepare_district_epp_lines(df, "ALPS PK-12")
-        if not (epp.empty and not lines):
-            bottom_top = canonical_order_bottom_to_top(epp.columns.tolist())
-            top_bottom = list(reversed(bottom_top))
-            latest_year = int(epp.index.max()) if not epp.empty else 0
-            context = context_for_district(df, "ALPS PK-12")
-
-            rows = []
-            for sc in top_bottom:
-                latest_val = float(epp.loc[latest_year, sc]) if (latest_year and sc in epp.columns) else 0.0
-                c5 = compute_cagr_last(epp[sc],5); c10=compute_cagr_last(epp[sc],10); c15=compute_cagr_last(epp[sc],15)
-                rows.append((sc, f"${latest_val:,.0f}", fmt_pct(c5), fmt_pct(c10), fmt_pct(c15),
-                             color_for(cmap_all, context, sc), latest_val))
-
-            latest_vals = [epp.loc[latest_year, sc] if sc in epp.columns else 0.0 for sc in epp.columns]
-            def mean_clean(arr): arr=[a for a in arr if a==a]; return float(np.mean(arr)) if arr else float("nan")
-            total = ("Total", f"${float(np.nansum(latest_vals)):,.0f}",
-                     fmt_pct(mean_clean([compute_cagr_last(epp[sc],5)  for sc in epp.columns])),
-                     fmt_pct(mean_clean([compute_cagr_last(epp[sc],10) for sc in epp.columns])),
-                     fmt_pct(mean_clean([compute_cagr_last(epp[sc],15) for sc in epp.columns])))
-
-            # Use large/small baseline by ALPS size
-            bucket = "le_500" if context == "SMALL" else "gt_500"
-            base_title = f"All Western MA Traditional Districts {'≤500' if bucket=='le_500' else '>500'} Students"
-            base_map = {}
-            title_w, epp_w, _ls, _lm = prepare_western_epp_lines(df, reg, bucket)
-            if not epp_w.empty:
-                for sc in epp_w.columns:
-                    s=epp_w[sc]; base_map[sc]={"5":compute_cagr_last(s,5),"10":compute_cagr_last(s,10),"15":compute_cagr_last(s,15)}
-
-            pages.append(dict(
-                title="ALPS PK-12: Expenditures Per Pupil vs Enrollment",
-                chart_path=str(district_png("ALPS_PK-12")),
-                latest_year=latest_year, latest_year_fte=latest_year,
-                cat_rows=rows, cat_total=total, fte_rows=[],
-                page_type="district", baseline_title=base_title, baseline_map=base_map
-            ))
-    except Exception:
-        pass
 
     return pages
 
@@ -254,17 +233,16 @@ def build_pdf(pages: List[dict], out_path: Path):
 
     story: List = []
     for idx, p in enumerate(pages):
-        # Title + subtitle
         main_title, sub_title = p["title"], "Expenditures Per Pupil vs Enrollment"
         if ":" in p["title"]:
             left, right = p["title"].split(":", 1)
             main_title, sub_title = left.strip(), right.strip()
         if ("Western" in p["title"]) and ("Traditional" in p["title"]):
             sub_title = f"{sub_title} — Not including charters and vocationals"
-        story.append(Paragraph(main_title, style_title_main))
-        story.append(Paragraph(sub_title, style_title_sub))
 
-        # Chart
+        story.append(Paragraph(main_title, style_title_main))
+        story.append(Paragraph("" if p.get("graph_only") else sub_title, style_title_sub))
+
         img_path = Path(p["chart_path"])
         if not img_path.exists():
             story.append(Paragraph(f"[Missing chart image: {img_path.name}]", style_body))
@@ -272,14 +250,30 @@ def build_pdf(pages: List[dict], out_path: Path):
             im = Image(str(img_path))
             ratio = im.imageHeight / float(im.imageWidth)
             im.drawWidth = doc.width; im.drawHeight = doc.width * ratio
-            max_chart_h = doc.height * 0.40
+
+            # Graph-only pages get custom heights: Page 1 taller, Page 2 a bit shorter.
+            if p.get("graph_only"):
+                name = img_path.name.lower()
+                if "ppe_change_bars_alps_and_peers" in name:
+                    max_chart_h = doc.height * 0.74  # make room for enrollment mini-areas
+                elif "expenditures_per_pupil_vs_enrollment_alps_pk-12" in name:
+                    max_chart_h = doc.height * 0.52  # keep this moderate
+                else:
+                    max_chart_h = doc.height * 0.62
+            else:
+                max_chart_h = doc.height * 0.40
+
             if im.drawHeight > max_chart_h:
                 im.drawHeight = max_chart_h; im.drawWidth = im.drawHeight / ratio
             story.append(im)
 
-        story.append(Spacer(0, 24))
+        # Graph-only pages: no tables
+        if p.get("graph_only"):
+            if idx < len(pages)-1: story.append(PageBreak())
+            continue
 
-        # -------- Category table (Other first = top of stack) --------
+        # Tables for non-graph-only pages
+        story.append(Spacer(0, 24))
         cat_header = ["", "Category", f"{p['latest_year']} $/pupil", "5y CAGR", "10y CAGR", "15y CAGR"]
         cat_rows_rl, swatch_rows = [], []
         for i, (label, latest, c5, c10, c15, hexcol, latest_num) in enumerate(p["cat_rows"], start=1):
@@ -287,15 +281,13 @@ def build_pdf(pages: List[dict], out_path: Path):
                                 Paragraph(latest, style_num),
                                 para_num_auto(c5), para_num_auto(c10), para_num_auto(c15)])
             swatch_rows.append((i, HexColor(hexcol)))
-
         total = ["", Paragraph(p["cat_total"][0], style_body),
                  Paragraph(p["cat_total"][1], style_num),
                  para_num_auto(p["cat_total"][2]), para_num_auto(p["cat_total"][3]), para_num_auto(p["cat_total"][4])]
 
-        # Legend/explainer (district pages only)
         legend_rows = []
         if p.get("page_type") == "district":
-            bucket_suffix = _abbr_bucket_suffix(p.get("baseline_title",""))
+            bucket_suffix = "(≤500)" if "≤500" in p.get("baseline_title","") else ("(>500)" if ">500" in p.get("baseline_title","") else "")
             red_text = f"> CAGR for Western Districts {bucket_suffix}".strip()
             grn_text = f"< CAGR for Western Districts {bucket_suffix}".strip()
             cagr_def = "CAGR = (End/Start)^(1/years) − 1"
@@ -312,7 +304,6 @@ def build_pdf(pages: List[dict], out_path: Path):
         cat_tbl = Table(cat_data,
             colWidths=[0.08*doc.width, 0.42*doc.width, 0.18*doc.width, 0.10*doc.width, 0.10*doc.width, 0.12*doc.width],
             hAlign="LEFT", repeatRows=1, splitByRow=1)
-
         ts = [("FONT",(0,0),(-1,0),"Helvetica-Bold",9),
               ("ALIGN",(2,0),(-1,0),"RIGHT"),
               ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
@@ -323,12 +314,9 @@ def build_pdf(pages: List[dict], out_path: Path):
               ("BOTTOMPADDING",(0,1),(-1,-1),4)]
         for r, colr in swatch_rows:
             ts.append(("BACKGROUND", (0, r), (0, r), colr))
-
         total_row_idx = 1 + len(cat_rows_rl)
         ts += [("BACKGROUND",(0,total_row_idx),(-1,total_row_idx),colors.whitesmoke),
                ("FONT",(0,total_row_idx),(-1,total_row_idx),"Helvetica-Bold",9)]
-
-        # Relative-to-Western shading (district pages only)
         if p.get("page_type") == "district":
             base_map = p.get("baseline_map", {})
             for row_idx, row_raw in enumerate(p["cat_rows"], start=1):
@@ -340,32 +328,13 @@ def build_pdf(pages: List[dict], out_path: Path):
                     if dv == dv and bv == bv:
                         delta = dv - bv
                         if abs(delta) >= MATERIAL_DELTA_PCTPTS and latest_num >= MATERIAL_MIN_LATEST_DOLLARS:
-                            shade = shade_for_delta(delta)
-                            if shade: ts.append(("BACKGROUND",(col,row_idx),(col,row_idx),shade))
-
-            # Place legend/explainer rows with spans & swatches
-            red_row_idx = total_row_idx + 1
-            grn_row_idx = total_row_idx + 2
-            ts += [
-                ("SPAN", (1, red_row_idx), (2, red_row_idx)),
-                ("SPAN", (1, grn_row_idx), (2, grn_row_idx)),
-                ("ALIGN",(1, red_row_idx), (2, red_row_idx), "RIGHT"),
-                ("ALIGN",(1, grn_row_idx), (2, grn_row_idx), "RIGHT"),
-                ("SPAN", (3, red_row_idx), (5, red_row_idx)),
-                ("SPAN", (3, grn_row_idx), (5, grn_row_idx)),
-                ("BACKGROUND", (3, red_row_idx), (5, red_row_idx), HexColor("#F5B8B8")),
-                ("BACKGROUND", (3, grn_row_idx), (5, grn_row_idx), HexColor("#C4E6D7")),
-                ("ALIGN",(3, red_row_idx), (5, red_row_idx), "RIGHT"),
-                ("ALIGN",(3, grn_row_idx), (5, grn_row_idx), "RIGHT"),
-                ("TOPPADDING",    (0, red_row_idx), (-1, grn_row_idx), 2),
-                ("BOTTOMPADDING", (0, red_row_idx), (-1, grn_row_idx), 2),
-            ]
-
+                            shade = HexColor("#F5B8B8") if delta > 0 else HexColor("#C4E6D7")
+                            ts.append(("BACKGROUND",(col,row_idx),(col,row_idx),shade))
         cat_tbl.setStyle(TableStyle(ts))
         story.append(cat_tbl)
         story.append(Spacer(0, 24))
 
-        # -------- FTE table --------
+        # FTE table
         fte_header_label = f"{p['latest_year_fte']} FTE" if p.get("page_type")=="district" else f"{p['latest_year_fte']} avg FTE"
         fte_header = ["", "Pupil Group", fte_header_label, "5y CAGR", "10y CAGR", "15y CAGR"]
         fte_data = [fte_header]
@@ -399,7 +368,6 @@ def build_pdf(pages: List[dict], out_path: Path):
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     df, reg = load_data()
-    # ===== add ALPS virtual district rows =====
     df = add_alps_pk12(df)
     pages = build_page_dicts(df, reg)
     if not pages:
