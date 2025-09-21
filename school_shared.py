@@ -46,7 +46,6 @@ CANON_CATS_BOTTOM_TO_TOP = [
     "Other",
 ]
 
-# Map raw SUBCAT -> canonical (anything unlisted falls into "Other")
 def norm_label(s: str) -> str:
     return re.sub(r"\s+", " ", str(s or "").strip()).lower()
 
@@ -70,7 +69,7 @@ SUBCAT_TO_CANON = {
     "food services": "Other",
 }
 
-# ---------------- BARS - Unified colorblind-safe palette (Okabe–Ito) ----------------
+# ---------------- Unified palette (Okabe–Ito) ----------------
 UNIFIED_PALETTE = {
     "Teachers":                                   "#0072B2",
     "Insurance, Retirement Programs and Other":    "#E69F00",
@@ -222,7 +221,7 @@ def create_or_load_color_map(_df: pd.DataFrame) -> Dict[str, Dict[str, str]]:
     return cmap
 
 def color_for(cmap_all: Dict[str, Dict[str, str]], context: str, canon_label: str) -> str:
-    return (cmap_all.get("SMALL") or {}).get(canon_label, "#777777")  # unified palette regardless of context
+    return (cmap_all.get("SMALL") or {}).get(canon_label, "#777777")  # unified palette
 
 # ---------------- Context & prep ----------------
 def latest_total_fte(df: pd.DataFrame, dist: str) -> float:
