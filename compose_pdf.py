@@ -24,13 +24,19 @@ from school_shared import (
 # ===== code version =====
 CODE_VERSION = "v2025.09.21-ALPS-18"
 
-# ---- Materiality / shading controls ----
-DELTA_THRESHOLD_ABS = 0.02
-SHADE_BINS = [0.02, 0.05, 0.08, 0.12]
-RED_SHADES = ["#FDE2E2", "#FAD1D1", "#F5B8B8", "#EF9E9E", "#E88080"]
-GRN_SHADES = ["#E6F4EA", "#D5EDE0", "#C4E6D7", "#B3DFCD", "#A1D8C4"]
+# ---- Shading controls ----
+# CAGR shading threshold is in absolute percentage points (e.g., 0.02 = 2.0pp)
 MATERIAL_DELTA_PCTPTS = 0.02
-MATERIAL_MIN_LATEST_DOLLARS = 0.0  # keep at zero unless you want a $ filter too
+# Dollar shading threshold is in relative percent difference (e.g., 0.02 = 2.0%)
+DOLLAR_THRESHOLD_REL  = 0.02
+
+# Bins for intensity (used for both CAGR pp-delta and $ relative delta)
+SHADE_BINS = [0.02, 0.05, 0.08, 0.12]
+RED_SHADES = ["#FDE2E2", "#FAD1D1", "#F5B8B8", "#EF9E9E", "#E88080"]  # higher than Western
+GRN_SHADES = ["#E6F4EA", "#D5EDE0", "#C4E6D7", "#B3DFCD", "#A1D8C4"]  # lower than Western
+
+# Optional $-gate; if >0, shading applies only when latest $/pupil >= this
+MATERIAL_MIN_LATEST_DOLLARS = 0.0
 
 def district_png(dist: str) -> Path:
     return OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}.png"
@@ -72,7 +78,9 @@ def draw_footer(canvas, doc):
 
 # ---- Flowables ----
 def _to_color(c): return c if isinstance(c, colors.Color) else HexColor(c)
+
 class LineSwatch(Flowable):
+    # Width 30 per your tweak to avoid label overlap
     def __init__(self, color_like, w=30, h=7, lw=2.6):
         super().__init__(); self.c=_to_color(color_like); self.w=w; self.h=h; self.lw=lw; self.width=w; self.height=h
     def draw(self):
@@ -107,11 +115,19 @@ def _abbr_bucket_suffix(full: str) -> str:
     if re.search(r">\s*500", full or "", flags=re.I): return "(>500)"
     return ""
 
-def _shade_for_delta(delta: float):
-    if delta != delta or abs(delta) < DELTA_THRESHOLD_ABS:
+def _shade_for_cagr_delta(delta_pp: float):
+    # delta_pp is a true fraction (e.g., 0.021 = 2.1pp)
+    if delta_pp != delta_pp or abs(delta_pp) < MATERIAL_DELTA_PCTPTS:
         return None
-    idx = max(0, min(len(RED_SHADES)-1, bisect.bisect_right(SHADE_BINS, abs(delta)) - 1))
-    return HexColor(RED_SHADES[idx]) if delta > 0 else HexColor(GRN_SHADES[idx])
+    idx = max(0, min(len(RED_SHADES)-1, bisect.bisect_right(SHADE_BINS, abs(delta_pp)) - 1))
+    return HexColor(RED_SHADES[idx]) if delta_pp > 0 else HexColor(GRN_SHADES[idx])
+
+def _shade_for_dollar_rel(delta_rel: float):
+    # delta_rel is a relative diff (e.g., +0.03 = +3%)
+    if delta_rel != delta_rel or abs(delta_rel) < DOLLAR_THRESHOLD_REL:
+        return None
+    idx = max(0, min(len(RED_SHADES)-1, bisect.bisect_right(SHADE_BINS, abs(delta_rel)) - 1))
+    return HexColor(RED_SHADES[idx]) if delta_rel > 0 else HexColor(GRN_SHADES[idx])
 
 # ---- Table builders ----
 def _build_category_table(page: dict) -> Table:
@@ -133,7 +149,7 @@ def _build_category_table(page: dict) -> Table:
     # Category rows
     for (sc, latest_str, c5s, c10s, c15s, col, latest_val) in rows_in:
         data.append([
-            "",  # swatch cell painted via TableStyle
+            "",  # swatch painted via TableStyle
             Paragraph(sc, style_body),
             Paragraph(latest_str, style_num),
             Paragraph(c5s, style_num),
@@ -141,7 +157,7 @@ def _build_category_table(page: dict) -> Table:
             Paragraph(c15s, style_num),
         ])
 
-    # TOTAL row directly below Teachers (because rows are top→bottom order)
+    # TOTAL row directly after categories
     data.append([
         "", Paragraph(total[0], style_body),
         Paragraph(total[1], style_num),
@@ -151,15 +167,15 @@ def _build_category_table(page: dict) -> Table:
     ])
     total_row_idx = len(data) - 1
 
-    # Legend rows: two rows, each with LEFT merged text (Category+$/pupil) and RIGHT merged swatch over CAGR cols
+    # Legend rows: left explanations + right swatches spanning the three CAGR columns
     legend_rows = []
     if page.get("page_type") == "district":
         bucket_suffix = _abbr_bucket_suffix(page.get("baseline_title", ""))
         red_text = f"&gt; Western CAGR {bucket_suffix}".strip()
         grn_text = f"&lt; Western CAGR {bucket_suffix}".strip()
-        # Left-side explainers (right-justified)
         shade_rule = (
-            f"Shading: |$/pupil| or |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp of Western baseline"
+            f"Shading vs Western: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}% "
+            f"or |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}%"
         )
         cagr_def   = "CAGR = (End/Start)^(1/years) − 1"
         legend_rows = [
@@ -189,32 +205,39 @@ def _build_category_table(page: dict) -> Table:
     for i, (_sc, _ls, _c5, _c10, _c15, col, _lv) in enumerate(rows_in, start=1):
         ts.add("BACKGROUND", (0,i), (0,i), HexColor(col))
 
-    # Shade category CAGR cells vs baseline (materiality-aware)
+    # Shade $/pupil (col 2) and all 3 CAGR columns (cols 3–5)
     for i, (sc, _ls, c5s, c10s, c15s, _col, latest_val) in enumerate(rows_in, start=1):
+        # optional $ floor gate
         if MATERIAL_MIN_LATEST_DOLLARS > 0 and (page.get("page_type") == "district"):
-            try_lv = float(str(_ls).replace("$","").replace(",",""))
-            if try_lv < MATERIAL_MIN_LATEST_DOLLARS:
+            if latest_val < MATERIAL_MIN_LATEST_DOLLARS:
                 continue
+
         base_map = base.get(sc, {})
-        for j, (cstr, key) in enumerate([(c5s, "5"), (c10s,"10"), (c15s,"15")], start=3):
+
+        # --- $/pupil shading (relative vs Western baseline) ---
+        base_dollar = base_map.get("DOLLAR", float("nan"))
+        if base_dollar == base_dollar and base_dollar > 0 and latest_val == latest_val:
+            delta_rel = (latest_val - float(base_dollar)) / float(base_dollar)
+            bg = _shade_for_dollar_rel(delta_rel)
+            if bg is not None:
+                ts.add("BACKGROUND", (2, i), (2, i), bg)
+
+        # --- CAGR shading (absolute pp delta vs Western baseline) ---
+        for col, (cstr, key) in zip((3, 4, 5), [(c5s, "5"), (c10s, "10"), (c15s, "15")]):
             val = parse_pct_str_to_float(cstr)
             base_val = base_map.get(key, float("nan"))
-            delta = (val - base_val) if (val==val and base_val==base_val) else float("nan")
-            bg = _shade_for_delta(delta)
+            delta_pp = (val - base_val) if (val==val and base_val==base_val) else float("nan")
+            bg = _shade_for_cagr_delta(delta_pp)
             if bg is not None:
-                ts.add("BACKGROUND", (j-1,i), (j-1,i), bg)
+                ts.add("BACKGROUND", (col, i), (col, i), bg)
 
-    # Apply legend spans & swatch fills (immediately below TOTAL row)
+    # Apply legend spans & swatches (immediately below TOTAL row)
     if leg1_idx is not None:
-        # Merge left explainers across Category + $/pupil (cols 1–2)
         ts.add("SPAN", (1, leg1_idx), (2, leg1_idx))
         ts.add("SPAN", (1, leg2_idx), (2, leg2_idx))
-        # Merge swatches across the three CAGR columns (cols 3–5)
         ts.add("SPAN", (3, leg1_idx), (5, leg1_idx))
         ts.add("SPAN", (3, leg2_idx), (5, leg2_idx))
-        # Swatch backgrounds
-        sw_red = HexColor(RED_SHADES[1])
-        sw_grn = HexColor(GRN_SHADES[1])
+        sw_red = HexColor(RED_SHADES[1]); sw_grn = HexColor(GRN_SHADES[1])
         ts.add("BACKGROUND", (3, leg1_idx), (5, leg1_idx), sw_red)
         ts.add("BACKGROUND", (3, leg2_idx), (5, leg2_idx), sw_grn)
 
@@ -331,12 +354,19 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
                              ("—" if latest_fte_year not in s.index else f"{float(s.loc[latest_fte_year]):,.0f}"),
                              fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
 
+        # Western baseline (same bucket); add baseline $ for latest_year
         bucket = "le_500" if context == "SMALL" else "gt_500"
         title_w, epp_w, _ls, _lm = prepare_western_epp_lines(df, reg, bucket)
         base_map = {}
         if not epp_w.empty:
             for sc in epp_w.columns:
-                s=epp_w[sc]; base_map[sc]={"5":compute_cagr_last(s,5),"10":compute_cagr_last(s,10),"15":compute_cagr_last(s,15)}
+                s=epp_w[sc]
+                base_map[sc]={
+                    "5": compute_cagr_last(s,5),
+                    "10":compute_cagr_last(s,10),
+                    "15":compute_cagr_last(s,15),
+                    "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
+                }
 
         pages.append(dict(
             title="ALPS PK-12: Expenditures Per Pupil vs Enrollment",
@@ -389,7 +419,13 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
         title_w, epp_w, _ls, _lm = prepare_western_epp_lines(df, reg, bucket)
         if not epp_w.empty:
             for sc in epp_w.columns:
-                s=epp_w[sc]; base_map[sc]={"5":compute_cagr_last(s,5),"10":compute_cagr_last(s,10),"15":compute_cagr_last(s,15)}
+                s=epp_w[sc]
+                base_map[sc]={
+                    "5": compute_cagr_last(s,5),
+                    "10":compute_cagr_last(s,10),
+                    "15":compute_cagr_last(s,15),
+                    "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
+                }
 
         pages.append(dict(title=(f"Amherst-Pelham Regional: Expenditures Per Pupil vs Enrollment" if dist=="Amherst-Pelham"
                                  else f"{dist}: Expenditures Per Pupil vs Enrollment"),
@@ -448,35 +484,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
                           latest_year=latest_year, latest_year_fte=latest_fte_year,
                           cat_rows=rows, cat_total=total, fte_rows=fte_rows,
                           fte_series_map=fte_map, page_type="western"))
-
-    # APPENDIX B: Calculations & Data Transformations
-    pages.append(dict(
-        title="Appendix B. Calculations & Data Transformations",
-        subtitle="How source data becomes charts & tables",
-        chart_path=None,
-        graph_only=True,
-        text_blocks=[
-            "• Canonical categories: raw DESE subcategories are mapped to eight canonical buckets; columns are stacked bottom→top in a fixed order.",
-            "• Virtual district (ALPS PK-12): weighted averages of Amherst, Leverett, Pelham, Shutesbury, and Amherst-Pelham using In-District FTE as weights per year and subcategory.",
-            "• Western MA aggregates: for ≤500 and >500 groups, per-pupil values are FTE-weighted across member districts each year.",
-            "• PPE change bars: for each district, the bar shows PPE in the base year with a stacked segment to the latest; purple if latest < base.",
-            "• Enrollment micro-areas: above each bar, a small area traces In-District FTE from base→latest; only endpoints are labeled.",
-            "• CAGR shading: each category’s 5/10/15-year CAGR is compared to the corresponding Western baseline (same ≤/>500 group). Cells are shaded when |ΔCAGR| ≥ 2.0 percentage points; intensity increases with distance.",
-            "• Totals: PPE totals are sums of canonical categories; CAGR totals shown are the mean of category CAGRs; FTE totals are computed from summed series.",
-        ]
-    ))
-
-    # APPENDIX C: Version change log
-    pages.append(dict(
-        title="Appendix C. Version Change Log",
-        subtitle=f"Current build: {CODE_VERSION}",
-        chart_path=None,
-        graph_only=True,
-        text_blocks=[
-            "• Legend rows span CAGR columns with red/green swatches; left explainer texts restored.",
-            "• LineSwatch width reduced to 30px to avoid label overlap.",
-        ]
-    ))
 
     return pages
 
