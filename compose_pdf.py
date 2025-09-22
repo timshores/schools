@@ -159,8 +159,7 @@ def _build_category_table(page: dict) -> Table:
         grn_text = f"&lt; Western CAGR {bucket_suffix}".strip()
         # Left-side explainers (right-justified)
         shade_rule = (
-            f"Shading vs Western baseline: |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp; variable intensity by distance"
-            f"{'; latest $/pupil ≥ $' + format(MATERIAL_MIN_LATEST_DOLLARS, ',.0f') if MATERIAL_MIN_LATEST_DOLLARS > 0 else ''}"
+            f"Shading: |$/pupil| or |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp of Western baseline"
         )
         cagr_def   = "CAGR = (End/Start)^(1/years) − 1"
         legend_rows = [
