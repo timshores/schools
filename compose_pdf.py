@@ -175,7 +175,7 @@ def _build_category_table(page: dict) -> Table:
         grn_text = f"&lt; Western CAGR {bucket_suffix}".strip()
         shade_rule = (
             f"Shading vs Western: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}% "
-            f"or |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}%"
+            f"or |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp"
         )
         cagr_def   = "CAGR = (End/Start)^(1/years) − 1"
         legend_rows = [
