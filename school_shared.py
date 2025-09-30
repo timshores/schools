@@ -71,14 +71,14 @@ SUBCAT_TO_CANON = {
 
 # ---------------- Unified palette (Okabe–Ito) ----------------
 UNIFIED_PALETTE = {
-    "Teachers":                                   "#0072B2",
-    "Insurance, Retirement Programs and Other":    "#E69F00",
-    "Pupil Services":                              "#009E73",
-    "Other Teaching Services":                     "#CC79A7",
-    "Operations and Maintenance":                  "#56B4E9",
-    "Instructional Leadership":                    "#F0E442",
-    "Administration":                              "#D55E00",
-    "Other":                                       "#B0B0B0",
+    "Teachers":                                   "#A8D5F2",  # lighter blue
+    "Insurance, Retirement Programs and Other":    "#F5D6A8",  # lighter orange
+    "Pupil Services":                              "#A8E6D0",  # lighter teal
+    "Other Teaching Services":                     "#E8C8DC",  # lighter pink
+    "Operations and Maintenance":                  "#C8E6F5",  # lighter sky blue
+    "Instructional Leadership":                    "#F8F4B8",  # lighter yellow
+    "Administration":                              "#F0C5A8",  # lighter burnt orange
+    "Other":                                       "#D8D8D8",  # lighter gray
 }
 
 # ---------------- Enrollment line/swatch colors (unified) ----------------
@@ -92,7 +92,7 @@ FTE_LINE_COLORS = {
 }
 
 # ---------------- Peers PNG (ALPS & peers) styling ----------------
-PPE_PEERS_YMAX          = 30000.0
+PPE_PEERS_YMAX          = 35000.0  # Increased from 30000 to lift legend above bars
 PPE_PEERS_REMOVE_SPINES = True   # remove all boundary lines
 PPE_PEERS_BAR_EDGES     = False  # no bar edge lines
 
@@ -146,7 +146,7 @@ def coalesce_year_column(df: pd.DataFrame) -> pd.DataFrame:
     df["YEAR"] = df["YEAR"].astype(int)
     return df
 
-def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     xls = pd.ExcelFile(EXCEL_FILE)
 
     df = pd.read_excel(xls, sheet_name=find_sheet_name(xls, SHEET_EXPEND))
@@ -166,6 +166,27 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
         df[c] = df[c].astype(str).str.strip()
     df["IND_VALUE"] = pd.to_numeric(df["IND_VALUE"], errors="coerce")
 
+    # Load profile_DataC70 sheet if available
+    profile_c70 = pd.DataFrame()
+    try:
+        if "profile_DataC70" in xls.sheet_names:
+            profile_c70 = pd.read_excel(xls, sheet_name="profile_DataC70")
+            # Filter out header rows (Org4Code == 0)
+            profile_c70 = profile_c70[profile_c70["Org4Code"] > 0].copy()
+            # Normalize column names
+            profile_c70.columns = [str(c).strip() for c in profile_c70.columns]
+            # Standardize district names and year column
+            if "District" in profile_c70.columns:
+                profile_c70["DIST_NAME"] = profile_c70["District"].astype(str).str.strip()
+            if "fy" in profile_c70.columns:
+                profile_c70["YEAR"] = pd.to_numeric(profile_c70["fy"], errors="coerce").astype("Int64")
+            # Convert numeric columns
+            for col in profile_c70.columns:
+                if col not in ["DIST_NAME", "YEAR", "District", "Source"]:
+                    profile_c70[col] = pd.to_numeric(profile_c70[col], errors="coerce")
+    except Exception as e:
+        print(f"[WARN] Could not load profile_DataC70: {e}")
+
     reg = pd.read_excel(xls, sheet_name=find_sheet_name(xls, SHEET_REGIONS))
     reg.columns = [str(c).strip() for c in reg.columns]
     cmap = {}
@@ -177,7 +198,7 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     reg = reg.rename(columns=cmap)
     for c in ("DIST_NAME", "EOHHS_REGION", "SCHOOL_TYPE"):
         reg[c] = reg[c].astype(str).str.strip()
-    return df, reg
+    return df, reg, profile_c70
 
 # ---------------- Canonical aggregation ----------------
 def canonical_order_bottom_to_top(cols_present: List[str]) -> List[str]:
@@ -447,12 +468,19 @@ def weighted_epp_aggregation(df: pd.DataFrame, districts: List[str]) -> Tuple[pd
     piv_raw = out.pivot(index="YEAR", columns="IND_SUBCAT", values="VALUE").sort_index().fillna(0.0)
     piv = aggregate_to_canonical(piv_raw)
 
-    # Get enrollment sum
-    enr = df[
+    # Get enrollment sums (both in-district and out-of-district)
+    enr_in = df[
         (df["IND_CAT"].str.lower() == "student enrollment") &
         (df["IND_SUBCAT"].str.lower() == "in-district fte pupils") &
         (df["DIST_NAME"].str.lower().isin(members))
     ][["YEAR", "IND_VALUE"]]
-    enroll_sum = enr.groupby("YEAR")["IND_VALUE"].sum().sort_index() if not enr.empty else pd.Series(dtype=float)
+    enroll_in_sum = enr_in.groupby("YEAR")["IND_VALUE"].sum().sort_index() if not enr_in.empty else pd.Series(dtype=float)
 
-    return piv, enroll_sum
+    enr_out = df[
+        (df["IND_CAT"].str.lower() == "student enrollment") &
+        (df["IND_SUBCAT"].str.lower() == "out-of-district fte pupils") &
+        (df["DIST_NAME"].str.lower().isin(members))
+    ][["YEAR", "IND_VALUE"]]
+    enroll_out_sum = enr_out.groupby("YEAR")["IND_VALUE"].sum().sort_index() if not enr_out.empty else pd.Series(dtype=float)
+
+    return piv, enroll_in_sum, enroll_out_sum

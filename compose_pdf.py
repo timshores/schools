@@ -20,6 +20,7 @@ from school_shared import (
     add_alps_pk12,
     FTE_LINE_COLORS,
     mean_clean, get_latest_year,
+    weighted_epp_aggregation,
 )
 
 # ===== code version =====
@@ -39,8 +40,11 @@ GRN_SHADES = ["#E6F4EA", "#D5EDE0", "#C4E6D7", "#B3DFCD", "#A1D8C4"]  # lower th
 # Optional $-gate; if >0, shading applies only when latest $/pupil >= this
 MATERIAL_MIN_LATEST_DOLLARS = 0.0
 
-def district_png(dist: str) -> Path:
-    return OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}.png"
+def district_png_simple(dist: str) -> Path:
+    return OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}_simple.png"
+
+def district_png_detail(dist: str) -> Path:
+    return OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}_detail.png"
 
 def regional_png(bucket: str) -> Path:
     return OUTPUT_DIR / f"regional_expenditures_per_pupil_Western_Traditional_{bucket}.png"
@@ -58,6 +62,9 @@ style_note       = ParagraphStyle("note",       parent=style_body,         fontS
 style_hdr_left   = ParagraphStyle("hdr_left",   parent=styles["Normal"],   fontSize=9,  leading=12, alignment=0)
 style_hdr_right  = ParagraphStyle("hdr_right",  parent=styles["Normal"],   fontSize=9,  leading=12, alignment=2)
 style_right_small= ParagraphStyle("right_small", parent=styles["Normal"],  fontSize=8,  leading=10, alignment=2)
+style_data_cell  = ParagraphStyle("data_cell",   parent=styles["Normal"],  fontSize=6,  leading=8,  alignment=2)
+style_data_hdr   = ParagraphStyle("data_hdr",    parent=styles["Normal"],  fontSize=7,  leading=9,  alignment=2)
+style_data_label = ParagraphStyle("data_label",  parent=styles["Normal"],  fontSize=6,  leading=8,  alignment=0)
 
 NEG_COLOR        = HexColor("#3F51B5")
 style_num_neg    = ParagraphStyle("num_neg", parent=style_num, textColor=NEG_COLOR)
@@ -197,11 +204,20 @@ def _build_category_table(page: dict) -> Table:
     # Legend rows: left explanations + right swatches spanning the three CAGR columns
     legend_rows = []
     if page.get("page_type") == "district":
-        bucket_suffix = _abbr_bucket_suffix(page.get("baseline_title", ""))
-        red_text = f"&gt; Western CAGR {bucket_suffix}".strip()
-        grn_text = f"&lt; Western CAGR {bucket_suffix}".strip()
+        baseline_title = page.get("baseline_title", "")
+
+        # Determine if comparing to ALPS Peers or Western
+        if "ALPS Peer" in baseline_title:
+            comparison_label = "ALPS Peers"
+            bucket_suffix = ""
+        else:
+            comparison_label = "Western"
+            bucket_suffix = _abbr_bucket_suffix(baseline_title)
+
+        red_text = f"&gt; {comparison_label} CAGR {bucket_suffix}".strip()
+        grn_text = f"&lt; {comparison_label} CAGR {bucket_suffix}".strip()
         shade_rule = (
-            f"Shading vs Western: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}% "
+            f"Shading vs {comparison_label}: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}% "
             f"or |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp"
         )
         cagr_def   = "CAGR = (End/Start)^(1/years) − 1"
@@ -376,6 +392,142 @@ def _build_fte_data(lines: Dict[str, pd.Series], latest_year: int) -> tuple:
 
     return fte_rows, fte_map, latest_fte_year
 
+# ---- Data table builders for appendix ----
+def _build_epp_data_table(epp_pivot: pd.DataFrame, title: str, doc_width: float) -> Table:
+    """Build a data table showing all EPP data (years as columns, categories as rows)."""
+    if epp_pivot.empty:
+        return None
+
+    # Get years and categories in order
+    years = sorted(epp_pivot.index.tolist())
+    categories = canonical_order_bottom_to_top(epp_pivot.columns.tolist())
+    categories = list(reversed(categories))  # Top to bottom for table display
+
+    # Build header row
+    header = [Paragraph("Category", style_data_label)]
+    for yr in years:
+        header.append(Paragraph(str(yr), style_data_hdr))
+
+    data: List[List] = [header]
+
+    # Add category rows
+    for cat in categories:
+        row = [Paragraph(cat, style_data_label)]
+        for yr in years:
+            val = epp_pivot.loc[yr, cat] if (yr in epp_pivot.index and cat in epp_pivot.columns) else np.nan
+            val_str = f"${val:,.0f}" if not np.isnan(val) else "—"
+            row.append(Paragraph(val_str, style_data_cell))
+        data.append(row)
+
+    # Add total row
+    total_series = epp_pivot.sum(axis=1)
+    total_row = [Paragraph("Total", style_data_label)]
+    for yr in years:
+        val = total_series.loc[yr] if yr in total_series.index else np.nan
+        val_str = f"${val:,.0f}" if not np.isnan(val) else "—"
+        total_row.append(Paragraph(val_str, style_data_cell))
+    data.append(total_row)
+    total_row_idx = len(data) - 1
+
+    # Calculate column widths - very narrow category column (allows wrapping), more space for data
+    cat_width = 1.0*inch
+    remaining_width = doc_width - cat_width
+    year_width = remaining_width / len(years)
+    col_widths = [cat_width] + [year_width] * len(years)
+
+    tbl = Table(data, colWidths=col_widths)
+    ts = TableStyle([
+        ("LINEBELOW", (0,0), (-1,0), 0.5, colors.black),
+        ("LINEABOVE", (0, total_row_idx), (-1, total_row_idx), 0.5, colors.black),
+        ("VALIGN",(0,0), (-1,-1), "MIDDLE"),
+        ("ALIGN", (1,1), (-1,-1), "RIGHT"),
+        ("ALIGN", (0,1), (0,-1), "LEFT"),
+        ("LEFTPADDING",  (0,0), (-1,-1), 3),
+        ("RIGHTPADDING", (0,0), (-1,-1), 3),
+        ("TOPPADDING",   (0,0), (-1,-1), 2),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 2),
+    ])
+    tbl.setStyle(ts)
+
+    return tbl
+
+def _build_fte_data_table(lines: Dict[str, pd.Series], title: str, doc_width: float) -> Table:
+    """Build a data table showing all FTE enrollment data."""
+    if not lines:
+        return None
+
+    # Collect all years across all series
+    all_years = set()
+    for s in lines.values():
+        if s is not None and not s.empty:
+            all_years.update(s.index.tolist())
+
+    if not all_years:
+        return None
+
+    years = sorted(list(all_years))
+
+    # Build header row
+    header = [Paragraph("FTE Series", style_data_label)]
+    for yr in years:
+        header.append(Paragraph(str(yr), style_data_hdr))
+
+    data: List[List] = [header]
+
+    # Add FTE rows in standard order
+    for _k, label in ENROLL_KEYS:
+        s = lines.get(label)
+        if s is None or s.empty:
+            continue
+        row = [Paragraph(label, style_data_label)]
+        for yr in years:
+            val = s.loc[yr] if yr in s.index else np.nan
+            val_str = f"{val:,.0f}" if not np.isnan(val) else "—"
+            row.append(Paragraph(val_str, style_data_cell))
+        data.append(row)
+
+    # Add total row
+    total_series = None
+    for _k, label in ENROLL_KEYS:
+        s = lines.get(label)
+        if s is None: continue
+        total_series = s if total_series is None else (total_series.add(s, fill_value=0.0))
+
+    if total_series is not None and not total_series.empty:
+        total_row = [Paragraph("Total FTE", style_data_label)]
+        for yr in years:
+            val = total_series.loc[yr] if yr in total_series.index else np.nan
+            val_str = f"{val:,.0f}" if not np.isnan(val) else "—"
+            total_row.append(Paragraph(val_str, style_data_cell))
+        data.append(total_row)
+        total_row_idx = len(data) - 1
+    else:
+        total_row_idx = None
+
+    # Calculate column widths - very narrow label column (allows wrapping), more space for data
+    label_width = 1.0*inch
+    remaining_width = doc_width - label_width
+    year_width = remaining_width / len(years)
+    col_widths = [label_width] + [year_width] * len(years)
+
+    tbl = Table(data, colWidths=col_widths)
+    ts = TableStyle([
+        ("LINEBELOW", (0,0), (-1,0), 0.5, colors.black),
+        ("VALIGN",(0,0), (-1,-1), "MIDDLE"),
+        ("ALIGN", (1,1), (-1,-1), "RIGHT"),
+        ("ALIGN", (0,1), (0,-1), "LEFT"),
+        ("LEFTPADDING",  (0,0), (-1,-1), 3),
+        ("RIGHTPADDING", (0,0), (-1,-1), 3),
+        ("TOPPADDING",   (0,0), (-1,-1), 2),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 2),
+    ])
+
+    if total_row_idx is not None:
+        ts.add("LINEABOVE", (0, total_row_idx), (-1, total_row_idx), 0.5, colors.black)
+
+    tbl.setStyle(ts)
+    return tbl
+
 # ---- Page dicts ----
 def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
     pages: List[dict] = []
@@ -383,18 +535,50 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
     latest = int(df["YEAR"].max())
     t0 = latest - 5
 
-    # PAGE 1: ALPS + Peers (graph-only)
+    # PAGE 1: All Western MA Districts Overview (graph-only with code mapping table)
+    import json
+    western_mapping_path = OUTPUT_DIR / "western_overview_mapping.json"
+    western_mapping = []
+    if western_mapping_path.exists():
+        with open(western_mapping_path, "r") as f:
+            western_mapping = json.load(f)
+
+    western_explanation = ("All Western MA Traditional Districts: Each bar represents one district's per-pupil expenditures (PPE). "
+                          "Districts are sorted by 2024 PPE (lowest to highest) and labeled with letter codes (see table below).")
+
+    pages.append(dict(
+        title="All Western MA Traditional Districts: PPE Overview 2019 -> 2024",
+        subtitle=f"Bars show {t0} PPE with darker segment to {latest} (purple = decrease).",
+        chart_path=str(OUTPUT_DIR / "ppe_overview_all_western.png"),
+        text_blocks=[western_explanation],
+        district_mapping=western_mapping,  # Will be rendered as table
+        graph_only=True
+    ))
+
+    # PAGE 2: ALPS + Peers (graph-only)
+    peer_explanation = ("ALPS Peers: Weighted aggregate of ALPS PK-12 and 9 comparison districts (shown on x-axis) "
+                       "to benchmark against similar PK-12 systems in Western MA.")
     pages.append(dict(
         title="ALPS PK-12 & Peers: PPE and Enrollment 2019 -> 2024",
-        subtitle=f"Top: Bars show {t0} PPE with darker segment to {latest} (purple = decrease). Bottom: FTE enrollment trends {t0}->{latest}.",
+        subtitle=f"Bars show {t0} PPE with darker segment to {latest} (purple = decrease). Enrollment change shown above bars.",
         chart_path=str(OUTPUT_DIR / "ppe_change_bars_ALPS_and_peers.png"),
+        text_blocks=[peer_explanation],
         graph_only=True
     ))
 
     cmap_all = create_or_load_color_map(df)
 
-    # PAGE 2: ALPS-only (district-style WITH tables)
+    # PAGE 2: ALPS - Simple version (solid color, no tables)
     epp_alps, lines_alps = prepare_district_epp_lines(df, "ALPS PK-12")
+    if not epp_alps.empty or lines_alps:
+        pages.append(dict(
+            title="ALPS PK-12: PPE vs Enrollment",
+            subtitle="Total per-pupil expenditures; black/red lines show in-/out-of-district FTE trend (ALPS uses its own FTE scale).",
+            chart_path=str(district_png_simple("ALPS PK-12")),
+            graph_only=True
+        ))
+
+    # PAGE 3: ALPS - Detailed version with tables
     if not epp_alps.empty or lines_alps:
         latest_year = get_latest_year(df, epp_alps)
         context = context_for_district(df, "ALPS PK-12")
@@ -417,21 +601,61 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
                 }
 
         pages.append(dict(
-            title="ALPS PK-12: Expenditures Per Pupil vs Enrollment",
+            title="ALPS PK-12: PPE vs Enrollment (vs Western MA Districts)",
             subtitle="Stacked per-pupil expenditures by category; black/red lines show in-/out-of-district FTE trend (ALPS uses its own FTE scale).",
-            chart_path=str(district_png("ALPS PK-12")),
+            chart_path=str(district_png_detail("ALPS PK-12")),
             latest_year=latest_year, latest_year_fte=latest_fte_year,
             cat_rows=cat_rows, cat_total=cat_total, fte_rows=fte_rows,
             fte_series_map=fte_map,
-            page_type="district", baseline_title=title_w, baseline_map=base_map
+            page_type="district", baseline_title=title_w, baseline_map=base_map,
+            raw_epp=epp_alps, raw_lines=lines_alps, dist_name="ALPS PK-12"
         ))
 
-    # DISTRICT PAGES
+        # ALPS third page: comparison to ALPS Peer Districts
+        alps_peers = ["ALPS PK-12", "Greenfield", "Easthampton", "South Hadley", "Northampton",
+                      "East Longmeadow", "Longmeadow", "Agawam", "Hadley", "Hampden-Wilbraham"]
+        peers_epp_temp, peers_enr_in_temp, peers_enr_out_temp = weighted_epp_aggregation(df, alps_peers)
+        peer_base_map = {}
+        if not peers_epp_temp.empty:
+            for sc in peers_epp_temp.columns:
+                s = peers_epp_temp[sc]
+                peer_base_map[sc] = {
+                    "5": compute_cagr_last(s, 5),
+                    "10": compute_cagr_last(s, 10),
+                    "15": compute_cagr_last(s, 15),
+                    "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
+                }
+
+        pages.append(dict(
+            title="ALPS PK-12: PPE vs Enrollment (vs ALPS Peers)",
+            subtitle="Comparison to ALPS Peer Districts aggregate",
+            chart_path=str(district_png_detail("ALPS PK-12")),
+            latest_year=latest_year, latest_year_fte=latest_fte_year,
+            cat_rows=cat_rows, cat_total=cat_total, fte_rows=fte_rows,
+            fte_series_map=fte_map,
+            page_type="district",
+            baseline_title="ALPS Peer Districts Aggregate",
+            baseline_map=peer_base_map,
+            raw_epp=epp_alps, raw_lines=lines_alps, dist_name="ALPS PK-12"
+        ))
+
+    # DISTRICT PAGES - Three pages per district (simple + detailed vs Western + detailed vs Peers)
     for dist in ["Amherst-Pelham"] + [d for d in DISTRICTS_OF_INTEREST if d != "Amherst-Pelham"]:
         epp, lines = prepare_district_epp_lines(df, dist)
         if epp.empty and not lines:
             continue
 
+        dist_title = f"Amherst-Pelham Regional" if dist == "Amherst-Pelham" else dist
+
+        # Simple version (solid color, no tables)
+        pages.append(dict(
+            title=f"{dist_title}: PPE vs Enrollment",
+            subtitle="Total per-pupil expenditures; black/red lines show in-/out-of-district FTE trend.",
+            chart_path=str(district_png_simple(dist)),
+            graph_only=True
+        ))
+
+        # Detailed version with tables
         latest_year = get_latest_year(df, epp)
         context = context_for_district(df, dist)
 
@@ -452,23 +676,47 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
                     "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
                 }
 
-        pages.append(dict(title=(f"Amherst-Pelham Regional: Expenditures Per Pupil vs Enrollment" if dist=="Amherst-Pelham"
-                                 else f"{dist}: Expenditures Per Pupil vs Enrollment"),
-                          subtitle="Stacked per-pupil expenditures by category; black/red lines show in-/out-of-district FTE trend.",
-                          chart_path=str(district_png(dist)),
-                          latest_year=latest_year, latest_year_fte=latest_fte_year,
-                          cat_rows=rows, cat_total=total, fte_rows=fte_rows,
-                          fte_series_map=fte_map,
-                          page_type="district", baseline_title=base_title, baseline_map=base_map))
+        pages.append(dict(
+            title=f"{dist_title}: PPE vs Enrollment (vs Western MA Districts)",
+            subtitle="Stacked per-pupil expenditures by category; black/red lines show in-/out-of-district FTE trend.",
+            chart_path=str(district_png_detail(dist)),
+            latest_year=latest_year, latest_year_fte=latest_fte_year,
+            cat_rows=rows, cat_total=total, fte_rows=fte_rows,
+            fte_series_map=fte_map,
+            page_type="district", baseline_title=base_title, baseline_map=base_map,
+            raw_epp=epp, raw_lines=lines, dist_name=dist
+        ))
 
-    # APPENDIX A
-    pages.append(dict(
-        title="Appendix A. All Western MA Traditional Districts",
-        subtitle="(By enrollment size)",
-        chart_path=None,
-        graph_only=True,
-        text_blocks=[]
-    ))
+        # Third page: comparison to ALPS Peer Districts
+        alps_peers = ["ALPS PK-12", "Greenfield", "Easthampton", "South Hadley", "Northampton",
+                      "East Longmeadow", "Longmeadow", "Agawam", "Hadley", "Hampden-Wilbraham"]
+        peers_epp_temp, peers_enr_in_temp, peers_enr_out_temp = weighted_epp_aggregation(df, alps_peers)
+        peer_base_map = {}
+        if not peers_epp_temp.empty:
+            for sc in peers_epp_temp.columns:
+                s = peers_epp_temp[sc]
+                peer_base_map[sc] = {
+                    "5": compute_cagr_last(s, 5),
+                    "10": compute_cagr_last(s, 10),
+                    "15": compute_cagr_last(s, 15),
+                    "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
+                }
+
+        pages.append(dict(
+            title=f"{dist_title}: PPE vs Enrollment (vs ALPS Peers)",
+            subtitle="Comparison to ALPS Peer Districts aggregate",
+            chart_path=str(district_png_detail(dist)),
+            latest_year=latest_year, latest_year_fte=latest_fte_year,
+            cat_rows=rows, cat_total=total, fte_rows=fte_rows,
+            fte_series_map=fte_map,
+            page_type="district",
+            baseline_title="ALPS Peer Districts Aggregate",
+            baseline_map=peer_base_map,
+            raw_epp=epp, raw_lines=lines, dist_name=dist
+        ))
+
+    # APPENDIX A - first page will include intro text
+    first_appendix_a = True
     for bucket in ("le_500", "gt_500"):
         title, epp, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket)
         if epp.empty and not lines_sum:
@@ -480,12 +728,188 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
         rows, total = _build_category_data(epp, latest_year, context, cmap_all)
         fte_rows, fte_map, latest_fte_year = _build_fte_data(lines_mean, latest_year)
 
-        pages.append(dict(title=title,
-                          subtitle="Expenditures Per Pupil vs Enrollment — Not including charters and vocationals",
-                          chart_path=str(regional_png(bucket)),
-                          latest_year=latest_year, latest_year_fte=latest_fte_year,
-                          cat_rows=rows, cat_total=total, fte_rows=fte_rows,
-                          fte_series_map=fte_map, page_type="western"))
+        page_dict = dict(title=title,
+                        subtitle="PPE vs Enrollment — Not including charters and vocationals",
+                        chart_path=str(regional_png(bucket)),
+                        latest_year=latest_year, latest_year_fte=latest_fte_year,
+                        cat_rows=rows, cat_total=total, fte_rows=fte_rows,
+                        fte_series_map=fte_map, page_type="western",
+                        raw_epp=epp, raw_lines=lines_mean, dist_name=title)
+
+        if first_appendix_a:
+            page_dict["appendix_title"] = "Appendix A. Aggregate Districts for Comparison"
+            page_dict["appendix_subtitle"] = "(Western MA Traditional by enrollment size, plus ALPS Peer group)"
+            first_appendix_a = False
+
+        pages.append(page_dict)
+
+    # Add ALPS Peer Districts aggregate to Appendix A
+    alps_peers = ["ALPS PK-12", "Greenfield", "Easthampton", "South Hadley", "Northampton",
+                  "East Longmeadow", "Longmeadow", "Agawam", "Hadley", "Hampden-Wilbraham"]
+    peers_epp, peers_enr_in, peers_enr_out = weighted_epp_aggregation(df, alps_peers)
+    if not peers_epp.empty:
+        latest_year = get_latest_year(df, peers_epp)
+        context = "LARGE"  # Peer group is large enrollment
+
+        rows, total = _build_category_data(peers_epp, latest_year, context, cmap_all)
+
+        # Create FTE data from enrollment sums (both in-district and out-of-district)
+        fte_map = {
+            "In-District FTE Pupils": peers_enr_in,
+            "Out-of-District FTE Pupils": peers_enr_out
+        }
+        fte_rows = []
+        if not peers_enr_in.empty:
+            r5 = compute_cagr_last(peers_enr_in, 5)
+            r10 = compute_cagr_last(peers_enr_in, 10)
+            r15 = compute_cagr_last(peers_enr_in, 15)
+            latest_str = "—" if latest_year not in peers_enr_in.index else f"{float(peers_enr_in.loc[latest_year]):,.0f}"
+            fte_rows.append((FTE_LINE_COLORS["In-District FTE Pupils"], "In-District FTE Pupils", latest_str, fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
+        if not peers_enr_out.empty:
+            r5 = compute_cagr_last(peers_enr_out, 5)
+            r10 = compute_cagr_last(peers_enr_out, 10)
+            r15 = compute_cagr_last(peers_enr_out, 15)
+            latest_str = "—" if latest_year not in peers_enr_out.index else f"{float(peers_enr_out.loc[latest_year]):,.0f}"
+            fte_rows.append((FTE_LINE_COLORS["Out-of-District FTE Pupils"], "Out-of-District FTE Pupils", latest_str, fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
+        latest_fte_year = latest_year
+
+        pages.append(dict(
+            title="ALPS Peer Districts Aggregate",
+            subtitle="Weighted aggregate of ALPS PK-12 and 9 peer districts",
+            chart_path=str(OUTPUT_DIR / "regional_expenditures_per_pupil_ALPS_Peers_Aggregate.png"),
+            latest_year=latest_year, latest_year_fte=latest_fte_year,
+            cat_rows=rows, cat_total=total, fte_rows=fte_rows,
+            fte_series_map=fte_map,
+            page_type="western",
+            raw_epp=peers_epp, raw_lines=fte_map, dist_name="ALPS Peer Districts Aggregate"
+        ))
+
+    # APPENDIX B: Data Tables - first page includes intro
+    data_pages_to_add = []
+    for p in pages:
+        if p.get("raw_epp") is not None and not p["raw_epp"].empty:
+            data_pages_to_add.append(p)
+
+    first_data_table = True
+    for p in data_pages_to_add:
+        dist_name = p.get("dist_name", "Unknown")
+        raw_epp = p.get("raw_epp")
+        raw_lines = p.get("raw_lines", {})
+
+        page_dict = dict(
+            title=f"Data: {dist_name}",
+            subtitle="PPE ($/pupil) and FTE Enrollment",
+            chart_path=None,
+            page_type="data_table",
+            raw_epp=raw_epp,
+            raw_lines=raw_lines,
+            dist_name=dist_name
+        )
+
+        if first_data_table:
+            page_dict["appendix_title"] = "Appendix B. Data Tables"
+            page_dict["appendix_subtitle"] = "All data values used in plots"
+            page_dict["appendix_note"] = ("This appendix contains the underlying data tables for all districts and regions shown in the report. "
+                                        "Each table shows ppe by category (in dollars) and FTE enrollment counts across all available years.")
+            first_data_table = False
+
+        pages.append(page_dict)
+
+    # APPENDIX C: Calculation Methodology
+    from school_shared import ALPS_COMPONENTS
+    alps_list = sorted([d.title() for d in ALPS_COMPONENTS])
+    pk12_districts = ["ALPS PK-12", "Easthampton", "Longmeadow", "Hampden-Wilbraham",
+                      "East Longmeadow", "South Hadley", "Agawam", "Northampton",
+                      "Greenfield", "Hadley"]
+
+    # Get Western MA districts
+    mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
+    western_districts = sorted(reg[mask]["DIST_NAME"].unique())
+    western_le500 = []
+    western_gt500 = []
+
+    for dist in western_districts:
+        dist_enr = df[
+            (df["DIST_NAME"].str.lower() == dist.lower()) &
+            (df["IND_CAT"].str.lower() == "student enrollment") &
+            (df["IND_SUBCAT"].str.lower() == "in-district fte pupils") &
+            (df["YEAR"] == latest)
+        ]["IND_VALUE"]
+        if not dist_enr.empty:
+            enr = float(dist_enr.iloc[0])
+            if enr <= 500:
+                western_le500.append(dist)
+            else:
+                western_gt500.append(dist)
+
+    methodology_text = [
+        "<b>1. Compound Annual Growth Rate (CAGR)</b>",
+        "",
+        "CAGR measures the mean annual growth rate over a specified time period, assuming constant growth.",
+        "",
+        "<b>Formula:</b> CAGR = (End_Value / Start_Value)^(1 / Years) − 1",
+        "",
+        "<b>Example:</b> If expenditures grow from $10,000 to $12,000 over 5 years:",
+        "CAGR = ($12,000 / $10,000)^(1/5) − 1 = 1.2^0.2 − 1 = 0.0371 = 3.71% per year",
+        "",
+        "Note: CAGR requires positive values at both endpoints and is undefined if data is missing.",
+        "",
+        "<b>2. Aggregate District Calculations</b>",
+        "",
+        "<b>ALPS PK-12 Aggregate:</b> Weighted aggregation of member districts using enrollment-weighted per-pupil expenditures.",
+        f"<b>Member districts:</b> {', '.join(alps_list)}",
+        "",
+        "<b>Weighted EPP Formula:</b>",
+        "For each category and year: Weighted_EPP = Σ(District_EPP × District_In-District_FTE) / Σ(District_In-District_FTE)",
+        "",
+        "<b>Example:</b> District A spends $5,000/pupil (500 students), District B spends $6,000/pupil (300 students)",
+        "Weighted average = ($5,000×500 + $6,000×300) / (500+300) = $5,375/pupil",
+        "",
+        "<b>Enrollment Calculation:</b> For each series (In-District FTE, Out-of-District FTE) and year: Sum across all member districts.",
+        "",
+        "<b>PK-12 District Aggregate:</b> Weighted aggregation of selected peer districts (includes ALPS PK-12).",
+        f"<b>Member districts:</b> {', '.join(pk12_districts)}",
+        "<i>Uses same weighted calculation method as ALPS PK-12.</i>",
+        "",
+        f"<b>All Western MA Traditional Districts (≤500 students):</b> Weighted aggregation of {len(western_le500)} districts.",
+        f"<b>Member districts:</b> {', '.join(western_le500) if len(western_le500) <= 15 else ', '.join(western_le500[:15]) + f', and {len(western_le500)-15} others'}",
+        "<i>Uses same weighted calculation method as ALPS PK-12.</i>",
+        "",
+        f"<b>All Western MA Traditional Districts (&gt;500 students):</b> Weighted aggregation of {len(western_gt500)} districts.",
+        f"<b>Member districts:</b> {', '.join(western_gt500)}",
+        "<i>Uses same weighted calculation method as ALPS PK-12.</i>",
+        "",
+        "<b>3. Red/Green Shading Logic (District Comparison Tables)</b>",
+        "",
+        "District pages include tables comparing each district's per-pupil expenditures (PPE) and growth rates (CAGR) to baseline aggregates (Western MA or ALPS Peers).",
+        "",
+        "<b>Two independent tests determine shading:</b>",
+        "",
+        "<b>Test 1 - Dollar Amount (2024 $/pupil column):</b>",
+        f"Compares the district's 2024 PPE to the baseline's 2024 PPE using relative difference: (District − Baseline) / Baseline",
+        f"• <b>Red shading:</b> District spending is ≥{DOLLAR_THRESHOLD_REL*100:.1f}% higher than baseline",
+        f"• <b>Green shading:</b> District spending is ≥{DOLLAR_THRESHOLD_REL*100:.1f}% lower than baseline",
+        f"• <b>No shading:</b> Difference is less than {DOLLAR_THRESHOLD_REL*100:.1f}%",
+        "",
+        "<b>Test 2 - CAGR (5y, 10y, 15y columns):</b>",
+        f"Compares the district's CAGR to the baseline's CAGR using absolute percentage point difference: District_CAGR − Baseline_CAGR",
+        f"• <b>Red shading:</b> District CAGR is ≥{MATERIAL_DELTA_PCTPTS*100:.1f} percentage points higher than baseline",
+        f"• <b>Green shading:</b> District CAGR is ≥{MATERIAL_DELTA_PCTPTS*100:.1f} percentage points lower than baseline",
+        f"• <b>No shading:</b> Difference is less than {MATERIAL_DELTA_PCTPTS*100:.1f} percentage points",
+        "",
+        "<b>Key insight:</b> The tests are independent. A red 2024 $/pupil with unshaded CAGRs typically means:",
+        "• The district started at a higher baseline 15 years ago, AND",
+        "• The district has been growing at roughly the same rate as peers",
+        "• Therefore it remains higher in absolute dollars but isn't growing faster",
+    ]
+
+    pages.append(dict(
+        title="Appendix C. Calculation Methodology",
+        subtitle="Formulas and district memberships",
+        chart_path=None,
+        graph_only=True,
+        text_blocks=methodology_text
+    ))
 
     return pages
 
@@ -496,8 +920,18 @@ def build_pdf(pages: List[dict], out_path: Path):
 
     story: List = []
     for idx, p in enumerate(pages):
+        # Add appendix title if present
+        if p.get("appendix_title"):
+            story.append(Paragraph(p["appendix_title"], style_title_main))
+            if p.get("appendix_subtitle"):
+                story.append(Paragraph(p["appendix_subtitle"], style_title_sub))
+            if p.get("appendix_note"):
+                story.append(Spacer(0, 6))
+                story.append(Paragraph(p["appendix_note"], style_body))
+            story.append(Spacer(0, 12))
+
         story.append(Paragraph(p["title"], style_title_main))
-        default_sub = "Expenditures Per Pupil vs Enrollment"
+        default_sub = "PPE vs Enrollment"
         story.append(Paragraph(p.get("subtitle", (default_sub if not p.get("graph_only") else "")), style_title_sub))
 
         chart_path = p.get("chart_path")
@@ -513,21 +947,104 @@ def build_pdf(pages: List[dict], out_path: Path):
                 im.drawWidth = doc.width; im.drawHeight = doc.width * ratio
                 if p.get("graph_only"):
                     name = img_path.name.lower()
-                    max_chart_h = doc.height * (0.80 if "ppe_change_bars_alps_and_peers" in name else 0.62)
+                    # Western overview gets 70% of page for breathing room, ALPS peers 80%, others 62%
+                    if "ppe_overview_all_western" in name:
+                        max_chart_h = doc.height * 0.70
+                    elif "ppe_change_bars_alps_and_peers" in name:
+                        max_chart_h = doc.height * 0.80
+                    else:
+                        max_chart_h = doc.height * 0.62
                 else:
                     max_chart_h = doc.height * 0.40
                 if im.drawHeight > max_chart_h:
                     im.drawHeight = max_chart_h; im.drawWidth = im.drawHeight / ratio
                 story.append(im)
 
-        for block in p.get("text_blocks", []) or []:
-            story.append(Spacer(0, 6))
-            story.append(Paragraph(block, style_body))
-
+        # Add text blocks (for graph_only pages, add after image)
         if p.get("graph_only"):
+            for block in p.get("text_blocks", []) or []:
+                story.append(Spacer(0, 12))
+                story.append(Paragraph(block, style_body))
+
+            # Add district mapping table if present
+            district_mapping = p.get("district_mapping")
+            if district_mapping:
+                story.append(Spacer(0, 12))
+                story.append(Paragraph("<b>District Code Mapping:</b>", style_body))
+                story.append(Spacer(0, 6))
+
+                # Build table with 9 columns: (Code, District, PPE) repeated 3 times across page
+                # Calculate number of districts per column (round up)
+                import math
+                n_districts = len(district_mapping)
+                districts_per_col = math.ceil(n_districts / 3)
+
+                # Build rows
+                table_data = []
+                for row_idx in range(districts_per_col):
+                    row = []
+                    for col_idx in range(3):
+                        dist_idx = col_idx * districts_per_col + row_idx
+                        if dist_idx < n_districts:
+                            code, dist_name, ppe_val = district_mapping[dist_idx]
+                            ppe_str = f"${ppe_val:,.0f}"
+                            row.extend([
+                                Paragraph(code, style_data_hdr),
+                                Paragraph(dist_name, style_data_label),
+                                Paragraph(ppe_str, style_data_cell)
+                            ])
+                        else:
+                            # Empty cells for incomplete rows
+                            row.extend([
+                                Paragraph("", style_data_label),
+                                Paragraph("", style_data_label),
+                                Paragraph("", style_data_label)
+                            ])
+                    table_data.append(row)
+
+                # Create table with 9 columns (3 cols × 3 repetitions)
+                col_width = doc.width / 3  # Each set of 3 columns gets 1/3 of page
+                col_widths = [0.35*inch, col_width*0.60, col_width*0.40] * 3
+                mapping_table = Table(table_data, colWidths=col_widths)
+                mapping_table.setStyle(TableStyle([
+                    ("VALIGN", (0,0), (-1,-1), "TOP"),
+                    # Align code columns (0, 3, 6) center
+                    ("ALIGN", (0,0), (0,-1), "CENTER"),
+                    ("ALIGN", (3,0), (3,-1), "CENTER"),
+                    ("ALIGN", (6,0), (6,-1), "CENTER"),
+                    # Align PPE columns (2, 5, 8) right
+                    ("ALIGN", (2,0), (2,-1), "RIGHT"),
+                    ("ALIGN", (5,0), (5,-1), "RIGHT"),
+                    ("ALIGN", (8,0), (8,-1), "RIGHT"),
+                    ("LEFTPADDING", (0,0), (-1,-1), 2),
+                    ("RIGHTPADDING", (0,0), (-1,-1), 2),
+                    ("TOPPADDING", (0,0), (-1,-1), 1),
+                    ("BOTTOMPADDING", (0,0), (-1,-1), 1),
+                ]))
+                story.append(mapping_table)
+
             if idx < len(pages)-1: story.append(PageBreak())
             continue
 
+        # Data table pages: show raw data tables
+        if p.get("page_type") == "data_table":
+            story.append(Spacer(0, 10))
+            story.append(Paragraph("PPE by Category ($/pupil)", style_body))
+            story.append(Spacer(0, 6))
+            epp_table = _build_epp_data_table(p.get("raw_epp"), p.get("dist_name", ""), doc.width)
+            if epp_table:
+                story.append(epp_table)
+            story.append(Spacer(0, 12))
+            story.append(Paragraph("FTE Enrollment", style_body))
+            story.append(Spacer(0, 6))
+            fte_table = _build_fte_data_table(p.get("raw_lines", {}), p.get("dist_name", ""), doc.width)
+            if fte_table:
+                story.append(fte_table)
+            if idx < len(pages)-1:
+                story.append(PageBreak())
+            continue
+
+        # Regular district/regional pages: show summary tables
         story.append(Spacer(0, 6))
         story.append(_build_category_table(p))
         story.append(Spacer(0, 6))
@@ -541,7 +1058,7 @@ def build_pdf(pages: List[dict], out_path: Path):
 # ---- Main ----
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    df, reg = load_data()
+    df, reg, profile_c70 = load_data()
     df = add_alps_pk12(df)
     pages = build_page_dicts(df, reg)
     if not pages:

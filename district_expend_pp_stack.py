@@ -27,8 +27,8 @@ CODE_VERSION = "v2025.09.29-REFACTORED"
 
 # ===== Plot styling constants =====
 # Comparative bars plot
-SPACING_FACTOR = 1.35
-BAR_WIDTH = 0.58
+SPACING_FACTOR = 0.95  # Reduced from 1.35 for tighter spacing
+BAR_WIDTH = 0.75       # Increased from 0.58 for wider bars
 DOT_OFFSET_FACTOR = 0.45  # multiplied by BAR_WIDTH
 YEAR_LAG_DEFAULT = 5
 
@@ -76,13 +76,64 @@ def _western_all_total_series(df: pd.DataFrame, reg: pd.DataFrame) -> tuple[pd.S
     """Get total PPE and enrollment for all Western MA traditional districts."""
     mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
     members = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
-    piv, enroll_sum = weighted_epp_aggregation(df, list(members))
-    return _total_ppe_series_from_pivot(piv), enroll_sum
+    piv, enroll_in, enroll_out = weighted_epp_aggregation(df, list(members))
+    return _total_ppe_series_from_pivot(piv), enroll_in
 
 def _weighted_total_series_for_list(df: pd.DataFrame, districts: List[str]) -> tuple[pd.Series, pd.Series]:
     """Get total PPE and enrollment for a specific list of districts."""
-    piv, enroll_sum = weighted_epp_aggregation(df, districts)
-    return _total_ppe_series_from_pivot(piv), enroll_sum
+    piv, enroll_in, enroll_out = weighted_epp_aggregation(df, districts)
+    return _total_ppe_series_from_pivot(piv), enroll_in
+
+# ---------- Simplified district plot (solid color, no categories) ----------
+def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series],
+                   context: str, right_ylim: float, left_ylim: float | None,
+                   line_colors: Dict[str, str]):
+    """Plot district with solid color for total PPE, no category breakdown."""
+
+    # Calculate total PPE series
+    total_ppe = _total_ppe_series_from_pivot(epp_pivot) if (epp_pivot is not None and not epp_pivot.empty) else pd.Series(dtype=float)
+    years = (total_ppe.index.tolist() if not total_ppe.empty
+             else sorted(set().union(*(set(s.index) for s in lines.values() if s is not None))))
+
+    fig, axL = plt.subplots(figsize=(11.8, 7.4))
+    axR = axL.twinx()
+
+    axL.set_zorder(3); axR.set_zorder(2)
+    axL.patch.set_alpha(0.0)
+
+    # Plot solid bar for total PPE (fainter blue to not compete with lines)
+    if not total_ppe.empty:
+        vals = total_ppe.reindex(years).fillna(0.0).values
+        axR.bar(years, vals, color="#BFDBFE", width=0.8,
+                edgecolor="white", linewidth=0.5, zorder=1)
+
+    # Plot enrollment lines
+    for _key, label in ENROLL_KEYS:
+        s = lines.get(label)
+        if s is None or s.empty: continue
+        y = s.reindex(years).values
+        lc = line_colors[label]
+        axL.plot(years, y, color=lc, lw=3.4, marker="o", ms=8.0,
+                 markerfacecolor="white", markeredgecolor=lc, markeredgewidth=2.0,
+                 zorder=6, clip_on=False)
+
+    axL.set_xlabel("School Year")
+    axL.set_ylabel("Pupils (FTE)")
+    axR.set_ylabel("$ per pupil")
+    axL.yaxis.set_major_formatter(comma_formatter())
+    axR.yaxis.set_major_formatter(comma_formatter())
+
+    if right_ylim is not None: axR.set_ylim(0, right_ylim)
+    if left_ylim is not None:  axL.set_ylim(0, left_ylim)
+
+    axL.grid(False); axR.grid(False)
+    axL.margins(x=0.02); axR.margins(x=0.02)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    _stamp(fig)
+    fig.savefig(out_path, dpi=320, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[OK] Saved {out_path}")
 
 # ---------- Main district page plot ----------
 def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series],
@@ -137,6 +188,105 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
     print(f"[OK] Saved {out_path}")
 
 # ===== PPE comparative bars (5-year change) with enrollment mini-areas =====
+def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame, year_lag: int = YEAR_LAG_DEFAULT):
+    """Plot all Western MA districts with letter codes, no enrollment boxes."""
+    latest = int(df["YEAR"].max())
+    t0 = latest - year_lag
+
+    # Get all Western MA traditional districts
+    mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
+    western_districts = sorted(reg[mask]["DIST_NAME"].unique())
+
+    # Collect district data
+    dist_labels, dist_p0, dist_p1, dist_codes = [], [], [], []
+    letter_code = 'A'
+
+    for dist in western_districts:
+        piv, lines = prepare_district_epp_lines(df, dist)
+        if piv.empty:
+            continue
+        total = _total_ppe_series_from_pivot(piv)
+        p0 = total.get(t0, np.nan)
+        p1 = total.get(latest, np.nan)
+        if np.isnan(p0) or np.isnan(p1):
+            continue
+
+        dist_labels.append(dist)
+        dist_p0.append(float(p0))
+        dist_p1.append(float(p1))
+        dist_codes.append(letter_code)
+
+        # Increment letter code (A, B, ... Z, AA, AB, ...)
+        if letter_code[-1] == 'Z':
+            if len(letter_code) == 1:
+                letter_code = 'AA'
+            else:
+                letter_code = chr(ord(letter_code[0]) + 1) + 'A'
+        else:
+            letter_code = letter_code[:-1] + chr(ord(letter_code[-1]) + 1)
+
+    if not dist_labels:
+        print("[WARN] Western overview plot: no data"); return
+
+    # Sort by p1 (latest value)
+    dist_p0 = np.array(dist_p0)
+    dist_p1 = np.array(dist_p1)
+    order = np.argsort(dist_p1)
+    dist_labels = [dist_labels[i] for i in order]
+    dist_codes = [dist_codes[i] for i in order]
+    dist_p0 = dist_p0[order]
+    dist_p1 = dist_p1[order]
+    delta_all = dist_p1 - dist_p0
+
+    n = len(dist_labels)
+    x_pos = np.arange(n) * SPACING_FACTOR
+
+    fig_width = max(13.0, 1.05 * (n * SPACING_FACTOR) + 5)
+    fig, ax_main = plt.subplots(1, 1, figsize=(fig_width, 10.0))
+    ax_main.tick_params(labelsize=18)  # Increased from 13 to 18
+    ax_main.yaxis.label.set_size(24)  # Increased from 22 to 24
+
+    if PPE_PEERS_REMOVE_SPINES:
+        for s in ("top","right","left","bottom"):
+            ax_main.spines[s].set_visible(False)
+
+    edge = "white" if PPE_PEERS_BAR_EDGES else None
+
+    # Plot bars
+    pos = np.clip(delta_all, 0, None)
+    neg = np.clip(delta_all, None, 0)
+    ax_main.bar(x_pos, dist_p0, width=BAR_WIDTH, color=BLUE_BASE, edgecolor=edge, linewidth=0.0, zorder=1)
+    if np.any(pos > 0):
+        ax_main.bar(x_pos, pos, bottom=dist_p0, width=BAR_WIDTH, color=BLUE_DELTA, edgecolor=edge, linewidth=0.0, zorder=1)
+    if np.any(neg < 0):
+        ax_main.bar(x_pos, neg, bottom=dist_p0, width=BAR_WIDTH, color=PURP_DECL, edgecolor=edge, linewidth=0.0, zorder=1)
+
+    ax_main.set_ylim(0, PPE_PEERS_YMAX)
+    ax_main.grid(axis="y", alpha=0.12)
+    ax_main.set_axisbelow(True)
+    ax_main.set_ylabel("$ per pupil")
+    ax_main.yaxis.set_major_formatter(comma_formatter())
+    ax_main.set_xticks(x_pos, dist_codes, rotation=0, ha="center")
+
+    # Legend above plot with larger font
+    handles = [
+        Patch(facecolor=BLUE_BASE,  edgecolor=edge, label=f"{t0} PPE"),
+        Patch(facecolor=BLUE_DELTA, edgecolor=edge, label=f"{latest} increase from {t0}"),
+        Patch(facecolor=PURP_DECL,  edgecolor=edge, label=f"{latest} decrease from {t0}"),
+    ]
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 1.00),
+               ncol=len(handles), frameon=False, fontsize=20)  # Increased from 18 to 20
+    plt.subplots_adjust(top=0.94, bottom=0.10)
+
+    _stamp(fig)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=320, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[OK] Saved {out_path}")
+
+    # Return mapping for PDF table with 2024 PPE values
+    return list(zip(dist_codes, dist_labels, dist_p1))
+
 def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
                          districts: list[str], year_lag: int = YEAR_LAG_DEFAULT,
                          title: str | None = None):
@@ -202,8 +352,7 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
     delta_all = p1_all - p0_all
 
     fig_width = max(13.0, 1.05 * (len(labels) * SPACING_FACTOR) + 5)
-    fig, (ax_main, ax_enroll) = plt.subplots(2, 1, figsize=(fig_width, 14.0),
-                                              gridspec_kw={'height_ratios': [4, 1], 'hspace': 0.25})
+    fig, ax_main = plt.subplots(1, 1, figsize=(fig_width, 10.0))
     ax_main.tick_params(labelsize=17)
     ax_main.yaxis.label.set_size(22)
 
@@ -237,52 +386,49 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
     ax_main.yaxis.set_major_formatter(comma_formatter())
     ax_main.set_xticks(x_all, labels, rotation=30, ha="right")
 
-    # Enrollment subplot - clean line plots below main chart
-    ax_enroll.set_ylabel("FTE Enrollment", fontsize=16)
-    ax_enroll.yaxis.set_major_formatter(comma_formatter())
-    ax_enroll.grid(axis="y", alpha=0.12)
-    ax_enroll.set_axisbelow(True)
-    ax_enroll.tick_params(labelsize=14)
-
+    # Add enrollment change annotations on bars
     for i_global, s in enumerate(series_list):
         if s is None or len(s) < 2:
             continue
         ys = s.dropna().values.astype(float)
         x_pos = x_all[i_global]
 
-        # Determine colors
-        is_aggregate = i_global >= n_peers
-        line_color = AGG_AREA_EDGE if is_aggregate else MICRO_AREA_EDGE
-        marker_color = AGG_AREA_EDGE if is_aggregate else MICRO_AREA_EDGE
+        # Calculate enrollment change
+        enr_start = ys[0]
+        enr_end = ys[-1]
+        enr_change = enr_end - enr_start
+        enr_pct = (enr_change / enr_start * 100) if enr_start != 0 else 0
 
-        # Plot enrollment change as line with markers
-        years_offset = np.arange(len(ys))
-        xs = x_pos + (years_offset - len(ys)/2 + 0.5) * (BAR_WIDTH * 0.15)
+        # Determine annotation position (above the bar)
+        bar_top = p1_all[i_global]
+        y_pos = bar_top + PPE_PEERS_YMAX * 0.02
 
-        ax_enroll.plot(xs, ys, color=line_color, lw=2.5, zorder=3)
-        ax_enroll.scatter(xs, ys, s=50, color=marker_color, edgecolor='white', linewidth=1.5, zorder=4)
+        # Format annotation text (no parentheses around percentage)
+        sign = "+" if enr_change >= 0 else ""
+        enr_text = f"{sign}{int(enr_change):,}\n{sign}{enr_pct:.1f}%"
 
-        # Label endpoints
-        ax_enroll.text(xs[0], ys[0], f"{int(round(ys[0])):,}",
-                      ha="center", va="bottom", fontsize=11, color=line_color, fontweight='bold')
-        ax_enroll.text(xs[-1], ys[-1], f"{int(round(ys[-1])):,}",
-                      ha="center", va="top", fontsize=11, color=line_color, fontweight='bold')
+        # Color based on change direction (crimson for decreases)
+        text_color = "#2563EB" if enr_change >= 0 else "#B91C1C"
 
-    ax_enroll.set_xlim(ax_main.get_xlim())
-    ax_enroll.set_xticks([])  # No x-axis labels needed (same as main plot)
+        # Add annotation with larger font
+        ax_main.text(x_pos, y_pos, enr_text, ha="center", va="bottom",
+                    fontsize=14, color=text_color, fontweight='bold',
+                    bbox=dict(boxstyle='round,pad=0.5', facecolor='white',
+                             edgecolor=text_color, linewidth=1.5, alpha=0.9))
 
-    # Legend at bottom (outside)
+    # Add enrollment explainer text high above plot to avoid overlap
+    fig.text(0.5, 0.995, f"Enrollment change {t0}→{latest} shown above bars (FTE count and %)",
+             ha="center", va="top", fontsize=16, style='italic', color='#B91C1C')
+
+    # Legend below enrollment text, moved up high to avoid bars
     handles = [
         Patch(facecolor=BLUE_BASE,  edgecolor=edge, label=f"{t0} PPE"),
         Patch(facecolor=BLUE_DELTA, edgecolor=edge, label=f"{latest} increase from {t0}"),
         Patch(facecolor=PURP_DECL,  edgecolor=edge, label=f"{latest} decrease from {t0}"),
-        Line2D([0],[0], color=MICRO_AREA_EDGE, lw=2.4, marker="o", markersize=6,
-               markerfacecolor="white", markeredgecolor=MICRO_AREA_EDGE,
-               label=f"Enrollment (FTE) {t0}→{latest}"),
     ]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, -0.02),
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.98),
                ncol=len(handles), frameon=False, fontsize=18)
-    plt.subplots_adjust(bottom=0.12)
+    plt.subplots_adjust(top=0.92, bottom=0.08)
 
     _stamp(fig)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -294,7 +440,7 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
 if __name__ == "__main__":
     _boost_plot_fonts()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    df, reg = load_data()
+    df, reg, profile_c70 = load_data()
     df = add_alps_pk12(df)
     cmap_all = create_or_load_color_map(df)
 
@@ -325,20 +471,58 @@ if __name__ == "__main__":
         out = OUTPUT_DIR / f"regional_expenditures_per_pupil_Western_Traditional_{bucket}.png"
         plot_one(out, piv, lines_sum, context, right_ylim, None, FTE_LINE_COLORS, cmap_all)
 
-    # District plots
+    # Western MA overview plot (all districts with letter codes)
+    western_overview_mapping = plot_all_western_overview(OUTPUT_DIR / "ppe_overview_all_western.png", df, reg, year_lag=5)
+    # Save mapping to JSON for PDF generation
+    import json
+    if western_overview_mapping:
+        with open(OUTPUT_DIR / "western_overview_mapping.json", "w") as f:
+            json.dump(western_overview_mapping, f, indent=2)
+
+    # ALPS Peer Districts Aggregate plot
+    alps_peers = ["ALPS PK-12", "Greenfield", "Easthampton", "South Hadley", "Northampton",
+                  "East Longmeadow", "Longmeadow", "Agawam", "Hadley", "Hampden-Wilbraham"]
+    peers_epp, peers_enr_in, peers_enr_out = weighted_epp_aggregation(df, alps_peers)
+    if not peers_epp.empty:
+        peers_lines = {
+            "In-District FTE Pupils": peers_enr_in,
+            "Out-of-District FTE Pupils": peers_enr_out
+        }
+        out = OUTPUT_DIR / "regional_expenditures_per_pupil_ALPS_Peers_Aggregate.png"
+        # Compute left_ylim for peers enrollment to ensure y-axis starts at 0
+        left_ylim_peers = compute_districts_fte_ylim([peers_lines], pad=1.06, step=50)
+        plot_one(out, peers_epp, peers_lines, "LARGE", right_ylim, left_ylim_peers, FTE_LINE_COLORS, cmap_all)
+
+    # District plots - generate BOTH simple and detailed versions
     ordered = ["Amherst-Pelham"] + [d for d in DISTRICTS_OF_INTEREST if d != "Amherst-Pelham"]
     for dist in ordered:
         piv, lines = district_prepared[dist]
         context = context_for_district(df, dist)
-        out = OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}.png"
-        plot_one(out, piv, lines, context, right_ylim, left_ylim_districts, FTE_LINE_COLORS, cmap_all)
 
-    # ALPS-only (own FTE scale)
+        # Special y-axis scale for small districts (Leverett, Pelham, Shutesbury)
+        if dist in ["Leverett", "Pelham", "Shutesbury"]:
+            left_ylim_dist = 250
+        else:
+            left_ylim_dist = left_ylim_districts
+
+        # Simple version (solid color, no categories)
+        out_simple = OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}_simple.png"
+        plot_one_simple(out_simple, piv, lines, context, right_ylim, left_ylim_dist, FTE_LINE_COLORS)
+
+        # Detailed version (with category breakdown)
+        out_detail = OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}_detail.png"
+        plot_one(out_detail, piv, lines, context, right_ylim, left_ylim_dist, FTE_LINE_COLORS, cmap_all)
+
+    # ALPS-only (own FTE scale) - generate BOTH versions
     piv_alps, lines_alps = prepare_district_epp_lines(df, "ALPS PK-12")
     ctx_alps = context_for_district(df, "ALPS PK-12")
-    out_alps = OUTPUT_DIR / "expenditures_per_pupil_vs_enrollment_ALPS_PK-12.png"
     left_ylim_alps = compute_districts_fte_ylim([lines_alps], pad=1.08, step=50)
-    plot_one(out_alps, piv_alps, lines_alps, ctx_alps, right_ylim, left_ylim_alps, FTE_LINE_COLORS, cmap_all)
+
+    out_alps_simple = OUTPUT_DIR / "expenditures_per_pupil_vs_enrollment_ALPS_PK-12_simple.png"
+    plot_one_simple(out_alps_simple, piv_alps, lines_alps, ctx_alps, right_ylim, left_ylim_alps, FTE_LINE_COLORS)
+
+    out_alps_detail = OUTPUT_DIR / "expenditures_per_pupil_vs_enrollment_ALPS_PK-12_detail.png"
+    plot_one(out_alps_detail, piv_alps, lines_alps, ctx_alps, right_ylim, left_ylim_alps, FTE_LINE_COLORS, cmap_all)
 
     # Comparative bars
     peers = [

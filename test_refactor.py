@@ -58,7 +58,7 @@ def test_total_vs_mean_cagr():
 def test_real_data_sample():
     """Test with actual data to ensure no regression."""
     print("\nTesting with real data...")
-    df, reg = load_data()
+    df, reg, profile_c70 = load_data()
     df = add_alps_pk12(df)
 
     # Test ALPS PK-12
