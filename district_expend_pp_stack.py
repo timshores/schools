@@ -242,9 +242,9 @@ def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFram
     x_pos = np.arange(n) * SPACING_FACTOR
 
     fig_width = max(13.0, 1.05 * (n * SPACING_FACTOR) + 5)
-    fig, ax_main = plt.subplots(1, 1, figsize=(fig_width, 10.0))
-    ax_main.tick_params(labelsize=18)  # Increased from 13 to 18
-    ax_main.yaxis.label.set_size(24)  # Increased from 22 to 24
+    fig, ax_main = plt.subplots(1, 1, figsize=(fig_width, 13.0))  # Increased from 10.0 to 13.0 for more breathing room
+    ax_main.tick_params(labelsize=22)  # Increased from 18 to 22 for better readability
+    ax_main.yaxis.label.set_size(26)  # Increased from 24 to 26
 
     if PPE_PEERS_REMOVE_SPINES:
         for s in ("top","right","left","bottom"):
@@ -268,15 +268,15 @@ def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFram
     ax_main.yaxis.set_major_formatter(comma_formatter())
     ax_main.set_xticks(x_pos, dist_codes, rotation=0, ha="center")
 
-    # Legend above plot with larger font
+    # Legend above plot - 3 items in single row
     handles = [
         Patch(facecolor=BLUE_BASE,  edgecolor=edge, label=f"{t0} PPE"),
         Patch(facecolor=BLUE_DELTA, edgecolor=edge, label=f"{latest} increase from {t0}"),
         Patch(facecolor=PURP_DECL,  edgecolor=edge, label=f"{latest} decrease from {t0}"),
     ]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 1.00),
-               ncol=len(handles), frameon=False, fontsize=20)  # Increased from 18 to 20
-    plt.subplots_adjust(top=0.94, bottom=0.10)
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.97),
+               ncol=3, frameon=False, fontsize=22)  # ncol=3 explicit, increased font to 22, lowered position to 0.97
+    plt.subplots_adjust(top=0.90, bottom=0.08)  # Increased top from 0.94 to 0.90 to give plot more room
 
     _stamp(fig)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -399,9 +399,9 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
         enr_change = enr_end - enr_start
         enr_pct = (enr_change / enr_start * 100) if enr_start != 0 else 0
 
-        # Determine annotation position (above the bar)
+        # Determine annotation position (above the bar) - increased spacing from 2% to 3%
         bar_top = p1_all[i_global]
-        y_pos = bar_top + PPE_PEERS_YMAX * 0.02
+        y_pos = bar_top + PPE_PEERS_YMAX * 0.03
 
         # Format annotation text (no parentheses around percentage)
         sign = "+" if enr_change >= 0 else ""
@@ -416,19 +416,19 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
                     bbox=dict(boxstyle='round,pad=0.5', facecolor='white',
                              edgecolor=text_color, linewidth=1.5, alpha=0.9))
 
-    # Add enrollment explainer text high above plot to avoid overlap
-    fig.text(0.5, 0.995, f"Enrollment change {t0}→{latest} shown above bars (FTE count and %)",
+    # Add enrollment explainer text - positioned lower to avoid crowding
+    fig.text(0.5, 0.985, f"Enrollment change {t0}→{latest} shown above bars (FTE count and %)",
              ha="center", va="top", fontsize=16, style='italic', color='#B91C1C')
 
-    # Legend below enrollment text, moved up high to avoid bars
+    # Legend below enrollment text - positioned lower and with more space
     handles = [
         Patch(facecolor=BLUE_BASE,  edgecolor=edge, label=f"{t0} PPE"),
         Patch(facecolor=BLUE_DELTA, edgecolor=edge, label=f"{latest} increase from {t0}"),
         Patch(facecolor=PURP_DECL,  edgecolor=edge, label=f"{latest} decrease from {t0}"),
     ]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.98),
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.96),
                ncol=len(handles), frameon=False, fontsize=18)
-    plt.subplots_adjust(top=0.92, bottom=0.08)
+    plt.subplots_adjust(top=0.88, bottom=0.08)  # Reduced top from 0.92 to 0.88 to create more space above plot for legend
 
     _stamp(fig)
     out_path.parent.mkdir(parents=True, exist_ok=True)

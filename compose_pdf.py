@@ -842,7 +842,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
             else:
                 western_gt500.append(dist)
 
-    methodology_text = [
+    # Split methodology into two pages to avoid footer overlap
+    methodology_page1 = [
         "<b>1. Compound Annual Growth Rate (CAGR)</b>",
         "",
         "CAGR measures the mean annual growth rate over a specified time period, assuming constant growth.",
@@ -878,7 +879,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
         f"<b>All Western MA Traditional Districts (&gt;500 students):</b> Weighted aggregation of {len(western_gt500)} districts.",
         f"<b>Member districts:</b> {', '.join(western_gt500)}",
         "<i>Uses same weighted calculation method as ALPS PK-12.</i>",
-        "",
+    ]
+
+    methodology_page2 = [
         "<b>3. Red/Green Shading Logic (District Comparison Tables)</b>",
         "",
         "District pages include tables comparing each district's per-pupil expenditures (PPE) and growth rates (CAGR) to baseline aggregates (Western MA or ALPS Peers).",
@@ -903,12 +906,22 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
         "• Therefore it remains higher in absolute dollars but isn't growing faster",
     ]
 
+    # Add first methodology page
     pages.append(dict(
         title="Appendix C. Calculation Methodology",
         subtitle="Formulas and district memberships",
         chart_path=None,
         graph_only=True,
-        text_blocks=methodology_text
+        text_blocks=methodology_page1
+    ))
+
+    # Add second methodology page (continuation)
+    pages.append(dict(
+        title="Appendix C. Calculation Methodology (continued)",
+        subtitle="",
+        chart_path=None,
+        graph_only=True,
+        text_blocks=methodology_page2
     ))
 
     return pages

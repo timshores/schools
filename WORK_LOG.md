@@ -128,3 +128,28 @@
 - **epp_pivot**: pd.DataFrame with years as index, spending categories as columns, $/pupil as values
 - **lines**: Dict[str, pd.Series] with enrollment series (In-District FTE, Out-of-District FTE)
 - Each page dict already contains cat_rows, cat_total, fte_rows with aggregated data
+
+### Changes Made (Session 5 - Layout and Spacing Improvements)
+**Issue 1: Fixed Appendix C pagination**
+- Split methodology content into two separate pages to avoid footer overlap
+- Page 1: CAGR definition and Aggregate District Calculations (37 lines)
+- Page 2: Red/Green Shading Logic (23 lines)
+- Each page stays well above the 5-line buffer before footer boundary
+
+**Issue 2: Improved Page 1 (Western overview) layout**
+- Increased figure height from 10.0 to 13.0 inches for more breathing room
+- Increased x-axis tick label font from 18 to 22
+- Increased y-axis label font from 24 to 26
+- Increased legend font from 20 to 22
+- Set legend ncol=3 explicitly for single-row layout
+- Adjusted subplot margins: top from 0.94 to 0.90, giving plot more vertical space
+- Legend repositioned from bbox_to_anchor=(0.5, 1.00) to (0.5, 0.97)
+- Plot is now much taller and less cramped
+
+**Issue 3: Fixed Page 2 (ALPS & Peers) legend/annotation overlap**
+- Increased annotation spacing from 2% to 3% of y-axis max (PPE_PEERS_YMAX = 35000)
+- Moved enrollment explainer text from y=0.995 to y=0.985
+- Moved legend from bbox_to_anchor=(0.5, 0.98) to (0.5, 0.96)
+- Adjusted subplot top margin from 0.92 to 0.88
+- Creates more vertical space between bars/annotations and legend/text
+- Prevents overlap of enrollment rectangles with legend
