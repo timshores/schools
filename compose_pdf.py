@@ -19,10 +19,11 @@ from school_shared import (
     canonical_order_bottom_to_top,
     add_alps_pk12,
     FTE_LINE_COLORS,
+    mean_clean, get_latest_year,
 )
 
 # ===== code version =====
-CODE_VERSION = "v2025.09.21-ALPS-18"
+CODE_VERSION = "v2025.09.29-REFACTORED"
 
 # ---- Shading controls ----
 # CAGR shading threshold is in absolute percentage points (e.g., 0.02 = 2.0pp)
@@ -73,7 +74,7 @@ def draw_footer(canvas, doc):
     canvas.drawString(doc.leftMargin, y2, SOURCE_LINE2)
     x_right = doc.pagesize[0] - doc.rightMargin
     canvas.drawRightString(x_right, y1, f"Page {canvas.getPageNumber()}")
-    canvas.drawRightString(x_right, y2, f"Code: {CODE_VERSION}")
+    # Removed code version from footer to avoid overflow with source text
     canvas.restoreState()
 
 # ---- Flowables ----
@@ -95,19 +96,45 @@ def fmt_pct(v: float) -> str:
     return f"{v * 100:+.1f}%"
 
 def parse_pct_str_to_float(s: str) -> float:
-    try: return float((s or "").replace("%","").replace("+","").strip())/100.0
-    except Exception: return float("nan")
+    """Parse percentage string to float (e.g., '+5.0%' -> 0.05)."""
+    try:
+        return float((s or "").replace("%", "").replace("+", "").strip()) / 100.0
+    except Exception:
+        return float("nan")
 
 def compute_cagr_last(series: pd.Series, years: int) -> float:
-    """CAGR from (last - years) → last; NaN if endpoints missing or invalid."""
-    if series is None or len(series) == 0: return float("nan")
+    """
+    CAGR from (last - years) → last; NaN if endpoints missing or invalid.
+
+    Args:
+        series: Time series indexed by year
+        years: Number of years to look back
+
+    Returns:
+        CAGR as a float (e.g., 0.05 = 5%), or NaN if calculation not possible
+    """
+    if series is None or len(series) == 0:
+        return float("nan")
+    if years <= 0:
+        return float("nan")
+
     s = series.dropna().sort_index()
-    if s.empty: return float("nan")
+    if s.empty:
+        return float("nan")
+
     end_year = int(s.index.max())
     start_year = end_year - years
-    if start_year not in s.index or end_year not in s.index: return float("nan")
-    v0 = float(s.loc[start_year]); v1 = float(s.loc[end_year])
-    if v0 <= 0 or v1 <= 0: return float("nan")
+
+    if start_year not in s.index or end_year not in s.index:
+        return float("nan")
+
+    v0 = float(s.loc[start_year])
+    v1 = float(s.loc[end_year])
+
+    # Handle zero or negative values
+    if v0 <= 0 or v1 <= 0:
+        return float("nan")
+
     return (v1 / v0) ** (1.0 / years) - 1.0
 
 def _abbr_bucket_suffix(full: str) -> str:
@@ -302,6 +329,53 @@ def _build_fte_table(page: dict) -> Table:
     tbl.setStyle(ts)
     return tbl
 
+# ---- Helper for building page data ----
+def _build_category_data(epp_pivot: pd.DataFrame, latest_year: int, context: str, cmap_all: dict) -> tuple:
+    """Build category rows and total for a given EPP pivot table."""
+    if epp_pivot.empty:
+        return [], ("Total", "$0", "—", "—", "—")
+
+    bottom_top = canonical_order_bottom_to_top(epp_pivot.columns.tolist())
+    top_bottom = list(reversed(bottom_top))
+
+    cat_rows = []
+    for sc in top_bottom:
+        latest_val = float(epp_pivot.loc[latest_year, sc]) if (latest_year in epp_pivot.index and sc in epp_pivot.columns) else 0.0
+        c5 = compute_cagr_last(epp_pivot[sc], 5)
+        c10 = compute_cagr_last(epp_pivot[sc], 10)
+        c15 = compute_cagr_last(epp_pivot[sc], 15)
+        cat_rows.append((sc, f"${latest_val:,.0f}", fmt_pct(c5), fmt_pct(c10), fmt_pct(c15),
+                        color_for(cmap_all, context, sc), latest_val))
+
+    # Compute CAGR on total series (sum of all categories), not mean of individual CAGRs
+    total_series = epp_pivot.sum(axis=1)
+    cat_total = ("Total", f"${float(total_series.loc[latest_year]) if latest_year in total_series.index else 0.0:,.0f}",
+                 fmt_pct(compute_cagr_last(total_series, 5)),
+                 fmt_pct(compute_cagr_last(total_series, 10)),
+                 fmt_pct(compute_cagr_last(total_series, 15)))
+
+    return cat_rows, cat_total
+
+def _build_fte_data(lines: Dict[str, pd.Series], latest_year: int) -> tuple:
+    """Build FTE rows and determine latest FTE year."""
+    fte_years = [int(s.index.max()) for s in lines.values() if s is not None and not s.empty]
+    latest_fte_year = max(fte_years) if fte_years else latest_year
+    fte_rows = []
+    fte_map = {}
+
+    for _k, label in ENROLL_KEYS:
+        s = lines.get(label)
+        if s is None or s.empty:
+            continue
+        fte_map[label] = s
+        r5 = compute_cagr_last(s, 5)
+        r10 = compute_cagr_last(s, 10)
+        r15 = compute_cagr_last(s, 15)
+        latest_str = "—" if latest_fte_year not in s.index else f"{float(s.loc[latest_fte_year]):,.0f}"
+        fte_rows.append((FTE_LINE_COLORS[label], label, latest_str, fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
+
+    return fte_rows, fte_map, latest_fte_year
+
 # ---- Page dicts ----
 def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
     pages: List[dict] = []
@@ -312,7 +386,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
     # PAGE 1: ALPS + Peers (graph-only)
     pages.append(dict(
         title="ALPS PK-12 & Peers: PPE and Enrollment 2019 -> 2024",
-        subtitle=f"Bars show {t0} PPE with darker segment to {latest} (purple = decrease). Pale-orange mini-areas above each bar trace FTE enrollment over {t0}->{latest}.",
+        subtitle=f"Top: Bars show {t0} PPE with darker segment to {latest} (purple = decrease). Bottom: FTE enrollment trends {t0}->{latest}.",
         chart_path=str(OUTPUT_DIR / "ppe_change_bars_ALPS_and_peers.png"),
         graph_only=True
     ))
@@ -322,37 +396,11 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
     # PAGE 2: ALPS-only (district-style WITH tables)
     epp_alps, lines_alps = prepare_district_epp_lines(df, "ALPS PK-12")
     if not epp_alps.empty or lines_alps:
-        bottom_top = canonical_order_bottom_to_top(epp_alps.columns.tolist()) if not epp_alps.empty else []
-        top_bottom  = list(reversed(bottom_top))
-        latest_year = int(epp_alps.index.max()) if not epp_alps.empty else latest
-        context     = context_for_district(df, "ALPS PK-12")
+        latest_year = get_latest_year(df, epp_alps)
+        context = context_for_district(df, "ALPS PK-12")
 
-        cat_rows = []
-        for sc in top_bottom:
-            latest_val = float(epp_alps.loc[latest_year, sc]) if (latest_year and sc in epp_alps.columns) else 0.0
-            c5 = compute_cagr_last(epp_alps[sc],5); c10=compute_cagr_last(epp_alps[sc],10); c15=compute_cagr_last(epp_alps[sc],15)
-            cat_rows.append((sc, f"${latest_val:,.0f}", fmt_pct(c5), fmt_pct(c10), fmt_pct(c15),
-                             color_for(cmap_all, context, sc), latest_val))
-
-        latest_vals = [epp_alps.loc[latest_year, sc] if sc in epp_alps.columns else 0.0 for sc in epp_alps.columns]
-        def mean_clean(arr): arr=[a for a in arr if a==a]; return float(np.mean(arr)) if arr else float("nan")
-        cat_total = ("Total", f"${float(np.nansum(latest_vals)):,.0f}",
-                     fmt_pct(mean_clean([compute_cagr_last(epp_alps[sc],5)  for sc in epp_alps.columns])),
-                     fmt_pct(mean_clean([compute_cagr_last(epp_alps[sc],10) for sc in epp_alps.columns])),
-                     fmt_pct(mean_clean([compute_cagr_last(epp_alps[sc],15) for sc in epp_alps.columns])))
-
-        # FTE rows + series map
-        fte_years = [int(s.index.max()) for s in lines_alps.values() if s is not None and not s.empty]
-        latest_fte_year = max(fte_years) if fte_years else latest_year
-        fte_rows = []; fte_map = {}
-        for _k, label in ENROLL_KEYS:
-            s = lines_alps.get(label)
-            if s is None or s.empty: continue
-            fte_map[label] = s
-            r5=compute_cagr_last(s,5); r10=compute_cagr_last(s,10); r15=compute_cagr_last(s,15)
-            fte_rows.append((FTE_LINE_COLORS[label], label,
-                             ("—" if latest_fte_year not in s.index else f"{float(s.loc[latest_fte_year]):,.0f}"),
-                             fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
+        cat_rows, cat_total = _build_category_data(epp_alps, latest_year, context, cmap_all)
+        fte_rows, fte_map, latest_fte_year = _build_fte_data(lines_alps, latest_year)
 
         # Western baseline (same bucket); add baseline $ for latest_year
         bucket = "le_500" if context == "SMALL" else "gt_500"
@@ -381,37 +429,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
     # DISTRICT PAGES
     for dist in ["Amherst-Pelham"] + [d for d in DISTRICTS_OF_INTEREST if d != "Amherst-Pelham"]:
         epp, lines = prepare_district_epp_lines(df, dist)
-        if epp.empty and not lines: continue
-        bottom_top = canonical_order_bottom_to_top(epp.columns.tolist())
-        top_bottom = list(reversed(bottom_top))
-        latest_year = int(epp.index.max()) if not epp.empty else latest
+        if epp.empty and not lines:
+            continue
+
+        latest_year = get_latest_year(df, epp)
         context = context_for_district(df, dist)
 
-        rows = []
-        for sc in top_bottom:
-            latest_val = float(epp.loc[latest_year, sc]) if (latest_year and sc in epp.columns) else 0.0
-            c5 = compute_cagr_last(epp[sc],5); c10=compute_cagr_last(epp[sc],10); c15=compute_cagr_last(epp[sc],15)
-            rows.append((sc, f"${latest_val:,.0f}", fmt_pct(c5), fmt_pct(c10), fmt_pct(c15),
-                         color_for(cmap_all, context, sc), latest_val))
-
-        latest_vals = [epp.loc[latest_year, sc] if sc in epp.columns else 0.0 for sc in epp.columns]
-        def mean_clean(arr): arr=[a for a in arr if a==a]; return float(np.mean(arr)) if arr else float("nan")
-        total = ("Total", f"${float(np.nansum(latest_vals)):,.0f}",
-                 fmt_pct(mean_clean([compute_cagr_last(epp[sc],5)  for sc in epp.columns])),
-                 fmt_pct(mean_clean([compute_cagr_last(epp[sc],10) for sc in epp.columns])),
-                 fmt_pct(mean_clean([compute_cagr_last(epp[sc],15) for sc in epp.columns])))
-
-        fte_years = [int(s.index.max()) for s in lines.values() if s is not None and not s.empty]
-        latest_fte_year = max(fte_years) if fte_years else latest_year
-        fte_rows = []; fte_map = {}
-        for _k, label in ENROLL_KEYS:
-            s = lines.get(label)
-            if s is None or s.empty: continue
-            fte_map[label] = s
-            r5=compute_cagr_last(s,5); r10=compute_cagr_last(s,10); r15=compute_cagr_last(s,15)
-            fte_rows.append((FTE_LINE_COLORS[label], label,
-                             ("—" if latest_fte_year not in s.index else f"{float(s.loc[latest_fte_year]):,.0f}"),
-                             fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
+        rows, total = _build_category_data(epp, latest_year, context, cmap_all)
+        fte_rows, fte_map, latest_fte_year = _build_fte_data(lines, latest_year)
 
         bucket = "le_500" if context == "SMALL" else "gt_500"
         base_title = f"All Western MA Traditional Districts {'≤500' if bucket=='le_500' else '>500'} Students"
@@ -446,37 +471,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
     ))
     for bucket in ("le_500", "gt_500"):
         title, epp, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket)
-        if epp.empty and not lines_sum: continue
-        bottom_top = canonical_order_bottom_to_top(epp.columns.tolist())
-        top_bottom  = list(reversed(bottom_top))
-        latest_year = int(epp.index.max()) if not epp.empty else latest
-        context     = context_for_western(bucket)
+        if epp.empty and not lines_sum:
+            continue
 
-        rows = []
-        for sc in top_bottom:
-            latest_val = float(epp.loc[latest_year, sc]) if (latest_year and sc in epp.columns) else 0.0
-            c5 = compute_cagr_last(epp[sc],5); c10 = compute_cagr_last(epp[sc],10); c15 = compute_cagr_last(epp[sc],15)
-            rows.append((sc, f"${latest_val:,.0f}", fmt_pct(c5), fmt_pct(c10), fmt_pct(c15),
-                         color_for(cmap_all, context, sc), latest_val))
+        latest_year = get_latest_year(df, epp)
+        context = context_for_western(bucket)
 
-        latest_vals = [epp.loc[latest_year, sc] if sc in epp.columns else 0.0 for sc in epp.columns]
-        def mean_clean(arr): arr=[a for a in arr if a==a]; return float(np.mean(arr)) if arr else float("nan")
-        total = ("Total", f"${float(np.nansum(latest_vals)):,.0f}",
-                 fmt_pct(mean_clean([compute_cagr_last(epp[sc],5)  for sc in epp.columns])),
-                 fmt_pct(mean_clean([compute_cagr_last(epp[sc],10) for sc in epp.columns])),
-                 fmt_pct(mean_clean([compute_cagr_last(epp[sc],15) for sc in epp.columns])))
-
-        fte_rows = []
-        fte_years = [int(s.index.max()) for s in lines_mean.values() if s is not None and not s.empty]
-        latest_fte_year = max(fte_years) if fte_years else latest_year
-        fte_map = {}
-        for _k, label in ENROLL_KEYS:
-            s = lines_mean.get(label)
-            if s is None or s.empty: continue
-            fte_map[label] = s
-            r5=compute_cagr_last(s,5); r10=compute_cagr_last(s,10); r15=compute_cagr_last(s,15)
-            val = "—" if latest_fte_year not in s.index else f"{float(s.loc[latest_fte_year]):,.0f}"
-            fte_rows.append((FTE_LINE_COLORS[label], label, val, fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
+        rows, total = _build_category_data(epp, latest_year, context, cmap_all)
+        fte_rows, fte_map, latest_fte_year = _build_fte_data(lines_mean, latest_year)
 
         pages.append(dict(title=title,
                           subtitle="Expenditures Per Pupil vs Enrollment — Not including charters and vocationals",

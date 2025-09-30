@@ -375,3 +375,84 @@ def compute_districts_fte_ylim(lines_list: List[Dict[str, pd.Series]], pad: floa
     if not tops: return step
     m = max(tops) * pad
     return _nice_ceiling(m, step)
+
+# ---------------- Utility functions for calculations ----------------
+def mean_clean(arr: List[float]) -> float:
+    """Compute mean of array, filtering out NaN values."""
+    arr = [a for a in arr if a == a and not np.isnan(a)]
+    return float(np.mean(arr)) if arr else float("nan")
+
+def get_latest_year(df: pd.DataFrame, pivot: pd.DataFrame = None) -> int:
+    """Get latest year consistently - prefer pivot index if available, else df YEAR column."""
+    if pivot is not None and not pivot.empty and len(pivot.index) > 0:
+        return int(pivot.index.max())
+    return int(df["YEAR"].max())
+
+def weighted_epp_aggregation(df: pd.DataFrame, districts: List[str]) -> Tuple[pd.DataFrame, pd.Series]:
+    """
+    Compute weighted per-pupil expenditures for a list of districts.
+
+    Args:
+        df: DataFrame with district expenditure and enrollment data
+        districts: List of district names to aggregate
+
+    Returns:
+        Tuple of (epp_pivot, enrollment_series):
+        - epp_pivot: DataFrame with years as index, canonical categories as columns
+        - enrollment_series: Series with in-district FTE enrollment sum by year
+
+    Notes:
+        - Uses in-district FTE pupils as weights
+        - Returns empty DataFrame/Series if no matching districts found
+        - Weighted average: sum(value * weight) / sum(weight) for each year/category
+    """
+    if df is None or df.empty:
+        return pd.DataFrame(), pd.Series(dtype=float)
+    if not districts:
+        return pd.DataFrame(), pd.Series(dtype=float)
+
+    names_low = {d.lower() for d in districts}
+    present = set(df["DIST_NAME"].str.lower())
+    members = [n for n in names_low if n in present]
+
+    if not members:
+        return pd.DataFrame(), pd.Series(dtype=float)
+
+    # Get expenditures per pupil data
+    epp = df[
+        (df["IND_CAT"].str.lower() == "expenditures per pupil") &
+        (df["DIST_NAME"].str.lower().isin(members))
+    ][["DIST_NAME", "YEAR", "IND_SUBCAT", "IND_VALUE"]].copy()
+    epp = epp[~epp["IND_SUBCAT"].str.lower().isin(EXCLUDE_SUBCATS)].copy()
+
+    # Get enrollment weights
+    wts = df[
+        (df["IND_CAT"].str.lower() == "student enrollment") &
+        (df["IND_SUBCAT"].str.lower() == "in-district fte pupils") &
+        (df["DIST_NAME"].str.lower().isin(members))
+    ][["DIST_NAME", "YEAR", "IND_VALUE"]].rename(columns={"IND_VALUE": "WEIGHT"}).copy()
+
+    # Merge and compute weighted average
+    m = epp.merge(wts, on=["DIST_NAME", "YEAR"], how="left")
+    m["WEIGHT"] = pd.to_numeric(m["WEIGHT"], errors="coerce").fillna(0.0)
+    m["P"] = m["IND_VALUE"] * m["WEIGHT"]
+
+    out = m.groupby(["YEAR", "IND_SUBCAT"], as_index=False).agg(
+        NUM=("P", "sum"),
+        DEN=("WEIGHT", "sum"),
+        MEAN=("IND_VALUE", "mean")
+    )
+    out["VALUE"] = np.where(out["DEN"] > 0, out["NUM"] / out["DEN"], out["MEAN"])
+
+    piv_raw = out.pivot(index="YEAR", columns="IND_SUBCAT", values="VALUE").sort_index().fillna(0.0)
+    piv = aggregate_to_canonical(piv_raw)
+
+    # Get enrollment sum
+    enr = df[
+        (df["IND_CAT"].str.lower() == "student enrollment") &
+        (df["IND_SUBCAT"].str.lower() == "in-district fte pupils") &
+        (df["DIST_NAME"].str.lower().isin(members))
+    ][["YEAR", "IND_VALUE"]]
+    enroll_sum = enr.groupby("YEAR")["IND_VALUE"].sum().sort_index() if not enr.empty else pd.Series(dtype=float)
+
+    return piv, enroll_sum

@@ -19,10 +19,38 @@ from school_shared import (
     add_alps_pk12, EXCLUDE_SUBCATS, aggregate_to_canonical,
     FTE_LINE_COLORS, PPE_PEERS_YMAX, PPE_PEERS_REMOVE_SPINES, PPE_PEERS_BAR_EDGES,
     MICRO_AREA_FILL, MICRO_AREA_EDGE,
+    weighted_epp_aggregation,
 )
 
 # ===== version footer for images =====
-CODE_VERSION = "v2025.09.21-ALPS-18"
+CODE_VERSION = "v2025.09.29-REFACTORED"
+
+# ===== Plot styling constants =====
+# Comparative bars plot
+SPACING_FACTOR = 1.35
+BAR_WIDTH = 0.58
+DOT_OFFSET_FACTOR = 0.45  # multiplied by BAR_WIDTH
+YEAR_LAG_DEFAULT = 5
+
+# Peer colors (blue palette)
+BLUE_BASE = "#8fbcd4"
+BLUE_DELTA = "#1b6ca8"
+PURP_DECL = "#955196"
+
+# Aggregate colors (gray palette)
+AGG_BASE = "#b3c3c9"
+AGG_DELTA = "#4b5563"
+AGG_DECL = "#8e6aa6"
+AGG_AREA_FILL = "#DBEAFE"
+AGG_AREA_EDGE = "#1D4ED8"
+
+# Micro-area (enrollment sparkline) settings
+DEFAULT_GAP = 2400.0
+DEFAULT_AMP = 6000.0
+MIN_GAP = 400.0
+MIN_AMP = 800.0
+AREA_GAP_FACTOR = 0.22
+AREA_SAFETY_MARGIN = 300.0
 
 def _stamp(fig):
     fig.text(0.99, 0.01, f"Code: {CODE_VERSION}", ha="right", va="bottom", fontsize=10.5, color="#666666")
@@ -45,56 +73,15 @@ def _total_ppe_series_from_pivot(piv: pd.DataFrame) -> pd.Series:
     return piv.sum(axis=1).sort_index() if (piv is not None and not piv.empty) else pd.Series(dtype=float)
 
 def _western_all_total_series(df: pd.DataFrame, reg: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """Get total PPE and enrollment for all Western MA traditional districts."""
     mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
     members = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
-    present = set(df["DIST_NAME"].str.lower())
-    members = [m for m in members if m in present]
-    if not members:
-        return pd.Series(dtype=float), pd.Series(dtype=float)
-
-    epp = df[(df["IND_CAT"].str.lower() == "expenditures per pupil") & (df["DIST_NAME"].str.lower().isin(members))][["DIST_NAME","YEAR","IND_SUBCAT","IND_VALUE"]].copy()
-    epp = epp[~epp["IND_SUBCAT"].str.lower().isin(EXCLUDE_SUBCATS)].copy()
-    wts = df[(df["IND_CAT"].str.lower() == "student enrollment")
-             & (df["IND_SUBCAT"].str.lower() == "in-district fte pupils")
-             & (df["DIST_NAME"].str.lower().isin(members))][["DIST_NAME","YEAR","IND_VALUE"]].rename(columns={"IND_VALUE":"WEIGHT"}).copy()
-    m = epp.merge(wts, on=["DIST_NAME","YEAR"], how="left")
-    m["WEIGHT"] = pd.to_numeric(m["WEIGHT"], errors="coerce").fillna(0.0)
-    m["P"] = m["IND_VALUE"] * m["WEIGHT"]
-    out = m.groupby(["YEAR","IND_SUBCAT"], as_index=False).agg(NUM=("P","sum"), DEN=("WEIGHT","sum"), MEAN=("IND_VALUE","mean"))
-    out["VALUE"] = np.where(out["DEN"]>0, out["NUM"]/out["DEN"], out["MEAN"])
-    piv_raw = out.pivot(index="YEAR", columns="IND_SUBCAT", values="VALUE").sort_index().fillna(0.0)
-    piv = aggregate_to_canonical(piv_raw)
-
-    enr = df[(df["IND_CAT"].str.lower()=="student enrollment")
-             & (df["IND_SUBCAT"].str.lower()=="in-district fte pupils")
-             & (df["DIST_NAME"].str.lower().isin(members))][["YEAR","IND_VALUE"]]
-    enroll_sum = enr.groupby("YEAR")["IND_VALUE"].sum().sort_index()
+    piv, enroll_sum = weighted_epp_aggregation(df, list(members))
     return _total_ppe_series_from_pivot(piv), enroll_sum
 
 def _weighted_total_series_for_list(df: pd.DataFrame, districts: List[str]) -> tuple[pd.Series, pd.Series]:
-    names_low = {d.lower() for d in districts}
-    present = set(df["DIST_NAME"].str.lower())
-    members = [n for n in names_low if n in present]
-    if not members:
-        return pd.Series(dtype=float), pd.Series(dtype=float)
-
-    epp = df[(df["IND_CAT"].str.lower() == "expenditures per pupil") & (df["DIST_NAME"].str.lower().isin(members))][["DIST_NAME","YEAR","IND_SUBCAT","IND_VALUE"]].copy()
-    epp = epp[~epp["IND_SUBCAT"].str.lower().isin(EXCLUDE_SUBCATS)].copy()
-    wts = df[(df["IND_CAT"].str.lower() == "student enrollment")
-             & (df["IND_SUBCAT"].str.lower() == "in-district fte pupils")
-             & (df["DIST_NAME"].str.lower().isin(members))][["DIST_NAME","YEAR","IND_VALUE"]].rename(columns={"IND_VALUE":"WEIGHT"}).copy()
-    m = epp.merge(wts, on=["DIST_NAME","YEAR"], how="left")
-    m["WEIGHT"] = pd.to_numeric(m["WEIGHT"], errors="coerce").fillna(0.0)
-    m["P"] = m["IND_VALUE"] * m["WEIGHT"]
-    out = m.groupby(["YEAR","IND_SUBCAT"], as_index=False).agg(NUM=("P","sum"), DEN=("WEIGHT","sum"), MEAN=("IND_VALUE","mean"))
-    out["VALUE"] = np.where(out["DEN"]>0, out["NUM"]/out["DEN"], out["MEAN"])
-    piv_raw = out.pivot(index="YEAR", columns="IND_SUBCAT", values="VALUE").sort_index().fillna(0.0)
-    piv = aggregate_to_canonical(piv_raw)
-
-    enr = df[(df["IND_CAT"].str.lower()=="student enrollment")
-             & (df["IND_SUBCAT"].str.lower()=="in-district fte pupils")
-             & (df["DIST_NAME"].str.lower().isin(members))][["YEAR","IND_VALUE"]]
-    enroll_sum = enr.groupby("YEAR")["IND_VALUE"].sum().sort_index()
+    """Get total PPE and enrollment for a specific list of districts."""
+    piv, enroll_sum = weighted_epp_aggregation(df, districts)
     return _total_ppe_series_from_pivot(piv), enroll_sum
 
 # ---------- Main district page plot ----------
@@ -151,26 +138,11 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
 
 # ===== PPE comparative bars (5-year change) with enrollment mini-areas =====
 def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
-                         districts: list[str], year_lag: int = 5,
+                         districts: list[str], year_lag: int = YEAR_LAG_DEFAULT,
                          title: str | None = None):
 
-    # Peers (blue) palette
-    BLUE_BASE   = "#8fbcd4"
-    BLUE_DELTA  = "#1b6ca8"
-    PURP_DECL   = "#955196"
-
-    # Aggregates (Western + PK-12 Aggregate) palette
-    AGG_BASE   = "#b3c3c9"
-    AGG_DELTA  = "#4b5563"
-    AGG_DECL   = "#8e6aa6"
-    AGG_AREA_FILL = "#DBEAFE"
-    AGG_AREA_EDGE = "#1D4ED8"
-
-    spacing_factor = 1.35
-    bar_width      = 0.58
-    dot_offset     = bar_width * 0.45
-
-    latest = int(df["YEAR"].max()); t0 = latest - year_lag
+    latest = int(df["YEAR"].max())
+    t0 = latest - year_lag
 
     peers_input = [d for d in districts if d.lower() not in {"western ma (aggregate)", "pk-12 district aggregate"}]
 
@@ -210,15 +182,15 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
         peer_p0 = np.array([]); peer_p1 = np.array([]); peer_series = []
 
     n_peers = len(peer_labels)
-    x_peers = (np.arange(n_peers) * spacing_factor) if n_peers else np.array([])
+    x_peers = (np.arange(n_peers) * SPACING_FACTOR) if n_peers else np.array([])
     labels = []; series_list: List[pd.Series | None] = []
     labels.extend(peer_labels); series_list.extend(peer_series)
 
     x_west = x_pk12 = None
     if has_west:
-        labels.append("Western MA (aggregate)"); series_list.append(enr_w.sort_index()); x_west = n_peers * spacing_factor
+        labels.append("Western MA (aggregate)"); series_list.append(enr_w.sort_index()); x_west = n_peers * SPACING_FACTOR
     if has_pk12:
-        labels.append("PK-12 District Aggregate"); series_list.append(enr_pk12.sort_index()); x_pk12 = (n_peers + (1 if has_west else 0)) * spacing_factor
+        labels.append("PK-12 District Aggregate"); series_list.append(enr_pk12.sort_index()); x_pk12 = (n_peers + (1 if has_west else 0)) * SPACING_FACTOR
 
     x_aggs = np.array([v for v in [x_west, x_pk12] if v is not None])
     x_all = np.concatenate([x_peers, x_aggs]) if n_peers or len(x_aggs) else np.array([])
@@ -229,74 +201,75 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
     p0_all = np.array(p0_all); p1_all = np.array(p1_all)
     delta_all = p1_all - p0_all
 
-    fig_height = 12.6
-    fig_width  = max(13.0, 1.05 * (len(labels) * spacing_factor) + 5)
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-    ax.tick_params(labelsize=17)
-    ax.yaxis.label.set_size(22)
+    fig_width = max(13.0, 1.05 * (len(labels) * SPACING_FACTOR) + 5)
+    fig, (ax_main, ax_enroll) = plt.subplots(2, 1, figsize=(fig_width, 14.0),
+                                              gridspec_kw={'height_ratios': [4, 1], 'hspace': 0.25})
+    ax_main.tick_params(labelsize=17)
+    ax_main.yaxis.label.set_size(22)
 
     if PPE_PEERS_REMOVE_SPINES:
         for s in ("top","right","left","bottom"):
-            ax.spines[s].set_visible(False)
+            ax_main.spines[s].set_visible(False)
 
     edge = "white" if PPE_PEERS_BAR_EDGES else None
 
     if n_peers:
         pos = np.clip(delta_all[:n_peers], 0, None)
         neg = np.clip(delta_all[:n_peers], None, 0)
-        ax.bar(x_peers, p0_all[:n_peers], width=bar_width, color=BLUE_BASE, edgecolor=edge, linewidth=0.0, zorder=1)
+        ax_main.bar(x_peers, p0_all[:n_peers], width=BAR_WIDTH, color=BLUE_BASE, edgecolor=edge, linewidth=0.0, zorder=1)
         if np.any(pos > 0):
-            ax.bar(x_peers, pos, bottom=p0_all[:n_peers], width=bar_width, color=BLUE_DELTA, edgecolor=edge, linewidth=0.0, zorder=1)
+            ax_main.bar(x_peers, pos, bottom=p0_all[:n_peers], width=BAR_WIDTH, color=BLUE_DELTA, edgecolor=edge, linewidth=0.0, zorder=1)
         if np.any(neg < 0):
-            ax.bar(x_peers, neg, bottom=p0_all[:n_peers], width=bar_width, color=PURP_DECL, edgecolor=edge, linewidth=0.0, zorder=1)
+            ax_main.bar(x_peers, neg, bottom=p0_all[:n_peers], width=BAR_WIDTH, color=PURP_DECL, edgecolor=edge, linewidth=0.0, zorder=1)
 
     if has_west:
         i = x_west; idx = n_peers; d = delta_all[idx]; base = p0_all[idx]
-        ax.bar([i], [base], width=bar_width, color=AGG_BASE, edgecolor=edge, linewidth=0.0, zorder=1)
-        ax.bar([i], [d], bottom=[base], width=bar_width, color=(AGG_DELTA if d >= 0 else AGG_DECL), edgecolor=edge, linewidth=0.0, zorder=1)
+        ax_main.bar([i], [base], width=BAR_WIDTH, color=AGG_BASE, edgecolor=edge, linewidth=0.0, zorder=1)
+        ax_main.bar([i], [d], bottom=[base], width=BAR_WIDTH, color=(AGG_DELTA if d >= 0 else AGG_DECL), edgecolor=edge, linewidth=0.0, zorder=1)
     if has_pk12:
         i = x_pk12; idx = n_peers + (1 if has_west else 0); d = delta_all[idx]; base = p0_all[idx]
-        ax.bar([i], [base], width=bar_width, color=AGG_BASE, edgecolor=edge, linewidth=0.0, zorder=1)
-        ax.bar([i], [d], bottom=[base], width=bar_width, color=(AGG_DELTA if d >= 0 else AGG_DECL), edgecolor=edge, linewidth=0.0, zorder=1)
+        ax_main.bar([i], [base], width=BAR_WIDTH, color=AGG_BASE, edgecolor=edge, linewidth=0.0, zorder=1)
+        ax_main.bar([i], [d], bottom=[base], width=BAR_WIDTH, color=(AGG_DELTA if d >= 0 else AGG_DECL), edgecolor=edge, linewidth=0.0, zorder=1)
 
-    ax.set_ylim(0, PPE_PEERS_YMAX)
-    ax.grid(axis="y", alpha=0.12); ax.set_axisbelow(True)
+    ax_main.set_ylim(0, PPE_PEERS_YMAX)
+    ax_main.grid(axis="y", alpha=0.12); ax_main.set_axisbelow(True)
+    ax_main.set_ylabel("$ per pupil")
+    ax_main.yaxis.set_major_formatter(comma_formatter())
+    ax_main.set_xticks(x_all, labels, rotation=30, ha="right")
 
-    # Micro-areas
-    bar_tops = np.maximum(p0_all + np.clip(delta_all, 0, None), p0_all)
-    headroom = np.maximum(0.0, PPE_PEERS_YMAX - bar_tops)
-    default_gap, default_amp = 2400.0, 6000.0
-    min_gap, min_amp = 400.0, 800.0
+    # Enrollment subplot - clean line plots below main chart
+    ax_enroll.set_ylabel("FTE Enrollment", fontsize=16)
+    ax_enroll.yaxis.set_major_formatter(comma_formatter())
+    ax_enroll.grid(axis="y", alpha=0.12)
+    ax_enroll.set_axisbelow(True)
+    ax_enroll.tick_params(labelsize=14)
 
     for i_global, s in enumerate(series_list):
-        if s is None or len(s) < 2: continue
+        if s is None or len(s) < 2:
+            continue
         ys = s.dropna().values.astype(float)
-        span = float(ys.max() - ys.min()); y_norm = (ys - ys.min()) / (span if span > 0 else 1.0)
-
-        gap_i = min(default_gap, max(min_gap, headroom[i_global] * 0.22))
-        amp_i = min(default_amp, max(min_amp, headroom[i_global] - gap_i - 300.0))
-        y_base = bar_tops[i_global] + gap_i
-        y_area = y_base + y_norm * max(0.0, amp_i)
-
         x_pos = x_all[i_global]
-        xs = np.linspace(x_pos - bar_width*0.45, x_pos + bar_width*0.45, num=len(ys))
 
-        fill_c, edge_c = (MICRO_AREA_FILL, MICRO_AREA_EDGE) if i_global < n_peers else ("#DBEAFE", "#1D4ED8")
+        # Determine colors
+        is_aggregate = i_global >= n_peers
+        line_color = AGG_AREA_EDGE if is_aggregate else MICRO_AREA_EDGE
+        marker_color = AGG_AREA_EDGE if is_aggregate else MICRO_AREA_EDGE
 
-        ax.fill_between(xs, y_base, y_area, color=fill_c, alpha=0.35, linewidth=0.0, zorder=4)
-        ax.plot(xs, y_area, color=edge_c, lw=2.1, zorder=5)
-        ax.scatter([xs[0], xs[-1]], [y_area[0], y_area[-1]], s=40, color=edge_c, zorder=6)
+        # Plot enrollment change as line with markers
+        years_offset = np.arange(len(ys))
+        xs = x_pos + (years_offset - len(ys)/2 + 0.5) * (BAR_WIDTH * 0.15)
 
-        # Endpoint labels
-        label_fs = 18
-        ax.text(xs[0]-0.038, y_area[0] + 150, f"{int(round(ys[0])):,}",
-                ha="right", va="bottom", fontsize=label_fs, color=edge_c)
-        ax.text(xs[-1]+0.038, y_area[-1] - 180, f"{int(round(ys[-1])):,}",
-                ha="left", va="top", fontsize=label_fs, color=edge_c)
+        ax_enroll.plot(xs, ys, color=line_color, lw=2.5, zorder=3)
+        ax_enroll.scatter(xs, ys, s=50, color=marker_color, edgecolor='white', linewidth=1.5, zorder=4)
 
-    ax.set_xticks(x_all, labels, rotation=30, ha="right")
-    ax.set_ylabel("$ per pupil")
-    ax.yaxis.set_major_formatter(comma_formatter())
+        # Label endpoints
+        ax_enroll.text(xs[0], ys[0], f"{int(round(ys[0])):,}",
+                      ha="center", va="bottom", fontsize=11, color=line_color, fontweight='bold')
+        ax_enroll.text(xs[-1], ys[-1], f"{int(round(ys[-1])):,}",
+                      ha="center", va="top", fontsize=11, color=line_color, fontweight='bold')
+
+    ax_enroll.set_xlim(ax_main.get_xlim())
+    ax_enroll.set_xticks([])  # No x-axis labels needed (same as main plot)
 
     # Legend at bottom (outside)
     handles = [
@@ -305,11 +278,11 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
         Patch(facecolor=PURP_DECL,  edgecolor=edge, label=f"{latest} decrease from {t0}"),
         Line2D([0],[0], color=MICRO_AREA_EDGE, lw=2.4, marker="o", markersize=6,
                markerfacecolor="white", markeredgecolor=MICRO_AREA_EDGE,
-               label=f"Enrollment change (FTE) {t0}→{latest}"),
+               label=f"Enrollment (FTE) {t0}→{latest}"),
     ]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, -0.085),
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, -0.02),
                ncol=len(handles), frameon=False, fontsize=18)
-    plt.subplots_adjust(bottom=0.38)
+    plt.subplots_adjust(bottom=0.12)
 
     _stamp(fig)
     out_path.parent.mkdir(parents=True, exist_ok=True)
