@@ -153,3 +153,119 @@
 - Adjusted subplot top margin from 0.92 to 0.88
 - Creates more vertical space between bars/annotations and legend/text
 - Prevents overlap of enrollment rectangles with legend
+
+### Changes Made (Session 6 - Horizontal Bar Chart Redesign)
+**Issue 1: Fixed Appendix C footer overlap with KeepInFrame**
+- Implemented `KeepInFrame` wrapper for methodology text blocks in compose_pdf.py
+- Calculates available height: page height - 1.5 inch buffer (title/subtitle/footer)
+- Uses mode='shrink' to automatically resize content if needed
+- Prevents text from overlapping footer regardless of content length
+- Future-proof solution: adding more methodology content won't cause overlap
+
+**Issue 2: Redesigned Page 1 Western overview to horizontal bars**
+- **Complete 90° rotation**: Changed from vertical bars to horizontal bars (barh)
+- **District names on y-axis**: Full names displayed (letter codes removed)
+- **Improved readability**: Y-axis font increased from 10pt to 13pt
+- **Better gridlines**: Increased alpha from 0.12 to 0.35, linewidth to 0.8
+- **Dynamic height**: Chart height scales with number of districts (~40)
+- **Fixed width**: 11 inches (fits portrait PDF perfectly)
+- **Removed district code mapping table**: No longer needed, names on chart
+- **Layout margins**: 28% left margin for district names
+- **Sorting maintained**: Districts still sorted lowest to highest PPE (bottom to top)
+
+**Issue 3: Redesigned Page 2 ALPS & Peers to horizontal bars**
+- **90° rotation to match Page 1**: Changed from vertical to horizontal bars
+- **Enrollment annotations preserved**: Now positioned to right of bars
+- **Aggregate separation**: Western MA and PK-12 aggregates at bottom of chart
+- **Color coding maintained**: Aggregates use gray palette, peers use blue
+- **Font consistency**: Y-axis 13pt (district names), X-axis 16pt (PPE values)
+- **Enrollment boxes**: Show FTE count and % change with color coding (blue/red)
+- **Position adjustment**: Annotations at bar_end + 2% with left alignment
+- **Legend repositioned**: At top with enrollment explainer text
+- **Dynamic height**: Scales based on number of districts + aggregates
+- **Layout margins**: 25% left for names, 28% right margin for annotations (72% right edge)
+
+**Issue 4: PDF improvements**
+- District Code Mapping table converted to 2-fold layout (was 3-fold)
+- Added column headers: "Code", "District", "2024 PPE"
+- Reduced horizontal spacing: 70% for district name, 25% for PPE
+- Each fold uses 50% page width for better readability
+
+**Code Comments Added (for future sessions)**
+- Added NOTE comments explaining dynamic height calculations
+- Documented bar stacking logic (base + delta segments)
+- Explained aggregate vs peer district separation in horizontal layout
+- Commented gridline improvements and font size choices
+- Noted purpose of KeepInFrame wrapper for methodology content
+- Documented removal of letter code mapping functionality
+
+**Issue 5: Page 2 ALPS & Peers chart refinements**
+- Fixed x-axis label smooshing: Added 25° rotation to $/pupil labels
+- Right-aligned enrollment boxes: Changed from left-aligned (at bar end) to right-aligned at fixed position
+- Extended x-axis limit from 35000 to 38000 to create space for annotations
+- Positioned enrollment boxes at x=37500 (well beyond longest bar) to prevent overlap
+- Extended right margin from 72% to 78% to accommodate right-aligned annotations
+- All enrollment boxes now form clean vertical column at right edge
+- Fixed version stamp overlap with x-axis: Moved stamp from y=0.01 to y=0.03
+
+**Issue 6: Page 1 Western overview - Highlight districts of interest**
+- Highlighted 5 districts of interest in colorblind-friendly dark orange (#FF8C00)
+- Districts: Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury
+- Applied bold font weight in addition to color for extra emphasis
+- Orange color chosen for strong contrast and visibility in both normal and colorblind vision
+
+**Issue 7: Reordered all comparison tables to match chronological plot order**
+- **Category table columns** (old→new):
+  - OLD: Swatch, Category, 2024 $/pupil, CAGR 5y, 10y, 15y
+  - NEW: Swatch (no header), Category, 2009 $/pupil, CAGR 15y, 10y, 5y, 2024 $/pupil
+- **FTE table columns** (old→new):
+  - OLD: Swatch, FTE Series, 2024 FTE, CAGR 5y, 10y, 15y
+  - NEW: Swatch (no header), FTE Series, 2019 FTE, CAGR 15y, 10y, 5y, 2024 FTE
+- **Rationale**: Left-to-right chronology matches plot timeline (oldest→newest)
+- **Column width optimization**: Narrowed CAGR and $/pupil columns to prevent overflow
+  - Category table: 0.85" for CAGR columns, 0.95" for $/pupil columns
+  - FTE table: 0.85" for all numeric columns
+- **Updated _build_category_data** to calculate and return start year values (15 years before latest)
+  - Changed from t0_year (5 years back) to start_year (15 years back) to match CAGR 15y timeframe
+  - Renamed return value from cat_t0_map to cat_start_map for clarity
+  - Returns start year values for each spending category (2009 when latest is 2024)
+- **Updated shading logic** to work with new column positions:
+  - CAGR columns now 3-5 (15y, 10y, 5y) instead of 5-3
+  - Latest $/pupil now column 6 instead of column 2
+  - **NEW: Added shading for start year $/pupil (column 2, 2009)**
+    - Uses same relative comparison as latest $/pupil: (District − Baseline) / Baseline
+    - Compares 2009 district spending to 2009 Western baseline
+    - Red if ≥2% higher, green if ≥2% lower
+- **Added START_DOLLAR to all baseline_map constructions**
+  - Baseline maps now include START_DOLLAR key with start year (15y back) value
+  - Applied to all 4 baseline construction locations: ALPS vs Western, ALPS vs Peers, Districts vs Western, Districts vs Peers
+  - Enables comparison shading for both 2009 and 2024 $/pupil columns
+- **Removed swatch column header text** for cleaner appearance
+- **Added start year total row values** for both category and FTE tables
+
+**Issue 8: Added Table of Contents with clickable links**
+- Created new `build_toc_page()` function to generate TOC page
+- TOC includes 11 sections with internal PDF links:
+  1. All Western MA Traditional Districts: PPE Overview 2019 -> 2024
+  2. ALPS PK-12 & Peers: PPE and Enrollment 2019 -> 2024
+  3. ALPS PK-12
+  4. Amherst-Pelham Regional
+  5. Amherst
+  6. Leverett
+  7. Pelham
+  8. Shutesbury
+  9. Appendix A. Aggregate Districts for Comparison
+  10. Appendix B. Data Tables
+  11. Appendix C. Calculation Methodology
+- Added section_id field to relevant pages for anchor targets
+- Modified build_pdf() to:
+  - Handle TOC page type rendering
+  - Add HTML anchors (`<a name="section_id"/>`) to section titles
+  - Create clickable links (`<a href="#section_id">`) in TOC
+- TOC inserted as first page of PDF
+
+**Issue 9: Fixed duplicate data table pages in Appendix B**
+- Problem: Districts with multiple comparison pages (vs Western and vs Peers) were creating duplicate data tables
+- Solution: Added deduplication logic using `seen_districts` set
+- Now each district appears exactly once in Appendix B data tables
+- Reduced redundancy: ALPS PK-12 and each district (Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury) now have single data table page instead of duplicates
