@@ -177,7 +177,16 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
             profile_c70.columns = [str(c).strip() for c in profile_c70.columns]
             # Standardize district names and year column
             if "District" in profile_c70.columns:
-                profile_c70["DIST_NAME"] = profile_c70["District"].astype(str).str.strip()
+                # Normalize C70 district names to match expenditure data format
+                # C70 uses ALL CAPS with spaces (e.g., "AMHERST PELHAM")
+                # Expenditure data uses Title Case with hyphens (e.g., "Amherst-Pelham")
+                profile_c70["DIST_NAME"] = (
+                    profile_c70["District"]
+                    .astype(str)
+                    .str.strip()
+                    .str.title()  # ALL CAPS -> Title Case
+                    .str.replace(" ", "-")  # spaces -> hyphens for multi-word districts
+                )
             if "fy" in profile_c70.columns:
                 profile_c70["YEAR"] = pd.to_numeric(profile_c70["fy"], errors="coerce").astype("Int64")
             # Convert numeric columns
@@ -484,3 +493,257 @@ def weighted_epp_aggregation(df: pd.DataFrame, districts: List[str]) -> Tuple[pd
     enroll_out_sum = enr_out.groupby("YEAR")["IND_VALUE"].sum().sort_index() if not enr_out.empty else pd.Series(dtype=float)
 
     return piv, enroll_in_sum, enroll_out_sum
+
+# ---------------- Chapter 70 and Net School Spending (NSS) Data ----------------
+def prepare_district_nss_ch70(
+    df: pd.DataFrame,
+    c70: pd.DataFrame,
+    dist: str
+) -> Tuple[pd.DataFrame, pd.Series]:
+    """
+    Prepare Chapter 70 and Net School Spending data for a single district in absolute dollars.
+
+    Args:
+        df: Expenditure/enrollment DataFrame
+        c70: profile_DataC70 DataFrame
+        dist: District name
+
+    Returns:
+        Tuple of (nss_pivot, enrollment_series):
+        - nss_pivot: DataFrame with years as index, columns: ['Ch70 Aid', 'Req NSS (adj)', 'Actual NSS (adj)']
+          All values are in absolute dollars
+        - enrollment_series: In-District FTE enrollment by year
+
+    Notes:
+        Stacking logic (bottom to top):
+        1. Chapter 70 Aid (c70aid)
+        2. Required NSS minus Ch70 (max(0, rqdnss2 - c70aid))
+        3. Actual NSS minus Required NSS (actualNSS - rqdnss2)
+
+        If c70aid > rqdnss2 (rare edge case), the "Req NSS (adj)" component will be 0.
+    """
+    if c70 is None or c70.empty:
+        return pd.DataFrame(), pd.Series(dtype=float)
+
+    # Get enrollment for this district
+    enr_data = df[
+        (df["DIST_NAME"].str.lower() == dist.lower()) &
+        (df["IND_CAT"].str.lower() == "student enrollment") &
+        (df["IND_SUBCAT"].str.lower() == "in-district fte pupils")
+    ][["YEAR", "IND_VALUE"]].copy()
+
+    if enr_data.empty:
+        return pd.DataFrame(), pd.Series(dtype=float)
+
+    enroll_series = enr_data.set_index("YEAR")["IND_VALUE"].sort_index()
+
+    # Get C70 data for this district
+    c70_dist = c70[c70["DIST_NAME"].str.lower() == dist.lower()][
+        ["YEAR", "actualNSS", "rqdnss2", "c70aid"]
+    ].copy()
+
+    if c70_dist.empty:
+        return pd.DataFrame(), enroll_series
+
+    # Use C70 data directly (absolute dollars, not per-pupil)
+    merged = c70_dist.set_index("YEAR").copy()
+
+    # Calculate absolute dollar values
+    # Stack 1 (bottom): Chapter 70 Aid
+    merged["Ch70 Aid"] = merged["c70aid"]
+
+    # Stack 2 (middle): Required NSS minus Ch70 (can be 0 if Ch70 > Required)
+    merged["Req NSS (adj)"] = np.maximum(0, merged["rqdnss2"] - merged["c70aid"])
+
+    # Stack 3 (top): Actual NSS minus Required NSS (can be negative if underfunding)
+    merged["Actual NSS (adj)"] = merged["actualNSS"] - merged["rqdnss2"]
+
+    # Create pivot with stacking columns
+    nss_pivot = merged[["Ch70 Aid", "Req NSS (adj)", "Actual NSS (adj)"]].sort_index()
+
+    return nss_pivot, enroll_series
+
+
+def prepare_aggregate_nss_ch70(
+    df: pd.DataFrame,
+    c70: pd.DataFrame,
+    districts: List[str]
+) -> Tuple[pd.DataFrame, pd.Series]:
+    """
+    Prepare aggregate Chapter 70 and Net School Spending data for multiple districts in absolute dollars.
+
+    Args:
+        df: Expenditure/enrollment DataFrame
+        c70: profile_DataC70 DataFrame
+        districts: List of district names to aggregate
+
+    Returns:
+        Tuple of (nss_pivot, enrollment_series):
+        - nss_pivot: DataFrame with years as index, columns: ['Ch70 Aid', 'Req NSS (adj)', 'Actual NSS (adj)']
+          All values are summed absolute dollars
+        - enrollment_series: Total in-district FTE enrollment sum by year
+
+    Notes:
+        Aggregation method: sum(value) across all districts for each year/category
+        Same stacking logic as single district version
+    """
+    if c70 is None or c70.empty:
+        return pd.DataFrame(), pd.Series(dtype=float)
+
+    if not districts:
+        return pd.DataFrame(), pd.Series(dtype=float)
+
+    names_low = {d.lower() for d in districts}
+
+    # Get enrollment for all districts
+    enr_data = df[
+        (df["DIST_NAME"].str.lower().isin(names_low)) &
+        (df["IND_CAT"].str.lower() == "student enrollment") &
+        (df["IND_SUBCAT"].str.lower() == "in-district fte pupils")
+    ][["DIST_NAME", "YEAR", "IND_VALUE"]].copy()
+
+    if enr_data.empty:
+        return pd.DataFrame(), pd.Series(dtype=float)
+
+    # Sum enrollment across districts by year
+    enroll_series = enr_data.groupby("YEAR")["IND_VALUE"].sum().sort_index()
+
+    # Get C70 data for all districts
+    c70_agg = c70[c70["DIST_NAME"].str.lower().isin(names_low)][
+        ["DIST_NAME", "YEAR", "actualNSS", "rqdnss2", "c70aid"]
+    ].copy()
+
+    if c70_agg.empty:
+        return pd.DataFrame(), enroll_series
+
+    # Sum dollar amounts across districts by year
+    c70_sums = c70_agg.groupby("YEAR")[["actualNSS", "rqdnss2", "c70aid"]].sum().sort_index()
+
+    # Calculate absolute dollar values (same logic as single district)
+    c70_sums["Ch70 Aid"] = c70_sums["c70aid"]
+    c70_sums["Req NSS (adj)"] = np.maximum(0, c70_sums["rqdnss2"] - c70_sums["c70aid"])
+    c70_sums["Actual NSS (adj)"] = c70_sums["actualNSS"] - c70_sums["rqdnss2"]
+
+    nss_pivot = c70_sums[["Ch70 Aid", "Req NSS (adj)", "Actual NSS (adj)"]].sort_index()
+
+    return nss_pivot, enroll_series
+
+
+def prepare_aggregate_nss_ch70_weighted(
+    df: pd.DataFrame,
+    c70: pd.DataFrame,
+    districts: List[str]
+) -> Tuple[pd.DataFrame, pd.Series]:
+    """
+    Prepare weighted per-district Chapter 70 and Net School Spending data for multiple districts.
+
+    This computes weighted average dollars per district (weighted by enrollment) to enable
+    proper comparison across different-sized district aggregates.
+
+    Args:
+        df: Expenditure/enrollment DataFrame
+        c70: profile_DataC70 DataFrame
+        districts: List of district names to aggregate
+
+    Returns:
+        Tuple of (nss_pivot, enrollment_series):
+        - nss_pivot: DataFrame with years as index, columns: ['Ch70 Aid', 'Req NSS (adj)', 'Actual NSS (adj)']
+          All values are weighted average dollars per district
+        - enrollment_series: Total in-district FTE enrollment sum by year
+
+    Notes:
+        Aggregation method:
+        1. Convert each district's absolute dollars to per-pupil
+        2. Compute enrollment-weighted average per-pupil across districts
+        3. Multiply by average enrollment to get weighted avg $ per district
+        This produces per-district values weighted by enrollment size
+    """
+    if c70 is None or c70.empty:
+        return pd.DataFrame(), pd.Series(dtype=float)
+
+    if not districts:
+        return pd.DataFrame(), pd.Series(dtype=float)
+
+    names_low = {d.lower() for d in districts}
+
+    # Get enrollment for all districts
+    enr_data = df[
+        (df["DIST_NAME"].str.lower().isin(names_low)) &
+        (df["IND_CAT"].str.lower() == "student enrollment") &
+        (df["IND_SUBCAT"].str.lower() == "in-district fte pupils")
+    ][["DIST_NAME", "YEAR", "IND_VALUE"]].copy()
+
+    if enr_data.empty:
+        return pd.DataFrame(), pd.Series(dtype=float)
+
+    # Sum enrollment across districts by year
+    enroll_series = enr_data.groupby("YEAR")["IND_VALUE"].sum().sort_index()
+
+    # Get C70 data for all districts
+    c70_agg = c70[c70["DIST_NAME"].str.lower().isin(names_low)][
+        ["DIST_NAME", "YEAR", "actualNSS", "rqdnss2", "c70aid"]
+    ].copy()
+
+    if c70_agg.empty:
+        return pd.DataFrame(), enroll_series
+
+    # Merge enrollment with C70 data to compute per-district weighted averages
+    # First, get enrollment for each district/year
+    enr_pivot = enr_data.pivot_table(index="YEAR", columns="DIST_NAME", values="IND_VALUE", fill_value=0)
+
+    # Merge C70 data with enrollment
+    merged = c70_agg.merge(enr_data.rename(columns={"IND_VALUE": "enrollment"}),
+                           on=["DIST_NAME", "YEAR"], how="left")
+
+    # For years with missing enrollment, use most recent available enrollment as proxy
+    # This handles cases like 2025 where C70 data exists but enrollment data hasn't been released
+    for dist_name in merged["DIST_NAME"].unique():
+        dist_mask = merged["DIST_NAME"] == dist_name
+        dist_data = merged[dist_mask].copy()
+
+        # Find years with missing enrollment for this district
+        missing_enr = dist_data[dist_data["enrollment"].isna() | (dist_data["enrollment"] == 0)]
+        if not missing_enr.empty:
+            # Get most recent available enrollment for this district
+            available_enr = dist_data[dist_data["enrollment"] > 0].sort_values("YEAR", ascending=False)
+            if not available_enr.empty:
+                most_recent_enr = available_enr.iloc[0]["enrollment"]
+                # Fill missing enrollment with most recent value
+                merged.loc[dist_mask & (merged["enrollment"].isna() | (merged["enrollment"] == 0)), "enrollment"] = most_recent_enr
+
+    # Drop rows that still have missing enrollment after forward-filling
+    merged = merged[merged["enrollment"] > 0].copy()
+
+    if merged.empty:
+        return pd.DataFrame(), enroll_series
+
+    # Compute per-pupil for each district
+    merged["actualNSS_pp"] = merged["actualNSS"] / merged["enrollment"]
+    merged["rqdnss2_pp"] = merged["rqdnss2"] / merged["enrollment"]
+    merged["c70aid_pp"] = merged["c70aid"] / merged["enrollment"]
+
+    # Compute enrollment-weighted average per-pupil across districts for each year
+    weighted_avg = merged.groupby("YEAR").apply(
+        lambda g: pd.Series({
+            "actualNSS_pp": (g["actualNSS_pp"] * g["enrollment"]).sum() / g["enrollment"].sum(),
+            "rqdnss2_pp": (g["rqdnss2_pp"] * g["enrollment"]).sum() / g["enrollment"].sum(),
+            "c70aid_pp": (g["c70aid_pp"] * g["enrollment"]).sum() / g["enrollment"].sum(),
+            "avg_enrollment": g["enrollment"].mean()  # Average enrollment per district
+        }),
+        include_groups=False
+    ).sort_index()
+
+    # Multiply weighted avg per-pupil by average enrollment to get weighted avg $ per district
+    c70_per_district = weighted_avg.copy()
+    c70_per_district["actualNSS"] = weighted_avg["actualNSS_pp"] * weighted_avg["avg_enrollment"]
+    c70_per_district["rqdnss2"] = weighted_avg["rqdnss2_pp"] * weighted_avg["avg_enrollment"]
+    c70_per_district["c70aid"] = weighted_avg["c70aid_pp"] * weighted_avg["avg_enrollment"]
+
+    # Calculate stacked components
+    c70_per_district["Ch70 Aid"] = c70_per_district["c70aid"]
+    c70_per_district["Req NSS (adj)"] = np.maximum(0, c70_per_district["rqdnss2"] - c70_per_district["c70aid"])
+    c70_per_district["Actual NSS (adj)"] = c70_per_district["actualNSS"] - c70_per_district["rqdnss2"]
+
+    nss_pivot = c70_per_district[["Ch70 Aid", "Req NSS (adj)", "Actual NSS (adj)"]].sort_index()
+
+    return nss_pivot, enroll_series

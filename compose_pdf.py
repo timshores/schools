@@ -31,14 +31,17 @@ from reportlab.platypus import Flowable, Image, KeepInFrame, PageBreak, Paragrap
 
 from school_shared import (
     OUTPUT_DIR, load_data, create_or_load_color_map, color_for,
-    ENROLL_KEYS, DISTRICTS_OF_INTEREST,
+    ENROLL_KEYS, DISTRICTS_OF_INTEREST, ALPS_COMPONENTS,
     context_for_district, prepare_district_epp_lines, prepare_western_epp_lines, context_for_western,
     canonical_order_bottom_to_top,
     add_alps_pk12,
     FTE_LINE_COLORS,
     mean_clean, get_latest_year,
     weighted_epp_aggregation,
+    prepare_district_nss_ch70, prepare_aggregate_nss_ch70, prepare_aggregate_nss_ch70_weighted,
+    latest_total_fte, N_THRESHOLD,
 )
+from nss_ch70_plots import build_nss_category_data, NSS_CH70_COLORS, NSS_CH70_STACK_ORDER
 
 # ===== code version =====
 CODE_VERSION = "v2025.09.29-REFACTORED"
@@ -420,6 +423,183 @@ def _build_fte_table(page: dict) -> Table:
     tbl.setStyle(ts)
     return tbl
 
+# ---- NSS/Ch70 table builder ----
+def _build_nss_ch70_table(page: dict) -> Table:
+    """Build NSS/Ch70 funding components table with optional baseline comparison."""
+    rows_in = page.get("cat_rows", [])
+    total = page.get("cat_total", ("Total", "$0", "—", "—", "—", "$0"))
+    base = page.get("baseline_map", {}) or {}
+    latest_year = page.get("latest_year", 2024)
+    start_year = latest_year - 15
+
+    # Header row (reordered chronologically)
+    hdr = [Paragraph("", style_hdr_left),  # Swatch column
+           Paragraph("Component", style_hdr_left),
+           Paragraph(f"{start_year}<br/>$", style_hdr_right),
+           Paragraph("CAGR<br/>15y", style_hdr_right),
+           Paragraph("CAGR<br/>10y", style_hdr_right),
+           Paragraph("CAGR<br/>5y", style_hdr_right),
+           Paragraph(f"{latest_year}<br/>$", style_hdr_right)]
+    data = [hdr]
+
+    # Category rows (top to bottom: Actual NSS (adj), Req NSS (adj), Ch70 Aid)
+    # Note: rows_in format is (sc, start_str, c15s, c10s, c5s, latest_str, hex_color, latest_val)
+    for (sc, start_str, c15s, c10s, c5s, latest_str, hex_color, _latest_val) in rows_in:
+        data.append(["",  # swatch painted via TableStyle
+                     Paragraph(sc, style_body),
+                     Paragraph(start_str, style_num),
+                     Paragraph(c15s, style_num),
+                     Paragraph(c10s, style_num),
+                     Paragraph(c5s, style_num),
+                     Paragraph(latest_str, style_num)])
+
+    # Total row
+    _label, start_total, c15_total, c10_total, c5_total, latest_total = total
+    data.append(["",
+                 Paragraph("Total", style_body),
+                 Paragraph(start_total, style_num),
+                 Paragraph(c15_total, style_num),
+                 Paragraph(c10_total, style_num),
+                 Paragraph(c5_total, style_num),
+                 Paragraph(latest_total, style_num)])
+    total_row_idx = len(data) - 1
+
+    # Legend rows: left explanations + right swatches spanning the three CAGR columns
+    legend_rows = []
+    if page.get("page_type") == "nss_ch70" and base:
+        baseline_title = page.get("baseline_title", "")
+
+        # Determine if comparing to ALPS Peers or Western
+        if "ALPS Peer" in baseline_title:
+            comparison_label = "ALPS Peers"
+            bucket_suffix = ""
+        else:
+            comparison_label = "Western"
+            bucket_suffix = _abbr_bucket_suffix(baseline_title)
+
+        red_text = f"&gt; {comparison_label} CAGR {bucket_suffix}".strip()
+        grn_text = f"&lt; {comparison_label} CAGR {bucket_suffix}".strip()
+        shade_rule = (
+            f"Shading vs {comparison_label}: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}% "
+            f"or |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp"
+        )
+        cagr_def = "CAGR = (End/Start)^(1/years) − 1"
+        legend_rows = [
+            ["", Paragraph(shade_rule, style_legend_right), "", Paragraph(red_text, style_legend_center), "", "", ""],
+            ["", Paragraph(cagr_def, style_legend_right), "", Paragraph(grn_text, style_legend_center), "", "", ""],
+        ]
+    data.extend(legend_rows)
+    leg1_idx = total_row_idx + 1 if legend_rows else None
+    leg2_idx = total_row_idx + 2 if legend_rows else None
+
+    # Column widths (narrower Component column for large dollar amounts)
+    tbl = Table(data, colWidths=[0.22*inch, 1.4*inch, 1.0*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.0*inch])
+
+    # Table style
+    ts = TableStyle([
+        ("VALIGN",(0,0), (-1,-1), "MIDDLE"),
+        ("ALIGN", (2,1), (-1,-1), "RIGHT"),  # All numeric columns right-aligned
+        ("ALIGN", (1,1), (1,-1), "LEFT"),    # Component column left-aligned
+        ("LINEBELOW", (0,0), (-1,0), 0.5, colors.black),
+        ("LEFTPADDING",  (0,0), (-1,-1), 4),
+        ("RIGHTPADDING", (0,0), (-1,-1), 4),
+        ("TOPPADDING",   (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 3),
+    ])
+
+    # Paint color swatches for each component
+    for i, (_sc, _start_str, _c15s, _c10s, _c5s, _latest_str, hex_color, _latest_val) in enumerate(rows_in, start=1):
+        ts.add("BACKGROUND", (0, i), (0, i), HexColor(hex_color))
+
+    # Shade $/pupil columns (cols 2 and 6: start and latest) and CAGR columns (cols 3–5) if baseline provided
+    if base:
+        for i, (sc, start_str, c15s, c10s, c5s, latest_str, _hex_color, latest_val) in enumerate(rows_in, start=1):
+            base_map = base.get(sc, {})
+            # Parse start dollar value (format: "$1,234")
+            try:
+                start_val = float(start_str.replace("$", "").replace(",", "").strip()) if "$" in start_str else float("nan")
+            except:
+                start_val = float("nan")
+
+            # --- Start year $/pupil shading (col 2) - relative vs baseline ---
+            base_start_dollar = base_map.get("START_DOLLAR", float("nan"))
+            if base_start_dollar == base_start_dollar and base_start_dollar > 0 and start_val == start_val:
+                delta_rel = (start_val - float(base_start_dollar)) / float(base_start_dollar)
+                bg = _shade_for_dollar_rel(delta_rel)
+                if bg is not None:
+                    ts.add("BACKGROUND", (2, i), (2, i), bg)
+
+            # --- Latest $/pupil shading (col 6) - relative vs baseline ---
+            base_dollar = base_map.get("DOLLAR", float("nan"))
+            if base_dollar == base_dollar and base_dollar > 0 and latest_val == latest_val:
+                delta_rel = (latest_val - float(base_dollar)) / float(base_dollar)
+                bg = _shade_for_dollar_rel(delta_rel)
+                if bg is not None:
+                    ts.add("BACKGROUND", (6, i), (6, i), bg)
+
+            # --- CAGR shading (absolute pp delta vs baseline) ---
+            # Columns 3, 4, 5 = CAGR 15y, 10y, 5y
+            for col, (cstr, key) in zip((3, 4, 5), [(c15s, "15"), (c10s, "10"), (c5s, "5")]):
+                val = parse_pct_str_to_float(cstr)
+                base_val = base_map.get(key, float("nan"))
+                delta_pp = (val - base_val) if (val==val and base_val==base_val) else float("nan")
+                bg = _shade_for_cagr_delta(delta_pp)
+                if bg is not None:
+                    ts.add("BACKGROUND", (col, i), (col, i), bg)
+
+        # Apply shading to Total row (same logic as component rows)
+        base_total = base.get("Total", {})
+        if base_total:
+            # Parse Total row dollar values
+            try:
+                total_start_val = float(start_total.replace("$", "").replace(",", "").strip()) if "$" in start_total else float("nan")
+            except:
+                total_start_val = float("nan")
+            try:
+                total_latest_val = float(latest_total.replace("$", "").replace(",", "").strip()) if "$" in latest_total else float("nan")
+            except:
+                total_latest_val = float("nan")
+
+            # Shade start dollar (col 2)
+            base_start_dollar = base_total.get("START_DOLLAR", float("nan"))
+            if base_start_dollar == base_start_dollar and base_start_dollar > 0 and total_start_val == total_start_val:
+                delta_rel = (total_start_val - float(base_start_dollar)) / float(base_start_dollar)
+                bg = _shade_for_dollar_rel(delta_rel)
+                if bg is not None:
+                    ts.add("BACKGROUND", (2, total_row_idx), (2, total_row_idx), bg)
+
+            # Shade latest dollar (col 6)
+            base_dollar = base_total.get("DOLLAR", float("nan"))
+            if base_dollar == base_dollar and base_dollar > 0 and total_latest_val == total_latest_val:
+                delta_rel = (total_latest_val - float(base_dollar)) / float(base_dollar)
+                bg = _shade_for_dollar_rel(delta_rel)
+                if bg is not None:
+                    ts.add("BACKGROUND", (6, total_row_idx), (6, total_row_idx), bg)
+
+            # Shade CAGR columns (cols 3, 4, 5)
+            for col, (cstr, key) in zip((3, 4, 5), [(c15_total, "15"), (c10_total, "10"), (c5_total, "5")]):
+                val = parse_pct_str_to_float(cstr)
+                base_val = base_total.get(key, float("nan"))
+                delta_pp = (val - base_val) if (val==val and base_val==base_val) else float("nan")
+                bg = _shade_for_cagr_delta(delta_pp)
+                if bg is not None:
+                    ts.add("BACKGROUND", (col, total_row_idx), (col, total_row_idx), bg)
+
+    # Apply legend spans & swatches (immediately below TOTAL row)
+    if leg1_idx is not None:
+        ts.add("SPAN", (1, leg1_idx), (2, leg1_idx))
+        ts.add("SPAN", (1, leg2_idx), (2, leg2_idx))
+        ts.add("SPAN", (3, leg1_idx), (5, leg1_idx))
+        ts.add("SPAN", (3, leg2_idx), (5, leg2_idx))
+        sw_red = HexColor(RED_SHADES[1]); sw_grn = HexColor(GRN_SHADES[1])
+        ts.add("BACKGROUND", (3, leg1_idx), (5, leg1_idx), sw_red)
+        ts.add("BACKGROUND", (3, leg2_idx), (5, leg2_idx), sw_grn)
+
+    ts.add("LINEABOVE", (0,total_row_idx), (-1,total_row_idx), 0.5, colors.black)
+
+    tbl.setStyle(ts)
+    return tbl
+
 # ---- Helper for building page data ----
 def _build_category_data(epp_pivot: pd.DataFrame, latest_year: int, context: str, cmap_all: dict) -> tuple:
     """
@@ -480,6 +660,48 @@ def _build_fte_data(lines: Dict[str, pd.Series], latest_year: int) -> tuple:
         fte_rows.append((FTE_LINE_COLORS[label], label, latest_str, fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
 
     return fte_rows, fte_map, latest_fte_year
+
+def _build_nss_ch70_baseline_map(nss_data: pd.DataFrame, latest_year: int) -> dict:
+    """
+    Build baseline map for NSS/Ch70 components for comparison.
+
+    Returns dict mapping component name (including "Total") to:
+        - DOLLAR: latest $/pupil value
+        - START_DOLLAR: start year (15y ago) $/pupil value
+        - "5", "10", "15": CAGR values as floats
+    """
+    baseline_map = {}
+    start_year = latest_year - 15
+
+    for comp in nss_data.columns:
+        latest_val = float(nss_data.loc[latest_year, comp]) if (latest_year in nss_data.index and comp in nss_data.columns) else float("nan")
+        start_val = float(nss_data.loc[start_year, comp]) if (start_year in nss_data.index and comp in nss_data.columns) else float("nan")
+        c5 = compute_cagr_last(nss_data[comp], 5)
+        c10 = compute_cagr_last(nss_data[comp], 10)
+        c15 = compute_cagr_last(nss_data[comp], 15)
+
+        baseline_map[comp] = {
+            "DOLLAR": latest_val,
+            "START_DOLLAR": start_val,
+            "5": c5,
+            "10": c10,
+            "15": c15
+        }
+
+    # Add Total row
+    total_series = nss_data.sum(axis=1)
+    latest_total = float(total_series.loc[latest_year]) if latest_year in total_series.index else float("nan")
+    start_total = float(total_series.loc[start_year]) if start_year in total_series.index else float("nan")
+
+    baseline_map["Total"] = {
+        "DOLLAR": latest_total,
+        "START_DOLLAR": start_total,
+        "5": compute_cagr_last(total_series, 5),
+        "10": compute_cagr_last(total_series, 10),
+        "15": compute_cagr_last(total_series, 15)
+    }
+
+    return baseline_map
 
 # ---- Data table builders for appendix ----
 def _build_epp_data_table(epp_pivot: pd.DataFrame, title: str, doc_width: float) -> Table:
@@ -617,8 +839,81 @@ def _build_fte_data_table(lines: Dict[str, pd.Series], title: str, doc_width: fl
     tbl.setStyle(ts)
     return tbl
 
+def _build_nss_ch70_data_table(nss_pivot: pd.DataFrame, title: str, doc_width: float) -> Table:
+    """Build a data table showing NSS/Ch70 funding component data (years as columns, components as rows)."""
+    if nss_pivot.empty:
+        return None
+
+    # Get years and components in order - limit to 2009-2024
+    all_years = sorted(nss_pivot.index.tolist())
+    years = [yr for yr in all_years if 2009 <= yr <= 2024]
+    if not years:
+        years = all_years  # Fallback if no years in range
+
+    # Components in order: Ch70 Aid, Req NSS (adj), Actual NSS (adj)
+    components = nss_pivot.columns.tolist()
+
+    # Helper function to format large numbers with K/M abbreviations
+    def format_dollar_abbrev(val):
+        if np.isnan(val):
+            return "—"
+        if abs(val) >= 1_000_000:
+            return f"${val/1_000_000:.1f}M"
+        elif abs(val) >= 1_000:
+            return f"${val/1_000:.0f}K"
+        else:
+            return f"${val:,.0f}"
+
+    # Build header row
+    header = [Paragraph("Component", style_data_label)]
+    for yr in years:
+        header.append(Paragraph(str(yr), style_data_hdr))
+
+    data: List[List] = [header]
+
+    # Add component rows
+    for comp in components:
+        row = [Paragraph(comp, style_data_label)]
+        for yr in years:
+            val = nss_pivot.loc[yr, comp] if (yr in nss_pivot.index and comp in nss_pivot.columns) else np.nan
+            val_str = format_dollar_abbrev(val)
+            row.append(Paragraph(val_str, style_data_cell))
+        data.append(row)
+
+    # Add total row
+    total_series = nss_pivot.sum(axis=1)
+    total_row = [Paragraph("Total NSS", style_data_label)]
+    for yr in years:
+        val = total_series.loc[yr] if yr in total_series.index else np.nan
+        val_str = format_dollar_abbrev(val)
+        total_row.append(Paragraph(val_str, style_data_cell))
+    data.append(total_row)
+    total_row_idx = len(data) - 1
+
+    # Calculate column widths - narrow component column, more space for data
+    comp_width = 0.9*inch  # Narrower to give more space for year columns
+    remaining_width = doc_width - comp_width
+    year_width = remaining_width / len(years)
+    col_widths = [comp_width] + [year_width] * len(years)
+
+    tbl = Table(data, colWidths=col_widths)
+    ts = TableStyle([
+        ("LINEBELOW", (0,0), (-1,0), 0.5, colors.black),
+        ("LINEABOVE", (0, total_row_idx), (-1, total_row_idx), 0.5, colors.black),
+        ("VALIGN",(0,0), (-1,-1), "MIDDLE"),
+        ("ALIGN", (1,1), (-1,-1), "RIGHT"),
+        ("ALIGN", (0,1), (0,-1), "LEFT"),
+        ("LEFTPADDING",  (0,0), (-1,-1), 3),
+        ("RIGHTPADDING", (0,0), (-1,-1), 3),
+        ("TOPPADDING",   (0,0), (-1,-1), 2),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 2),
+    ])
+    tbl.setStyle(ts)
+
+    return tbl
+
 # ---- Page dicts ----
-def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
+def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> List[dict]:
     pages: List[dict] = []
 
     latest = int(df["YEAR"].max())
@@ -653,81 +948,18 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
 
     cmap_all = create_or_load_color_map(df)
 
-    # PAGE 2: ALPS - Simple version (solid color, no tables)
-    epp_alps, lines_alps = prepare_district_epp_lines(df, "ALPS PK-12")
-    if not epp_alps.empty or lines_alps:
-        pages.append(dict(
-            title="ALPS PK-12: PPE vs Enrollment",
-            subtitle="Total per-pupil expenditures; black/red lines show in-/out-of-district FTE trend (ALPS uses its own FTE scale).",
-            chart_path=str(district_png_simple("ALPS PK-12")),
-            graph_only=True,
-            section_id="alps_pk12"
-        ))
-
-    # PAGE 3: ALPS - Detailed version with tables
-    if not epp_alps.empty or lines_alps:
-        latest_year = get_latest_year(df, epp_alps)
-        context = context_for_district(df, "ALPS PK-12")
-
-        cat_rows, cat_total, cat_start_map = _build_category_data(epp_alps, latest_year, context, cmap_all)
-        fte_rows, fte_map, latest_fte_year = _build_fte_data(lines_alps, latest_year)
-
-        # Western baseline (same bucket); add baseline $ for latest_year
-        bucket = "le_500" if context == "SMALL" else "gt_500"
-        title_w, epp_w, _ls, _lm = prepare_western_epp_lines(df, reg, bucket)
-        base_map = {}
-        if not epp_w.empty:
-            start_year = latest_year - 15  # 15 years before latest for START_DOLLAR
-            for sc in epp_w.columns:
-                s=epp_w[sc]
-                base_map[sc]={
-                    "5": compute_cagr_last(s,5),
-                    "10":compute_cagr_last(s,10),
-                    "15":compute_cagr_last(s,15),
-                    "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
-                    "START_DOLLAR": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
-                }
-
-        pages.append(dict(
-            title="ALPS PK-12: PPE vs Enrollment (vs Western MA Districts)",
-            subtitle="Stacked per-pupil expenditures by category; black/red lines show in-/out-of-district FTE trend (ALPS uses its own FTE scale).",
-            chart_path=str(district_png_detail("ALPS PK-12")),
-            latest_year=latest_year, latest_year_fte=latest_fte_year,
-            cat_rows=cat_rows, cat_total=cat_total, cat_start_map=cat_start_map, fte_rows=fte_rows,
-            fte_series_map=fte_map,
-            page_type="district", baseline_title=title_w, baseline_map=base_map,
-            raw_epp=epp_alps, raw_lines=lines_alps, dist_name="ALPS PK-12"
-        ))
-
-        # ALPS third page: comparison to ALPS Peer Districts
-        alps_peers = ["ALPS PK-12", "Greenfield", "Easthampton", "South Hadley", "Northampton",
-                      "East Longmeadow", "Longmeadow", "Agawam", "Hadley", "Hampden-Wilbraham"]
-        peers_epp_temp, peers_enr_in_temp, peers_enr_out_temp = weighted_epp_aggregation(df, alps_peers)
-        peer_base_map = {}
-        if not peers_epp_temp.empty:
-            start_year = latest_year - 15  # 15 years before latest for START_DOLLAR
-            for sc in peers_epp_temp.columns:
-                s = peers_epp_temp[sc]
-                peer_base_map[sc] = {
-                    "5": compute_cagr_last(s, 5),
-                    "10": compute_cagr_last(s, 10),
-                    "15": compute_cagr_last(s, 15),
-                    "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
-                    "START_DOLLAR": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
-                }
-
-        pages.append(dict(
-            title="ALPS PK-12: PPE vs Enrollment (vs ALPS Peers)",
-            subtitle="Comparison to ALPS Peer Districts aggregate",
-            chart_path=str(district_png_detail("ALPS PK-12")),
-            latest_year=latest_year, latest_year_fte=latest_fte_year,
-            cat_rows=cat_rows, cat_total=cat_total, cat_start_map=cat_start_map, fte_rows=fte_rows,
-            fte_series_map=fte_map,
-            page_type="district",
-            baseline_title="ALPS Peer Districts Aggregate",
-            baseline_map=peer_base_map,
-            raw_epp=epp_alps, raw_lines=lines_alps, dist_name="ALPS PK-12"
-        ))
+    # Pre-compute Western district lists for NSS/Ch70 baseline computation
+    western_mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
+    western_all = sorted(set(reg[western_mask]["DIST_NAME"].str.lower()))
+    western_present = [d for d in western_all if d in set(df["DIST_NAME"].str.lower())]
+    western_le500 = []
+    western_gt500 = []
+    for dist in western_present:
+        fte = latest_total_fte(df, dist)
+        if fte <= N_THRESHOLD:
+            western_le500.append(dist)
+        else:
+            western_gt500.append(dist)
 
     # DISTRICT PAGES - Three pages per district (simple + detailed vs Western + detailed vs Peers)
     for dist in ["Amherst-Pelham"] + [d for d in DISTRICTS_OF_INTEREST if d != "Amherst-Pelham"]:
@@ -812,6 +1044,173 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
             raw_epp=epp, raw_lines=lines, dist_name=dist
         ))
 
+        # District NSS/Ch70 page (grouped with this district)
+        if c70 is not None and not c70.empty:
+            nss_dist, enroll_dist = prepare_district_nss_ch70(df, c70, dist)
+            if not nss_dist.empty:
+                latest_year_nss = int(nss_dist.index.max())
+                cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_dist, latest_year_nss)
+
+                # Determine Western baseline (use same bucket as district)
+                fte = latest_total_fte(df, dist)
+                bucket_label = "≤500" if fte <= N_THRESHOLD else ">500"
+                western_dists = western_le500 if fte <= N_THRESHOLD else western_gt500
+
+                # Compute Western NSS/Ch70 baseline (weighted per-pupil for comparison)
+                nss_west_baseline = {}
+                if western_dists:
+                    nss_west, _ = prepare_aggregate_nss_ch70_weighted(df, c70, western_dists)
+                    if not nss_west.empty:
+                        nss_west_baseline = _build_nss_ch70_baseline_map(nss_west, latest_year_nss)
+
+                # Compute ALPS Peers NSS/Ch70 baseline (weighted per-pupil for comparison)
+                alps_peers = ["ALPS PK-12", "Greenfield", "Easthampton", "South Hadley", "Northampton",
+                              "East Longmeadow", "Longmeadow", "Agawam", "Hadley", "Hampden-Wilbraham"]
+                nss_alps_baseline = {}
+                nss_alps, _ = prepare_aggregate_nss_ch70_weighted(df, c70, alps_peers)
+                if not nss_alps.empty:
+                    nss_alps_baseline = _build_nss_ch70_baseline_map(nss_alps, latest_year_nss)
+
+                safe_name = dist.replace("-", "_").replace(" ", "_")
+
+                # Create two NSS/Ch70 pages: one vs Western, one vs ALPS Peers
+                pages.append(dict(
+                    title=f"{dist_title}: Chapter 70 Aid and Net School Spending (vs Western MA)",
+                    subtitle=f"Funding vs Western Traditional ({bucket_label})",
+                    chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
+                    latest_year=latest_year_nss,
+                    cat_rows=cat_rows_nss,
+                    cat_total=cat_total_nss,
+                    cat_start_map=cat_start_map_nss,
+                    page_type="nss_ch70",
+                    baseline_title=f"Western Traditional ({bucket_label})",
+                    baseline_map=nss_west_baseline,
+                    dist_name=dist,
+                    raw_nss=nss_dist  # Store raw data for Appendix B
+                ))
+
+                pages.append(dict(
+                    title=f"{dist_title}: Chapter 70 Aid and Net School Spending (vs ALPS Peers)",
+                    subtitle="Funding vs ALPS Peer Districts",
+                    chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
+                    latest_year=latest_year_nss,
+                    cat_rows=cat_rows_nss,
+                    cat_total=cat_total_nss,
+                    cat_start_map=cat_start_map_nss,
+                    page_type="nss_ch70",
+                    baseline_title="ALPS Peer Districts Aggregate",
+                    baseline_map=nss_alps_baseline,
+                    dist_name=dist,
+                    raw_nss=nss_dist  # Store raw data for Appendix B
+                ))
+
+    # ALPS PK-12 PAGES - After all individual districts
+    # PAGE: ALPS - Simple version (solid color, no tables)
+    epp_alps, lines_alps = prepare_district_epp_lines(df, "ALPS PK-12")
+    if not epp_alps.empty or lines_alps:
+        pages.append(dict(
+            title="ALPS PK-12: PPE vs Enrollment",
+            subtitle="Total per-pupil expenditures; black/red lines show in-/out-of-district FTE trend (ALPS uses its own FTE scale).",
+            chart_path=str(district_png_simple("ALPS PK-12")),
+            graph_only=True,
+            section_id="alps_pk12"
+        ))
+
+    # PAGE: ALPS - Detailed version with tables
+    if not epp_alps.empty or lines_alps:
+        latest_year = get_latest_year(df, epp_alps)
+        context = context_for_district(df, "ALPS PK-12")
+
+        cat_rows, cat_total, cat_start_map = _build_category_data(epp_alps, latest_year, context, cmap_all)
+        fte_rows, fte_map, latest_fte_year = _build_fte_data(lines_alps, latest_year)
+
+        # Western baseline (same bucket); add baseline $ for latest_year
+        bucket = "le_500" if context == "SMALL" else "gt_500"
+        title_w, epp_w, _ls, _lm = prepare_western_epp_lines(df, reg, bucket)
+        base_map = {}
+        if not epp_w.empty:
+            start_year = latest_year - 15  # 15 years before latest for START_DOLLAR
+            for sc in epp_w.columns:
+                s=epp_w[sc]
+                base_map[sc]={
+                    "5": compute_cagr_last(s,5),
+                    "10":compute_cagr_last(s,10),
+                    "15":compute_cagr_last(s,15),
+                    "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
+                    "START_DOLLAR": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
+                }
+
+        pages.append(dict(
+            title="ALPS PK-12: PPE vs Enrollment (vs Western MA Districts)",
+            subtitle="Stacked per-pupil expenditures by category; black/red lines show in-/out-of-district FTE trend (ALPS uses its own FTE scale).",
+            chart_path=str(district_png_detail("ALPS PK-12")),
+            latest_year=latest_year, latest_year_fte=latest_fte_year,
+            cat_rows=cat_rows, cat_total=cat_total, cat_start_map=cat_start_map, fte_rows=fte_rows,
+            fte_series_map=fte_map,
+            page_type="district", baseline_title=title_w, baseline_map=base_map,
+            raw_epp=epp_alps, raw_lines=lines_alps, dist_name="ALPS PK-12"
+        ))
+
+        # ALPS third page: comparison to ALPS Peer Districts
+        alps_peers = ["ALPS PK-12", "Greenfield", "Easthampton", "South Hadley", "Northampton",
+                      "East Longmeadow", "Longmeadow", "Agawam", "Hadley", "Hampden-Wilbraham"]
+        peers_epp_temp, peers_enr_in_temp, peers_enr_out_temp = weighted_epp_aggregation(df, alps_peers)
+        peer_base_map = {}
+        if not peers_epp_temp.empty:
+            start_year = latest_year - 15  # 15 years before latest for START_DOLLAR
+            for sc in peers_epp_temp.columns:
+                s = peers_epp_temp[sc]
+                peer_base_map[sc] = {
+                    "5": compute_cagr_last(s, 5),
+                    "10": compute_cagr_last(s, 10),
+                    "15": compute_cagr_last(s, 15),
+                    "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
+                    "START_DOLLAR": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
+                }
+
+        pages.append(dict(
+            title="ALPS PK-12: PPE vs Enrollment (vs ALPS Peers)",
+            subtitle="Comparison to ALPS Peer Districts aggregate",
+            chart_path=str(district_png_detail("ALPS PK-12")),
+            latest_year=latest_year, latest_year_fte=latest_fte_year,
+            cat_rows=cat_rows, cat_total=cat_total, cat_start_map=cat_start_map, fte_rows=fte_rows,
+            fte_series_map=fte_map,
+            page_type="district",
+            baseline_title="ALPS Peer Districts Aggregate",
+            baseline_map=peer_base_map,
+            raw_epp=epp_alps, raw_lines=lines_alps, dist_name="ALPS PK-12"
+        ))
+
+        # ALPS PK-12 NSS/Ch70 page with baseline comparison to ALPS Peers
+        if c70 is not None and not c70.empty:
+            nss_alps, enroll_alps = prepare_aggregate_nss_ch70_weighted(df, c70, list(ALPS_COMPONENTS))
+            if not nss_alps.empty:
+                latest_year_nss = int(nss_alps.index.max())
+                cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_alps, latest_year_nss)
+
+                # Compute ALPS Peers baseline for comparison
+                alps_peers = ["ALPS PK-12", "Greenfield", "Easthampton", "South Hadley", "Northampton",
+                              "East Longmeadow", "Longmeadow", "Agawam", "Hadley", "Hampden-Wilbraham"]
+                nss_peers_baseline = {}
+                nss_peers, _ = prepare_aggregate_nss_ch70_weighted(df, c70, alps_peers)
+                if not nss_peers.empty:
+                    nss_peers_baseline = _build_nss_ch70_baseline_map(nss_peers, latest_year_nss)
+
+                pages.append(dict(
+                    title="ALPS PK-12: Chapter 70 Aid and Net School Spending (vs ALPS Peers)",
+                    subtitle="Funding components: State aid (Ch70), Required local contribution, and Actual spending above requirement",
+                    chart_path=str(OUTPUT_DIR / "nss_ch70_ALPS_PK_12.png"),
+                    latest_year=latest_year_nss,
+                    cat_rows=cat_rows_nss,
+                    cat_total=cat_total_nss,
+                    cat_start_map=cat_start_map_nss,
+                    page_type="nss_ch70",
+                    baseline_title="ALPS Peer Districts Aggregate",
+                    baseline_map=nss_peers_baseline,
+                    dist_name="ALPS PK-12",
+                    raw_nss=nss_alps  # Store for Appendix B data tables
+                ))
+
     # APPENDIX A - first page will include intro text
     first_appendix_a = True
     for bucket in ("le_500", "gt_500"):
@@ -840,6 +1239,29 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
             first_appendix_a = False
 
         pages.append(page_dict)
+
+        # Add NSS/Ch70 page for this Western aggregate (weighted per-pupil)
+        if c70 is not None and not c70.empty:
+            # Get district list for this bucket
+            bucket_districts = western_le500 if bucket == "le_500" else western_gt500
+            nss_west, enroll_west = prepare_aggregate_nss_ch70_weighted(df, c70, bucket_districts)
+            if not nss_west.empty:
+                latest_year_nss = int(nss_west.index.max())
+                cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_west, latest_year_nss)
+
+                safe_name = "Western_MA_le500" if bucket == "le_500" else "Western_MA_gt500"
+                pages.append(dict(
+                    title=f"{title}: Chapter 70 Aid and Net School Spending",
+                    subtitle="Weighted avg funding per district: State aid (Ch70), Required local contribution, and Actual spending above requirement",
+                    chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
+                    latest_year=latest_year_nss,
+                    cat_rows=cat_rows_nss,
+                    cat_total=cat_total_nss,
+                    cat_start_map=cat_start_map_nss,
+                    page_type="nss_ch70",
+                    dist_name=title,
+                    raw_nss=nss_west  # Store for Appendix B data tables
+                ))
 
     # Add ALPS Peer Districts aggregate to Appendix A
     alps_peers = ["ALPS PK-12", "Greenfield", "Easthampton", "South Hadley", "Northampton",
@@ -882,30 +1304,60 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
             raw_epp=peers_epp, raw_lines=fte_map, dist_name="ALPS Peer Districts Aggregate"
         ))
 
+        # Add NSS/Ch70 page for ALPS Peers aggregate (weighted per-pupil)
+        if c70 is not None and not c70.empty:
+            nss_peers, enroll_peers = prepare_aggregate_nss_ch70_weighted(df, c70, alps_peers)
+            if not nss_peers.empty:
+                latest_year_nss = int(nss_peers.index.max())
+                cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_peers, latest_year_nss)
+
+                pages.append(dict(
+                    title="ALPS Peer Districts Aggregate: Chapter 70 Aid and Net School Spending",
+                    subtitle="Weighted avg funding per district: State aid (Ch70), Required local contribution, and Actual spending above requirement",
+                    chart_path=str(OUTPUT_DIR / "nss_ch70_ALPS_Peers.png"),
+                    latest_year=latest_year_nss,
+                    cat_rows=cat_rows_nss,
+                    cat_total=cat_total_nss,
+                    cat_start_map=cat_start_map_nss,
+                    page_type="nss_ch70",
+                    dist_name="ALPS Peer Districts Aggregate",
+                    raw_nss=nss_peers  # Store for Appendix B data tables
+                ))
+
     # APPENDIX B: Data Tables - first page includes intro
     # Deduplicate by dist_name to avoid duplicate data tables
+    # Collect both EPP and NSS/Ch70 data for each district
     data_pages_to_add = []
     seen_districts = set()
+    district_data = {}  # Map dist_name -> {raw_epp, raw_lines, raw_nss}
+
     for p in pages:
+        dist_name = p.get("dist_name", "Unknown")
+        if dist_name not in district_data:
+            district_data[dist_name] = {"raw_epp": None, "raw_lines": {}, "raw_nss": None}
+
+        # Collect EPP data
         if p.get("raw_epp") is not None and not p["raw_epp"].empty:
-            dist_name = p.get("dist_name", "Unknown")
-            if dist_name not in seen_districts:
-                data_pages_to_add.append(p)
-                seen_districts.add(dist_name)
+            district_data[dist_name]["raw_epp"] = p.get("raw_epp")
+            district_data[dist_name]["raw_lines"] = p.get("raw_lines", {})
+
+        # Collect NSS/Ch70 data
+        if p.get("raw_nss") is not None and not p["raw_nss"].empty:
+            district_data[dist_name]["raw_nss"] = p.get("raw_nss")
 
     first_data_table = True
-    for p in data_pages_to_add:
-        dist_name = p.get("dist_name", "Unknown")
-        raw_epp = p.get("raw_epp")
-        raw_lines = p.get("raw_lines", {})
+    for dist_name, data in district_data.items():
+        if data["raw_epp"] is None or data["raw_epp"].empty:
+            continue  # Skip if no EPP data
 
         page_dict = dict(
             title=f"Data: {dist_name}",
-            subtitle="PPE ($/pupil) and FTE Enrollment",
+            subtitle="PPE ($/pupil), FTE Enrollment, and NSS/Ch70 Funding ($)",
             chart_path=None,
             page_type="data_table",
-            raw_epp=raw_epp,
-            raw_lines=raw_lines,
+            raw_epp=data["raw_epp"],
+            raw_lines=data["raw_lines"],
+            raw_nss=data.get("raw_nss"),  # May be None if no NSS/Ch70 data
             dist_name=dist_name
         )
 
@@ -913,14 +1365,13 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
             page_dict["appendix_title"] = "Appendix B. Data Tables"
             page_dict["appendix_subtitle"] = "All data values used in plots"
             page_dict["appendix_note"] = ("This appendix contains the underlying data tables for all districts and regions shown in the report. "
-                                        "Each table shows ppe by category (in dollars) and FTE enrollment counts across all available years.")
+                                        "Each table shows PPE by category (in $/pupil), FTE enrollment counts, and NSS/Ch70 funding components (in absolute dollars) across all available years.")
             page_dict["section_id"] = "appendix_b"
             first_data_table = False
 
         pages.append(page_dict)
 
     # APPENDIX C: Calculation Methodology
-    from school_shared import ALPS_COMPONENTS
     alps_list = sorted([d.title() for d in ALPS_COMPONENTS])
     pk12_districts = ["ALPS PK-12", "Easthampton", "Longmeadow", "Hampden-Wilbraham",
                       "East Longmeadow", "South Hadley", "Agawam", "Northampton",
@@ -948,7 +1399,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
 
     # Split methodology into two pages to avoid footer overlap
     methodology_page1 = [
-        "<b>1. Compound Annual Growth Rate (CAGR)</b>",
+        "<b>1. Per-Pupil Expenditure (PPE) Definition</b>",
+        "",
+        "Per-pupil expenditure (PPE) is reported in the End of Year Report (EOYR) for municipal and regional districts, and is calculated by in-district FTE.",
+        "",
+        "Per the DESE's Researcher's Guide, section XV. Using financial data:",
+        "<i>\"The out-of-district total cannot be properly reported as a per-pupil expenditure because the cost of tuitions varies greatly depending on the reason for going out of district.\"</i>",
+        "",
+        "<b>2. Compound Annual Growth Rate (CAGR)</b>",
         "",
         "CAGR measures the mean annual growth rate over a specified time period, assuming constant growth.",
         "",
@@ -959,9 +1417,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
         "",
         "Note: CAGR requires positive values at both endpoints and is undefined if data is missing.",
         "",
-        "<b>2. Aggregate District Calculations</b>",
+        "<b>3. Aggregate District Calculations</b>",
         "",
-        "<b>ALPS PK-12 Aggregate:</b> Weighted aggregation of member districts using enrollment-weighted per-pupil expenditures.",
+        "<b>ALPS PK-12 Aggregate:</b> Weighted aggregation of member districts using enrollment-weighted per-pupil expenditures. This simulates the four towns of the Amherst-Pelham Regional District as a PK-12 unified district to support comparison with other PK-12 unified districts.",
         f"<b>Member districts:</b> {', '.join(alps_list)}",
         "",
         "<b>Weighted EPP Formula:</b>",
@@ -986,7 +1444,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
     ]
 
     methodology_page2 = [
-        "<b>3. Red/Green Shading Logic (District Comparison Tables)</b>",
+        "<b>4. Red/Green Shading Logic (District Comparison Tables)</b>",
         "",
         "District pages include tables comparing each district's per-pupil expenditures (PPE) and growth rates (CAGR) to baseline aggregates (Western MA or ALPS Peers).",
         "",
@@ -1010,6 +1468,48 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
         "• Therefore it remains higher in absolute dollars but isn't growing faster",
     ]
 
+    methodology_page3 = [
+        "<b>5. Chapter 70 Aid and Net School Spending (NSS) Calculations</b>",
+        "",
+        "Chapter 70 is Massachusetts' primary state aid program for K-12 education. Net School Spending (NSS) is the total amount a district spends on education from local and state sources.",
+        "",
+        "<b>Data Sources:</b>",
+        "• <b>Chapter 70 Aid (c70aid):</b> State aid received by the district (DESE profile_DataC70 sheet)",
+        "• <b>Required NSS (rqdnss2):</b> Minimum spending required by state law, adjusted (DESE profile_DataC70 sheet)",
+        "• <b>Actual NSS (actualNSS):</b> Total district spending on education (DESE profile_DataC70 sheet)",
+        "",
+        "<b>Important Note:</b>",
+        "NSS/Ch70 values are reported in <b>absolute dollars</b>, NOT per-pupil. Unlike PPE (which divides by in-district FTE), NSS/Ch70 values represent total district funding amounts.",
+        "",
+        "<b>Stacked Components (bottom to top in plots):</b>",
+        "1. <b>Ch70 Aid ($):</b> c70aid",
+        "   • Green bar in plots • State funding received by district",
+        "",
+        "2. <b>Req NSS (adj) ($):</b> max(0, rqdnss2 − c70aid)",
+        "   • Amber bar in plots • Required local contribution (after subtracting Ch70)",
+        "   • Uses max(0, ...) to handle rare cases where Ch70 > Required NSS",
+        "",
+        "3. <b>Actual NSS (adj) ($):</b> actualNSS − rqdnss2",
+        "   • Purple bar in plots • Spending above minimum requirement",
+        "   • Represents discretionary local spending beyond state mandates",
+        "",
+        "<b>Total NSS ($):</b> Sum of all three components = actualNSS",
+        "",
+        "<b>Example Calculation (Amherst, FY2024):</b>",
+        "• Ch70 Aid: $6,791,000",
+        "• Required NSS: $18,859,000; Req NSS (adj): $18,859,000 − $6,791,000 = $12,068,000",
+        "• Actual NSS: $31,511,000; Actual NSS (adj): $31,511,000 − $18,859,000 = $12,652,000",
+        "• Total NSS: $6,791,000 + $12,068,000 + $12,652,000 = $31,511,000",
+        "",
+        "<b>Aggregate Calculation:</b>",
+        "For aggregate districts (Western MA, ALPS Peers), sum dollar amounts across all member districts by year:",
+        "• Ch70 Aid ($) = Σ(District_Ch70)",
+        "• Same calculation method for Req NSS (adj) and Actual NSS (adj)",
+        "",
+        "<b>Shading:</b>",
+        "NSS/Ch70 comparison tables use the same red/green shading logic as PPE tables (2% dollar threshold, 2pp CAGR threshold).",
+    ]
+
     # Add first methodology page
     pages.append(dict(
         title="Appendix C. Calculation Methodology",
@@ -1027,6 +1527,15 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame) -> List[dict]:
         chart_path=None,
         graph_only=True,
         text_blocks=methodology_page2
+    ))
+
+    # Add third methodology page (NSS/Ch70)
+    pages.append(dict(
+        title="Appendix C. Calculation Methodology (continued)",
+        subtitle="",
+        chart_path=None,
+        graph_only=True,
+        text_blocks=methodology_page3
     ))
 
     return pages
@@ -1183,6 +1692,26 @@ def build_pdf(pages: List[dict], out_path: Path):
             fte_table = _build_fte_data_table(p.get("raw_lines", {}), p.get("dist_name", ""), doc.width)
             if fte_table:
                 story.append(fte_table)
+
+            # Add NSS/Ch70 data table if available
+            raw_nss = p.get("raw_nss")
+            if raw_nss is not None and not raw_nss.empty:
+                story.append(Spacer(0, 12))
+                story.append(Paragraph("NSS/Ch70 Funding Components ($)", style_body))
+                story.append(Spacer(0, 6))
+                nss_table = _build_nss_ch70_data_table(raw_nss, p.get("dist_name", ""), doc.width)
+                if nss_table:
+                    story.append(nss_table)
+
+            if idx < len(pages)-1:
+                story.append(PageBreak())
+            continue
+
+        # NSS/Ch70 pages: show funding component table
+        if p.get("page_type") == "nss_ch70":
+            story.append(Spacer(0, 6))
+            story.append(_build_nss_ch70_table(p))
+
             if idx < len(pages)-1:
                 story.append(PageBreak())
             continue
@@ -1203,7 +1732,7 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     df, reg, profile_c70 = load_data()
     df = add_alps_pk12(df)
-    pages = build_page_dicts(df, reg)
+    pages = build_page_dicts(df, reg, profile_c70)
     if not pages:
         print("[WARN] No pages to write."); return
 
