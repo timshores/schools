@@ -3,21 +3,20 @@ Plotting Module for School District Expenditure Analysis
 
 This module generates all matplotlib charts for the PDF report:
 1. Western MA Overview: Horizontal bar chart of all districts (plot_all_western_overview)
-2. ALPS & Peers Comparison: Horizontal bars with enrollment annotations (plot_ppe_change_bars)
+2. Western MA Enrollment Groups: 4 aggregate plots (Small/Medium/Large/Springfield)
 3. District Detail Plots: Both simple (solid) and detailed (stacked) versions (plot_one, plot_one_simple)
 
 Key Design Patterns:
 - Horizontal bars (barh) used for multi-district comparisons (better for PDF portrait layout)
 - Vertical bars (bar) used for time-series district plots (better for showing trends)
 - Dynamic figure heights scale with number of items to display
-- Enrollment annotations positioned to right of horizontal bars
-- Aggregates separated at bottom of charts for visual distinction
-- All charts use consistent color palettes: Blue for peers, Gray for aggregates
+- Enrollment-based peer groups (4-tier system) for meaningful comparisons
+- All charts use consistent color palettes and styling
 
 Plot Types:
 - Simple: Solid color total PPE with enrollment lines (for quick overview)
 - Detailed: Stacked categories with enrollment lines (for deep analysis)
-- Comparative: Horizontal bars showing 5-year change with enrollment annotations
+- Western Overview: Horizontal bars showing 5-year change for all districts
 """
 
 from __future__ import annotations
@@ -38,10 +37,12 @@ from school_shared import (
     DISTRICTS_OF_INTEREST, ENROLL_KEYS,
     compute_global_dollar_ylim, compute_districts_fte_ylim,
     canonical_order_bottom_to_top,
-    add_alps_pk12, EXCLUDE_SUBCATS, aggregate_to_canonical,
+    EXCLUDE_SUBCATS, aggregate_to_canonical,
     FTE_LINE_COLORS, PPE_PEERS_YMAX, PPE_PEERS_REMOVE_SPINES, PPE_PEERS_BAR_EDGES,
     MICRO_AREA_FILL, MICRO_AREA_EDGE,
     weighted_epp_aggregation,
+    get_cohort_ylim,
+    get_western_cohort_districts,
 )
 
 # ===== version footer for images =====
@@ -80,13 +81,13 @@ AREA_SAFETY_MARGIN = 300.0
 
 def _stamp(fig, y_pos=0.01):
     """
-    Add version stamp to figure.
+    Placeholder for version stamp (removed per user request).
 
     Args:
         fig: matplotlib figure
         y_pos: Y position for stamp (default 0.01). Increase for plots with crowded bottom areas.
     """
-    fig.text(0.99, y_pos, f"Code: {CODE_VERSION}", ha="right", va="bottom", fontsize=10.5, color="#666666")
+    pass  # Version stamp removed
 
 def _boost_plot_fonts():
     plt.rcParams.update({
@@ -100,6 +101,17 @@ def _boost_plot_fonts():
 
 def comma_formatter():
     return FuncFormatter(lambda x, pos: f"{x:,.0f}")
+
+def smart_dollar_formatter():
+    """Returns formatter that uses M for millions, K for thousands."""
+    def format_func(x, _):
+        if x >= 1_000_000:
+            return f"${x/1_000_000:.1f}M".replace('.0M', 'M')
+        elif x >= 1000:
+            return f"${int(x/1000):,}K"
+        else:
+            return f"${int(x):,}"
+    return FuncFormatter(format_func)
 
 # ---------- Helpers ----------
 def _total_ppe_series_from_pivot(piv: pd.DataFrame) -> pd.Series:
@@ -120,13 +132,15 @@ def _weighted_total_series_for_list(df: pd.DataFrame, districts: List[str]) -> t
 # ---------- Simplified district plot (solid color, no categories) ----------
 def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series],
                    context: str, right_ylim: float, left_ylim: float | None,
-                   line_colors: Dict[str, str]):
+                   line_colors: Dict[str, str], enrollment_label: str = "Pupils (FTE)"):
     """Plot district with solid color for total PPE, no category breakdown."""
 
     # Calculate total PPE series
     total_ppe = _total_ppe_series_from_pivot(epp_pivot) if (epp_pivot is not None and not epp_pivot.empty) else pd.Series(dtype=float)
     years = (total_ppe.index.tolist() if not total_ppe.empty
              else sorted(set().union(*(set(s.index) for s in lines.values() if s is not None))))
+    # Filter years to 2009 onwards
+    years = [yr for yr in years if yr >= 2009]
 
     fig, axL = plt.subplots(figsize=(11.8, 7.4))
     axR = axL.twinx()
@@ -145,22 +159,115 @@ def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd
         s = lines.get(label)
         if s is None or s.empty: continue
         y = s.reindex(years).values
-        lc = line_colors[label]
+        lc = line_colors.get(label, "#666666")  # Default to gray if color not found
         axL.plot(years, y, color=lc, lw=3.4, marker="o", ms=8.0,
                  markerfacecolor="white", markeredgecolor=lc, markeredgewidth=2.0,
                  zorder=6, clip_on=False)
 
     axL.set_xlabel("School Year")
-    axL.set_ylabel("Pupils (FTE)")
-    axR.set_ylabel("$ per pupil")
-    axL.yaxis.set_major_formatter(comma_formatter())
-    axR.yaxis.set_major_formatter(comma_formatter())
+    axL.set_ylabel(enrollment_label, labelpad=15)  # Add padding to prevent overlap
+    # Use weighted avg label if enrollment_label indicates weighted average
+    ylabel = "Weighted avg $ per pupil" if "weighted avg" in enrollment_label.lower() else "$ per pupil"
+    axR.set_ylabel(ylabel)
+    # Custom formatter that hides "0" and abbreviates with K/M on enrollment axis
+    from matplotlib.ticker import FuncFormatter
+    def enrollment_formatter(x, _):
+        if x == 0:
+            return ""
+        elif x >= 1_000_000:
+            return f"{x/1_000_000:.1f}M".rstrip('0').rstrip('.')
+        elif x >= 1_000:
+            return f"{x/1_000:.1f}K".rstrip('0').rstrip('.')
+        else:
+            return f"{int(x)}"
+    axL.yaxis.set_major_formatter(FuncFormatter(enrollment_formatter))
+    axL.tick_params(axis='y', pad=12)  # Add space between labels and ticks/donut dots
+    axR.yaxis.set_major_formatter(smart_dollar_formatter())
 
     if right_ylim is not None: axR.set_ylim(0, right_ylim)
-    if left_ylim is not None:  axL.set_ylim(0, left_ylim)
 
-    axL.grid(False); axR.grid(False)
+    # Check if enrollment data exceeds upper limit and extend with faded ticks if needed
+    # Only add faded overflow range if EARLY years (2009-2011) exceed the cohort bound
+    early_years_range = [yr for yr in years if 2009 <= yr <= 2011]
+    max_early_enrollment = 0
+    for s in lines.values():
+        if s is not None and not s.empty:
+            early_vals = s.reindex(early_years_range).dropna()
+            if not early_vals.empty:
+                max_early_enrollment = max(max_early_enrollment, float(early_vals.max()))
+
+    if left_ylim is not None and max_early_enrollment > left_ylim:
+        # Early years exceed bound - extend axis with faded overflow ticks
+        # Round extended limit to just above early max (100 or 200 higher)
+        overflow_amount = max_early_enrollment - left_ylim
+        if overflow_amount <= 100:
+            extended_ylim = left_ylim + 100
+        elif overflow_amount <= 200:
+            extended_ylim = left_ylim + 200
+        else:
+            # Round to nearest 100
+            extended_ylim = np.ceil(max_early_enrollment / 100) * 100
+
+        axL.set_ylim(0, extended_ylim)
+
+        # Create custom tick locator with faded overflow ticks
+        tick_spacing = 100 if left_ylim < 1000 else 200 if left_ylim <= 2000 else 500 if left_ylim < 5000 else 1000
+        ticks = list(range(0, int(left_ylim) + 1, tick_spacing))
+
+        # Add overflow ticks (faded)
+        overflow_ticks = list(range(int(left_ylim) + tick_spacing, int(extended_ylim) + 1, tick_spacing))
+        all_ticks = ticks + overflow_ticks
+
+        axL.set_yticks(all_ticks)
+
+        # Color tick labels: normal for in-bounds, faded for overflow
+        tick_labels = axL.get_yticklabels()
+        for i, label in enumerate(tick_labels):
+            if all_ticks[i] > left_ylim:
+                label.set_alpha(0.4)
+    elif left_ylim is not None:
+        axL.set_ylim(0, left_ylim)
+
+    # Add donut dots at enrollment tick positions
+    # Turn off default tick lines and add circular markers instead at y-axis
+    axL.tick_params(axis='y', length=0)  # Hide default tick lines
+    tick_positions = axL.get_yticks()
+    # Use axis transform to place markers at y-axis regardless of data
+    for tick_y in tick_positions:
+        axL.plot(0, tick_y, 'o', color='black', markersize=5,
+                markerfacecolor='white', markeredgecolor='black', markeredgewidth=1.5,
+                transform=axL.get_yaxis_transform(), clip_on=False, zorder=10)
+
+    # Remove top, left, right borders - keep only bottom
+    axL.spines['top'].set_visible(False)
+    axL.spines['left'].set_visible(False)
+    axL.spines['right'].set_visible(False)
+    axR.spines['top'].set_visible(False)
+    axR.spines['left'].set_visible(False)
+    axR.spines['right'].set_visible(False)
+
+    # Add faint horizontal gridlines for $ axis only (not enrollment axis)
+    axL.grid(False)
+    axR.grid(True, axis='y', alpha=0.22, linewidth=0.5, linestyle='-', color='gray')
     axL.margins(x=0.02); axR.margins(x=0.02)
+
+    # Add legend below plot
+    from matplotlib.patches import Patch
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Patch(facecolor="#BFDBFE", edgecolor="white", label='Per-Pupil Expenditures')
+    ]
+    # Add enrollment lines to legend
+    for _key, label in ENROLL_KEYS:
+        if label in lines and lines[label] is not None and not lines[label].empty:
+            lc = line_colors.get(label, "#666666")
+            legend_elements.append(Line2D([0], [0], color=lc, lw=3, marker='o',
+                                         markersize=7, markerfacecolor='white',
+                                         markeredgecolor=lc, markeredgewidth=2, label=label))
+
+    fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.08),
+               ncol=4, frameon=False, fontsize=12)
+    plt.subplots_adjust(bottom=0.15)  # Make room for legend
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     _stamp(fig)
@@ -171,12 +278,14 @@ def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd
 # ---------- Main district page plot ----------
 def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series],
              context: str, right_ylim: float, left_ylim: float | None,
-             line_colors: Dict[str, str], cmap_all: Dict[str, Dict[str, str]]):
+             line_colors: Dict[str, str], cmap_all: Dict[str, Dict[str, str]], enrollment_label: str = "Pupils (FTE)"):
 
     cols = list(epp_pivot.columns) if (epp_pivot is not None and not epp_pivot.empty) else []
     sub_order_bottom_top = canonical_order_bottom_to_top(cols)
     years = (epp_pivot.index.tolist() if cols
              else sorted(set().union(*(set(s.index) for s in lines.values() if s is not None))))
+    # Filter years to 2009 onwards
+    years = [yr for yr in years if yr >= 2009]
 
     fig, axL = plt.subplots(figsize=(11.8, 7.4))
     axR = axL.twinx()
@@ -197,21 +306,96 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
         s = lines.get(label)
         if s is None or s.empty: continue
         y = s.reindex(years).values
-        lc = line_colors[label]
+        lc = line_colors.get(label, "#666666")  # Default to gray if color not found
         axL.plot(years, y, color=lc, lw=3.4, marker="o", ms=8.0,
                  markerfacecolor="white", markeredgecolor=lc, markeredgewidth=2.0,
                  zorder=6, clip_on=False)
 
     axL.set_xlabel("School Year")
-    axL.set_ylabel("Pupils (FTE)")
-    axR.set_ylabel("$ per pupil")
-    axL.yaxis.set_major_formatter(comma_formatter())
-    axR.yaxis.set_major_formatter(comma_formatter())
+    axL.set_ylabel(enrollment_label, labelpad=15)  # Add padding to prevent overlap
+    # Use weighted avg label if enrollment_label indicates weighted average
+    ylabel = "Weighted avg $ per pupil" if "weighted avg" in enrollment_label.lower() else "$ per pupil"
+    axR.set_ylabel(ylabel)
+    # Custom formatter that hides "0" and abbreviates with K/M on enrollment axis
+    from matplotlib.ticker import FuncFormatter
+    def enrollment_formatter(x, _):
+        if x == 0:
+            return ""
+        elif x >= 1_000_000:
+            return f"{x/1_000_000:.1f}M".rstrip('0').rstrip('.')
+        elif x >= 1_000:
+            return f"{x/1_000:.1f}K".rstrip('0').rstrip('.')
+        else:
+            return f"{int(x)}"
+    axL.yaxis.set_major_formatter(FuncFormatter(enrollment_formatter))
+    axL.tick_params(axis='y', pad=12)  # Add space between labels and ticks/donut dots
+    axR.yaxis.set_major_formatter(smart_dollar_formatter())
 
     if right_ylim is not None: axR.set_ylim(0, right_ylim)
-    if left_ylim is not None:  axL.set_ylim(0, left_ylim)
 
-    axL.grid(False); axR.grid(False)
+    # Check if enrollment data exceeds upper limit and extend with faded ticks if needed
+    # Only add faded overflow range if EARLY years (2009-2011) exceed the cohort bound
+    early_years_range = [yr for yr in years if 2009 <= yr <= 2011]
+    max_early_enrollment = 0
+    for s in lines.values():
+        if s is not None and not s.empty:
+            early_vals = s.reindex(early_years_range).dropna()
+            if not early_vals.empty:
+                max_early_enrollment = max(max_early_enrollment, float(early_vals.max()))
+
+    if left_ylim is not None and max_early_enrollment > left_ylim:
+        # Early years exceed bound - extend axis with faded overflow ticks
+        # Round extended limit to just above early max (100 or 200 higher)
+        overflow_amount = max_early_enrollment - left_ylim
+        if overflow_amount <= 100:
+            extended_ylim = left_ylim + 100
+        elif overflow_amount <= 200:
+            extended_ylim = left_ylim + 200
+        else:
+            # Round to nearest 100
+            extended_ylim = np.ceil(max_early_enrollment / 100) * 100
+
+        axL.set_ylim(0, extended_ylim)
+
+        # Create custom tick locator with faded overflow ticks
+        tick_spacing = 100 if left_ylim < 1000 else 200 if left_ylim <= 2000 else 500 if left_ylim < 5000 else 1000
+        ticks = list(range(0, int(left_ylim) + 1, tick_spacing))
+
+        # Add overflow ticks (faded)
+        overflow_ticks = list(range(int(left_ylim) + tick_spacing, int(extended_ylim) + 1, tick_spacing))
+        all_ticks = ticks + overflow_ticks
+
+        axL.set_yticks(all_ticks)
+
+        # Color tick labels: normal for in-bounds, faded for overflow
+        tick_labels = axL.get_yticklabels()
+        for i, label in enumerate(tick_labels):
+            if all_ticks[i] > left_ylim:
+                label.set_alpha(0.4)
+    elif left_ylim is not None:
+        axL.set_ylim(0, left_ylim)
+
+    # Add donut dots at enrollment tick positions
+    # Turn off default tick lines and add circular markers instead at y-axis
+    axL.tick_params(axis='y', length=0)  # Hide default tick lines
+    tick_positions = axL.get_yticks()
+    # Use axis transform to place markers at y-axis regardless of data
+    for tick_y in tick_positions:
+        axL.plot(0, tick_y, 'o', color='black', markersize=5,
+                markerfacecolor='white', markeredgecolor='black', markeredgewidth=1.5,
+                transform=axL.get_yaxis_transform(), clip_on=False, zorder=10)
+
+    # Remove top, left, right borders - keep only bottom
+    axL.spines['top'].set_visible(False)
+    axL.spines['left'].set_visible(False)
+    axL.spines['right'].set_visible(False)
+    axR.spines['top'].set_visible(False)
+    axR.spines['left'].set_visible(False)
+    axR.spines['right'].set_visible(False)
+
+    # Add faint horizontal gridlines for $ axis only (not enrollment axis)
+    axL.grid(False)
+    axR.grid(True, axis='y', alpha=0.22, linewidth=0.5, linestyle='-', color='gray')
     axL.margins(x=0.02); axR.margins(x=0.02)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -221,7 +405,7 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
     print(f"[OK] Saved {out_path}")
 
 # ===== PPE comparative bars (5-year change) with enrollment mini-areas =====
-def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame, year_lag: int = YEAR_LAG_DEFAULT):
+def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, year_lag: int = YEAR_LAG_DEFAULT):
     """Plot all Western MA districts as horizontal bars (vertical layout)."""
     latest = int(df["YEAR"].max())
     t0 = latest - year_lag
@@ -235,7 +419,7 @@ def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFram
     dist_labels, dist_p0, dist_p1 = [], [], []
 
     for dist in western_districts:
-        piv, lines = prepare_district_epp_lines(df, dist)
+        piv, lines = prepare_district_epp_lines(df, dist, c70)
         if piv.empty:
             continue
         total = _total_ppe_series_from_pivot(piv)
@@ -266,18 +450,21 @@ def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFram
 
     # Create taller figure - height based on number of districts
     # NOTE: Dynamic height calculation ensures all districts fit comfortably
-    bar_height = 0.65  # Height of each bar
-    fig_height = max(12.0, n * bar_height * 0.35 + 3)  # Dynamic height
-    fig, ax_main = plt.subplots(1, 1, figsize=(11.0, fig_height))
+    bar_height = 0.95  # Reduced to add spacing between bars (was 1.13)
+    base_fig_height = max(12.0, n * bar_height * 0.35 + 3)
+    fig_height = base_fig_height * 1.2  # Increased by 20% for vertical height
+    fig_width = 11.0 * 1.4  # Increased by 40% (11.0 → 15.4) for breathing room
+    fig, ax_main = plt.subplots(1, 1, figsize=(fig_width, fig_height))
 
-    # Font sizes: Y-axis larger for readability, X-axis for $ values
-    ax_main.tick_params(axis='y', labelsize=13)  # Y-axis (district names) - increased from 10
-    ax_main.tick_params(axis='x', labelsize=16)  # X-axis (PPE values)
-    ax_main.xaxis.label.set_size(20)
+    # Font sizes: Increased 20% more for readability
+    ax_main.tick_params(axis='y', labelsize=28)  # Y-axis (district names): 23 * 1.2 ≈ 28
+    ax_main.tick_params(axis='x', labelsize=28)  # X-axis (PPE values): 23 * 1.2 ≈ 28
+    ax_main.xaxis.label.set_size(35)  # X-axis label: 29 * 1.2 ≈ 35
 
-    if PPE_PEERS_REMOVE_SPINES:
-        for s in ("top","right","left","bottom"):
-            ax_main.spines[s].set_visible(False)
+    # Remove top, left, right borders - keep only bottom
+    ax_main.spines['top'].set_visible(False)
+    ax_main.spines['left'].set_visible(False)
+    ax_main.spines['right'].set_visible(False)
 
     edge = "white" if PPE_PEERS_BAR_EDGES else None
 
@@ -317,7 +504,7 @@ def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFram
         Patch(facecolor=PURP_DECL,  edgecolor=edge, label=f"{latest} decrease from {t0}"),
     ]
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.99),
-               ncol=3, frameon=False, fontsize=16)
+               ncol=3, frameon=False, fontsize=28)  # Increased 20% more: 23 * 1.2 ≈ 28
     plt.subplots_adjust(top=0.96, bottom=0.06, left=0.28, right=0.95)  # More left margin for labels
 
     _stamp(fig)
@@ -326,7 +513,7 @@ def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFram
     plt.close(fig)
     print(f"[OK] Saved {out_path}")
 
-def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
+def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame,
                          districts: list[str], year_lag: int = YEAR_LAG_DEFAULT,
                          title: str | None = None):
     """
@@ -344,7 +531,7 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame,
     # Collect peer district data
     peer_labels, peer_p0, peer_p1, peer_series = [], [], [], []
     def add_peer(name: str):
-        piv, lines = prepare_district_epp_lines(df, name)
+        piv, lines = prepare_district_epp_lines(df, name, c70)
         if piv.empty: return
         total = _total_ppe_series_from_pivot(piv)
         p0 = total.get(t0, np.nan); p1 = total.get(latest, np.nan)
@@ -506,38 +693,41 @@ if __name__ == "__main__":
     """
     Main execution flow for generating all plots:
     1. Load data and create color mappings
-    2. Generate Western MA regional aggregates (≤500 and >500)
+    2. Generate Western MA regional aggregates (4 enrollment groups)
     3. Generate Western MA overview (all districts, horizontal bars)
-    4. Generate ALPS Peer aggregate
-    5. Generate all district plots (simple + detailed versions)
-    6. Generate ALPS & Peers comparison (horizontal bars with enrollment)
+    4. Generate all district plots (simple + detailed versions)
 
     NOTE: All plots saved to OUTPUT_DIR with standardized naming:
     - regional_expenditures_per_pupil_*.png for aggregates
     - expenditures_per_pupil_vs_enrollment_*_simple.png for simple district views
     - expenditures_per_pupil_vs_enrollment_*_detail.png for detailed district views
     - ppe_overview_all_western.png for Western overview
-    - ppe_change_bars_ALPS_and_peers.png for ALPS comparison
     """
     _boost_plot_fonts()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    df, reg, profile_c70 = load_data()
-    df = add_alps_pk12(df)
+    df, reg, c70 = load_data()
+    # Note: add_alps_pk12() removed - no longer using ALPS PK-12 aggregate concept
     cmap_all = create_or_load_color_map(df)
 
     pivots_all, district_lines_all = [], []
 
-    # Western
+    # Get Western cohorts using centralized function (ensures consistency with NSS)
+    cohorts = get_western_cohort_districts(df, reg)
+
+    # Western MA - 4 enrollment groups
     western_prepared = {}
-    for bucket in ("le_500", "gt_500"):
-        title, piv, lines_sum, _ = prepare_western_epp_lines(df, reg, bucket)
-        western_prepared[bucket] = (title, piv, lines_sum)
+    cohort_map = {"tiny": "TINY", "small": "SMALL", "medium": "MEDIUM", "large": "LARGE", "springfield": "SPRINGFIELD"}
+    for bucket in ("tiny", "small", "medium", "large", "springfield"):
+        district_list = cohorts[cohort_map[bucket]]
+        title, piv, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket, c70, districts=district_list)
+        # Use weighted average (mean) for aggregate enrollment lines, not sum
+        western_prepared[bucket] = (title, piv, lines_mean)
         if not piv.empty: pivots_all.append(piv)
 
     # Districts
     district_prepared = {}
     for dist in DISTRICTS_OF_INTEREST:
-        piv, lines = prepare_district_epp_lines(df, dist)
+        piv, lines = prepare_district_epp_lines(df, dist, c70)
         district_prepared[dist] = (piv, lines)
         if not piv.empty: pivots_all.append(piv)
         district_lines_all.append(lines)
@@ -545,30 +735,29 @@ if __name__ == "__main__":
     right_ylim = compute_global_dollar_ylim(pivots_all, pad=1.06, step=500)
     left_ylim_districts = compute_districts_fte_ylim(district_lines_all, pad=1.06, step=50)
 
-    # Western plots
-    for bucket in ("le_500", "gt_500"):
-        _title, piv, lines_sum = western_prepared[bucket]
+    # Western plots - 4 enrollment groups
+    for bucket in ("tiny", "small", "medium", "large", "springfield"):
+        _title, piv, lines_mean = western_prepared[bucket]
+        if piv.empty:
+            print(f"[SKIP] No data for Western MA {bucket} group")
+            continue
         context = context_for_western(bucket)
         out = OUTPUT_DIR / f"regional_expenditures_per_pupil_Western_Traditional_{bucket}.png"
-        plot_one(out, piv, lines_sum, context, right_ylim, None, FTE_LINE_COLORS, cmap_all)
+
+        # Determine enrollment label and y-axis scale based on group
+        # Use centralized cohort definitions
+        cohort_key = bucket.upper()
+        if bucket == "springfield":
+            enrollment_label = "Enrollment"
+            left_ylim_agg = compute_districts_fte_ylim([lines_mean], pad=1.06, step=1000)
+        else:
+            enrollment_label = "Weighted avg enrollment per district"
+            left_ylim_agg = get_cohort_ylim(cohort_key)
+
+        plot_one(out, piv, lines_mean, context, right_ylim, left_ylim_agg, FTE_LINE_COLORS, cmap_all, enrollment_label)
 
     # Western MA overview plot (all districts as horizontal bars)
-    # NOTE: No longer generates district code mapping - names shown directly on chart
-    plot_all_western_overview(OUTPUT_DIR / "ppe_overview_all_western.png", df, reg, year_lag=5)
-
-    # ALPS Peer Districts Aggregate plot
-    alps_peers = ["ALPS PK-12", "Greenfield", "Easthampton", "South Hadley", "Northampton",
-                  "East Longmeadow", "Longmeadow", "Agawam", "Hadley", "Hampden-Wilbraham"]
-    peers_epp, peers_enr_in, peers_enr_out = weighted_epp_aggregation(df, alps_peers)
-    if not peers_epp.empty:
-        peers_lines = {
-            "In-District FTE Pupils": peers_enr_in,
-            "Out-of-District FTE Pupils": peers_enr_out
-        }
-        out = OUTPUT_DIR / "regional_expenditures_per_pupil_ALPS_Peers_Aggregate.png"
-        # Compute left_ylim for peers enrollment to ensure y-axis starts at 0
-        left_ylim_peers = compute_districts_fte_ylim([peers_lines], pad=1.06, step=50)
-        plot_one(out, peers_epp, peers_lines, "LARGE", right_ylim, left_ylim_peers, FTE_LINE_COLORS, cmap_all)
+    plot_all_western_overview(OUTPUT_DIR / "ppe_overview_all_western.png", df, reg, c70, year_lag=5)
 
     # District plots - generate BOTH simple and detailed versions
     ordered = ["Amherst-Pelham"] + [d for d in DISTRICTS_OF_INTEREST if d != "Amherst-Pelham"]
@@ -576,38 +765,19 @@ if __name__ == "__main__":
         piv, lines = district_prepared[dist]
         context = context_for_district(df, dist)
 
-        # Special y-axis scale for small districts (Leverett, Pelham, Shutesbury)
-        if dist in ["Leverett", "Pelham", "Shutesbury"]:
-            left_ylim_dist = 250
-        else:
+        # Use cohort-based y-axis limit automatically
+        # This ensures each district's enrollment axis matches its cohort range
+        left_ylim_dist = get_cohort_ylim(context)
+        if left_ylim_dist is None:  # Springfield has no fixed ylim
             left_ylim_dist = left_ylim_districts
+
+        # Individual districts use "Enrollment" label
+        enrollment_label = "Enrollment"
 
         # Simple version (solid color, no categories)
         out_simple = OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}_simple.png"
-        plot_one_simple(out_simple, piv, lines, context, right_ylim, left_ylim_dist, FTE_LINE_COLORS)
+        plot_one_simple(out_simple, piv, lines, context, right_ylim, left_ylim_dist, FTE_LINE_COLORS, enrollment_label)
 
         # Detailed version (with category breakdown)
         out_detail = OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}_detail.png"
-        plot_one(out_detail, piv, lines, context, right_ylim, left_ylim_dist, FTE_LINE_COLORS, cmap_all)
-
-    # ALPS-only (own FTE scale) - generate BOTH versions
-    piv_alps, lines_alps = prepare_district_epp_lines(df, "ALPS PK-12")
-    ctx_alps = context_for_district(df, "ALPS PK-12")
-    left_ylim_alps = compute_districts_fte_ylim([lines_alps], pad=1.08, step=50)
-
-    out_alps_simple = OUTPUT_DIR / "expenditures_per_pupil_vs_enrollment_ALPS_PK-12_simple.png"
-    plot_one_simple(out_alps_simple, piv_alps, lines_alps, ctx_alps, right_ylim, left_ylim_alps, FTE_LINE_COLORS)
-
-    out_alps_detail = OUTPUT_DIR / "expenditures_per_pupil_vs_enrollment_ALPS_PK-12_detail.png"
-    plot_one(out_alps_detail, piv_alps, lines_alps, ctx_alps, right_ylim, left_ylim_alps, FTE_LINE_COLORS, cmap_all)
-
-    # Comparative bars
-    peers = [
-        "ALPS PK-12",
-        "Greenfield", "Easthampton", "South Hadley", "Northampton",
-        "East Longmeadow", "Longmeadow", "Agawam", "Hadley",
-        "Hampden-Wilbraham",
-        "Western MA (aggregate)",
-        "PK-12 District Aggregate",
-    ]
-    plot_ppe_change_bars(OUTPUT_DIR / "ppe_change_bars_ALPS_and_peers.png", df, reg, peers, year_lag=5, title=None)
+        plot_one(out_detail, piv, lines, context, right_ylim, left_ylim_dist, FTE_LINE_COLORS, cmap_all, enrollment_label)

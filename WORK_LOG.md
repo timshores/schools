@@ -1,5 +1,370 @@
 # Work Log - School Data Analysis Project
 
+## 2025-10-06 - Final Formatting Polish and Consistency Updates
+
+### Comprehensive Formatting and Labeling Refinement (8-Point Update)
+
+**Change A: Enrollment Axis Spacing and K/M Abbreviations**
+- **Spacing improvements** (district_expend_pp_stack.py:167-169, nss_ch70_plots.py:153-166):
+  - Increased `pad=12` on y-axis tick labels (space between enrollment numbers and donut dots)
+  - Increased `labelpad=15` on y-axis label (prevents "Enrollment" text from overlapping donut dots)
+- **K/M abbreviations** for enrollment axis (matching dollar axis style):
+  - Created `enrollment_formatter()` function in both plot_one_simple() and plot_one()
+  - Format logic: ≥1M shows "X.XM", ≥1K shows "X.XK", <1K shows integer
+  - Applied to all PPE plots (district_expend_pp_stack.py:172-183, 316-327) and NSS/Ch70 plots (nss_ch70_plots.py:156-165)
+  - Examples: "1.5K" instead of "1500", "2.3M" instead of "2,300,000"
+- **Impact:** Cleaner axis formatting, no overlap between enrollment labels and donut ticks
+
+**Change B: Fixed Extra Donut Dot on Springfield Plot**
+- **Problem:** Springfield plot showed extra donut dot above labeled ticks (probably at 35,000 with no label)
+- **Root cause:** Matplotlib auto-adding tick beyond data range without assigning label
+- **Solution** (district_expend_pp_stack.py:233-237, nss_ch70_plots.py:213-217):
+  - Check if tick label exists and is non-empty before rendering donut
+  - Only render donut if `label_text and label_text.strip()`
+- **Impact:** No more floating donuts above the y-axis on any plots
+
+**Change C: K/M Abbreviations Applied to Enrollment Axis (Duplicate of A)**
+- See Change A above - this was the implementation of the K/M abbreviation formatter
+
+**Change D: Scatterplot Formatting with $ Signs and K/M Abbreviations**
+- **Added custom formatters** (western_enrollment_plots_individual.py:156-176):
+  - `enrollment_formatter()`: K/M abbreviations for x-axis (enrollment)
+  - `ppe_formatter()`: $ signs + K/M abbreviations for y-axis (PPE)
+  - Examples: "$45.0K" instead of "45000", "1.5K" instead of "1500"
+- **Applied to scatterplot axes:**
+  - X-axis (enrollment): Shows "1.0K", "2.0K" quartile markers
+  - Y-axis (PPE): Shows "$15.0K", "$20.0K", "$45.0K" values
+- **Impact:** Scatterplot matches formatting style of all other plots
+
+**Change E: Scatterplot Table Enhancements**
+- **Sort arrow indicator** (compose_pdf.py:224, 229):
+  - Added ▼ to "2024 PPE" column header: `<b>2024<br/>PPE ▼</b>`
+  - Shows table is sorted by 2024 PPE descending (highest to lowest)
+- **Cohort dividing lines** (compose_pdf.py:232-276, 306-310):
+  - Track cohort changes in both left and right columns during row building
+  - Store row indices where cohort transitions occur (TINY→SMALL→MEDIUM→LARGE)
+  - Add faint gray lines (0.3pt, colors.grey) above each transition row
+  - Applied to both left column (cols 0-3) and right column (cols 5-8) independently
+- **Impact:** Table visually groups districts by enrollment cohort, clear sort direction
+
+**Change F: Updated Weighted Average Subtitles**
+- **Changed subtitle** (compose_pdf.py:1195):
+  - OLD: "PPE vs Enrollment — Not including charters and vocationals"
+  - NEW: "PPE vs Enrollment — Weighted average per district"
+- **Rationale:** More accurate description of aggregate calculation method
+- **Applies to:** All Western MA cohort aggregate plots (Tiny, Small, Medium, Large)
+
+**Change G: Updated Weighted Average Y-Axis Labels**
+- **PPE plots y-axis** (district_expend_pp_stack.py:167-171, 312-316):
+  - Added dynamic label selection based on enrollment_label
+  - If enrollment_label contains "weighted avg": ylabel = "Weighted avg $ per pupil"
+  - Otherwise: ylabel = "$ per pupil"
+  - Applied to both plot_one_simple() and plot_one()
+- **NSS/Ch70 plots y-axis** (nss_ch70_plots.py:127):
+  - Changed from "Weighted Avg $ per District" to "Weighted avg $ per district"
+  - Changed from "$ per District" to "$ per district"
+  - Lowercase for consistency with other labels
+- **Impact:** Y-axis labels clearly indicate when values are weighted averages vs individual districts
+
+**Change H: Updated Enrollment Axis Labels**
+- **Enrollment label standardization** (district_expend_pp_stack.py:754, nss_ch70_main.py:152,157,162,167):
+  - OLD: "Enrollment per District (weighted avg)"
+  - NEW: "Weighted avg enrollment per district"
+  - Applied to all Western MA cohort aggregates (Tiny, Small, Medium, Large)
+- **Dollar axis label standardization** (see Change G):
+  - OLD: "Weighted Avg $ per District"
+  - NEW: "Weighted avg $ per district"
+- **Consistency:** All "weighted avg" labels now use lowercase and consistent word order
+
+### Files Modified
+- **western_enrollment_plots_individual.py** (lines 156-176):
+  - Added enrollment_formatter() and ppe_formatter() for scatterplot axes
+  - Applied K/M abbreviations and $ signs to scatterplot
+
+- **district_expend_pp_stack.py** (multiple locations):
+  - Added enrollment_formatter() to plot_one_simple() (lines 172-183)
+  - Added enrollment_formatter() to plot_one() (lines 316-327)
+  - Added dynamic ylabel selection for weighted avg (lines 167-171, 312-316)
+  - Increased spacing: pad=12, labelpad=15 (lines 167-169, 313-315)
+  - Fixed extra donut dot check (lines 233-237)
+  - Updated enrollment label to "Weighted avg enrollment per district" (line 754)
+
+- **nss_ch70_plots.py** (multiple locations):
+  - Added enrollment_formatter() function (lines 156-165)
+  - Increased spacing: pad=12, labelpad=15 (lines 153, 166)
+  - Fixed extra donut dot check (lines 213-217)
+  - Updated ylabel to lowercase (line 127)
+
+- **nss_ch70_main.py** (lines 152,157,162,167):
+  - Updated enrollment label to "Weighted avg enrollment per district"
+
+- **compose_pdf.py** (multiple locations):
+  - Added sort arrow ▼ to scatterplot table headers (lines 224, 229)
+  - Added cohort change tracking and dividing lines (lines 232-276, 306-310)
+  - Updated subtitle to "Weighted average per district" (line 1195)
+
+### Impact Summary
+- ✅ **Consistent formatting** across all plot types (PPE, NSS/Ch70, scatterplot, enrollment)
+- ✅ **K/M abbreviations** standardized on all axes (enrollment and dollars)
+- ✅ **Donut dots** only appear at labeled tick positions (no extras)
+- ✅ **Scatterplot table** clearly sorted and visually grouped by cohort
+- ✅ **Weighted average labels** consistently formatted and positioned
+- ✅ **Spacing improved** on enrollment axes to prevent label overlap
+- ✅ **Dollar signs** on all PPE/$ axes for clarity
+
+### Plots Regenerated
+- ✅ All enrollment distribution plots (scatterplot, histogram, grouping)
+- ✅ All PPE vs enrollment plots (5 cohorts + 5 individual districts × 2 versions = 20 plots)
+- ✅ All NSS/Ch70 plots (5 cohorts + 5 individual districts = 10 plots)
+- ✅ Western MA overview plot
+- ✅ Final PDF: `output/expenditures_series.pdf`
+
+---
+
+## 2025-10-06 - Planned Next Steps
+
+### Objective: Add Regional CPI Comparison and Geographic Visualization
+
+**1. Regional CPI Data Integration**
+- **Data source:** Bureau of Labor Statistics (BLS) CPI-U data for Boston-Cambridge-Newton metro area
+  - Boston CPI is standard reference for Massachusetts cost-of-living adjustments
+  - May also want Northeast region CPI or National CPI for additional context
+- **Time period:** 2009-2024 (matching current plot timeframe)
+- **Integration points:**
+  - Add CPI adjustment option to expenditure plots (inflation-adjusted dollars)
+  - Show real vs nominal growth rates in CAGR tables
+  - Compare district spending growth to CPI growth (outpacing inflation vs falling behind)
+- **Implementation considerations:**
+  - Need to decide: adjust historical values to 2024 dollars, or show CPI as overlay line?
+  - May need new column in tables: "Real CAGR (CPI-adjusted)"
+  - Could add toggle in plot generation: nominal vs real dollars
+- **Data location:**
+  - Store in new CSV: `data/cpi_boston_metro.csv` or similar
+  - Add BLS API integration option for automatic updates
+
+**2. Choropleth Map of Included Districts**
+- **Purpose:** Show which Western MA districts are included in analysis at a glance
+- **Map requirements:**
+  - Massachusetts state outline
+  - Western MA county boundaries (Berkshire, Franklin, Hampshire, Hampden)
+  - District boundaries or town polygons
+  - Color coding:
+    - Highlight 5 districts of interest (Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury) in dark orange
+    - Show all other Western MA Traditional districts in steel blue
+    - Gray out excluded districts (charters, vocational, non-Western)
+  - Cohort indicators: Could use different shades/patterns for Tiny/Small/Medium/Large cohorts
+- **Technical approach:**
+  - Use geopandas + matplotlib for static map generation
+  - Data source: MassGIS (MA Office of Geographic Information) provides district/town shapefiles
+  - Alternative: Use Folium for interactive HTML map (could be separate from PDF)
+- **Integration:**
+  - Add as new page early in PDF (before Section 1 or after TOC)
+  - Title: "Western Massachusetts Traditional School Districts Included in Analysis"
+  - Could include legend showing cohort boundaries and district counts
+- **File structure:**
+  - New script: `western_map.py` for map generation
+  - Shapefile data in: `data/ma_districts/` directory
+  - Output: `output/western_ma_map.png`
+
+**3. Additional Enhancements to Consider**
+- **CPI comparison page:**
+  - Dedicated page showing CPI trend line 2009-2024
+  - Table comparing district/cohort CAGR to CPI growth rate
+  - Districts with spending growth < CPI highlighted (losing purchasing power)
+- **Real vs Nominal toggle:**
+  - Add parameter to all plotting functions: `inflation_adjusted=False`
+  - When True: multiply historical values by CPI ratio to convert to 2024 dollars
+  - Update y-axis labels: "$ per pupil (2024 dollars)" vs "$ per pupil (nominal)"
+- **Map enhancements:**
+  - Add district enrollment size as circle overlays
+  - Show PPE by color gradient (expensive districts darker, cheaper lighter)
+  - Include major highways/cities for geographic orientation
+
+**4. Data Files Needed**
+- CPI data CSV with columns: year, cpi_value, cpi_index_2024base
+- MA district shapefile (.shp, .shx, .dbf, .prj) from MassGIS
+- District-to-town mapping (some districts span multiple towns)
+
+**5. New Dependencies**
+- `geopandas` for spatial data handling
+- `shapely` for geometry operations (comes with geopandas)
+- `descartes` or `contextily` for basemap backgrounds (optional)
+
+### Questions to Resolve
+1. CPI reference: Boston metro only, or also show Northeast/National for comparison?
+2. Inflation adjustment: Convert all to real dollars, or keep nominal with CPI overlay?
+3. Map style: Simple choropleth, or add enrollment/PPE overlays?
+4. Map placement: Before Section 1, after TOC, or in new "Geography" appendix?
+5. Interactive map: HTML version in addition to static PDF image?
+
+### Nul
+The code created the file output\nul which causes problems with git. 'nul' is a reserved name in Windows. 
+Instructions for Claude Code during next session: Update the code to make sure it does not create a nul file.
+Tell Daisy why it was created in the first place, if known.
+
+---
+
+## 2025-10-05 - Cohort System Refinement and Plot Improvements
+
+### Implemented 5-Tier IQR-Based Cohort System
+
+**Change 1: Updated Cohort Boundaries from 4-tier to 5-tier**
+- **Old system (4 tiers):**
+  - Small: 0 to Median (rounded to nearest 100)
+  - Medium: Median+1 to Q3 (rounded to nearest 100)
+  - Large: Q3+1 to max non-outlier (rounded to nearest 100)
+  - Springfield: >8000 FTE (outlier)
+
+- **New system (5 tiers):**
+  - Tiny: 0 to Q1 (rounded to nearest 100)
+  - Small: Q1+1 to Median (rounded to nearest 100)
+  - Medium: Median+1 to Q3 (rounded to nearest 100)
+  - Large: Q3+1 to max non-outlier (rounded **up** to nearest 1000)
+  - Springfield: >8000 FTE (outlier)
+
+**Implementation:**
+- `school_shared.py:87-97` - Updated `calculate_cohort_boundaries()` to calculate Q1, Median, Q3
+  - Added `round_up_1000()` function for Large cohort upper bound (ensures districts like Chicopee (7,530 FTE) are correctly classified)
+  - Updated static fallback definitions to include TINY
+- `school_shared.py:243-246` - Updated `get_western_cohort_districts()` to return 5 cohorts
+- `school_shared.py:670-695` - Updated `prepare_western_epp_lines()` to handle "tiny" bucket
+- `school_shared.py:577-587` - Updated `context_for_western()` to include TINY mapping
+- `compose_pdf.py:203-208` - Added purple color (#9C27B0) for TINY in scatterplot table
+- `compose_pdf.py:326-328` - Updated scatterplot table sort order to place TINY first
+- `compose_pdf.py:1230-1248` - Added western_tiny list and TINY grouping logic
+- `compose_pdf.py:1274-1281` - Added TINY to bucket_map for district baselines
+- `compose_pdf.py:1323-1330` - Added TINY to group_map for NSS/Ch70 baselines
+- `compose_pdf.py:1417-1442` - Added TINY to Appendix B methodology text
+- `compose_pdf.py:1466-1481` - Updated methodology to describe 5 cohorts instead of 4
+- `nss_ch70_main.py:74-79` - Added western_tiny to enrollment_groups
+- `nss_ch70_main.py:126-127` - Added "Tiny" filename handling for NSS/Ch70 plots
+- `western_enrollment_plots_individual.py:130-150` - Added TINY cohort (purple) to scatterplot
+- `western_enrollment_plots_individual.py:160-206` - Updated enrollment grouping plot to show 5 bars with narrower width (height=0.64)
+
+**Change 2: Improved Plot Overflow Tick Logic**
+- **Problem:** Faded overflow ticks appeared on all plots, even when recent enrollment stayed within cohort bounds
+- **Solution:** Only extend y-axis with faded ticks when **early years (2009-2011)** exceed the cohort upper bound
+- **Implementation:**
+  - `nss_ch70_plots.py:151-187` - Check early years enrollment before extending axis
+    - If early max > cohort bound: extend by 100-200 above early max
+    - Tick spacing: 100 (if ylim < 1000), 200 (if ylim ≤ 2000), 500 (if ylim < 5000), 1000 (otherwise)
+  - `district_expend_pp_stack.py:173-201, 254-282` - Same logic for PPE plots (both plot_one_simple and plot_one)
+- **Examples:**
+  - Amherst (Medium, ylim=1800): Shows 0-1800 with 200 spacing, faded 2000 tick if 2009 enrollment > 1800
+  - Leverett (Tiny, ylim=200): Shows 0-200 with 100 spacing, no overflow ticks if 2009 ≤ 200
+
+**Change 3: Removed Top Border from All Plots**
+- `nss_ch70_plots.py:147` - Added `axL.spines['top'].set_visible(False)`
+- `district_expend_pp_stack.py:202, 283` - Added same to both plot functions
+
+**Files Modified:**
+- `school_shared.py` - 5-tier cohort calculation, TINY handling throughout
+- `compose_pdf.py` - TINY cohort in all mappings, tables, methodology
+- `nss_ch70_main.py` - TINY aggregate plot generation
+- `nss_ch70_plots.py` - Early-years overflow logic, top border removal
+- `district_expend_pp_stack.py` - Early-years overflow logic, top border removal, tick spacing fix
+- `western_enrollment_plots_individual.py` - 5-tier scatterplot and grouping plot
+
+**Impact:**
+- ✅ Better granularity for small districts (Tiny cohort separates smallest 25%)
+- ✅ Large cohort upper bound now accommodates high-enrollment districts correctly
+- ✅ Scatterplot table shows all 5 cohorts with color-coded dots
+- ✅ Y-axis overflow ticks only appear when historically necessary
+- ✅ Tick marks properly align with cohort boundaries (e.g., 1800 for Medium)
+- ✅ All titles and labels automatically reflect dynamic IQR-based boundaries
+- ✅ Cleaner plot appearance without top border
+
+**Cascade Verification:**
+- [x] Enrollment grouping plot shows 5 bars with correct boundaries
+- [x] Scatterplot shows 5 colors (purple, green, blue, orange for cohorts)
+- [x] All Western MA aggregate pages generated for 5 cohorts
+- [x] District comparison baselines automatically use correct cohort
+- [x] Appendix B methodology lists 5 cohorts with member districts
+- [x] No legacy ">500 Students" or "≤500 Students" text remains
+
+---
+
+## 2025-10-03 (Evening Session)
+
+### Major PDF Restructuring and Formatting Fixes
+
+**Change 1: Fixed Ch70 NSS Plot Formatting to Match Standard Plots**
+- Removed custom font sizes from NSS/Ch70 plots (nss_ch70_plots.py:112-114)
+  - Changed from `fontsize=16` to default (no fontsize parameter)
+  - Removed `fontsize=18` plot title (suptitle) entirely to match standard plots
+  - Removed `fontsize=12` from legend, using default instead
+- NSS/Ch70 plots now have consistent formatting with expenditure plots
+
+**Change 2: Updated Comparison Logic - ALPS PK-12 Only Compares to ALPS Peers**
+- Individual districts (Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury):
+  - Removed ALPS Peers comparison pages (compose_pdf.py:1017-1045 removed)
+  - Removed second NSS/Ch70 comparison page vs ALPS Peers (compose_pdf.py:1092-1105 removed)
+  - Now only compare to Western MA Traditional Districts (in their enrollment bucket)
+- ALPS PK-12:
+  - Removed comparison to Western MA Traditional Districts (compose_pdf.py:1127-1152 removed)
+  - Now only compares to ALPS Peer Districts Aggregate
+
+**Change 3: Comprehensive PDF Reorganization into 3 Sections + 2 Appendices**
+
+**New Structure:**
+1. **Section 1: Western MA** (compose_pdf.py:922-993)
+   - All Western MA Traditional Districts: PPE Overview 2019 -> 2024 (section_id="section1_western")
+   - All Western MA Traditional Districts ≤500 Students (with PPE and NSS/Ch70 pages)
+   - All Western MA Traditional Districts >500 Students (with PPE and NSS/Ch70 pages)
+
+2. **Section 2: Individual Districts** (compose_pdf.py:995-1101)
+   - Amherst-Pelham Regional (section_id="amherst_pelham")
+   - Amherst (section_id="amherst")
+   - Leverett (section_id="leverett")
+   - Pelham (section_id="pelham")
+   - Shutesbury (section_id="shutesbury")
+   - Each district has: Simple page, Detailed vs Western, NSS/Ch70 vs Western
+
+3. **Section 3: ALPS PK-12 & Peers** (compose_pdf.py:1103-1256)
+   - ALPS PK-12 & Peers: PPE and Enrollment 2019 -> 2024 (section_id="section3_alps_peers")
+   - ALPS PK-12 (3 pages: Simple, Detailed vs ALPS Peers, NSS/Ch70 vs ALPS Peers)
+   - ALPS Peer Districts Aggregate (2 pages: PPE and NSS/Ch70)
+
+4. **Appendix A: Data Tables** (was Appendix B) (compose_pdf.py:1258-1303)
+   - Updated title and section_id from "appendix_b" to "appendix_a"
+   - Contains all underlying data for PPE, FTE, and NSS/Ch70
+
+5. **Appendix B: Calculation Methodology** (was Appendix C) (compose_pdf.py:1305-1470)
+   - Updated all titles from "Appendix C" to "Appendix B"
+   - Updated section_id from "appendix_c" to "appendix_b"
+   - 3 pages covering CAGR, aggregates, shading logic, and NSS/Ch70 calculations
+
+**Change 4: Updated Table of Contents** (compose_pdf.py:1475-1487)
+- New TOC structure reflects 3-section organization:
+  - Section 1: Western MA
+  - Section 2: Amherst-Pelham Regional, Amherst, Leverett, Pelham, Shutesbury
+  - Section 3: ALPS PK-12 & Peers
+  - Appendix A. Data Tables
+  - Appendix B. Calculation Methodology
+- Removed individual "ALPS PK-12" and "All Western MA" entries (now part of section headers)
+- Removed old "Appendix A. Aggregate Districts for Comparison" (aggregates now in main sections)
+
+**Files Modified:**
+- `nss_ch70_plots.py` - Removed custom font sizes, removed plot title
+- `compose_pdf.py` - Complete restructuring:
+  - Removed ALPS Peers comparison pages for individual districts
+  - Removed ALPS vs Western comparison pages
+  - Moved Western aggregates from Appendix A to Section 1
+  - Reorganized page order into 3 sections
+  - Renamed Appendix B → A, Appendix C → B
+  - Updated TOC to reflect new structure
+- Regenerated PDF (7.3 MB, 21:57)
+
+**Impact:**
+- ✅ Simplified comparison logic: individual districts only compare to Western MA
+- ✅ ALPS PK-12 only compares to ALPS Peers (its true peer group)
+- ✅ Clear 3-section organization makes report easier to navigate
+- ✅ Western aggregates properly positioned in Section 1 with overview
+- ✅ Consistent plot formatting across all NSS/Ch70 plots
+- ✅ TOC accurately reflects new document structure
+
+---
+
 ## 2025-10-03
 
 ### Moved ALPS PK-12 NSS/Ch70 Page Back to District Section with Baseline Shading

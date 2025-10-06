@@ -3,7 +3,9 @@
     "allow": [
       "Bash(python:*)",
       "Bash(dir:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(..venvScriptspython.exe -m pip install scipy)",
+      "Bash(/dev/null)"
     ],
     "deny": [],
     "ask": []

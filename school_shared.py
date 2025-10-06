@@ -14,7 +14,201 @@ EXCEL_FILE = DATA_DIR / "E2C_Hub_MA_DESE_Data.xlsx"
 COLOR_MAP_PATH = OUTPUT_DIR / "category_color_map.json"
 COLOR_MAP_VERSION = 4  # unified, colorblind-safe palette
 
-# ---------------- Enrollment threshold ----------------
+# ---------------- Enrollment Cohorts (4-tier system) ----------------
+# Cohort boundaries are calculated dynamically based on IQR analysis
+# Small: 0 to median (rounded to nearest 100)
+# Medium: median+1 to Q3 (rounded to nearest 100)
+# Large: Q3+1 to max non-outlier (rounded to nearest 100)
+# Outliers: Above outlier threshold (currently >8000 FTE)
+
+# Outlier threshold for identifying extreme high-enrollment districts
+OUTLIER_THRESHOLD = 8000
+
+# Global cache for cohort definitions (recalculated when data changes)
+_COHORT_CACHE = {"definitions": None, "data_hash": None}
+
+def calculate_cohort_boundaries(df: pd.DataFrame, reg: pd.DataFrame) -> Dict[str, Dict]:
+    """
+    Calculate dynamic cohort boundaries based on IQR analysis of current dataset.
+
+    This ensures cohort boundaries automatically adjust when districts are added/removed,
+    enabling the system to work with any group of districts (Western MA, all MA, etc.).
+
+    Returns:
+        Dict with cohort definitions including ranges, labels, ylim, etc.
+    """
+    # Get Western MA traditional districts with valid data
+    mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
+    western_districts = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
+    present = set(df["DIST_NAME"].str.lower())
+    western_districts = [d for d in western_districts if d in present]
+
+    latest_year = int(df["YEAR"].max())
+    enrollments = []
+
+    # Collect enrollments for districts with valid PPE data (must import locally to avoid circular dependency)
+    for dist in western_districts:
+        ddf = df[(df["DIST_NAME"].str.lower() == dist.lower()) & (df["IND_CAT"].str.lower() == "student enrollment") & (df["IND_SUBCAT"].str.lower() == "total fte pupils")]
+        if ddf.empty:
+            parts = df[(df["DIST_NAME"].str.lower() == dist.lower()) & (df["IND_CAT"].str.lower() == "student enrollment")][["YEAR", "IND_VALUE"]]
+            if parts.empty:
+                fte = 0.0
+            else:
+                s = parts.groupby("YEAR")["IND_VALUE"].sum().sort_index()
+                fte = float(s.iloc[-1]) if not s.empty else 0.0
+        else:
+            y = int(ddf["YEAR"].max())
+            fte = float(ddf.loc[ddf["YEAR"] == y, "IND_VALUE"].iloc[0])
+
+        # Check for valid PPE data
+        ppe_data = df[
+            (df["DIST_NAME"].str.lower() == dist) &
+            (df["IND_CAT"].str.lower() == "expenditures per pupil") &
+            (df["YEAR"] == latest_year)
+        ]
+        total_ppe = ppe_data[~ppe_data["IND_SUBCAT"].str.lower().isin(
+            ["total expenditures", "total in-district expenditures"])]["IND_VALUE"].sum()
+
+        if fte > 0 and total_ppe > 0 and fte <= OUTLIER_THRESHOLD:
+            enrollments.append(fte)
+
+    if not enrollments:
+        # Fallback to static boundaries if no data
+        return _get_static_cohort_definitions()
+
+    # Calculate IQR statistics (5-tier system: Tiny, Small, Medium, Large, Outliers)
+    enrollments = np.array(enrollments)
+    q1 = np.percentile(enrollments, 25)
+    median = np.median(enrollments)
+    q3 = np.percentile(enrollments, 75)
+    max_enrollment = np.max(enrollments)
+
+    # Round to nearest 100 (for Tiny, Small, Medium cohorts)
+    def round_100(x):
+        return int(round(x / 100.0) * 100)
+
+    # Round up to nearest 1000 (for Large cohort upper bound)
+    def round_up_1000(x):
+        return int(math.ceil(x / 1000.0) * 1000)
+
+    q1_rounded = round_100(q1)
+    median_rounded = round_100(median)
+    q3_rounded = round_100(q3)
+    max_rounded = round_up_1000(max_enrollment)
+
+    # Build dynamic cohort definitions (5 tiers)
+    return {
+        "TINY": {
+            "range": (0, q1_rounded),
+            "label": f"Tiny (0-{q1_rounded} FTE)",
+            "short_label": "Tiny",
+            "ylim": q1_rounded,
+            "name": "Cohort 1"
+        },
+        "SMALL": {
+            "range": (q1_rounded + 1, median_rounded),
+            "label": f"Small ({q1_rounded + 1}-{median_rounded} FTE)",
+            "short_label": "Small",
+            "ylim": median_rounded,
+            "name": "Cohort 2"
+        },
+        "MEDIUM": {
+            "range": (median_rounded + 1, q3_rounded),
+            "label": f"Medium ({median_rounded + 1}-{q3_rounded} FTE)",
+            "short_label": "Medium",
+            "ylim": q3_rounded,
+            "name": "Cohort 3"
+        },
+        "LARGE": {
+            "range": (q3_rounded + 1, max_rounded),
+            "label": f"Large ({q3_rounded + 1}-{max_rounded} FTE)",
+            "short_label": "Large",
+            "ylim": max_rounded,
+            "name": "Cohort 4"
+        },
+        "SPRINGFIELD": {
+            "range": (OUTLIER_THRESHOLD + 1, float('inf')),
+            "label": "Springfield",
+            "short_label": "Springfield",
+            "ylim": None,
+            "name": "Cohort 5"
+        }
+    }
+
+def _get_static_cohort_definitions():
+    """Fallback static definitions when data is unavailable."""
+    return {
+        "TINY": {
+            "range": (0, 400),
+            "label": "Tiny (0-400 FTE)",
+            "short_label": "Tiny",
+            "ylim": 400,
+            "name": "Cohort 1"
+        },
+        "SMALL": {
+            "range": (401, 800),
+            "label": "Small (401-800 FTE)",
+            "short_label": "Small",
+            "ylim": 800,
+            "name": "Cohort 2"
+        },
+        "MEDIUM": {
+            "range": (801, 1800),
+            "label": "Medium (801-1800 FTE)",
+            "short_label": "Medium",
+            "ylim": 1800,
+            "name": "Cohort 3"
+        },
+        "LARGE": {
+            "range": (1801, 8000),
+            "label": "Large (1801-8000 FTE)",
+            "short_label": "Large",
+            "ylim": 8000,
+            "name": "Cohort 4"
+        },
+        "SPRINGFIELD": {
+            "range": (8001, float('inf')),
+            "label": "Springfield",
+            "short_label": "Springfield",
+            "ylim": None,
+            "name": "Cohort 5"
+        }
+    }
+
+def get_cohort_definitions(df: pd.DataFrame, reg: pd.DataFrame) -> Dict[str, Dict]:
+    """
+    Get cohort definitions, using cached values if data hasn't changed.
+
+    This is the primary function for accessing cohort boundaries throughout the codebase.
+    """
+    # Create a simple hash of the data to detect changes
+    data_hash = f"{len(df)}_{int(df['YEAR'].max() if not df.empty else 0)}"
+
+    if _COHORT_CACHE["data_hash"] != data_hash or _COHORT_CACHE["definitions"] is None:
+        _COHORT_CACHE["definitions"] = calculate_cohort_boundaries(df, reg)
+        _COHORT_CACHE["data_hash"] = data_hash
+
+    return _COHORT_CACHE["definitions"]
+
+def initialize_cohort_definitions(df: pd.DataFrame, reg: pd.DataFrame):
+    """
+    Initialize global COHORT_DEFINITIONS and ENROLLMENT_GROUPS with dynamic boundaries.
+
+    This MUST be called after loading data to ensure all helper functions use correct boundaries.
+    """
+    global COHORT_DEFINITIONS, ENROLLMENT_GROUPS
+
+    COHORT_DEFINITIONS = get_cohort_definitions(df, reg)
+    ENROLLMENT_GROUPS = {k: v["range"] for k, v in COHORT_DEFINITIONS.items()}
+
+    return COHORT_DEFINITIONS
+
+# Backward compatibility: static definitions for initial import
+# These will be overridden by dynamic calculations when data is loaded
+COHORT_DEFINITIONS = _get_static_cohort_definitions()
+ENROLLMENT_GROUPS = {k: v["range"] for k, v in COHORT_DEFINITIONS.items()}
+
+# Legacy threshold for backward compatibility (deprecated)
 N_THRESHOLD = 500
 
 # ---------------- District set ----------------
@@ -27,9 +221,10 @@ SHEET_REGIONS = "District Regions"
 # Exclude totals
 EXCLUDE_SUBCATS = {"total expenditures", "total in-district expenditures"}
 
-# Enrollment keys
+# Enrollment keys (order determines table row order)
 ENROLL_KEYS = [
     ("in-district fte pupils", "In-District FTE Pupils"),
+    ("foundation enrollment", "Foundation Enrollment"),
     ("out-of-district fte pupils", "Out-of-District FTE Pupils"),
 ]
 TOTAL_FTE_KEY = "total fte pupils"
@@ -37,7 +232,7 @@ TOTAL_FTE_KEY = "total fte pupils"
 # ---------------- Canonical categories (bottom -> top; "Other" always last) ----------------
 CANON_CATS_BOTTOM_TO_TOP = [
     "Teachers",
-    "Insurance, Retirement Programs and Other",
+    "Insurance, Retirement and Other",
     "Pupil Services",
     "Other Teaching Services",
     "Operations and Maintenance",
@@ -51,7 +246,8 @@ def norm_label(s: str) -> str:
 
 SUBCAT_TO_CANON = {
     "teachers": "Teachers",
-    "insurance, retirement programs and other": "Insurance, Retirement Programs and Other",
+    "insurance, retirement programs and other": "Insurance, Retirement and Other",
+    "insurance, retirement and other": "Insurance, Retirement and Other",
     "pupil services": "Pupil Services",
     "other teaching services": "Other Teaching Services",
     "operations and maintenance": "Operations and Maintenance",
@@ -72,7 +268,7 @@ SUBCAT_TO_CANON = {
 # ---------------- Unified palette (Okabe–Ito) ----------------
 UNIFIED_PALETTE = {
     "Teachers":                                   "#A8D5F2",  # lighter blue
-    "Insurance, Retirement Programs and Other":    "#F5D6A8",  # lighter orange
+    "Insurance, Retirement and Other":            "#FFE082",  # golden yellow (changed from orange)
     "Pupil Services":                              "#A8E6D0",  # lighter teal
     "Other Teaching Services":                     "#E8C8DC",  # lighter pink
     "Operations and Maintenance":                  "#C8E6F5",  # lighter sky blue
@@ -89,12 +285,13 @@ FTE_LINE_COLORS = {
     ENROLL_IN:  "#000000",  # black
     ENROLL_OUT: "#D32F2F",  # red
     "Out-of-District FTE Pupils": "#D32F2F",  # legacy alias
+    "Foundation Enrollment": "#1976D2",  # blue
 }
 
-# ---------------- Peers PNG (ALPS & peers) styling ----------------
-PPE_PEERS_YMAX          = 35000.0  # Increased from 30000 to lift legend above bars
-PPE_PEERS_REMOVE_SPINES = True   # remove all boundary lines
-PPE_PEERS_BAR_EDGES     = False  # no bar edge lines
+# ---------------- Horizontal Bar Plot Styling (Western MA Overview) ----------------
+PPE_PEERS_YMAX          = 35000.0  # Max x-axis value for horizontal bar plots
+PPE_PEERS_REMOVE_SPINES = True     # Remove all boundary lines for cleaner appearance
+PPE_PEERS_BAR_EDGES     = False    # No bar edge lines
 
 # Micro-area (enrollment sparkline) colors
 MICRO_AREA_FILL = "#F5CBA7"  # pale orange
@@ -207,6 +404,10 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     reg = reg.rename(columns=cmap)
     for c in ("DIST_NAME", "EOHHS_REGION", "SCHOOL_TYPE"):
         reg[c] = reg[c].astype(str).str.strip()
+
+    # Initialize dynamic cohort definitions based on loaded data
+    initialize_cohort_definitions(df, reg)
+
     return df, reg, profile_c70
 
 # ---------------- Canonical aggregation ----------------
@@ -255,6 +456,7 @@ def color_for(cmap_all: Dict[str, Dict[str, str]], context: str, canon_label: st
 
 # ---------------- Context & prep ----------------
 def latest_total_fte(df: pd.DataFrame, dist: str) -> float:
+    """Get latest total FTE enrollment for a district."""
     ddf = df[(df["DIST_NAME"].str.lower() == dist.lower()) & (df["IND_CAT"].str.lower() == "student enrollment") & (df["IND_SUBCAT"].str.lower() == TOTAL_FTE_KEY)]
     if ddf.empty:
         parts = df[(df["DIST_NAME"].str.lower() == dist.lower()) & (df["IND_CAT"].str.lower() == "student enrollment") & (df["IND_SUBCAT"].str.lower().isin([k for k, _ in ENROLL_KEYS]))][["YEAR", "IND_VALUE"]]
@@ -264,13 +466,127 @@ def latest_total_fte(df: pd.DataFrame, dist: str) -> float:
     y = int(ddf["YEAR"].max())
     return float(ddf.loc[ddf["YEAR"] == y, "IND_VALUE"].iloc[0])
 
+def get_enrollment_group(fte: float) -> str:
+    """
+    Determine enrollment cohort for a given FTE value.
+    Returns: "SMALL", "MEDIUM", "LARGE", or "SPRINGFIELD"
+    """
+    for group, (min_fte, max_fte) in ENROLLMENT_GROUPS.items():
+        if min_fte <= fte <= max_fte:
+            return group
+    return "SMALL"  # Default fallback
+
+def get_cohort_label(group: str) -> str:
+    """Get the full label for a cohort (e.g., 'Small (0-800 FTE)')."""
+    return COHORT_DEFINITIONS.get(group, {}).get("label", group)
+
+def get_cohort_short_label(group: str) -> str:
+    """Get the short label for a cohort (e.g., 'Small')."""
+    return COHORT_DEFINITIONS.get(group, {}).get("short_label", group)
+
+def get_cohort_ylim(group: str) -> int | None:
+    """Get the y-axis limit for a cohort's enrollment plots."""
+    return COHORT_DEFINITIONS.get(group, {}).get("ylim")
+
+def get_cohort_range(group: str) -> tuple[int, int | float]:
+    """Get the (min, max) FTE range for a cohort."""
+    return COHORT_DEFINITIONS.get(group, {}).get("range", (0, 0))
+
+def get_western_cohort_districts(df: pd.DataFrame, reg: pd.DataFrame) -> Dict[str, List[str]]:
+    """
+    Get Western MA traditional districts organized by enrollment cohort.
+
+    This ensures PPE and NSS analyses use identical district lists by centralizing
+    the filtering logic in one place.
+
+    ONLY includes districts with valid PPE data (total_ppe > 0 for latest year).
+    This filters out districts with missing/incomplete expenditure data.
+
+    Returns:
+        Dict with keys "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD", each containing
+        a list of lowercase district names that have enrollment data and valid PPE.
+    """
+    mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
+    western_districts = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
+    present = set(df["DIST_NAME"].str.lower())
+    western_districts = [d for d in western_districts if d in present]
+
+    cohorts = {"TINY": [], "SMALL": [], "MEDIUM": [], "LARGE": [], "SPRINGFIELD": []}
+    latest_year = int(df["YEAR"].max())
+
+    for dist in western_districts:
+        fte = latest_total_fte(df, dist)
+
+        # Check if district has valid PPE data for latest year
+        ppe_data = df[
+            (df["DIST_NAME"].str.lower() == dist) &
+            (df["IND_CAT"].str.lower() == "expenditures per pupil") &
+            (df["YEAR"] == latest_year)
+        ]
+        total_ppe = ppe_data[~ppe_data["IND_SUBCAT"].str.lower().isin(
+            ["total expenditures", "total in-district expenditures"])]["IND_VALUE"].sum()
+
+        # ONLY include districts with valid enrollment AND valid PPE data
+        if fte > 0 and total_ppe > 0:
+            group = get_enrollment_group(fte)
+            if group in cohorts:
+                cohorts[group].append(dist)
+
+    return cohorts
+
+def get_omitted_western_districts(df: pd.DataFrame, reg: pd.DataFrame) -> List[str]:
+    """
+    Get list of Western MA traditional districts omitted from analysis due to missing PPE data.
+
+    Returns:
+        List of (district_name, reason) tuples for districts excluded from analysis.
+    """
+    mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
+    western_districts = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
+    present = set(df["DIST_NAME"].str.lower())
+    western_districts = [d for d in western_districts if d in present]
+
+    latest_year = int(df["YEAR"].max())
+    omitted = []
+
+    for dist in western_districts:
+        fte = latest_total_fte(df, dist)
+
+        # Check if district has valid PPE data for latest year
+        ppe_data = df[
+            (df["DIST_NAME"].str.lower() == dist) &
+            (df["IND_CAT"].str.lower() == "expenditures per pupil") &
+            (df["YEAR"] == latest_year)
+        ]
+        total_ppe = ppe_data[~ppe_data["IND_SUBCAT"].str.lower().isin(
+            ["total expenditures", "total in-district expenditures"])]["IND_VALUE"].sum()
+
+        # Identify why district was omitted
+        if fte <= 0:
+            omitted.append((dist.title(), "no enrollment data"))
+        elif total_ppe <= 0:
+            omitted.append((dist.title(), "missing expenditure data"))
+
+    return omitted
+
 def context_for_district(df: pd.DataFrame, dist: str) -> str:
-    return "LARGE" if latest_total_fte(df, dist) > N_THRESHOLD else "SMALL"
+    """Get enrollment group context for a district (SMALL, MEDIUM, LARGE, or SPRINGFIELD)."""
+    fte = latest_total_fte(df, dist)
+    return get_enrollment_group(fte)
 
 def context_for_western(bucket: str) -> str:
-    return "SMALL" if bucket == "le_500" else "LARGE"
+    """Get context for Western MA aggregate bucket."""
+    # Map bucket names to enrollment groups
+    bucket_map = {
+        "tiny": "TINY",
+        "small": "SMALL",
+        "medium": "MEDIUM",
+        "large": "LARGE",
+        "springfield": "SPRINGFIELD"
+    }
+    return bucket_map.get(bucket.lower(), "TINY")
 
-def prepare_district_epp_lines(df: pd.DataFrame, dist: str) -> Tuple[pd.DataFrame, Dict[str, pd.Series]]:
+def prepare_district_epp_lines(df: pd.DataFrame, dist: str, c70: pd.DataFrame = None) -> Tuple[pd.DataFrame, Dict[str, pd.Series]]:
     ddf = df[df["DIST_NAME"].str.lower() == dist.lower()].copy()
     epp = ddf[ddf["IND_CAT"].str.lower() == "expenditures per pupil"].copy()
     epp = epp[~epp["IND_SUBCAT"].str.lower().isin(EXCLUDE_SUBCATS)].copy()
@@ -279,30 +595,107 @@ def prepare_district_epp_lines(df: pd.DataFrame, dist: str) -> Tuple[pd.DataFram
     lines: Dict[str, pd.Series] = {}
     enroll = ddf[ddf["IND_CAT"].str.lower() == "student enrollment"].copy()
     for key, label in ENROLL_KEYS:
-        ser = enroll[enroll["IND_SUBCAT"].str.lower() == key][["YEAR", "IND_VALUE"]]
-        if not ser.empty:
-            s = ser.dropna().drop_duplicates(subset=["YEAR"]).set_index("YEAR")["IND_VALUE"].sort_index()
-            lines[label] = s
+        if key == "foundation enrollment":
+            # Get foundation enrollment from c70 DataFrame (cap at 2024 since 2025 is projection)
+            if c70 is not None:
+                c70_dist = c70[(c70["DIST_NAME"].str.lower() == dist.lower()) & (c70["YEAR"] <= 2024)].copy()
+                if not c70_dist.empty:
+                    ser = c70_dist[["YEAR", "distfoundenro"]].dropna()
+                    if not ser.empty:
+                        s = ser.drop_duplicates(subset=["YEAR"]).set_index("YEAR")["distfoundenro"].sort_index()
+                        lines[label] = s
+        else:
+            ser = enroll[enroll["IND_SUBCAT"].str.lower() == key][["YEAR", "IND_VALUE"]]
+            if not ser.empty:
+                s = ser.dropna().drop_duplicates(subset=["YEAR"]).set_index("YEAR")["IND_VALUE"].sort_index()
+                lines[label] = s
     return piv, lines
 
-def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str) -> Tuple[str, pd.DataFrame, Dict[str, pd.Series], Dict[str, pd.Series]]:
-    mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
-    members = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
-    present = set(df["DIST_NAME"].str.lower())
-    members = [m for m in members if m in present]
-    totals = {}
-    enroll = df[df["IND_CAT"].str.lower() == "student enrollment"].copy()
-    for nm in members:
-        dsub = enroll[enroll["DIST_NAME"].str.lower() == nm]
-        tot = dsub[dsub["IND_SUBCAT"].str.lower() == TOTAL_FTE_KEY]
-        if not tot.empty:
-            y = int(tot["YEAR"].max())
-            totals[nm] = float(tot.loc[tot["YEAR"] == y, "IND_VALUE"].iloc[0])
-    if bucket == "le_500":
-        members = [n for n, v in totals.items() if v <= N_THRESHOLD]; suffix = "≤500 Students"
+def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str, c70: pd.DataFrame = None, districts: List[str] = None) -> Tuple[str, pd.DataFrame, Dict[str, pd.Series], Dict[str, pd.Series]]:
+    """
+    Prepare Western MA aggregate data for a given enrollment bucket.
+
+    Args:
+        df: Main data DataFrame
+        reg: Regions DataFrame
+        bucket: One of "small", "medium", "large", or "springfield"
+        c70: Chapter 70 data DataFrame (optional, for foundation enrollment)
+        districts: Optional pre-filtered list of district names. If provided, uses this list
+                  instead of filtering internally. This ensures consistency with NSS analysis.
+
+    Returns:
+        (title, epp_pivot, lines_sum, lines_mean)
+    """
+    # Use pre-filtered district list if provided, otherwise filter internally (legacy mode)
+    if districts is not None:
+        members = districts
     else:
-        members = [n for n, v in totals.items() if v > N_THRESHOLD];  suffix = ">500 Students"
-    title = f"All Western MA Traditional Districts {suffix}"
+        mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
+        members = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
+        present = set(df["DIST_NAME"].str.lower())
+        members = [m for m in members if m in present]
+
+        # Calculate enrollment for each district
+        totals = {}
+        enroll = df[df["IND_CAT"].str.lower() == "student enrollment"].copy()
+        for nm in members:
+            dsub = enroll[enroll["DIST_NAME"].str.lower() == nm]
+            tot = dsub[dsub["IND_SUBCAT"].str.lower() == TOTAL_FTE_KEY]
+            if not tot.empty:
+                y = int(tot["YEAR"].max())
+                totals[nm] = float(tot.loc[tot["YEAR"] == y, "IND_VALUE"].iloc[0])
+
+        # Filter members based on bucket - use centralized cohort definitions
+        bucket_lower = bucket.lower()
+        if bucket_lower == "small":
+            min_fte, max_fte = ENROLLMENT_GROUPS["SMALL"]
+            members = [n for n, v in totals.items() if min_fte <= v <= max_fte]
+        elif bucket_lower == "medium":
+            min_fte, max_fte = ENROLLMENT_GROUPS["MEDIUM"]
+            members = [n for n, v in totals.items() if min_fte <= v <= max_fte]
+        elif bucket_lower == "large":
+            min_fte, max_fte = ENROLLMENT_GROUPS["LARGE"]
+            members = [n for n, v in totals.items() if min_fte <= v <= max_fte]
+        elif bucket_lower == "springfield":
+            min_fte, max_fte = ENROLLMENT_GROUPS["SPRINGFIELD"]
+            members = [n for n, v in totals.items() if min_fte <= v <= max_fte]
+        else:
+            # Legacy support: le_500 -> small, gt_500 -> large
+            if bucket == "le_500":
+                members = [n for n, v in totals.items() if v <= 500]
+            else:
+                members = [n for n, v in totals.items() if v > 500]
+
+    # Generate suffix/title using centralized labels
+    bucket_lower = bucket.lower()
+    if bucket_lower == "tiny":
+        suffix = get_cohort_label("TINY")
+    elif bucket_lower == "small":
+        suffix = get_cohort_label("SMALL")
+    elif bucket_lower == "medium":
+        suffix = get_cohort_label("MEDIUM")
+    elif bucket_lower == "large":
+        suffix = get_cohort_label("LARGE")
+    elif bucket_lower == "springfield":
+        # Get latest FTE for title
+        if members:
+            enroll = df[df["IND_CAT"].str.lower() == "student enrollment"].copy()
+            nm = members[0]
+            dsub = enroll[enroll["DIST_NAME"].str.lower() == nm]
+            tot = dsub[dsub["IND_SUBCAT"].str.lower() == TOTAL_FTE_KEY]
+            if not tot.empty:
+                y = int(tot["YEAR"].max())
+                fte_val = float(tot.loc[tot["YEAR"] == y, "IND_VALUE"].iloc[0])
+                suffix = f"{nm.title()} ({fte_val:,.0f} FTE)"
+            else:
+                suffix = "Springfield"
+        else:
+            suffix = "Springfield"
+    else:
+        # Legacy fallback (should not be used with new 5-tier system)
+        suffix = "≤500 Students" if bucket == "le_500" else ">500 Students"
+
+    title = f"All Western MA Traditional Districts: {suffix}"
     if not members: return title, pd.DataFrame(), {}, {}
     epp = df[(df["IND_CAT"].str.lower() == "expenditures per pupil") & (df["DIST_NAME"].str.lower().isin(members))][["DIST_NAME", "YEAR", "IND_SUBCAT", "IND_VALUE"]].copy()
     epp = epp[~epp["IND_SUBCAT"].str.lower().isin(EXCLUDE_SUBCATS)].copy()
@@ -316,71 +709,24 @@ def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str) 
     piv = aggregate_to_canonical(piv_raw)
     lines_sum, lines_mean = {}, {}
     for key, label in ENROLL_KEYS:
-        sub = df[(df["IND_CAT"].str.lower() == "student enrollment") & (df["IND_SUBCAT"].str.lower() == key) & (df["DIST_NAME"].str.lower().isin(members))][["DIST_NAME", "YEAR", "IND_VALUE"]]
-        if sub.empty: continue
-        lines_sum[label]  = sub.groupby("YEAR")["IND_VALUE"].sum().sort_index()
-        lines_mean[label] = sub.groupby("YEAR")["IND_VALUE"].mean().sort_index()
+        if key == "foundation enrollment":
+            # Get foundation enrollment from c70 DataFrame (cap at 2024 since 2025 is projection)
+            if c70 is not None:
+                c70_members = c70[(c70["DIST_NAME"].str.lower().isin(members)) & (c70["YEAR"] <= 2024)].copy()
+                if not c70_members.empty:
+                    ser = c70_members[["YEAR", "distfoundenro"]].dropna()
+                    if not ser.empty:
+                        lines_sum[label] = ser.groupby("YEAR")["distfoundenro"].sum().sort_index()
+                        lines_mean[label] = ser.groupby("YEAR")["distfoundenro"].mean().sort_index()
+        else:
+            sub = df[(df["IND_CAT"].str.lower() == "student enrollment") & (df["IND_SUBCAT"].str.lower() == key) & (df["DIST_NAME"].str.lower().isin(members))][["DIST_NAME", "YEAR", "IND_VALUE"]]
+            if sub.empty: continue
+            lines_sum[label]  = sub.groupby("YEAR")["IND_VALUE"].sum().sort_index()
+            lines_mean[label] = sub.groupby("YEAR")["IND_VALUE"].mean().sort_index()
     return title, piv, lines_sum, lines_mean
 
-# ===== Virtual district (ALPS PK-12) =====
-ALPS_COMPONENTS = {"amherst", "leverett", "pelham", "shutesbury", "amherst-pelham"}
-
-def _weighted_epp_from_parts(df_parts: pd.DataFrame) -> pd.DataFrame:
-    epp = df_parts[df_parts["IND_CAT"].str.lower() == "expenditures per pupil"].copy()
-    epp = epp[~epp["IND_SUBCAT"].str.lower().isin(EXCLUDE_SUBCATS)].copy()
-    wts = df_parts[
-        (df_parts["IND_CAT"].str.lower() == "student enrollment")
-        & (df_parts["IND_SUBCAT"].str.lower() == "in-district fte pupils")
-    ][["DIST_NAME", "YEAR", "IND_VALUE"]].rename(columns={"IND_VALUE": "WEIGHT"}).copy()
-    m = epp.merge(wts, on=["DIST_NAME", "YEAR"], how="left")
-    m["WEIGHT"] = pd.to_numeric(m["WEIGHT"], errors="coerce").fillna(0.0)
-    m["P"] = m["IND_VALUE"] * m["WEIGHT"]
-    out = m.groupby(["YEAR", "IND_SUBCAT"], as_index=False).agg(
-        NUM=("P", "sum"), DEN=("WEIGHT", "sum"), MEAN=("IND_VALUE", "mean")
-    )
-    out["VALUE"] = np.where(out["DEN"] > 0, out["NUM"] / out["DEN"], out["MEAN"])
-    piv_raw = out.pivot(index="YEAR", columns="IND_SUBCAT", values="VALUE").sort_index().fillna(0.0)
-    return aggregate_to_canonical(piv_raw)
-
-def add_alps_pk12(df: pd.DataFrame) -> pd.DataFrame:
-    base = df[df["DIST_NAME"].str.lower().isin(ALPS_COMPONENTS)].copy()
-    if base.empty:
-        return df
-
-    # 1) Category EPP (weighted, by subcategory → canonical columns)
-    piv_epp = _weighted_epp_from_parts(base)
-    epp_rows = piv_epp.stack().reset_index()
-    epp_rows = epp_rows.rename(columns={"level_1": "IND_SUBCAT", 0: "IND_VALUE"})
-    epp_rows["DIST_NAME"] = "ALPS PK-12"
-    epp_rows["IND_CAT"] = "Expenditures Per Pupil"
-
-    # 2) Enrollment lines: sum across components for each key
-    enr_parts = []
-    for key, _label in ENROLL_KEYS:
-        sub = base[
-            (base["IND_CAT"].str.lower() == "student enrollment")
-            & (base["IND_SUBCAT"].str.lower() == key)
-        ][["YEAR", "IND_VALUE"]].copy()
-        if sub.empty:
-            continue
-        s = sub.groupby("YEAR")["IND_VALUE"].sum().sort_index()
-        out = s.reset_index().rename(columns={"IND_VALUE": "IND_VALUE"})
-        out["DIST_NAME"] = "ALPS PK-12"
-        out["IND_CAT"] = "Student Enrollment"
-        out["IND_SUBCAT"] = key
-        enr_parts.append(out)
-
-    rows_enroll = pd.concat(enr_parts, ignore_index=True) if enr_parts else pd.DataFrame(
-        columns=["YEAR","IND_VALUE","DIST_NAME","IND_CAT","IND_SUBCAT"]
-    )
-
-    to_add = pd.concat([
-        epp_rows[["DIST_NAME","YEAR","IND_SUBCAT","IND_VALUE","IND_CAT"]],
-        rows_enroll[["DIST_NAME","YEAR","IND_SUBCAT","IND_VALUE","IND_CAT"]]
-    ], ignore_index=True)
-    to_add = to_add.astype({"DIST_NAME": str, "IND_CAT": str, "IND_SUBCAT": str})
-    out = pd.concat([df, to_add], ignore_index=True)
-    return out
+# Note: ALPS PK-12 aggregate concept removed.
+# Individual districts now compared to enrollment-based peer groups.
 
 # ---------------- Axis helpers ----------------
 def _nice_ceiling(x: float, step: int) -> float:
@@ -499,7 +845,7 @@ def prepare_district_nss_ch70(
     df: pd.DataFrame,
     c70: pd.DataFrame,
     dist: str
-) -> Tuple[pd.DataFrame, pd.Series]:
+) -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
     """
     Prepare Chapter 70 and Net School Spending data for a single district in absolute dollars.
 
@@ -509,10 +855,11 @@ def prepare_district_nss_ch70(
         dist: District name
 
     Returns:
-        Tuple of (nss_pivot, enrollment_series):
+        Tuple of (nss_pivot, enrollment_series, foundation_enrollment):
         - nss_pivot: DataFrame with years as index, columns: ['Ch70 Aid', 'Req NSS (adj)', 'Actual NSS (adj)']
           All values are in absolute dollars
         - enrollment_series: In-District FTE enrollment by year
+        - foundation_enrollment: Foundation enrollment by year (from c70 distfoundenro, capped at 2024)
 
     Notes:
         Stacking logic (bottom to top):
@@ -523,7 +870,7 @@ def prepare_district_nss_ch70(
         If c70aid > rqdnss2 (rare edge case), the "Req NSS (adj)" component will be 0.
     """
     if c70 is None or c70.empty:
-        return pd.DataFrame(), pd.Series(dtype=float)
+        return pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=float)
 
     # Get enrollment for this district
     enr_data = df[
@@ -533,17 +880,24 @@ def prepare_district_nss_ch70(
     ][["YEAR", "IND_VALUE"]].copy()
 
     if enr_data.empty:
-        return pd.DataFrame(), pd.Series(dtype=float)
+        return pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=float)
 
     enroll_series = enr_data.set_index("YEAR")["IND_VALUE"].sort_index()
 
-    # Get C70 data for this district
-    c70_dist = c70[c70["DIST_NAME"].str.lower() == dist.lower()][
-        ["YEAR", "actualNSS", "rqdnss2", "c70aid"]
+    # Get C70 data for this district (including foundation enrollment)
+    c70_dist = c70[(c70["DIST_NAME"].str.lower() == dist.lower()) & (c70["YEAR"] <= 2024)][
+        ["YEAR", "actualNSS", "rqdnss2", "c70aid", "distfoundenro"]
     ].copy()
 
     if c70_dist.empty:
-        return pd.DataFrame(), enroll_series
+        return pd.DataFrame(), enroll_series, pd.Series(dtype=float)
+
+    # Extract foundation enrollment
+    foundation_enr = c70_dist[["YEAR", "distfoundenro"]].dropna()
+    if not foundation_enr.empty:
+        foundation_series = foundation_enr.set_index("YEAR")["distfoundenro"].sort_index()
+    else:
+        foundation_series = pd.Series(dtype=float)
 
     # Use C70 data directly (absolute dollars, not per-pupil)
     merged = c70_dist.set_index("YEAR").copy()
@@ -553,15 +907,15 @@ def prepare_district_nss_ch70(
     merged["Ch70 Aid"] = merged["c70aid"]
 
     # Stack 2 (middle): Required NSS minus Ch70 (can be 0 if Ch70 > Required)
-    merged["Req NSS (adj)"] = np.maximum(0, merged["rqdnss2"] - merged["c70aid"])
+    merged["Req NSS (minus Ch70)"] = np.maximum(0, merged["rqdnss2"] - merged["c70aid"])
 
     # Stack 3 (top): Actual NSS minus Required NSS (can be negative if underfunding)
-    merged["Actual NSS (adj)"] = merged["actualNSS"] - merged["rqdnss2"]
+    merged["Actual NSS (minus Req NSS)"] = merged["actualNSS"] - merged["rqdnss2"]
 
     # Create pivot with stacking columns
-    nss_pivot = merged[["Ch70 Aid", "Req NSS (adj)", "Actual NSS (adj)"]].sort_index()
+    nss_pivot = merged[["Ch70 Aid", "Req NSS (minus Ch70)", "Actual NSS (minus Req NSS)"]].sort_index()
 
-    return nss_pivot, enroll_series
+    return nss_pivot, enroll_series, foundation_series
 
 
 def prepare_aggregate_nss_ch70(
@@ -605,8 +959,10 @@ def prepare_aggregate_nss_ch70(
     if enr_data.empty:
         return pd.DataFrame(), pd.Series(dtype=float)
 
-    # Sum enrollment across districts by year
-    enroll_series = enr_data.groupby("YEAR")["IND_VALUE"].sum().sort_index()
+    # Compute weighted average enrollment per district (sum / count of districts)
+    enroll_sum = enr_data.groupby("YEAR")["IND_VALUE"].sum()
+    district_count = enr_data.groupby("YEAR")["IND_VALUE"].count()
+    enroll_series = (enroll_sum / district_count).sort_index()
 
     # Get C70 data for all districts
     c70_agg = c70[c70["DIST_NAME"].str.lower().isin(names_low)][
@@ -621,10 +977,10 @@ def prepare_aggregate_nss_ch70(
 
     # Calculate absolute dollar values (same logic as single district)
     c70_sums["Ch70 Aid"] = c70_sums["c70aid"]
-    c70_sums["Req NSS (adj)"] = np.maximum(0, c70_sums["rqdnss2"] - c70_sums["c70aid"])
-    c70_sums["Actual NSS (adj)"] = c70_sums["actualNSS"] - c70_sums["rqdnss2"]
+    c70_sums["Req NSS (minus Ch70)"] = np.maximum(0, c70_sums["rqdnss2"] - c70_sums["c70aid"])
+    c70_sums["Actual NSS (minus Req NSS)"] = c70_sums["actualNSS"] - c70_sums["rqdnss2"]
 
-    nss_pivot = c70_sums[["Ch70 Aid", "Req NSS (adj)", "Actual NSS (adj)"]].sort_index()
+    nss_pivot = c70_sums[["Ch70 Aid", "Req NSS (minus Ch70)", "Actual NSS (minus Req NSS)"]].sort_index()
 
     return nss_pivot, enroll_series
 
@@ -633,7 +989,7 @@ def prepare_aggregate_nss_ch70_weighted(
     df: pd.DataFrame,
     c70: pd.DataFrame,
     districts: List[str]
-) -> Tuple[pd.DataFrame, pd.Series]:
+) -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
     """
     Prepare weighted per-district Chapter 70 and Net School Spending data for multiple districts.
 
@@ -646,10 +1002,11 @@ def prepare_aggregate_nss_ch70_weighted(
         districts: List of district names to aggregate
 
     Returns:
-        Tuple of (nss_pivot, enrollment_series):
+        Tuple of (nss_pivot, enrollment_series, foundation_enrollment):
         - nss_pivot: DataFrame with years as index, columns: ['Ch70 Aid', 'Req NSS (adj)', 'Actual NSS (adj)']
           All values are weighted average dollars per district
         - enrollment_series: Total in-district FTE enrollment sum by year
+        - foundation_enrollment: Total foundation enrollment sum by year (from c70 distfoundenro, capped at 2024)
 
     Notes:
         Aggregation method:
@@ -659,10 +1016,10 @@ def prepare_aggregate_nss_ch70_weighted(
         This produces per-district values weighted by enrollment size
     """
     if c70 is None or c70.empty:
-        return pd.DataFrame(), pd.Series(dtype=float)
+        return pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=float)
 
     if not districts:
-        return pd.DataFrame(), pd.Series(dtype=float)
+        return pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=float)
 
     names_low = {d.lower() for d in districts}
 
@@ -674,18 +1031,31 @@ def prepare_aggregate_nss_ch70_weighted(
     ][["DIST_NAME", "YEAR", "IND_VALUE"]].copy()
 
     if enr_data.empty:
-        return pd.DataFrame(), pd.Series(dtype=float)
+        return pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=float)
 
-    # Sum enrollment across districts by year
-    enroll_series = enr_data.groupby("YEAR")["IND_VALUE"].sum().sort_index()
+    # Compute weighted average enrollment per district (sum / count of districts)
+    enroll_sum = enr_data.groupby("YEAR")["IND_VALUE"].sum()
+    district_count = enr_data.groupby("YEAR")["IND_VALUE"].count()
+    enroll_series = (enroll_sum / district_count).sort_index()
 
     # Get C70 data for all districts
-    c70_agg = c70[c70["DIST_NAME"].str.lower().isin(names_low)][
-        ["DIST_NAME", "YEAR", "actualNSS", "rqdnss2", "c70aid"]
+    # Get C70 data for all districts (including foundation enrollment, capped at 2024)
+    c70_agg = c70[(c70["DIST_NAME"].str.lower().isin(names_low)) & (c70["YEAR"] <= 2024)][
+        ["DIST_NAME", "YEAR", "actualNSS", "rqdnss2", "c70aid", "distfoundenro"]
     ].copy()
 
     if c70_agg.empty:
-        return pd.DataFrame(), enroll_series
+        return pd.DataFrame(), enroll_series, pd.Series(dtype=float)
+
+    # Extract foundation enrollment and compute weighted average per district
+    # (sum of enrollment divided by number of districts)
+    foundation_enr = c70_agg[["YEAR", "distfoundenro"]].dropna()
+    if not foundation_enr.empty:
+        foundation_sum = foundation_enr.groupby("YEAR")["distfoundenro"].sum()
+        district_count = foundation_enr.groupby("YEAR")["distfoundenro"].count()
+        foundation_series = (foundation_sum / district_count).sort_index()
+    else:
+        foundation_series = pd.Series(dtype=float)
 
     # Merge enrollment with C70 data to compute per-district weighted averages
     # First, get enrollment for each district/year
@@ -741,9 +1111,9 @@ def prepare_aggregate_nss_ch70_weighted(
 
     # Calculate stacked components
     c70_per_district["Ch70 Aid"] = c70_per_district["c70aid"]
-    c70_per_district["Req NSS (adj)"] = np.maximum(0, c70_per_district["rqdnss2"] - c70_per_district["c70aid"])
-    c70_per_district["Actual NSS (adj)"] = c70_per_district["actualNSS"] - c70_per_district["rqdnss2"]
+    c70_per_district["Req NSS (minus Ch70)"] = np.maximum(0, c70_per_district["rqdnss2"] - c70_per_district["c70aid"])
+    c70_per_district["Actual NSS (minus Req NSS)"] = c70_per_district["actualNSS"] - c70_per_district["rqdnss2"]
 
-    nss_pivot = c70_per_district[["Ch70 Aid", "Req NSS (adj)", "Actual NSS (adj)"]].sort_index()
+    nss_pivot = c70_per_district[["Ch70 Aid", "Req NSS (minus Ch70)", "Actual NSS (minus Req NSS)"]].sort_index()
 
-    return nss_pivot, enroll_series
+    return nss_pivot, enroll_series, foundation_series

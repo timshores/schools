@@ -17,10 +17,15 @@ from school_shared import (
     prepare_district_nss_ch70,
     prepare_aggregate_nss_ch70_weighted,
     DISTRICTS_OF_INTEREST,
-    ALPS_COMPONENTS,
     OUTPUT_DIR,
+    context_for_district,
+    get_cohort_ylim,
     latest_total_fte,
-    N_THRESHOLD,
+    get_enrollment_group,
+    compute_districts_fte_ylim,
+    get_cohort_label,
+    get_cohort_ylim,
+    get_western_cohort_districts,
 )
 from nss_ch70_plots import (
     plot_nss_ch70,
@@ -52,62 +57,41 @@ def main():
     all_pivots = []
     district_data = {}
 
-    # Western MA aggregates
-    print("  Processing Western MA aggregates...")
+    # Western MA aggregates - 4 enrollment groups
+    print("  Processing Western MA aggregates (4 enrollment groups)...")
 
-    # Get Western MA traditional districts from regions
-    western_mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
-    western_districts = sorted(set(reg[western_mask]["DIST_NAME"].str.lower()))
-    present = set(df["DIST_NAME"].str.lower())
-    western_districts = [d for d in western_districts if d in present]
+    # Get Western MA traditional districts organized by cohort
+    # Use centralized function to ensure consistency with PPE analysis
+    cohorts = get_western_cohort_districts(df, reg)
+    western_tiny = cohorts["TINY"]
+    western_small = cohorts["SMALL"]
+    western_medium = cohorts["MEDIUM"]
+    western_large = cohorts["LARGE"]
+    western_springfield = cohorts["SPRINGFIELD"]
 
-    # Split by enrollment size
-    western_le500 = []
-    western_gt500 = []
-    for dist in western_districts:
-        fte = latest_total_fte(df, dist)
-        if fte <= N_THRESHOLD:
-            western_le500.append(dist)
-        else:
-            western_gt500.append(dist)
+    # Generate NSS/Ch70 for each enrollment cohort using centralized definitions
+    enrollment_groups = [
+        ("tiny", western_tiny, f"Western MA {get_cohort_label('TINY')}"),
+        ("small", western_small, f"Western MA {get_cohort_label('SMALL')}"),
+        ("medium", western_medium, f"Western MA {get_cohort_label('MEDIUM')}"),
+        ("large", western_large, f"Western MA {get_cohort_label('LARGE')}"),
+        ("springfield", western_springfield, "Western MA Springfield (>8000 FTE)"),
+    ]
 
-    # Western ≤500 (weighted per-pupil for aggregates)
-    if western_le500:
-        nss_w_le, enroll_w_le = prepare_aggregate_nss_ch70_weighted(df, c70, western_le500)
-        if not nss_w_le.empty:
-            district_data["Western MA (≤500)"] = (nss_w_le, enroll_w_le)
-            all_pivots.append(nss_w_le)
-
-    # Western >500 (weighted per-pupil for aggregates)
-    if western_gt500:
-        nss_w_gt, enroll_w_gt = prepare_aggregate_nss_ch70_weighted(df, c70, western_gt500)
-        if not nss_w_gt.empty:
-            district_data["Western MA (>500)"] = (nss_w_gt, enroll_w_gt)
-            all_pivots.append(nss_w_gt)
-
-    # ALPS Peers aggregate (weighted per-pupil)
-    print("  Processing ALPS Peers...")
-    alps_peers = ["ALPS PK-12", "Greenfield", "Easthampton", "South Hadley", "Northampton",
-                  "East Longmeadow", "Longmeadow", "Agawam", "Hadley", "Hampden-Wilbraham"]
-    nss_peers, enroll_peers = prepare_aggregate_nss_ch70_weighted(df, c70, alps_peers)
-    if not nss_peers.empty:
-        district_data["ALPS Peers"] = (nss_peers, enroll_peers)
-        all_pivots.append(nss_peers)
-
-    # ALPS PK-12 aggregate (weighted per-pupil)
-    print("  Processing ALPS PK-12...")
-    alps_districts = list(ALPS_COMPONENTS)
-    nss_alps, enroll_alps = prepare_aggregate_nss_ch70_weighted(df, c70, alps_districts)
-    if not nss_alps.empty:
-        district_data["ALPS PK-12"] = (nss_alps, enroll_alps)
-        all_pivots.append(nss_alps)
+    for bucket_id, districts, label in enrollment_groups:
+        if districts:
+            nss_group, enroll_group, foundation_group = prepare_aggregate_nss_ch70_weighted(df, c70, districts)
+            if not nss_group.empty:
+                district_data[label] = (nss_group, enroll_group, foundation_group)
+                all_pivots.append(nss_group)
+                print(f"    {label}: {len(districts)} districts")
 
     # Individual districts
     for dist in DISTRICTS_OF_INTEREST:
         print(f"  Processing {dist}...")
-        nss_dist, enroll_dist = prepare_district_nss_ch70(df, c70, dist)
+        nss_dist, enroll_dist, foundation_dist = prepare_district_nss_ch70(df, c70, dist)
         if not nss_dist.empty:
-            district_data[dist] = (nss_dist, enroll_dist)
+            district_data[dist] = (nss_dist, enroll_dist, foundation_dist)
             all_pivots.append(nss_dist)
 
     print(f"  Successfully prepared {len(district_data)} districts/aggregates")
@@ -116,21 +100,91 @@ def main():
     # because district sizes vary dramatically (e.g., Shutesbury ~$2.6M vs aggregates ~$300M)
     print("\n[3/5] Plot scaling...")
     print(f"  Using auto-scaling for absolute dollar values (no global y-limit)")
+    print(f"  Computing foundation enrollment y-axis limits to match PPE plots")
+
+    # Compute global left_ylim_districts from all individual district foundation enrollment
+    # (excluding aggregates, matching logic from district_expend_pp_stack.py)
+    individual_district_foundations = []
+    for dist_name, (_, _, foundation) in district_data.items():
+        if "Western MA" not in dist_name and foundation is not None and not foundation.empty:
+            individual_district_foundations.append({"Foundation Enrollment": foundation})
+
+    if individual_district_foundations:
+        left_ylim_districts = compute_districts_fte_ylim(individual_district_foundations, pad=1.06, step=50)
+        print(f"  Global district foundation enrollment y-limit: {left_ylim_districts:,.0f}")
+    else:
+        left_ylim_districts = 2000  # Fallback
 
     # Generate plots
     print("\n[4/5] Generating plots...")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    for dist_name, (nss_piv, enroll) in district_data.items():
-        safe_name = (dist_name.replace("-", "_").replace(" ", "_")
-                     .replace("≤", "le").replace(">", "gt")
-                     .replace("(", "").replace(")", ""))
+    for dist_name, (nss_piv, enroll, foundation) in district_data.items():
+        # Generate safe filename
+        if "Western MA" in dist_name:
+            # Extract enrollment group name for Western MA aggregates
+            if "Tiny" in dist_name:
+                safe_name = "Western_MA_tiny"
+            elif "Small" in dist_name:
+                safe_name = "Western_MA_small"
+            elif "Medium" in dist_name:
+                safe_name = "Western_MA_medium"
+            elif "Large" in dist_name:
+                safe_name = "Western_MA_large"
+            elif "Springfield" in dist_name:
+                safe_name = "Western_MA_springfield"
+            else:
+                safe_name = dist_name.replace("-", "_").replace(" ", "_").replace("(", "").replace(")", "")
+        else:
+            safe_name = dist_name.replace("-", "_").replace(" ", "_")
+
         out_path = OUTPUT_DIR / f"nss_ch70_{safe_name}.png"
 
-        title = f"{dist_name}: Chapter 70 Aid and Net School Spending"
+        # Determine title, enrollment label, and y-axis limits based on district type
+        is_aggregate = "Western MA" in dist_name
 
-        # Aggregates use per-pupil, individual districts use absolute dollars
-        is_aggregate = any(x in dist_name for x in ["Western MA", "ALPS"])
+        if is_aggregate:
+            # Aggregates: Update titles and labels based on enrollment cohort
+            # Use centralized cohort definitions for boundaries and labels
+            if "Tiny" in dist_name:
+                cohort_label = get_cohort_label("TINY")
+                title = f"All Western MA Traditional Districts: {cohort_label}"
+                enrollment_label = "Weighted avg enrollment per district"
+                left_ylim = get_cohort_ylim("TINY")
+            elif "Small" in dist_name:
+                cohort_label = get_cohort_label("SMALL")
+                title = f"All Western MA Traditional Districts: {cohort_label}"
+                enrollment_label = "Weighted avg enrollment per district"
+                left_ylim = get_cohort_ylim("SMALL")
+            elif "Medium" in dist_name:
+                cohort_label = get_cohort_label("MEDIUM")
+                title = f"All Western MA Traditional Districts: {cohort_label}"
+                enrollment_label = "Weighted avg enrollment per district"
+                left_ylim = get_cohort_ylim("MEDIUM")
+            elif "Large" in dist_name:
+                cohort_label = get_cohort_label("LARGE")
+                title = f"All Western MA Traditional Districts: {cohort_label}"
+                enrollment_label = "Weighted avg enrollment per district"
+                left_ylim = get_cohort_ylim("LARGE")
+            elif "Springfield" in dist_name:
+                title = "All Western MA Traditional Districts: Springfield"
+                enrollment_label = "Enrollment"
+                left_ylim = compute_districts_fte_ylim([{"Foundation Enrollment": foundation}], pad=1.06, step=1000) if foundation is not None and not foundation.empty else 30000
+            else:
+                title = f"{dist_name}: Chapter 70 Aid and Net School Spending"
+                enrollment_label = "Foundation Enrollment (FTE)"
+                left_ylim = compute_districts_fte_ylim([{"Foundation Enrollment": foundation}], pad=1.06, step=50) if foundation is not None and not foundation.empty else None
+        else:
+            # Individual districts
+            title = f"{dist_name}: Chapter 70 Aid and Net School Spending"
+            enrollment_label = "Enrollment"
+
+            # Use cohort-based y-axis limit automatically
+            # This ensures each district's enrollment axis matches its cohort range
+            context = context_for_district(df, dist_name)
+            left_ylim = get_cohort_ylim(context)
+            if left_ylim is None:  # Springfield has no fixed ylim
+                left_ylim = left_ylim_districts
 
         plot_nss_ch70(
             out_path=out_path,
@@ -139,6 +193,9 @@ def main():
             title=title,
             right_ylim=None,  # Auto-scale each plot individually
             per_pupil=is_aggregate,
+            foundation_enrollment=foundation,
+            left_ylim=left_ylim,
+            enrollment_label=enrollment_label,
         )
 
     print("\n" + "=" * 60)
@@ -149,7 +206,7 @@ def main():
     print("\n[5/5] Preview table data...")
     print("\n[TABLE DATA] Amherst:")
     if "Amherst" in district_data:
-        nss_piv, _ = district_data["Amherst"]
+        nss_piv, _, _ = district_data["Amherst"]
         latest_year = int(nss_piv.index.max())
         cat_rows, cat_total, _ = build_nss_category_data(nss_piv, latest_year)
 

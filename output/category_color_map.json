@@ -1,24 +1,24 @@
 {
   "_version": 4,
   "SMALL": {
-    "Teachers": "#0072B2",
-    "Insurance, Retirement Programs and Other": "#E69F00",
-    "Pupil Services": "#009E73",
-    "Other Teaching Services": "#CC79A7",
-    "Operations and Maintenance": "#56B4E9",
-    "Instructional Leadership": "#F0E442",
-    "Administration": "#D55E00",
-    "Other": "#B0B0B0"
+    "Teachers": "#A8D5F2",
+    "Insurance, Retirement and Other": "#FFE082",
+    "Pupil Services": "#A8E6D0",
+    "Other Teaching Services": "#E8C8DC",
+    "Operations and Maintenance": "#C8E6F5",
+    "Instructional Leadership": "#F8F4B8",
+    "Administration": "#F0C5A8",
+    "Other": "#D8D8D8"
   },
   "LARGE": {
-    "Teachers": "#0072B2",
-    "Insurance, Retirement Programs and Other": "#E69F00",
-    "Pupil Services": "#009E73",
-    "Other Teaching Services": "#CC79A7",
-    "Operations and Maintenance": "#56B4E9",
-    "Instructional Leadership": "#F0E442",
-    "Administration": "#D55E00",
-    "Other": "#B0B0B0"
+    "Teachers": "#A8D5F2",
+    "Insurance, Retirement and Other": "#FFE082",
+    "Pupil Services": "#A8E6D0",
+    "Other Teaching Services": "#E8C8DC",
+    "Operations and Maintenance": "#C8E6F5",
+    "Instructional Leadership": "#F8F4B8",
+    "Administration": "#F0C5A8",
+    "Other": "#D8D8D8"
   },
   "_mode": "unified"
 }

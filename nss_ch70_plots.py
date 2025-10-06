@@ -30,24 +30,34 @@ CODE_VERSION = "v2025.10.02-NSS-CH70"
 # Color palette for NSS/Ch70 stacks (distinct from expenditure categories)
 # Using a green-to-purple gradient to represent funding sources
 NSS_CH70_COLORS = {
-    "Ch70 Aid": "#4ade80",          # Green - state aid (bottom)
-    "Req NSS (adj)": "#fbbf24",     # Amber - required local contribution (middle)
-    "Actual NSS (adj)": "#a78bfa",  # Purple - spending above requirement (top)
+    "Ch70 Aid": "#86efac",                   # Lighter green - state aid (bottom)
+    "Req NSS (minus Ch70)": "#fef08a",       # Lighter golden yellow - required local contribution (middle)
+    "Actual NSS (minus Req NSS)": "#c4b5fd", # Lighter purple - spending above requirement (top)
 }
 
 # Stack order (bottom to top)
-NSS_CH70_STACK_ORDER = ["Ch70 Aid", "Req NSS (adj)", "Actual NSS (adj)"]
+NSS_CH70_STACK_ORDER = ["Ch70 Aid", "Req NSS (minus Ch70)", "Actual NSS (minus Req NSS)"]
 
 
 def comma_formatter():
     """Returns formatter for thousands separator."""
     return FuncFormatter(lambda x, _: f"{int(x):,}")
 
+def smart_dollar_formatter():
+    """Returns formatter that uses M for millions, K for thousands."""
+    def format_func(x, _):
+        if x >= 1_000_000:
+            return f"${x/1_000_000:.1f}M".replace('.0M', 'M')
+        elif x >= 1000:
+            return f"${int(x/1000):,}K"
+        else:
+            return f"${int(x):,}"
+    return FuncFormatter(format_func)
+
 
 def _stamp(fig, y_pos=0.01):
-    """Add version stamp to figure."""
-    fig.text(0.99, y_pos, f"Code: {CODE_VERSION}", ha="right", va="bottom",
-             fontsize=10.5, color="#666666")
+    """Placeholder for version stamp (removed per user request)."""
+    pass  # Version stamp removed
 
 
 def plot_nss_ch70(
@@ -57,9 +67,12 @@ def plot_nss_ch70(
     title: str,
     right_ylim: float | None = None,
     per_pupil: bool = False,
+    foundation_enrollment: pd.Series | None = None,
+    left_ylim: float | None = None,
+    enrollment_label: str = "Foundation Enrollment (FTE)",
 ):
     """
-    Plot Chapter 70 and Net School Spending stacked bars.
+    Plot Chapter 70 and Net School Spending stacked bars with optional foundation enrollment line.
 
     Args:
         out_path: Output PNG file path
@@ -68,11 +81,12 @@ def plot_nss_ch70(
         title: Plot title
         right_ylim: Optional y-axis limit for dollars
         per_pupil: If True, label y-axis as "$ per pupil"; if False, label as "Dollars ($)"
+        foundation_enrollment: Optional Series with foundation enrollment by year (plotted as blue line)
 
     Notes:
         - Stacks are plotted bottom-to-top: Ch70 Aid, Req NSS (adj), Actual NSS (adj)
         - For individual districts: absolute dollars; for aggregates: weighted per-pupil
-        - Enrollment parameter retained for compatibility but not displayed
+        - Foundation enrollment shown as blue line on left axis when provided
     """
     if nss_pivot is None or nss_pivot.empty:
         print(f"[SKIP] No NSS/Ch70 data for {out_path}")
@@ -108,38 +122,112 @@ def plot_nss_ch70(
         )
         bottom = bottom + vals
 
-    # Labels and formatting
-    axL.set_xlabel("School Year", fontsize=16)
-    ylabel = "Weighted Avg $ per District" if per_pupil else "Dollars ($)"
-    axR.set_ylabel(ylabel, fontsize=16)
-    axR.yaxis.set_major_formatter(comma_formatter())
-
-    # Hide left axis (not used)
-    axL.set_yticks([])
-    axL.spines['left'].set_visible(False)
+    # Labels and formatting (match font sizes from district_expend_pp_stack.py)
+    axL.set_xlabel("School Year", fontsize=20)
+    ylabel = "Weighted avg $ per district" if per_pupil else "$ per district"
+    axR.set_ylabel(ylabel, fontsize=20)
+    axR.yaxis.set_major_formatter(smart_dollar_formatter())
+    axL.tick_params(axis='both', labelsize=14)
+    axR.tick_params(axis='both', labelsize=14)
 
     # Set y-limits
     if right_ylim is not None:
         axR.set_ylim(0, right_ylim)
 
-    # Grid and margins
+    # Grid and margins - add faint horizontal gridlines for $ axis
     axL.grid(False)
-    axR.grid(False)
+    axR.grid(True, axis='y', alpha=0.22, linewidth=0.5, linestyle='-', color='gray')
     axL.margins(x=0.02)
     axR.margins(x=0.02)
 
-    # Title
-    fig.suptitle(title, fontsize=18, fontweight="bold", y=0.98)
+    # Remove top, left, right borders - keep only bottom
+    axR.spines['top'].set_visible(False)
+    axR.spines['left'].set_visible(False)
+    axR.spines['right'].set_visible(False)
 
-    # Legend (stacks only, reversed order for top-to-bottom reading)
-    handles_r, labels_r = axR.get_legend_handles_labels()
-    handles_r = handles_r[::-1]
-    labels_r = labels_r[::-1]
+    # Plot foundation enrollment line if provided
+    if foundation_enrollment is not None and not foundation_enrollment.empty:
+        # Show left axis for enrollment (but hide the spine itself)
+        axL.spines['left'].set_visible(False)  # Keep hidden per user request
+        axL.spines['top'].set_visible(False)  # Remove top border
+        axL.set_ylabel(enrollment_label, fontsize=20, labelpad=15)  # Add padding
+        # Custom formatter that hides "0" and abbreviates with K/M on enrollment axis
+        from matplotlib.ticker import FuncFormatter
+        def enrollment_formatter(x, _):
+            if x == 0:
+                return ""
+            elif x >= 1_000_000:
+                return f"{x/1_000_000:.1f}M".rstrip('0').rstrip('.')
+            elif x >= 1_000:
+                return f"{x/1_000:.1f}K".rstrip('0').rstrip('.')
+            else:
+                return f"{int(x)}"
+        axL.yaxis.set_major_formatter(FuncFormatter(enrollment_formatter))
+        axL.tick_params(axis='y', labelsize=14, pad=12)  # Add space between labels and donut dots
 
-    axR.legend(
-        handles_r, labels_r,
-        loc="upper left", fontsize=12, framealpha=0.95
-    )
+        # Check if data exceeds upper limit and extend with faded ticks if needed
+        # Only add faded overflow range if EARLY years (2009-2011) exceed the cohort bound
+        early_years = [yr for yr in years if 2009 <= yr <= 2011]
+        early_enrollment_vals = foundation_enrollment.reindex(early_years).dropna()
+        max_early_enrollment = float(early_enrollment_vals.max()) if not early_enrollment_vals.empty else 0
+
+        if left_ylim is not None and max_early_enrollment > left_ylim:
+            # Early years exceed bound - extend axis with faded overflow ticks
+            # Round extended limit to just above early max (100 or 200 higher)
+            overflow_amount = max_early_enrollment - left_ylim
+            if overflow_amount <= 100:
+                extended_ylim = left_ylim + 100
+            elif overflow_amount <= 200:
+                extended_ylim = left_ylim + 200
+            else:
+                # Round to nearest 100
+                extended_ylim = np.ceil(max_early_enrollment / 100) * 100
+
+            axL.set_ylim(0, extended_ylim)
+
+            # Create custom tick locator with faded overflow ticks
+            tick_spacing = 100 if left_ylim < 1000 else 200 if left_ylim <= 2000 else 500 if left_ylim < 5000 else 1000
+            ticks = list(range(0, int(left_ylim) + 1, tick_spacing))
+
+            # Add overflow ticks (faded)
+            overflow_ticks = list(range(int(left_ylim) + tick_spacing, int(extended_ylim) + 1, tick_spacing))
+            all_ticks = ticks + overflow_ticks
+
+            axL.set_yticks(all_ticks)
+
+            # Color tick labels: normal for in-bounds, faded for overflow
+            tick_labels = axL.get_yticklabels()
+            for i, label in enumerate(tick_labels):
+                if all_ticks[i] > left_ylim:
+                    label.set_alpha(0.4)
+        elif left_ylim is not None:
+            axL.set_ylim(0, left_ylim)
+
+        # Add donut dots at enrollment tick positions (only for labeled ticks)
+        # Turn off default tick lines and add circular markers instead at y-axis
+        axL.tick_params(axis='y', length=0)  # Hide default tick lines
+        tick_positions = axL.get_yticks()
+        tick_labels = [label.get_text() for label in axL.get_yticklabels()]
+        # Use axis transform to place markers at y-axis regardless of data
+        # Only add donut for ticks with visible labels (not empty or hidden)
+        for tick_y, label_text in zip(tick_positions, tick_labels):
+            if label_text and label_text.strip():  # Only if label exists and is not empty
+                axL.plot(0, tick_y, 'o', color='black', markersize=5,
+                        markerfacecolor='white', markeredgecolor='black', markeredgewidth=1.5,
+                        transform=axL.get_yaxis_transform(), clip_on=False, zorder=10)
+
+        # Plot foundation enrollment line
+        y_vals = foundation_enrollment.reindex(years).values
+        axL.plot(years, y_vals, color="#1976D2", lw=3.4, marker="o", ms=8.0,
+                 markerfacecolor="white", markeredgecolor="#1976D2", markeredgewidth=2.0,
+                 zorder=6, clip_on=False, label="Foundation Enrollment")
+    else:
+        # Hide left axis if not used
+        axL.set_yticks([])
+        axL.spines['left'].set_visible(False)
+        axL.spines['top'].set_visible(False)  # Remove top border
+
+    # No legend - Component table with color swatches serves as legend
 
     # Save
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -186,6 +274,8 @@ def compute_cagr_last(series: pd.Series, n_years: int) -> float:
     """
     Compute CAGR over last N years of a pandas Series.
 
+    Handles negative values and crossing zero (e.g., Springfield NSS going from -$10M to +$1M).
+
     Args:
         series: Time series with years as index
         n_years: Number of years to look back
@@ -206,9 +296,23 @@ def compute_cagr_last(series: pd.Series, n_years: int) -> float:
     v0 = float(series.loc[start_yr])
     v1 = float(series.loc[latest_yr])
 
-    if v0 <= 0 or v1 <= 0:
+    # Handle zero values
+    if v0 == 0 or v1 == 0:
         return float("nan")
 
+    # If values cross zero (e.g., Springfield: -$10M to +$1M),
+    # use average annual growth rate instead of geometric CAGR
+    if (v0 > 0 and v1 < 0) or (v0 < 0 and v1 > 0):
+        # Average annual rate of change relative to starting absolute value
+        return (v1 - v0) / (n_years * abs(v0))
+
+    # For negative values with same sign, calculate CAGR on absolute values
+    if v0 < 0 and v1 < 0:
+        # Both negative: use absolute values for calculation
+        abs_cagr = (abs(v1) / abs(v0)) ** (1.0 / n_years) - 1.0
+        return abs_cagr
+
+    # Standard case: both values positive
     return (v1 / v0) ** (1.0 / n_years) - 1.0
 
 
@@ -234,7 +338,7 @@ def build_nss_category_data(nss_pivot: pd.DataFrame, latest_year: int) -> tuple:
         - cat_start_map: Dict mapping category -> start year value (15 years before latest)
     """
     if nss_pivot.empty:
-        return [], ("Total", "$0", "—", "—", "—", "$0"), {}
+        return [], ("Total (Actual NSS)", "$0", "—", "—", "—", "$0"), {}
 
     # Top to bottom for display (reverse of stack order)
     top_bottom = list(reversed(NSS_CH70_STACK_ORDER))
@@ -272,7 +376,7 @@ def build_nss_category_data(nss_pivot: pd.DataFrame, latest_year: int) -> tuple:
     start_total = float(total_series.loc[start_year]) if start_year in total_series.index else 0.0
 
     cat_total = (
-        "Total",
+        "Total (Actual NSS)",
         f"${start_total:,.0f}",
         fmt_pct(compute_cagr_last(total_series, 15)),
         fmt_pct(compute_cagr_last(total_series, 10)),
