@@ -40,6 +40,7 @@ from school_shared import (
     latest_total_fte, get_enrollment_group,
     get_cohort_label, get_cohort_short_label,
     get_western_cohort_districts, get_omitted_western_districts,
+    make_safe_filename,
 )
 from nss_ch70_plots import build_nss_category_data, NSS_CH70_COLORS, NSS_CH70_STACK_ORDER
 
@@ -68,10 +69,12 @@ BELOW_SHADES = ["#E0F7FA", "#B2EBF2", "#80DEEA", "#4DD0E1", "#26C6DA"]  # below 
 MATERIAL_MIN_LATEST_DOLLARS = 0.0
 
 def district_png_simple(dist: str) -> Path:
-    return OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}_simple.png"
+    safe_dist = make_safe_filename(dist)
+    return OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{safe_dist}_simple.png"
 
 def district_png_detail(dist: str) -> Path:
-    return OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}_detail.png"
+    safe_dist = make_safe_filename(dist)
+    return OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{safe_dist}_detail.png"
 
 def regional_png(bucket: str) -> Path:
     return OUTPUT_DIR / f"regional_expenditures_per_pupil_Western_Traditional_{bucket}.png"
@@ -1172,6 +1175,34 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         scatterplot_districts=scatterplot_table_data  # Custom table data
     ))
 
+    # Add choropleth map showing district locations and cohorts
+    # This map provides geographic context for the cohorts shown in previous plots
+    choropleth_explanation = (
+        "This map situates the districts previously shown in the charts—enrollment distributions, cohort "
+        "groupings, and the relationship between enrollment and per-pupil expenditures—within their geographic "
+        "context in Western Massachusetts."
+        "<br/><br/>"
+        "Districts are shaded according to the enrollment cohort system introduced earlier: "
+        f"{get_cohort_short_label('TINY')} (purple), "
+        f"{get_cohort_short_label('SMALL')} (green), "
+        f"{get_cohort_short_label('MEDIUM')} (blue), "
+        f"{get_cohort_short_label('LARGE')} (orange)."
+        "<br/><br/>"
+        "Elementary and PK-12 unified districts appear as solid filled areas. Unified regional districts (marked with 'U') "
+        "serve all grades PK-12 across multiple towns. Secondary regional districts are bounded by a thick black border with diagonal stripe patterns. "
+        "Example: Frontier Regional (a Small district, green) shows white stripes over green elementary districts and green "
+        "stripes over purple (Tiny) districts. This helps show the cohorts of both the regional district and the underlying "
+        "elementary districts."
+    )
+
+    pages.append(dict(
+        title="All Western MA Traditional Districts",
+        subtitle="Geographic map showing district locations and enrollment cohorts",
+        chart_path=str(OUTPUT_DIR / "western_ma_choropleth.png"),
+        text_blocks=[choropleth_explanation],
+        graph_only=True
+    ))
+
     cmap_all = create_or_load_color_map(df)
 
     # Get Western cohorts using centralized function
@@ -1359,7 +1390,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     if not nss_west.empty:
                         nss_west_baseline = _build_nss_ch70_baseline_map(nss_west, latest_year_nss)
 
-                safe_name = dist.replace("-", "_").replace(" ", "_")
+                safe_name = make_safe_filename(dist)
 
                 pages.append(dict(
                     title=dist_title,

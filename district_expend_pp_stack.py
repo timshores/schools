@@ -43,6 +43,7 @@ from school_shared import (
     weighted_epp_aggregation,
     get_cohort_ylim,
     get_western_cohort_districts,
+    make_safe_filename,
 )
 
 # ===== version footer for images =====
@@ -759,6 +760,20 @@ if __name__ == "__main__":
     # Western MA overview plot (all districts as horizontal bars)
     plot_all_western_overview(OUTPUT_DIR / "ppe_overview_all_western.png", df, reg, c70, year_lag=5)
 
+    # Generate choropleth map showing district locations and cohorts
+    print("\n[MAPS] Generating Western MA choropleth map...")
+    try:
+        from western_map import load_shapefiles, match_districts_to_geometries, create_western_ma_map
+        shapes = load_shapefiles()
+        matched_gdf = match_districts_to_geometries(df, reg, shapes)
+        create_western_ma_map(matched_gdf, OUTPUT_DIR / "western_ma_choropleth.png")
+        print("[OK] Choropleth map generated successfully")
+    except ImportError as e:
+        print(f"[SKIP] Could not generate choropleth map: {e}")
+        print("       Install geopandas to enable map generation: pip install geopandas")
+    except Exception as e:
+        print(f"[WARN] Choropleth map generation failed: {e}")
+
     # District plots - generate BOTH simple and detailed versions
     ordered = ["Amherst-Pelham"] + [d for d in DISTRICTS_OF_INTEREST if d != "Amherst-Pelham"]
     for dist in ordered:
@@ -775,9 +790,10 @@ if __name__ == "__main__":
         enrollment_label = "Enrollment"
 
         # Simple version (solid color, no categories)
-        out_simple = OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}_simple.png"
+        safe_dist_name = make_safe_filename(dist)
+        out_simple = OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{safe_dist_name}_simple.png"
         plot_one_simple(out_simple, piv, lines, context, right_ylim, left_ylim_dist, FTE_LINE_COLORS, enrollment_label)
 
         # Detailed version (with category breakdown)
-        out_detail = OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{dist.replace(' ', '_')}_detail.png"
+        out_detail = OUTPUT_DIR / f"expenditures_per_pupil_vs_enrollment_{safe_dist_name}_detail.png"
         plot_one(out_detail, piv, lines, context, right_ylim, left_ylim_dist, FTE_LINE_COLORS, cmap_all, enrollment_label)

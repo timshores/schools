@@ -26,6 +26,7 @@ from school_shared import (
     get_cohort_label,
     get_cohort_ylim,
     get_western_cohort_districts,
+    make_safe_filename,
 )
 from nss_ch70_plots import (
     plot_nss_ch70,
@@ -120,7 +121,8 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     for dist_name, (nss_piv, enroll, foundation) in district_data.items():
-        # Generate safe filename
+        # Generate safe filename using centralized sanitization function
+        # This prevents creation of Windows reserved device names like "nul"
         if "Western MA" in dist_name:
             # Extract enrollment group name for Western MA aggregates
             if "Tiny" in dist_name:
@@ -134,9 +136,9 @@ def main():
             elif "Springfield" in dist_name:
                 safe_name = "Western_MA_springfield"
             else:
-                safe_name = dist_name.replace("-", "_").replace(" ", "_").replace("(", "").replace(")", "")
+                safe_name = make_safe_filename(dist_name)
         else:
-            safe_name = dist_name.replace("-", "_").replace(" ", "_")
+            safe_name = make_safe_filename(dist_name)
 
         out_path = OUTPUT_DIR / f"nss_ch70_{safe_name}.png"
 

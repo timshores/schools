@@ -5,7 +5,12 @@
       "Bash(dir:*)",
       "Bash(timeout:*)",
       "Bash(..venvScriptspython.exe -m pip install scipy)",
-      "Bash(/dev/null)"
+      "Bash(/dev/null)",
+      "Bash(find:*)",
+      "Bash(findstr:*)",
+      "Bash(..venvScriptspython.exe -m pip install geopandas)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []

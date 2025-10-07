@@ -14,6 +14,63 @@ EXCEL_FILE = DATA_DIR / "E2C_Hub_MA_DESE_Data.xlsx"
 COLOR_MAP_PATH = OUTPUT_DIR / "category_color_map.json"
 COLOR_MAP_VERSION = 4  # unified, colorblind-safe palette
 
+# Windows reserved device names (case-insensitive)
+_WINDOWS_RESERVED_NAMES = {
+    'con', 'prn', 'aux', 'nul',
+    'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9',
+    'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9'
+}
+
+def make_safe_filename(name: str) -> str:
+    """
+    Convert a string to a safe filename by removing/replacing problematic characters.
+
+    Handles:
+    - Windows reserved device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+    - Special characters that can't be used in filenames
+    - Unicode characters that might cause issues
+
+    Args:
+        name: The original filename/path component
+
+    Returns:
+        A safe filename that won't cause OS-level issues
+    """
+    if not name:
+        return "unnamed"
+
+    # Replace problematic characters with underscores
+    # Handle special chars that can't be in filenames on Windows
+    safe = name.replace(" ", "_")
+    safe = safe.replace("-", "_")
+    safe = safe.replace("(", "")
+    safe = safe.replace(")", "")
+    safe = safe.replace("≤", "le")  # less than or equal to
+    safe = safe.replace("≥", "ge")  # greater than or equal to
+    safe = safe.replace(">", "gt")   # greater than
+    safe = safe.replace("<", "lt")   # less than
+    safe = safe.replace("/", "_")
+    safe = safe.replace("\\", "_")
+    safe = safe.replace(":", "_")
+    safe = safe.replace("*", "_")
+    safe = safe.replace("?", "_")
+    safe = safe.replace('"', "_")
+    safe = safe.replace("|", "_")
+
+    # Remove any remaining non-ASCII characters
+    safe = safe.encode('ascii', 'ignore').decode('ascii')
+
+    # Check if the result (or its stem before extension) is a Windows reserved name
+    stem = safe.split('.')[0].lower()
+    if stem in _WINDOWS_RESERVED_NAMES:
+        safe = f"file_{safe}"  # Prefix with "file_" to avoid reserved name
+
+    # Ensure it's not empty after sanitization
+    if not safe or safe == "":
+        safe = "unnamed"
+
+    return safe
+
 # ---------------- Enrollment Cohorts (4-tier system) ----------------
 # Cohort boundaries are calculated dynamically based on IQR analysis
 # Small: 0 to median (rounded to nearest 100)
