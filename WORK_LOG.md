@@ -15,6 +15,69 @@
 
 ---
 
+## 2025-10-07 - Choropleth Map Refinements and Data-Driven District Types
+
+### Refactored District Type Classification to Use Data File
+
+**Changed from hardcoded to data-driven approach** for district type classification.
+
+**Problem:**
+- District types (unified regional vs secondary regional) were hardcoded in `UNIFIED_REGIONAL_DISTRICTS` set
+- Adding new regions or correcting district classifications required code changes
+- Not extensible for other parts of Massachusetts
+
+**Solution:**
+- Created `load_district_types()` function to read from `Ch 70 District Profiles Actual NSS Over Required.xlsx`
+- Reads `MA_District_Profiles` sheet with columns: `DistOrg` (district name), `DistType` (classification)
+- Maps district types:
+  - "District" → elementary (not regional)
+  - "Unified Regional" → unified_regional (serves PK-12, gets "U" marker)
+  - "Regional Composite" → regional_composite (overlaps elementary, gets stripes + black border)
+
+**Implementation** (western_map.py):
+1. Added `DISTRICT_PROFILES_FILE` constant pointing to data file (line 67)
+2. Removed hardcoded `UNIFIED_REGIONAL_DISTRICTS` set
+3. Created `load_district_types()` function (lines 109-158):
+   - Reads Excel file and MA_District_Profiles sheet
+   - Cleans district names for matching
+   - Returns dict mapping cleaned name → district type
+4. Updated `match_districts_to_geometries()` (lines 219, 271-305):
+   - Calls `load_district_types()` at start
+   - Determines `is_regional` using data file first, then fallbacks
+   - Adds `data_district_type` and `regional_subtype` fields to matched districts
+5. Updated `create_western_ma_map()` (lines 360-367):
+   - Uses `regional_subtype` instead of `shapefile_type` to separate unified vs secondary regionals
+   - Ensures data file classification takes precedence
+
+**Visual Improvements:**
+- Made "U" symbol more visible with black outline effect (fontsize 20 black + fontsize 18 white on top)
+- Added thick black border (linewidth=3.0, zorder=6) around secondary regional districts
+- Added black border to legend
+- Updated choropleth_explanation text in compose_pdf.py to use HTML formatting (`<br/>`)
+
+**Files Modified:**
+- **western_map.py** - Refactored district type logic (removed 6-line hardcoded set, added 50-line data loading function)
+- **compose_pdf.py** - Updated map explanation text to mention black border and use HTML markup
+- **WORK_LOG.md** - Added workflow instructions for ReportLab formatting
+
+**Data File:**
+- Location: `data/Ch 70 District Profiles Actual NSS Over Required.xlsx`
+- Sheet: `MA_District_Profiles`
+- Columns used: `DistOrg`, `DistType`
+
+**Extensibility Benefits:**
+- ✅ Can add/update district classifications by editing Excel file (no code changes)
+- ✅ Can extend to other MA regions by adding districts to data file
+- ✅ District type corrections (like Mohawk Trail) handled in data, not code
+- ✅ Clear separation between code logic and district classification data
+
+**Districts Affected:**
+- Mohawk Trail now correctly identified as Unified Regional (gets "U" marker)
+- All 9 unified regional districts loaded from data file
+- All 3 secondary regional districts (Frontier, Ralph C Mahar, Amherst-Pelham) maintain stripes + black border
+
+---
+
 ## 2025-10-06 - Choropleth Map and Windows Filename Fix
 
 ### Choropleth Map of Western MA Districts

@@ -2,24 +2,34 @@
 Generate choropleth maps of Western Massachusetts school districts for PDF report.
 
 This module:
-1. Loads MA school district shapefiles (Census Bureau TIGER/Line)
-2. Matches Western MA traditional districts to geometries
-3. Color codes districts by enrollment cohort
-4. Handles overlapping district boundaries using spatially-adaptive stripe patterns
-5. Generates static PNG map for PDF inclusion
+1. Loads district types from Ch 70 District Profiles (MA_District_Profiles sheet)
+2. Loads MA school district shapefiles (Census Bureau TIGER/Line)
+3. Matches Western MA traditional districts to geometries
+4. Color codes districts by enrollment cohort
+5. Handles overlapping district boundaries using spatially-adaptive stripe patterns
+6. Generates static PNG map for PDF inclusion
+
+District Type Classification (from data file):
+- "District" -> Elementary district (not regional)
+- "Unified Regional" -> Serves all grades PK-12 across multiple towns (gets "U" marker)
+- "Regional Composite" -> Secondary regional that overlaps elementary districts (gets stripes + black border)
 
 Map Design:
 - 5 enrollment cohorts (Tiny, Small, Medium, Large, Springfield) each with unique color
 - Non-regional districts: solid filled polygons (85% opacity)
-- Unified regional districts (serve all grades PK-12): solid filled polygons (85% opacity)
-- Secondary regional districts (overlap with elementary): diagonal stripes with spatially-adaptive coloring
+- Unified regional districts: solid filled polygons (85% opacity) with white "U" marker
+- Secondary regional districts: diagonal stripes with spatially-adaptive coloring + thick black border
   * Within each regional district, stripe color adapts based on underlying cohorts
   * White stripes: in areas where regional overlaps same-cohort elementary
   * Cohort-color stripes: in areas where regional overlaps different-cohort elementary
   * Example: Green regional shows white stripes over green elementary,
     green stripes over purple/blue elementary
-- Legend showing cohort definitions and district counts
+- Legend showing cohort definitions, district counts, and regional markers
 - Handles geographic overlap between elementary and secondary regional districts
+
+Extensibility:
+- District types loaded from data file (not hardcoded)
+- Can be extended to other regions by updating data file
 """
 
 from __future__ import annotations
@@ -266,17 +276,31 @@ def match_districts_to_geometries(
             # Take first match (usually only one)
             geom_row = matches.iloc[0] if isinstance(matches, gpd.GeoDataFrame) else matches
 
-            # Determine if this is a regional district based on:
-            # 1. Name contains "Reg" or "Regional"
-            # 2. Shapefile type is "secondary"
-            # 3. District is in known unified regional list
+            # Determine district type from data file
             clean_name_check = clean_district_name(dist_name)
+            data_dist_type = district_types.get(clean_name_check, "")
+
+            # Determine if this is a regional district based on:
+            # 1. District type from data file (unified_regional or regional_composite)
+            # 2. Name contains "Reg" or "Regional" (fallback for legacy data)
+            # 3. Shapefile type is "secondary" (fallback)
             is_regional = (
+                data_dist_type in ("unified_regional", "regional_composite") or
                 "reg" in dist_name.lower() or
                 "regional" in dist_name.lower() or
-                geom_row["district_type"] == "secondary" or
-                clean_name_check in UNIFIED_REGIONAL_DISTRICTS
+                geom_row["district_type"] == "secondary"
             )
+
+            # Determine regional subtype (unified vs secondary/composite)
+            # If data file says "unified_regional", it's unified regardless of shapefile
+            # If data file says "regional_composite", it's secondary/composite
+            if data_dist_type == "unified_regional":
+                regional_subtype = "unified"
+            elif data_dist_type == "regional_composite":
+                regional_subtype = "secondary"
+            else:
+                # Fall back to shapefile type for districts not in data file
+                regional_subtype = geom_row["district_type"]
 
             matched_districts.append({
                 "district_name": dist_name.title(),
@@ -285,6 +309,8 @@ def match_districts_to_geometries(
                 "is_of_interest": dist_name in districts_of_interest_lower,
                 "is_regional": is_regional,
                 "shapefile_type": geom_row["district_type"],
+                "data_district_type": data_dist_type,  # Type from data file
+                "regional_subtype": regional_subtype,  # unified vs secondary
                 "geometry": geom_row["geometry"]
             })
         else:
@@ -338,16 +364,16 @@ def create_western_ma_map(
     fig, ax = plt.subplots(figsize=(14, 10))
 
     # Separate districts by type
-    # Unified regional districts (serve all grades PK-12) should render as solid fills
-    # Secondary regional districts (overlap with elementary) should render with stripes
+    # Unified regional districts (serve all grades PK-12) should render as solid fills with "U" marker
+    # Secondary regional districts (overlap with elementary) should render with stripes and black border
     non_regional = matched_gdf[~matched_gdf["is_regional"]]
     regional_secondary = matched_gdf[
         (matched_gdf["is_regional"]) &
-        (matched_gdf["shapefile_type"] == "secondary")
+        (matched_gdf["regional_subtype"] == "secondary")
     ]
     regional_unified = matched_gdf[
         (matched_gdf["is_regional"]) &
-        (matched_gdf["shapefile_type"] != "secondary")
+        (matched_gdf["regional_subtype"] == "unified")
     ]
 
     print(f"  Rendering {len(non_regional)} non-regional districts (solid fill)")
