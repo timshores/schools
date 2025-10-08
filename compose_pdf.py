@@ -26,7 +26,7 @@ from reportlab.lib.colors import HexColor
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import Flowable, Image, KeepInFrame, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Flowable, HRFlowable, Image, KeepInFrame, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from school_shared import (
     OUTPUT_DIR, load_data, create_or_load_color_map, color_for,
@@ -446,27 +446,7 @@ def _build_category_table(page: dict) -> Table:
     ])
     total_row_idx = len(data) - 1
 
-    # Legend rows: left explanations + right swatches spanning the rightmost three columns
-    # NOTE: Legend now spans columns 4-6 (CAGR 10y, 5y, Latest $) - rightmost 3 columns
-    legend_rows = []
-    if page.get("page_type") == "district":
-        baseline_title = page.get("baseline_title", "")
-        bucket_suffix = _abbr_bucket_suffix(baseline_title)
-
-        above_text = f"Above Western {bucket_suffix}".strip()
-        below_text = f"Below Western {bucket_suffix}".strip()
-        shade_rule = (
-            f"Shading vs Western: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}% "
-            f"or |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp"
-        )
-        cagr_def   = "CAGR = (End/Start)^(1/years) − 1"
-        legend_rows = [
-            ["", Paragraph(shade_rule, style_legend_right), "", "", Paragraph(above_text, style_legend_center), "", ""],
-            ["", Paragraph(cagr_def,   style_legend_right), "", "", Paragraph(below_text, style_legend_center), "", ""],
-        ]
-    data.extend(legend_rows)
-    leg1_idx = total_row_idx + 1 if legend_rows else None
-    leg2_idx = total_row_idx + 2 if legend_rows else None
+    # Legend removed from category table - now shown only after enrollment table
 
     # Column widths: flexible Category column, wider first/last dollar columns for large values
     # Swatch, Category, t0 $, CAGR15y, CAGR10y, CAGR5y, Latest $
@@ -525,23 +505,56 @@ def _build_category_table(page: dict) -> Table:
             if bg is not None:
                 ts.add("BACKGROUND", (col, i), (col, i), bg)
 
-    # Apply legend spans & swatches (immediately below TOTAL row)
-    # Legend text spans cols 1-3, swatch spans cols 4-6 (rightmost 3 columns: CAGR 10y, 5y, Latest $)
-    if leg1_idx is not None:
-        ts.add("SPAN", (1, leg1_idx), (3, leg1_idx))
-        ts.add("SPAN", (1, leg2_idx), (3, leg2_idx))
-        ts.add("SPAN", (4, leg1_idx), (6, leg1_idx))
-        ts.add("SPAN", (4, leg2_idx), (6, leg2_idx))
-        sw_above = HexColor(ABOVE_SHADES[1]); sw_below = HexColor(BELOW_SHADES[1])
-        ts.add("BACKGROUND", (4, leg1_idx), (6, leg1_idx), sw_above)
-        ts.add("BACKGROUND", (4, leg2_idx), (6, leg2_idx), sw_below)
+    # Shade TOTAL row (same logic as category rows)
+    if page.get("page_type") == "district" and total_row_idx is not None:
+        total_base_map = base.get("Total", {})
+
+        # Parse total values from the total tuple
+        # total = (label, latest_str, c5s, c10s, c15s, start_str)
+        start_total_str = total[5] if len(total) > 5 else "—"
+        latest_total_str = total[1]
+        c5s_total = total[2]
+        c10s_total = total[3]
+        c15s_total = total[4]
+
+        # Parse dollar values from formatted strings
+        start_total_val = float(start_total_str.replace("$", "").replace(",", "")) if start_total_str != "—" else float("nan")
+        latest_total_val = float(latest_total_str.replace("$", "").replace(",", "")) if latest_total_str != "—" else float("nan")
+
+        # --- Start year $/pupil shading for Total (col 2) ---
+        base_start_dollar = total_base_map.get("START_DOLLAR", float("nan"))
+        if base_start_dollar == base_start_dollar and base_start_dollar > 0 and start_total_val == start_total_val and start_total_val > 0:
+            delta_rel = (start_total_val - float(base_start_dollar)) / float(base_start_dollar)
+            bg = _shade_for_dollar_rel(delta_rel)
+            if bg is not None:
+                ts.add("BACKGROUND", (2, total_row_idx), (2, total_row_idx), bg)
+
+        # --- Latest $/pupil shading for Total (col 6) ---
+        base_dollar = total_base_map.get("DOLLAR", float("nan"))
+        if base_dollar == base_dollar and base_dollar > 0 and latest_total_val == latest_total_val:
+            delta_rel = (latest_total_val - float(base_dollar)) / float(base_dollar)
+            bg = _shade_for_dollar_rel(delta_rel)
+            if bg is not None:
+                ts.add("BACKGROUND", (6, total_row_idx), (6, total_row_idx), bg)
+
+        # --- CAGR shading for Total (cols 3, 4, 5) ---
+        # Columns 3, 4, 5 = CAGR 15y, 10y, 5y
+        for col, (cstr, key) in zip((5, 4, 3), [(c5s_total, "5"), (c10s_total, "10"), (c15s_total, "15")]):
+            val = parse_pct_str_to_float(cstr)
+            base_val = total_base_map.get(key, float("nan"))
+            delta_pp = (val - base_val) if (val==val and base_val==base_val) else float("nan")
+            bg = _shade_for_cagr_delta(delta_pp)
+            if bg is not None:
+                ts.add("BACKGROUND", (col, total_row_idx), (col, total_row_idx), bg)
+
+    # Legend removed from category table - now shown only after enrollment table
 
     tbl.setStyle(ts)
     return tbl
 
 def _build_fte_table(page: dict) -> Table:
     """
-    Build FTE enrollment table with chronological column order.
+    Build FTE enrollment table with chronological column order and shading.
 
     Columns (left to right): Swatch, FTE Series, t0 FTE, CAGR 15y, 10y, 5y, Latest FTE
     NOTE: Reordered to match category table chronology
@@ -549,6 +562,7 @@ def _build_fte_table(page: dict) -> Table:
     rows_in = page.get("fte_rows", [])
     latest_year_fte = page.get("latest_year_fte", page.get("latest_year","Latest"))
     t0_year_fte = latest_year_fte - 15 if isinstance(latest_year_fte, int) else 2009
+    fte_base = page.get("fte_baseline_map", {}) or {}
 
     # Header cells - reordered chronologically
     header = [
@@ -580,6 +594,28 @@ def _build_fte_table(page: dict) -> Table:
     # Total FTE removed - enrollment groups overlap, so sum is meaningless
     total_row_idx = None
 
+    # Legend rows: Show only if there's a baseline (i.e., comparison page, not aggregate)
+    # Merge 4 leftmost cells (0-3) for shading rule text, span rightmost 3 cells (4-6) for swatches
+    legend_rows = []
+    if page.get("page_type") in ["district", "nss_ch70"] and (page.get("baseline_map") or page.get("fte_baseline_map")):
+        baseline_title = page.get("baseline_title", "")
+        bucket_suffix = _abbr_bucket_suffix(baseline_title)
+
+        above_text = f"Above Western {bucket_suffix}".strip()
+        below_text = f"Below Western {bucket_suffix}".strip()
+        shade_rule = (
+            f"Shading vs Western cohort: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}%, "
+            f"|ΔEnrollment| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}%, |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp"
+        )
+        cagr_def = "CAGR = (End/Start)^(1/years) − 1"
+        legend_rows = [
+            [Paragraph(shade_rule, style_legend_right), "", "", "", Paragraph(above_text, style_legend_center), "", ""],  # Col 0-3 merged for text
+            [Paragraph(cagr_def, style_legend_right), "", "", "", Paragraph(below_text, style_legend_center), "", ""],  # Col 0-3 merged for text
+        ]
+    data.extend(legend_rows)
+    leg1_idx = len(rows_in) + 1 if legend_rows else None
+    leg2_idx = len(rows_in) + 2 if legend_rows else None
+
     # Column widths: flexible Enrollment column, wider first/last FTE columns
     # Swatch, Series (flex), t0 FTE, CAGR15y, CAGR10y, CAGR5y, Latest FTE
     tbl = Table(data, colWidths=[0.45*inch, None, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch])
@@ -593,6 +629,70 @@ def _build_fte_table(page: dict) -> Table:
         ("TOPPADDING",   (0,0), (-1,-1), 3),
         ("BOTTOMPADDING",(0,0), (-1,-1), 3),
     ])
+
+    # Shade FTE columns (cols 2 and 6: start and latest) and CAGR columns (cols 3–5)
+    if page.get("page_type") in ["district", "nss_ch70"]:
+        for i, (color, label, latest_str, r5s, r10s, r15s) in enumerate(rows_in, start=1):
+            base_map = fte_base.get(label, {})
+
+            # Get t0 and latest values
+            s = page.get("fte_series_map", {}).get(label)
+            t0_val = float("nan")
+            latest_val = float("nan")
+            if s is not None and not s.empty:
+                if t0_year_fte in s.index:
+                    t0_val = float(s.loc[t0_year_fte])
+                if latest_year_fte in s.index:
+                    latest_val = float(s.loc[latest_year_fte])
+
+            # --- Start year FTE shading (col 2, 2009) - relative vs Western baseline ---
+            base_start_fte = base_map.get("START_FTE", float("nan"))
+            if base_start_fte == base_start_fte and base_start_fte > 0 and t0_val == t0_val and t0_val > 0:
+                delta_rel = (t0_val - float(base_start_fte)) / float(base_start_fte)
+                bg = _shade_for_dollar_rel(delta_rel)  # reuse same function (2% threshold)
+                if bg is not None:
+                    ts.add("BACKGROUND", (2, i), (2, i), bg)
+
+            # --- Latest FTE shading (col 6, 2024) - relative vs Western baseline ---
+            base_fte = base_map.get("FTE", float("nan"))
+            if base_fte == base_fte and base_fte > 0 and latest_val == latest_val:
+                delta_rel = (latest_val - float(base_fte)) / float(base_fte)
+                bg = _shade_for_dollar_rel(delta_rel)  # reuse same function (2% threshold)
+                if bg is not None:
+                    ts.add("BACKGROUND", (6, i), (6, i), bg)
+
+            # --- CAGR shading (absolute pp delta vs Western baseline) ---
+            # Columns 3, 4, 5 = CAGR 15y, 10y, 5y
+            for col, (cstr, key) in zip((5, 4, 3), [(r5s, "5"), (r10s, "10"), (r15s, "15")]):
+                val = parse_pct_str_to_float(cstr)
+                base_val = base_map.get(key, float("nan"))
+                delta_pp = (val - base_val) if (val==val and base_val==base_val) else float("nan")
+                bg = _shade_for_cagr_delta(delta_pp)
+                if bg is not None:
+                    ts.add("BACKGROUND", (col, i), (col, i), bg)
+
+    # Apply legend spans & swatches (at bottom of table)
+    # Merge leftmost 4 cells (0-3) for shading rule text, rightmost 3 cells (4-6) for color swatches
+    if leg1_idx is not None:
+        # Add faint line above legend
+        ts.add("LINEABOVE", (0, leg1_idx), (-1, leg1_idx), 0.5, colors.lightgrey)
+        ts.add("TOPPADDING", (0, leg1_idx), (-1, leg1_idx), 8)
+        ts.add("BOTTOMPADDING", (0, leg2_idx), (-1, leg2_idx), 6)
+
+        ts.add("SPAN", (0, leg1_idx), (3, leg1_idx))
+        ts.add("SPAN", (0, leg2_idx), (3, leg2_idx))
+        ts.add("SPAN", (4, leg1_idx), (6, leg1_idx))
+        ts.add("SPAN", (4, leg2_idx), (6, leg2_idx))
+        # Align legend text to right in the merged left cells
+        ts.add("ALIGN", (0, leg1_idx), (3, leg1_idx), "RIGHT")
+        ts.add("ALIGN", (0, leg2_idx), (3, leg2_idx), "RIGHT")
+        # Center the swatch labels
+        ts.add("ALIGN", (4, leg1_idx), (6, leg1_idx), "CENTER")
+        ts.add("ALIGN", (4, leg2_idx), (6, leg2_idx), "CENTER")
+        sw_above = HexColor(ABOVE_SHADES[1]); sw_below = HexColor(BELOW_SHADES[1])
+        ts.add("BACKGROUND", (4, leg1_idx), (6, leg1_idx), sw_above)
+        ts.add("BACKGROUND", (4, leg2_idx), (6, leg2_idx), sw_below)
+
     if total_row_idx is not None:
         ts.add("LINEABOVE", (0,total_row_idx), (-1,total_row_idx), 0.5, colors.black)
     tbl.setStyle(ts)
@@ -639,26 +739,7 @@ def _build_nss_ch70_table(page: dict) -> Table:
                  Paragraph(latest_total, style_num)])
     total_row_idx = len(data) - 1
 
-    # Legend rows: left explanations + right swatches spanning the rightmost three columns
-    legend_rows = []
-    if page.get("page_type") == "nss_ch70" and base:
-        baseline_title = page.get("baseline_title", "")
-        bucket_suffix = _abbr_bucket_suffix(baseline_title)
-
-        above_text = f"Above Western {bucket_suffix}".strip()
-        below_text = f"Below Western {bucket_suffix}".strip()
-        shade_rule = (
-            f"Shading vs Western: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}% "
-            f"or |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp"
-        )
-        cagr_def = "CAGR = (End/Start)^(1/years) − 1"
-        legend_rows = [
-            ["", Paragraph(shade_rule, style_legend_right), "", "", Paragraph(above_text, style_legend_center), "", ""],
-            ["", Paragraph(cagr_def, style_legend_right), "", "", Paragraph(below_text, style_legend_center), "", ""],
-        ]
-    data.extend(legend_rows)
-    leg1_idx = total_row_idx + 1 if legend_rows else None
-    leg2_idx = total_row_idx + 2 if legend_rows else None
+    # Legend removed from NSS/Ch70 table - now shown only after enrollment table below
 
     # Column widths (flexible Component column, match FTE table dollar column widths)
     tbl = Table(data, colWidths=[0.45*inch, None, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch])
@@ -753,17 +834,6 @@ def _build_nss_ch70_table(page: dict) -> Table:
                 if bg is not None:
                     ts.add("BACKGROUND", (col, total_row_idx), (col, total_row_idx), bg)
 
-    # Apply legend spans & swatches (immediately below TOTAL row)
-    # Legend text spans cols 1-3, swatch spans cols 4-6 (rightmost 3 columns)
-    if leg1_idx is not None:
-        ts.add("SPAN", (1, leg1_idx), (3, leg1_idx))
-        ts.add("SPAN", (1, leg2_idx), (3, leg2_idx))
-        ts.add("SPAN", (4, leg1_idx), (6, leg1_idx))
-        ts.add("SPAN", (4, leg2_idx), (6, leg2_idx))
-        sw_above = HexColor(ABOVE_SHADES[1]); sw_below = HexColor(BELOW_SHADES[1])
-        ts.add("BACKGROUND", (4, leg1_idx), (6, leg1_idx), sw_above)
-        ts.add("BACKGROUND", (4, leg2_idx), (6, leg2_idx), sw_below)
-
     ts.add("LINEABOVE", (0,total_row_idx), (-1,total_row_idx), 0.5, colors.black)
 
     tbl.setStyle(ts)
@@ -849,13 +919,13 @@ def _build_nss_fte_data(foundation_series: pd.Series, latest_year: int) -> tuple
 
     return fte_rows, fte_map, latest_fte_year
 
-def _build_nss_ch70_baseline_map(nss_data: pd.DataFrame, latest_year: int) -> dict:
+def _build_nss_ch70_baseline_map(nss_data: pd.DataFrame, latest_year: int, foundation_series: pd.Series = None) -> dict:
     """
-    Build baseline map for NSS/Ch70 components for comparison.
+    Build baseline map for NSS/Ch70 components and Foundation Enrollment for comparison.
 
-    Returns dict mapping component name (including "Total") to:
-        - DOLLAR: latest $/pupil value
-        - START_DOLLAR: start year (15y ago) $/pupil value
+    Returns dict mapping component name (including "Total" and "Foundation Enrollment") to:
+        - DOLLAR (or FTE): latest value
+        - START_DOLLAR (or START_FTE): start year (15y ago) value
         - "5", "10", "15": CAGR values as floats
     """
     baseline_map = {}
@@ -888,6 +958,20 @@ def _build_nss_ch70_baseline_map(nss_data: pd.DataFrame, latest_year: int) -> di
         "10": compute_cagr_last(total_series, 10),
         "15": compute_cagr_last(total_series, 15)
     }
+
+    # Add Foundation Enrollment if provided
+    if foundation_series is not None and not foundation_series.empty:
+        latest_fte_year = int(foundation_series.index.max())
+        latest_fte = float(foundation_series.loc[latest_fte_year]) if latest_fte_year in foundation_series.index else float("nan")
+        start_fte = float(foundation_series.loc[start_year]) if start_year in foundation_series.index else float("nan")
+
+        baseline_map["Foundation Enrollment"] = {
+            "FTE": latest_fte,
+            "START_FTE": start_fte,
+            "5": compute_cagr_last(foundation_series, 5),
+            "10": compute_cagr_last(foundation_series, 10),
+            "15": compute_cagr_last(foundation_series, 15)
+        }
 
     return baseline_map
 
@@ -1336,8 +1420,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
         base_title = f"All Western MA Traditional Districts: {bucket_label}"
         base_map = {}
+        fte_base_map = {}
         district_list = cohorts[context]
-        title_w, epp_w, _ls, _lm = prepare_western_epp_lines(df, reg, bucket, c70, districts=district_list)
+        title_w, epp_w, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket, c70, districts=district_list)
         if not epp_w.empty:
             start_year = latest_year - 15  # 15 years before latest for START_DOLLAR
             for sc in epp_w.columns:
@@ -1350,6 +1435,29 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     "START_DOLLAR": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
                 }
 
+            # Add Total entry to baseline map
+            total_series = epp_w.sum(axis=1)
+            base_map["Total"] = {
+                "5": compute_cagr_last(total_series, 5),
+                "10": compute_cagr_last(total_series, 10),
+                "15": compute_cagr_last(total_series, 15),
+                "DOLLAR": (float(total_series.loc[latest_year]) if latest_year in total_series.index else float("nan")),
+                "START_DOLLAR": (float(total_series.loc[start_year]) if start_year in total_series.index else float("nan")),
+            }
+
+        # Build FTE baseline map from Western aggregate enrollment data
+        if lines_mean:
+            for key, label in ENROLL_KEYS:
+                s = lines_mean.get(label)
+                if s is not None and not s.empty:
+                    fte_base_map[label] = {
+                        "5": compute_cagr_last(s, 5),
+                        "10": compute_cagr_last(s, 10),
+                        "15": compute_cagr_last(s, 15),
+                        "FTE": (float(s.loc[latest_fte_year]) if latest_fte_year in s.index else float("nan")),
+                        "START_FTE": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
+                    }
+
         pages.append(dict(
             title=dist_title,
             subtitle=f"PPE vs Enrollment. Per-pupil expenditures stacked by expense category, expense category table shaded by comparison to weighted average of Western MA {bucket_label}",
@@ -1358,6 +1466,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             cat_rows=rows, cat_total=total, cat_start_map=start_map, fte_rows=fte_rows,
             fte_series_map=fte_map,
             page_type="district", baseline_title=base_title, baseline_map=base_map,
+            fte_baseline_map=fte_base_map,
             raw_epp=epp, raw_lines=lines, dist_name=dist
         ))
 
@@ -1385,10 +1494,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
                 # Compute Western NSS/Ch70 baseline (weighted per-pupil for comparison)
                 nss_west_baseline = {}
+                fte_west_baseline = {}
                 if western_dists:
-                    nss_west, _, _ = prepare_aggregate_nss_ch70_weighted(df, c70, western_dists)
+                    nss_west, _, foundation_west = prepare_aggregate_nss_ch70_weighted(df, c70, western_dists)
                     if not nss_west.empty:
-                        nss_west_baseline = _build_nss_ch70_baseline_map(nss_west, latest_year_nss)
+                        nss_west_baseline = _build_nss_ch70_baseline_map(nss_west, latest_year_nss, foundation_west)
+                        # Extract FTE baseline for the enrollment table
+                        if "Foundation Enrollment" in nss_west_baseline:
+                            fte_west_baseline["Foundation Enrollment"] = nss_west_baseline["Foundation Enrollment"]
 
                 safe_name = make_safe_filename(dist)
 
@@ -1406,6 +1519,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     page_type="nss_ch70",
                     baseline_title=f"Western Traditional ({group_label})",
                     baseline_map=nss_west_baseline,
+                    fte_baseline_map=fte_west_baseline,
                     dist_name=dist,
                     raw_nss=nss_dist  # Store raw data for Appendix A
                 ))
@@ -1541,25 +1655,25 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     ]
 
     methodology_page2 = [
-        "<b>5. Red/Green Shading Logic (District Comparison Tables)</b>",
+        "<b>5. Orange/Blue Shading Logic (District Comparison Tables)</b>",
         "",
-        "District pages include tables comparing each district's per-pupil expenditures (PPE) and growth rates (CAGR) to their enrollment-based peer group aggregate (Small, Medium, Large, or Springfield).",
+        "District pages include tables comparing each district's per-pupil expenditures (PPE) and growth rates (CAGR) to their enrollment-based peer group aggregate (Tiny, Small, Medium, Large, or Springfield).",
         "",
         "<b>Two independent tests determine shading:</b>",
         "",
         "<b>Test 1 - Dollar Amount (2024 $/pupil column):</b>",
         f"Compares the district's 2024 PPE to the baseline's 2024 PPE using relative difference: (District − Baseline) / Baseline",
-        f"• <b>Red shading:</b> District spending is ≥{DOLLAR_THRESHOLD_REL*100:.1f}% higher than baseline",
-        f"• <b>Green shading:</b> District spending is ≥{DOLLAR_THRESHOLD_REL*100:.1f}% lower than baseline",
+        f"• <b>Orange shading:</b> District spending is ≥{DOLLAR_THRESHOLD_REL*100:.1f}% higher than baseline",
+        f"• <b>Blue shading:</b> District spending is ≥{DOLLAR_THRESHOLD_REL*100:.1f}% lower than baseline",
         f"• <b>No shading:</b> Difference is less than {DOLLAR_THRESHOLD_REL*100:.1f}%",
         "",
         "<b>Test 2 - CAGR (5y, 10y, 15y columns):</b>",
         f"Compares the district's CAGR to the baseline's CAGR using absolute percentage point difference: District_CAGR − Baseline_CAGR",
-        f"• <b>Red shading:</b> District CAGR is ≥{MATERIAL_DELTA_PCTPTS*100:.1f} percentage points higher than baseline",
-        f"• <b>Green shading:</b> District CAGR is ≥{MATERIAL_DELTA_PCTPTS*100:.1f} percentage points lower than baseline",
+        f"• <b>Orange shading:</b> District CAGR is ≥{MATERIAL_DELTA_PCTPTS*100:.1f} percentage points higher than baseline",
+        f"• <b>Blue shading:</b> District CAGR is ≥{MATERIAL_DELTA_PCTPTS*100:.1f} percentage points lower than baseline",
         f"• <b>No shading:</b> Difference is less than {MATERIAL_DELTA_PCTPTS*100:.1f} percentage points",
         "",
-        "<b>Key insight:</b> The tests are independent. A red 2024 $/pupil with unshaded CAGRs typically means:",
+        "<b>Key insight:</b> The tests are independent. An orange 2024 $/pupil with unshaded CAGRs typically means:",
         "• The district started at a higher baseline 15 years ago, AND",
         "• The district has been growing at roughly the same rate as peers",
         "• Therefore it remains higher in absolute dollars but isn't growing faster",
@@ -1604,7 +1718,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "• Same calculation method for Req NSS (adj) and Actual NSS (adj)",
         "",
         "<b>Shading:</b>",
-        "NSS/Ch70 comparison tables use the same red/green shading logic as PPE tables (2% dollar threshold, 2pp CAGR threshold).",
+        "NSS/Ch70 comparison tables use the same orange/blue shading logic as PPE tables (2% dollar threshold, 2pp CAGR threshold).",
     ]
 
     # Add Data Sources page first (now #1)
@@ -1877,7 +1991,8 @@ def build_pdf(pages: List[dict], out_path: Path):
         if p.get("page_type") == "nss_ch70":
             story.append(Spacer(0, 6))
             story.append(_build_nss_ch70_table(p))
-            story.append(Spacer(0, 6))
+            story.append(Spacer(0, 12))
+            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceBefore=0, spaceAfter=6))
             story.append(_build_fte_table(p))
 
             if idx < len(pages)-1:
@@ -1887,7 +2002,8 @@ def build_pdf(pages: List[dict], out_path: Path):
         # Regular district/regional pages: show summary tables
         story.append(Spacer(0, 6))
         story.append(_build_category_table(p))
-        story.append(Spacer(0, 6))
+        story.append(Spacer(0, 12))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceBefore=0, spaceAfter=6))
         story.append(_build_fte_table(p))
 
         if idx < len(pages)-1:
