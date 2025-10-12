@@ -2,7 +2,7 @@
 PDF Report Generator for School District Expenditure Analysis
 
 This module creates a comprehensive PDF report with:
-- Section 1: Western MA overview and 4 enrollment-based aggregate groups
+- Section 1: Western MA overview and 6 enrollment-based aggregate groups
 - Section 2: Individual district pages with peer group comparisons
 - Appendices: Data tables and calculation methodology
 
@@ -197,17 +197,19 @@ def compute_cagr_last(series: pd.Series, years: int) -> float:
     # Standard case: both values positive
     return (v1 / v0) ** (1.0 / years) - 1.0
 
-def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, str]], doc_width: float, style_body, style_num):
-    """Build compact 2-column table showing all districts with cohort colors, enrollment, and 2024 PPE."""
+def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, str]], doc_width: float, style_body, style_num, year: int = 2024):
+    """Build compact 3-column table showing all districts with cohort colors, enrollment, and year-specific PPE."""
     if not district_data:
         return None
 
     # Cohort colors matching the scatterplot
     cohort_colors = {
-        'TINY': HexColor('#9C27B0'),    # Purple
-        'SMALL': HexColor('#4CAF50'),   # Green
-        'MEDIUM': HexColor('#2196F3'),  # Blue
-        'LARGE': HexColor('#FF9800'),   # Orange
+        'TINY': HexColor('#4575B4'),      # Blue (low enrollment)
+        'SMALL': HexColor('#74ADD1'),     # Light Blue
+        'MEDIUM': HexColor('#FEE090'),    # Yellow
+        'LARGE': HexColor('#F46D43'),     # Orange
+        'X-LARGE': HexColor('#D73027'),   # Red
+        'SPRINGFIELD': HexColor('#A50026'),  # Dark Red (outliers)
     }
 
     # Smaller font styles for compact table
@@ -219,17 +221,17 @@ def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, s
     left_districts = district_data[:mid]
     right_districts = district_data[mid:]
 
-    # Build combined table data
+    # Build combined table data with year-specific headers
     data = [
         [Paragraph("", style_small),  # Left swatch
          Paragraph("<b>District</b>", style_small),
-         Paragraph("<b>2024<br/>In-district<br/>FTE</b>", style_small_num),
-         Paragraph("<b>2024<br/>PPE ▼</b>", style_small_num),  # Sort arrow indicator
+         Paragraph(f"<b>{year} FTE</b>", style_small_num),
+         Paragraph(f"<b>{year} PPE ▼</b>", style_small_num),  # Sort arrow indicator
          Paragraph("", style_small),  # Gap
          Paragraph("", style_small),  # Right swatch
          Paragraph("<b>District</b>", style_small),
-         Paragraph("<b>2024<br/>In-district<br/>FTE</b>", style_small_num),
-         Paragraph("<b>2024<br/>PPE ▼</b>", style_small_num)]  # Sort arrow indicator
+         Paragraph(f"<b>{year} FTE</b>", style_small_num),
+         Paragraph(f"<b>{year} PPE ▼</b>", style_small_num)]  # Sort arrow indicator
     ]
 
     # Track cohort changes for dividing lines
@@ -320,34 +322,33 @@ def _build_scatterplot_district_table(df: pd.DataFrame, reg: pd.DataFrame, lates
     Build district table data for scatterplot page.
     Returns: List of (district_name, cohort, enrollment, ppe, cohort_label) sorted by cohort then PPE descending.
     """
-    from school_shared import latest_total_fte, get_enrollment_group, get_cohort_label
+    from school_shared import get_total_fte_for_year, get_enrollment_group, get_cohort_label, EXCLUDE_DISTRICTS
 
     # Get Western MA traditional districts
     mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
     western_districts = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
     present = set(df["DIST_NAME"].str.lower())
-    western_districts = [d for d in western_districts if d in present]
+    western_districts = [d for d in western_districts if d in present and d not in EXCLUDE_DISTRICTS]
 
     district_data = []
     for dist in western_districts:
-        enrollment = latest_total_fte(df, dist)
-        if enrollment > 0 and enrollment <= 8000:  # Exclude Springfield
-            # Get total PPE for latest year
-            ppe_data = df[
-                (df["DIST_NAME"].str.lower() == dist) &
-                (df["IND_CAT"].str.lower() == "expenditures per pupil") &
-                (df["YEAR"] == latest_year)
-            ]
-            total_ppe = ppe_data[~ppe_data["IND_SUBCAT"].str.lower().isin(["total expenditures", "total in-district expenditures"])]["IND_VALUE"].sum()
+        enrollment = get_total_fte_for_year(df, dist, latest_year)
+        # Note that we're retaining Springfield in this table although it's an outlier not shown on the plot
+        ppe_data = df[
+            (df["DIST_NAME"].str.lower() == dist) &
+            (df["IND_CAT"].str.lower() == "expenditures per pupil") &
+            (df["YEAR"] == latest_year)
+        ]
+        total_ppe = ppe_data[~ppe_data["IND_SUBCAT"].str.lower().isin(["total expenditures", "total in-district expenditures"])]["IND_VALUE"].sum()
 
-            # ONLY include districts with valid PPE data
-            if total_ppe > 0:
-                cohort = get_enrollment_group(enrollment)
-                cohort_label = get_cohort_label(cohort)
-                district_data.append((dist.title(), cohort, float(enrollment), float(total_ppe), cohort_label))
+        # ONLY include districts with valid PPE data
+        if total_ppe > 0:
+            cohort = get_enrollment_group(enrollment)
+            cohort_label = get_cohort_label(cohort)
+            district_data.append((dist.title(), cohort, float(enrollment), float(total_ppe), cohort_label))
 
-    # Sort by cohort (TINY, SMALL, MEDIUM, LARGE) then by PPE descending within each cohort
-    cohort_order = {"TINY": 0, "SMALL": 1, "MEDIUM": 2, "LARGE": 3}
+    # Sort by cohort (TINY, SMALL, MEDIUM, LARGE, X-LARGE, SPRINGFIELD) then by PPE descending within each cohort
+    cohort_order = {"TINY": 0, "SMALL": 1, "MEDIUM": 2, "LARGE": 3, "X-LARGE": 4, "SPRINGFIELD": 5}
     district_data.sort(key=lambda x: (cohort_order.get(x[1], 999), -x[3]))
 
     return district_data
@@ -357,17 +358,19 @@ def _abbr_bucket_suffix(full: str) -> str:
     # Match by cohort keywords (case-insensitive) - works with any dynamic boundaries
     full_lower = (full or "").lower()
 
-    # Check for each cohort keyword (order matters - check "tiny" before "small"!)
+    # Check for each cohort keyword (order matters - check "tiny" before "small", "x-large" before "large"!)
     if "tiny" in full_lower:
         return f"({get_cohort_label('TINY')})"
     if "small" in full_lower:
         return f"({get_cohort_label('SMALL')})"
     if "medium" in full_lower:
         return f"({get_cohort_label('MEDIUM')})"
+    if "x-large" in full_lower:
+        return f"({get_cohort_label('X-LARGE')})"
     if "large" in full_lower:
         return f"({get_cohort_label('LARGE')})"
     if "springfield" in full_lower:
-        return "(Springfield: >8000 FTE)"
+        return f"({get_cohort_label('SPRINGFIELD')})"
 
     # Legacy fallback for old 2-tier system (should not be used)
     if re.search(r"≤\s*500", full or "", flags=re.I):
@@ -1219,24 +1222,27 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     enrollment_dist_explanation = (
         "The histogram (top) shows right-skewed enrollment distribution using 250 FTE bins, "
         "with a long right tail and sparse districts at higher enrollments. "
-        "Based on IQR analysis, districts are grouped into four enrollment-based cohorts (bottom): "
-        f"{get_cohort_label('SMALL')}, {get_cohort_label('MEDIUM')}, "
-        f"{get_cohort_label('LARGE')}, "
-        "and Springfield (>8000 FTE, statistical outlier). "
+        "Based on IQR analysis, districts are grouped into five enrollment-based cohorts (bottom): "
+        f"{get_cohort_label('TINY')}, {get_cohort_label('SMALL')}, {get_cohort_label('MEDIUM')}, "
+        f"{get_cohort_label('LARGE')}, {get_cohort_label('X-LARGE')}, "
+        "and Springfield (>10,000 FTE, statistical outlier). "
         "These cohorts enable meaningful comparisons between districts facing similar scale-related challenges "
         "in staffing, facilities, and programming."
+        "<br/><br/>"
+        "Note: To reduce the number of moving parts, the rest of this report will use the cohorts defined by "
+        "the 2024 IQR analysis for all years."
     )
 
     scatterplot_explanation = ("This scatterplot shows the relationship between district enrollment and per-pupil expenditures. "
                               "Each point represents one district's 2024 in-district FTE enrollment (x-axis) and total PPE (y-axis). "
-                              "Points are colored by enrollment cohort: Small (0-800 FTE), Medium (801-1800 FTE), and Large (1801-8000 FTE). "
+                              "Points are colored by enrollment cohort. "
                               "Springfield is omitted as a high-enrollment outlier. "
                               "Horizontal lines show quartile boundaries: Q1=208 FTE, Q2 (Median)=798 FTE, Q3=1768 FTE.")
 
     # Plot 2: Combined histogram + grouping on one page
     pages.append(dict(
         title="All Western MA Traditional Districts",
-        subtitle="Enrollment distribution and proposed four-tier grouping",
+        subtitle="Enrollment distribution and proposed cohort grouping",
         chart_paths=[
             str(OUTPUT_DIR / "enrollment_3_histogram.png"),
             str(OUTPUT_DIR / "enrollment_4_grouping.png")
@@ -1246,55 +1252,61 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         two_charts_vertical=True  # Stack charts vertically
     ))
 
-    # Plot 4: Scatterplot (now enrollment vs PPE with cohort colors) - with district table
-    # Build district table data for scatterplot page
-    scatterplot_table_data = _build_scatterplot_district_table(df, reg, latest)
+    # Add scatterplot and choropleth map pages for multiple years (2024, 2019, 2014, 2009)
+    years_for_plots = [2024, 2019, 2014, 2009]
 
-    pages.append(dict(
-        title="All Western MA Traditional Districts",
-        subtitle="Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries",
-        chart_path=str(OUTPUT_DIR / "enrollment_1_scatterplot.png"),
-        text_blocks=[scatterplot_explanation],
-        graph_only=False,  # Now includes table
-        scatterplot_districts=scatterplot_table_data  # Custom table data
-    ))
-
-    # Add choropleth map showing district locations and cohorts
-    # This map provides geographic context for the cohorts shown in previous plots
-    choropleth_explanation = (
-        "This map situates the districts previously shown in the charts—enrollment distributions, cohort "
-        "groupings, and the relationship between enrollment and per-pupil expenditures—within their geographic "
-        "context in Western Massachusetts."
-        "<br/><br/>"
-        "Districts are shaded according to the enrollment cohort system introduced earlier: "
-        f"{get_cohort_short_label('TINY')} (purple), "
-        f"{get_cohort_short_label('SMALL')} (green), "
-        f"{get_cohort_short_label('MEDIUM')} (blue), "
-        f"{get_cohort_short_label('LARGE')} (orange)."
-        "<br/><br/>"
-        "Elementary and PK-12 unified districts appear as solid filled areas. Unified regional districts (marked with 'U') "
-        "serve all grades PK-12 across multiple towns. Secondary regional districts are bounded by a thick black border with diagonal stripe patterns. "
-        "Example: Frontier Regional (a Small district, green) shows white stripes over green elementary districts and green "
-        "stripes over purple (Tiny) districts. This helps show the cohorts of both the regional district and the underlying "
-        "elementary districts."
+    # Scatterplot explanation (common for all years)
+    scatterplot_explanation_common = (
+        "This scatterplot shows the relationship between district enrollment (x-axis) and per-pupil "
+        "expenditure (y-axis) for Western Massachusetts traditional districts."
     )
 
-    pages.append(dict(
-        title="All Western MA Traditional Districts",
-        subtitle="Geographic map showing district locations and enrollment cohorts",
-        chart_path=str(OUTPUT_DIR / "western_ma_choropleth.png"),
-        text_blocks=[choropleth_explanation],
-        graph_only=True
-    ))
+    # Choropleth explanation (common for all years)
+    choropleth_explanation_common = (
+        "This map situates the districts within their geographic context in Western Massachusetts."
+        "<br/><br/>"
+        "Districts are shaded according to the enrollment cohort system: "
+        f"{get_cohort_short_label('TINY')} (blue), "
+        f"{get_cohort_short_label('SMALL')} (light blue), "
+        f"{get_cohort_short_label('MEDIUM')} (yellow), "
+        f"{get_cohort_short_label('LARGE')} (orange), "
+        f"{get_cohort_short_label('X-LARGE')} (red)."
+        "<br/><br/>"
+        "Elementary and PK-12 unified districts appear as solid filled areas. Unified regional districts (marked with 'U') "
+        "serve all grades PK-12 across multiple towns. Secondary regional districts are bounded by a thick black border "
+        "with a cohort letter indicator (T = Tiny, S = Small, M = Medium, L = Large, XL = X-Large) showing the enrollment cohort of the secondary regional district."
+    )
+
+    for year in years_for_plots:
+        # Plot 4a: Scatterplot for this year with district table
+        scatterplot_table_data = _build_scatterplot_district_table(df, reg, year)
+        pages.append(dict(
+            title="All Western MA Traditional Districts",
+            subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({year})",
+            chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
+            text_blocks=[scatterplot_explanation_common],
+            graph_only=False,  # Includes table
+            scatterplot_districts=scatterplot_table_data,
+            year=year  # Store year for table header
+        ))
+
+        # Plot 4b: Choropleth map for this year
+        pages.append(dict(
+            title="All Western MA Traditional Districts",
+            subtitle=f"Geographic map showing district locations and enrollment cohorts ({year})",
+            chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{year}.png"),
+            text_blocks=[choropleth_explanation_common],
+            graph_only=True
+        ))
 
     cmap_all = create_or_load_color_map(df)
 
     # Get Western cohorts using centralized function
     cohorts = get_western_cohort_districts(df, reg)
-    cohort_map = {"tiny": "TINY", "small": "SMALL", "medium": "MEDIUM", "large": "LARGE", "springfield": "SPRINGFIELD"}
+    cohort_map = {"tiny": "TINY", "small": "SMALL", "medium": "MEDIUM", "large": "LARGE", "x-large": "X-LARGE", "springfield": "SPRINGFIELD"}
 
-    # Add Western MA aggregate pages to Section 1 (5 enrollment groups)
-    for bucket in ("tiny", "small", "medium", "large", "springfield"):
+    # Add Western MA aggregate pages to Section 1 (6 enrollment groups)
+    for bucket in ("tiny", "small", "medium", "large", "x-large", "springfield"):
         district_list = cohorts[cohort_map[bucket]]
         title, epp, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket, c70, districts=district_list)
         if epp.empty and not lines_sum:
@@ -1356,16 +1368,17 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
     # ===== SECTION 2: INDIVIDUAL DISTRICTS =====
 
-    # Pre-compute Western district lists for NSS/Ch70 baseline computation (4 enrollment groups)
+    # Pre-compute Western district lists for NSS/Ch70 baseline computation (6 enrollment groups)
     western_mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
     western_all = sorted(set(reg[western_mask]["DIST_NAME"].str.lower()))
     western_present = [d for d in western_all if d in set(df["DIST_NAME"].str.lower())]
 
-    # Organize districts into 5 enrollment groups
+    # Organize districts into 6 enrollment groups
     western_tiny = []
     western_small = []
     western_medium = []
     western_large = []
+    western_xlarge = []
     western_springfield = []
 
     for dist in western_present:
@@ -1379,6 +1392,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             western_medium.append(dist)
         elif group == "LARGE":
             western_large.append(dist)
+        elif group == "X-LARGE":
+            western_xlarge.append(dist)
         elif group == "SPRINGFIELD":
             western_springfield.append(dist)
 
@@ -1414,7 +1429,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             "SMALL": ("small", get_cohort_label("SMALL")),
             "MEDIUM": ("medium", get_cohort_label("MEDIUM")),
             "LARGE": ("large", get_cohort_label("LARGE")),
-            "SPRINGFIELD": ("springfield", "Springfield (>8000 FTE)")
+            "X-LARGE": ("x-large", get_cohort_label("X-LARGE")),
+            "SPRINGFIELD": ("springfield", get_cohort_label("SPRINGFIELD"))
         }
         bucket, bucket_label = bucket_map.get(context, ("tiny", get_cohort_label("TINY")))
 
@@ -1488,7 +1504,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     "SMALL": (western_small, get_cohort_label("SMALL")),
                     "MEDIUM": (western_medium, get_cohort_label("MEDIUM")),
                     "LARGE": (western_large, get_cohort_label("LARGE")),
-                    "SPRINGFIELD": (western_springfield, "Springfield (>8000 FTE)")
+                    "X-LARGE": (western_xlarge, get_cohort_label("X-LARGE")),
+                    "SPRINGFIELD": (western_springfield, get_cohort_label("SPRINGFIELD"))
                 }
                 western_dists, group_label = group_map.get(group, (western_tiny, get_cohort_label("TINY")))
 
@@ -1583,6 +1600,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     western_small = []
     western_medium = []
     western_large = []
+    western_xlarge = []
     western_springfield = []
 
     for dist in western_districts:
@@ -1755,8 +1773,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     ]
 
     pages.append(dict(
-        title="Appendix B. Calculation Methodology",
-        subtitle="Data Sources",
+        title="Appendix B. Data Sources & Calculation Methodology",
+        subtitle="",
         chart_path=None,
         graph_only=True,
         text_blocks=methodology_page4,
@@ -1765,7 +1783,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
     # Add second methodology page (formulas and district memberships, now #2-4)
     pages.append(dict(
-        title="Appendix B. Calculation Methodology (continued)",
+        title="Appendix B. Data Sources & Calculation Methodology (continued)",
         subtitle="",
         chart_path=None,
         graph_only=True,
@@ -1774,7 +1792,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
     # Add third methodology page (continuation)
     pages.append(dict(
-        title="Appendix B. Calculation Methodology (continued)",
+        title="Appendix B. Data Sources & Calculation Methodology (continued)",
         subtitle="",
         chart_path=None,
         graph_only=True,
@@ -1783,7 +1801,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
     # Add fourth methodology page (NSS/Ch70)
     pages.append(dict(
-        title="Appendix B. Calculation Methodology (continued)",
+        title="Appendix B. Data Sources & Calculation Methodology (continued)",
         subtitle="",
         chart_path=None,
         graph_only=True,
@@ -1803,7 +1821,7 @@ def build_toc_page():
         ("Section 2: Pelham", "pelham"),
         ("Section 2: Shutesbury", "shutesbury"),
         ("Appendix A. Data Tables", "appendix_a"),
-        ("Appendix B. Calculation Methodology", "appendix_b"),
+        ("Appendix B. Data Sources & Calculation Methodology", "appendix_b"),
     ]
 
     return dict(
@@ -1952,7 +1970,8 @@ def build_pdf(pages: List[dict], out_path: Path):
         # Scatterplot district table: compact table with cohort colors
         if p.get("scatterplot_districts"):
             story.append(Spacer(0, 12))
-            scatterplot_table = _build_scatterplot_table(p.get("scatterplot_districts"), doc.width, style_body, style_num)
+            page_year = p.get("year", 2024)  # Get year from page dict, default to 2024
+            scatterplot_table = _build_scatterplot_table(p.get("scatterplot_districts"), doc.width, style_body, style_num, page_year)
             if scatterplot_table:
                 story.append(scatterplot_table)
             if idx < len(pages)-1: story.append(PageBreak())

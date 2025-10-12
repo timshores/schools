@@ -10,7 +10,8 @@
       "Bash(findstr:*)",
       "Bash(..venvScriptspython.exe -m pip install geopandas)",
       "Bash(echo \"Exit code: $?\")",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

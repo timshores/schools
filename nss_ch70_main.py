@@ -58,8 +58,8 @@ def main():
     all_pivots = []
     district_data = {}
 
-    # Western MA aggregates - 4 enrollment groups
-    print("  Processing Western MA aggregates (4 enrollment groups)...")
+    # Western MA aggregates - 6 enrollment groups
+    print("  Processing Western MA aggregates (6 enrollment groups)...")
 
     # Get Western MA traditional districts organized by cohort
     # Use centralized function to ensure consistency with PPE analysis
@@ -68,6 +68,7 @@ def main():
     western_small = cohorts["SMALL"]
     western_medium = cohorts["MEDIUM"]
     western_large = cohorts["LARGE"]
+    western_xlarge = cohorts["X-LARGE"]
     western_springfield = cohorts["SPRINGFIELD"]
 
     # Generate NSS/Ch70 for each enrollment cohort using centralized definitions
@@ -76,7 +77,8 @@ def main():
         ("small", western_small, f"Western MA {get_cohort_label('SMALL')}"),
         ("medium", western_medium, f"Western MA {get_cohort_label('MEDIUM')}"),
         ("large", western_large, f"Western MA {get_cohort_label('LARGE')}"),
-        ("springfield", western_springfield, "Western MA Springfield (>8000 FTE)"),
+        ("x-large", western_xlarge, f"Western MA {get_cohort_label('X-LARGE')}"),
+        ("springfield", western_springfield, f"Western MA {get_cohort_label('SPRINGFIELD')}"),
     ]
 
     for bucket_id, districts, label in enrollment_groups:
@@ -131,6 +133,8 @@ def main():
                 safe_name = "Western_MA_small"
             elif "Medium" in dist_name:
                 safe_name = "Western_MA_medium"
+            elif "X-Large" in dist_name:  # Check X-Large before Large to avoid false match
+                safe_name = "Western_MA_x-large"
             elif "Large" in dist_name:
                 safe_name = "Western_MA_large"
             elif "Springfield" in dist_name:
@@ -163,15 +167,21 @@ def main():
                 title = f"All Western MA Traditional Districts: {cohort_label}"
                 enrollment_label = "Weighted avg enrollment per district"
                 left_ylim = get_cohort_ylim("MEDIUM")
+            elif "X-Large" in dist_name:  # Check X-Large before Large to avoid false match
+                cohort_label = get_cohort_label("X-LARGE")
+                title = f"All Western MA Traditional Districts: {cohort_label}"
+                enrollment_label = "Weighted avg enrollment per district"
+                left_ylim = get_cohort_ylim("X-LARGE")
             elif "Large" in dist_name:
                 cohort_label = get_cohort_label("LARGE")
                 title = f"All Western MA Traditional Districts: {cohort_label}"
                 enrollment_label = "Weighted avg enrollment per district"
                 left_ylim = get_cohort_ylim("LARGE")
             elif "Springfield" in dist_name:
-                title = "All Western MA Traditional Districts: Springfield"
-                enrollment_label = "Enrollment"
-                left_ylim = compute_districts_fte_ylim([{"Foundation Enrollment": foundation}], pad=1.06, step=1000) if foundation is not None and not foundation.empty else 30000
+                cohort_label = get_cohort_label("SPRINGFIELD")
+                title = f"All Western MA Traditional Districts: {cohort_label}"
+                enrollment_label = "Weighted avg enrollment per district"
+                left_ylim = get_cohort_ylim("SPRINGFIELD")
             else:
                 title = f"{dist_name}: Chapter 70 Aid and Net School Spending"
                 enrollment_label = "Foundation Enrollment (FTE)"

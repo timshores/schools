@@ -19,7 +19,8 @@ from scipy.interpolate import make_interp_spline
 
 from school_shared import (
     OUTPUT_DIR, load_data, DISTRICTS_OF_INTEREST,
-    latest_total_fte, get_enrollment_group, get_cohort_label
+    latest_indistrict_fte, get_indistrict_fte_for_year, get_enrollment_group, get_cohort_label,
+    get_outlier_threshold, EXCLUDE_DISTRICTS
 )
 
 # Styling constants
@@ -31,24 +32,30 @@ CURVE_COLOR = "#708090"  # Slate gray for distribution curve
 
 CODE_VERSION = "v2025.10.04-ENROLLMENT-DIST-V2"
 
-# Springfield threshold (districts >8000 are extreme outliers)
-OUTLIER_THRESHOLD = 8000
+# Outlier threshold calculated dynamically using IQR method (Q3 + 1.5*IQR)
 
 
 def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year: int):
     """Analyze enrollment distribution for Western MA traditional districts."""
+    from school_shared import initialize_cohort_definitions
+
+    # Initialize cohort definitions to calculate outlier threshold
+    initialize_cohort_definitions(df, reg)
+    outlier_threshold = get_outlier_threshold()
+
     # Get Western MA traditional districts
     mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
     western_districts = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
 
-    # Filter to districts present in data
+    # Filter to districts present in data (excluding virtual schools)
     present = set(df["DIST_NAME"].str.lower())
-    western_districts = [d for d in western_districts if d in present]
+    western_districts = [d for d in western_districts if d in present and d not in EXCLUDE_DISTRICTS]
 
     # Get enrollment and PPE for each district
     district_data = []
     for dist in western_districts:
-        enrollment = latest_total_fte(df, dist)
+        # Use year-specific IN-DISTRICT enrollment for cohort calculation
+        enrollment = get_indistrict_fte_for_year(df, dist, latest_year)
         if enrollment > 0:
             # Get total PPE for latest year
             ppe_data = df[
@@ -85,15 +92,18 @@ def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year:
     mean_enr = np.mean(enrollments)
     median_enr = np.median(enrollments)
     q1, q2, q3 = np.percentile(enrollments, [25, 50, 75])
+    p90 = np.percentile(enrollments, 90)  # 90th percentile for Large/X-Large boundary
 
-    # Find Springfield (>8000)
-    springfield_idx = [i for i, e in enumerate(enrollments) if e > OUTLIER_THRESHOLD]
+    # Find Springfield (>10,000 FTE outliers)
+    # Use fixed 10,000 threshold instead of statistical outlier_threshold
+    SPRINGFIELD_THRESHOLD = 10000
+    springfield_idx = [i for i, e in enumerate(enrollments) if e > SPRINGFIELD_THRESHOLD]
     springfield_name = [districts[i].title() for i in springfield_idx]
     springfield_value = [enrollments[i] for i in springfield_idx]
 
-    # Calculate x_max for plots (highest non-Springfield district)
-    non_springfield = [e for e in enrollments if e <= OUTLIER_THRESHOLD]
-    x_max = max(non_springfield) * 1.1 if non_springfield else OUTLIER_THRESHOLD
+    # Calculate x_max for plots (highest non-outlier district)
+    non_springfield = [e for e in enrollments if e <= SPRINGFIELD_THRESHOLD]
+    x_max = max(non_springfield) * 1.1 if non_springfield else SPRINGFIELD_THRESHOLD
 
     return {
         'districts': districts,
@@ -104,10 +114,12 @@ def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year:
         'mean': mean_enr,
         'median': median_enr,
         'quartiles': [q1, q2, q3],
+        'p90': p90,  # 90th percentile for cohort boundary visualization
         'latest_year': latest_year,
         'x_max': x_max,
         'springfield_name': springfield_name[0] if springfield_name else None,
         'springfield_value': springfield_value[0] if springfield_value else None,
+        'outlier_threshold': SPRINGFIELD_THRESHOLD,  # Use fixed 10,000 threshold for display
     }
 
 
@@ -119,25 +131,27 @@ def plot_scatterplot(data: dict, out_path: Path):
     q1, q2, q3 = data['quartiles']
     latest_year = data['latest_year']
 
-    # Define cohort colors (5 tiers)
+    # Define cohort colors (6 tiers)
     cohort_colors = {
-        'TINY': '#9C27B0',       # Purple
-        'SMALL': '#4CAF50',      # Green
-        'MEDIUM': '#2196F3',     # Blue
-        'LARGE': '#FF9800',      # Orange
-        'SPRINGFIELD': '#F44336'  # Red (but will be excluded)
+        'TINY': '#4575B4',       # Blue (low enrollment)
+        'SMALL': '#74ADD1',      # Light Blue
+        'MEDIUM': '#FEE090',     # Yellow
+        'LARGE': '#F46D43',      # Orange
+        'X-LARGE': '#D73027',    # Red
+        'SPRINGFIELD': '#A50026'  # Dark Red (outliers)
     }
 
     fig, ax = plt.subplots(figsize=(11, 6))
 
-    # Filter out Springfield for plotting
-    mask = enrollments <= OUTLIER_THRESHOLD
+    # Filter out extreme outliers (SPRINGFIELD) for plotting
+    outlier_threshold = data['outlier_threshold']
+    mask = enrollments <= outlier_threshold
     enrollments_plot = enrollments[mask]
     ppes_plot = ppes[mask]
     cohorts_plot = [c for c, m in zip(cohorts, mask) if m]
 
     # Plot points by cohort
-    for cohort_key in ['TINY', 'SMALL', 'MEDIUM', 'LARGE']:
+    for cohort_key in ['TINY', 'SMALL', 'MEDIUM', 'LARGE', 'X-LARGE']:
         cohort_mask = np.array([c == cohort_key for c in cohorts_plot])
         if cohort_mask.any():
             ax.scatter(enrollments_plot[cohort_mask], ppes_plot[cohort_mask],
@@ -145,13 +159,19 @@ def plot_scatterplot(data: dict, out_path: Path):
                       edgecolors='white', linewidth=1.5,
                       label=get_cohort_label(cohort_key), zorder=3)
 
-    # Add quartile vertical lines
+    # Add quartile and percentile vertical lines
     ax.axvline(q1, color='purple', linestyle=':', linewidth=2,
                label=f'Q1: {q1:.0f} FTE', zorder=2, alpha=0.7)
     ax.axvline(q2, color='purple', linestyle='--', linewidth=2,
                label=f'Median: {q2:.0f} FTE', zorder=2, alpha=0.7)
     ax.axvline(q3, color='purple', linestyle=':', linewidth=2,
                label=f'Q3: {q3:.0f} FTE', zorder=2, alpha=0.7)
+
+    # Add 90th percentile line (boundary between Large and X-Large)
+    p90 = data.get('p90', None)
+    if p90:
+        ax.axvline(p90, color='darkred', linestyle='-.', linewidth=2,
+                   label=f'P90: {p90:.0f} FTE', zorder=2, alpha=0.7)
 
     # Add K/M formatter to x-axis (enrollment)
     from matplotlib.ticker import FuncFormatter
@@ -187,7 +207,7 @@ def plot_scatterplot(data: dict, out_path: Path):
 
     # Legend below the plot
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.12), ncol=4, fontsize=10,
-             title="Springfield (>8000 FTE) omitted as high-enrollment outlier",
+             title="Springfield (>10,000 FTE) omitted as high-enrollment outlier",
              title_fontsize=9)
 
     # Annotation box removed per user request
@@ -211,7 +231,8 @@ def plot_boxplot(data: dict, out_path: Path):
     fig, ax = plt.subplots(figsize=(11, 6))
 
     # Create box plot (excluding Springfield for box calculation)
-    enrollments_box = enrollments[enrollments <= OUTLIER_THRESHOLD]
+    outlier_threshold = data['outlier_threshold']
+    enrollments_box = enrollments[enrollments <= outlier_threshold]
     bp = ax.boxplot([enrollments_box], vert=False, widths=0.5, patch_artist=True,
                      boxprops=dict(facecolor='lightblue', edgecolor='black', linewidth=2),
                      whiskerprops=dict(linewidth=2),
@@ -221,7 +242,7 @@ def plot_boxplot(data: dict, out_path: Path):
     # Overlay individual points
     y_pos = np.ones(len(enrollments)) + np.random.normal(0, 0.02, len(enrollments))
     for i in range(len(enrollments)):
-        if enrollments[i] > OUTLIER_THRESHOLD:
+        if enrollments[i] > outlier_threshold:
             continue  # Skip Springfield
         color = HIGHLIGHT_COLOR if is_highlight[i] else WESTERN_COLOR
         size = 150 if is_highlight[i] else 80
@@ -278,18 +299,25 @@ def plot_histogram(data: dict, out_path: Path):
     fig, ax = plt.subplots(figsize=(11, 6))
 
     # Create histogram with 250 FTE bins (excluding Springfield)
-    hist_data = enrollments[enrollments <= OUTLIER_THRESHOLD]
+    outlier_threshold = data['outlier_threshold']
+    hist_data = enrollments[enrollments <= outlier_threshold]
     bins = np.arange(0, x_max + 250, 250)
     n, bin_edges, patches = ax.hist(hist_data, bins=bins, color='lightblue',
                                      edgecolor='black', alpha=0.7, label='District Count')
 
-    # Add vertical lines for quartiles
+    # Add vertical lines for quartiles and percentiles
     ax.axvline(median_val, color=MEDIAN_COLOR, linestyle='--', linewidth=2.5,
                label=f'Median: {median_val:.0f}', zorder=6)
     ax.axvline(q1, color='purple', linestyle=':', linewidth=2,
                label=f'Q1: {q1:.0f}', zorder=4)
     ax.axvline(q3, color='purple', linestyle=':', linewidth=2,
                label=f'Q3: {q3:.0f}', zorder=4)
+
+    # Add 90th percentile line (boundary between Large and X-Large)
+    p90 = data.get('p90', None)
+    if p90:
+        ax.axvline(p90, color='darkred', linestyle='-.', linewidth=2,
+                   label=f'P90: {p90:.0f}', zorder=4)
 
     # Add IQR shading
     ax.axvspan(q1, q3, alpha=0.15, color='purple', label=f'IQR: {q3-q1:.0f}')
@@ -327,7 +355,7 @@ def plot_histogram(data: dict, out_path: Path):
 
 
 def plot_grouping(data: dict, out_path: Path):
-    """Plot 4: Proposed 4-group enrollment bands."""
+    """Plot 4: Proposed 5-group enrollment bands."""
     enrollments = data['enrollments']
     springfield_name = data['springfield_name']
     springfield_value = data['springfield_value']
@@ -341,15 +369,17 @@ def plot_grouping(data: dict, out_path: Path):
     small_range = COHORT_DEFINITIONS['SMALL']['range']
     medium_range = COHORT_DEFINITIONS['MEDIUM']['range']
     large_range = COHORT_DEFINITIONS['LARGE']['range']
+    xlarge_range = COHORT_DEFINITIONS['X-LARGE']['range']
 
     # Create 5 enrollment groups using dynamic boundaries
-    proposed_thresholds = [tiny_range[0], small_range[0], medium_range[0], large_range[0], large_range[1] + 1]
+    proposed_thresholds = [tiny_range[0], small_range[0], medium_range[0], large_range[0], xlarge_range[0], xlarge_range[1] + 1]
     proposed_groups = []
     proposed_labels = [
         f"{tiny_range[0]}-{tiny_range[1]}\n(Tiny)",
         f"{small_range[0]}-{small_range[1]}\n(Small)",
         f"{medium_range[0]}-{medium_range[1]}\n(Medium)",
-        f"{large_range[0]}-{large_range[1]}\n(Large)"
+        f"{large_range[0]}-{large_range[1]}\n(Large)",
+        f"{xlarge_range[0]}-{xlarge_range[1]:,}\n(X-Large)"
     ]
 
     # Count districts in each group
@@ -362,9 +392,9 @@ def plot_grouping(data: dict, out_path: Path):
         proposed_labels.append(f'{springfield_name}\n({springfield_value:.0f} FTE)')
         proposed_groups.append(1)
 
-    # Create bar chart with narrower bars (20% narrower: 0.8 * 0.8 = 0.64 height)
-    colors_list = ['purple', 'lightgreen', 'lightblue', 'orange', 'red']
-    bars = ax.barh(proposed_labels, proposed_groups, height=0.64, color=colors_list[:len(proposed_groups)],
+    # Create bar chart with narrower bars (50% narrower: 0.5 height)
+    colors_list = ['#4575B4', '#74ADD1', '#FEE090', '#F46D43', '#D73027', '#A50026']  # Blue to Red gradient
+    bars = ax.barh(proposed_labels, proposed_groups, height=0.5, color=colors_list[:len(proposed_groups)],
                    edgecolor='black', alpha=0.7, linewidth=1.5)
 
     # Add count labels and percentages
@@ -407,21 +437,29 @@ def main():
     latest_year = int(df["YEAR"].max())
     print(f"  Latest year: {latest_year}")
 
-    # Analyze enrollment
-    print("\n[2/5] Analyzing enrollment distribution...")
-    data = analyze_western_enrollment(df, reg, latest_year)
-    print(f"  Total districts: {len(data['enrollments'])}")
-    print(f"  Median enrollment: {data['median']:.0f} FTE")
+    # Years to generate plots for (in reverse order: 2024, 2019, 2014, 2009)
+    years = [2024, 2019, 2014, 2009]
 
-    # Create 3 plots (removed box-and-whisker, integrated IQR into scatterplot)
-    print("\n[3/4] Creating Plot 1: Scatterplot with distribution curve and IQR...")
-    plot_scatterplot(data, OUTPUT_DIR / "enrollment_1_scatterplot.png")
+    for year in years:
+        print(f"\n{'='*70}")
+        print(f"Generating plots for FY {year}")
+        print(f"{'='*70}")
 
-    print("\n[4/4] Creating Plot 2: Histogram with distribution curve...")
-    plot_histogram(data, OUTPUT_DIR / "enrollment_3_histogram.png")
+        # Analyze enrollment for this year
+        print(f"\n[1/3] Analyzing enrollment distribution for {year}...")
+        data = analyze_western_enrollment(df, reg, year)
+        print(f"  Total districts: {len(data['enrollments'])}")
+        print(f"  Median enrollment: {data['median']:.0f} FTE")
 
-    print("\n[5/4] Creating Plot 3: Proposed grouping with lollipops...")
-    plot_grouping(data, OUTPUT_DIR / "enrollment_4_grouping.png")
+        # Create scatterplot for this year
+        print(f"\n[2/3] Creating scatterplot for {year}...")
+        plot_scatterplot(data, OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png")
+
+        # Histogram and grouping only for latest year
+        if year == latest_year:
+            print("\n[3/3] Creating histogram and grouping (latest year only)...")
+            plot_histogram(data, OUTPUT_DIR / "enrollment_3_histogram.png")
+            plot_grouping(data, OUTPUT_DIR / "enrollment_4_grouping.png")
 
     print("\n" + "="*70)
     print("Individual plots created successfully!")

@@ -6,24 +6,22 @@ This module:
 2. Loads MA school district shapefiles (Census Bureau TIGER/Line)
 3. Matches Western MA traditional districts to geometries
 4. Color codes districts by enrollment cohort
-5. Handles overlapping district boundaries using spatially-adaptive stripe patterns
+5. Adds cohort indicators to regional districts (U for unified, T/S/M/L for secondary)
 6. Generates static PNG map for PDF inclusion
 
 District Type Classification (from data file):
 - "District" -> Elementary district (not regional)
 - "Unified Regional" -> Serves all grades PK-12 across multiple towns (gets "U" marker)
-- "Regional Composite" -> Secondary regional that overlaps elementary districts (gets stripes + black border)
+- "Regional Composite" -> Secondary regional that overlaps elementary districts (gets cohort letter + black border)
 
 Map Design:
-- 5 enrollment cohorts (Tiny, Small, Medium, Large, Springfield) each with unique color
+- 6 enrollment cohorts (Tiny, Small, Medium, Large, X-Large, Springfield) each with unique color
 - Non-regional districts: solid filled polygons (85% opacity)
 - Unified regional districts: solid filled polygons (85% opacity) with white "U" marker
-- Secondary regional districts: diagonal stripes with spatially-adaptive coloring + thick black border
-  * Within each regional district, stripe color adapts based on underlying cohorts
-  * White stripes: in areas where regional overlaps same-cohort elementary
-  * Cohort-color stripes: in areas where regional overlaps different-cohort elementary
-  * Example: Green regional shows white stripes over green elementary,
-    green stripes over purple/blue elementary
+- Secondary regional districts: thick black border + cohort letter indicator (T, S, M, L, XL)
+  * Letter indicates the cohort of the secondary regional district
+  * T = Tiny, S = Small, M = Medium, L = Large, XL = X-Large
+  * Similar styling to "U" marker (black outline + white text)
 - Legend showing cohort definitions, district counts, and regional markers
 - Handles geographic overlap between elementary and secondary regional districts
 
@@ -49,9 +47,13 @@ from school_shared import (
     OUTPUT_DIR,
     DISTRICTS_OF_INTEREST,
     get_western_cohort_districts,
+    get_western_cohort_districts_for_year,
+    get_total_fte_for_year,
+    get_enrollment_group,
     get_cohort_label,
     get_cohort_short_label,
     initialize_cohort_definitions,
+    EXCLUDE_DISTRICTS,
 )
 
 # Shapefile paths
@@ -62,11 +64,12 @@ SECONDARY_SHP = SHAPEFILE_DIR / "tl_2023_25_scsd.shp"
 
 # Color palette for cohorts (colorblind-friendly)
 COHORT_COLORS = {
-    "TINY": "#9C27B0",      # Purple
-    "SMALL": "#4CAF50",     # Green
-    "MEDIUM": "#2196F3",    # Blue
-    "LARGE": "#FF9800",     # Orange
-    "SPRINGFIELD": "#F44336",  # Red
+    "TINY": "#4575B4",      # Blue (low enrollment)
+    "SMALL": "#74ADD1",     # Light Blue
+    "MEDIUM": "#FEE090",    # Yellow
+    "LARGE": "#F46D43",     # Orange
+    "X-LARGE": "#D73027",   # Red
+    "SPRINGFIELD": "#A50026",  # Dark Red (outliers)
 }
 
 # Highlight color for districts of interest
@@ -77,7 +80,7 @@ EXCLUDED_COLOR = "#EEEEEE"   # Light gray for excluded districts
 DISTRICT_PROFILES_FILE = Path("./data/Ch 70 District Profiles Actual NSS Over Required.xlsx")
 
 # Version stamp
-CODE_VERSION = "v2025.10.06-MAPS"
+CODE_VERSION = "v2025.10.11-MAPS-COHORT-LETTERS"
 
 
 def clean_district_name(name: str) -> str:
@@ -207,7 +210,8 @@ def load_shapefiles() -> gpd.GeoDataFrame:
 def match_districts_to_geometries(
     df: pd.DataFrame,
     reg: pd.DataFrame,
-    shapes: gpd.GeoDataFrame
+    shapes: gpd.GeoDataFrame,
+    year: int = None
 ) -> gpd.GeoDataFrame:
     """
     Match Western MA districts from our analysis to shapefile geometries.
@@ -216,11 +220,12 @@ def match_districts_to_geometries(
         df: Main expenditure data
         reg: District regions/metadata
         shapes: GeoDataFrame with district geometries
+        year: Specific year to use for enrollment/cohorts (defaults to latest if None)
 
     Returns:
         GeoDataFrame with matched districts, cohort assignments, and geometries
     """
-    print("\nMatching districts to geometries...")
+    print(f"\nMatching districts to geometries for year {year if year else 'latest'}...")
 
     # Initialize cohort definitions from data
     initialize_cohort_definitions(df, reg)
@@ -228,8 +233,11 @@ def match_districts_to_geometries(
     # Load district types from data file
     district_types = load_district_types()
 
-    # Get Western MA cohort districts
-    cohorts = get_western_cohort_districts(df, reg)
+    # Get Western MA cohort districts for specified year
+    if year is not None:
+        cohorts = get_western_cohort_districts_for_year(df, reg, year)
+    else:
+        cohorts = get_western_cohort_districts(df, reg)
 
     # Create mapping of district name -> cohort
     district_cohort_map = {}
@@ -343,15 +351,11 @@ def create_western_ma_map(
 
     Uses different rendering for different district types:
     - Elementary/Non-regional districts: solid filled polygons (85% opacity)
-    - Unified regional districts (PK-12): solid filled polygons (85% opacity)
-    - Secondary regional districts: diagonal striped pattern with spatially-adaptive coloring
-      * White stripes: in areas where regional overlaps same-cohort elementary districts
-      * Cohort-color stripes: in areas where regional overlaps different-cohort districts
-
-    The stripe color adapts spatially within each secondary regional district based on
-    what's underneath. For example, a green regional district will show white stripes
-    over green elementary districts (for contrast) and green stripes over purple/blue
-    elementary districts (for cohort identification).
+    - Unified regional districts (PK-12): solid filled polygons (85% opacity) with "U" marker
+    - Secondary regional districts: thick black border + cohort letter indicator
+      * Letter indicates cohort: T (Tiny), S (Small), M (Medium), L (Large), XL (X-Large)
+      * Similar styling to "U" marker (black outline + white text on top)
+      * Black border shows the boundary of the secondary regional district
 
     Args:
         matched_gdf: GeoDataFrame with matched districts and cohort assignments
@@ -431,77 +435,24 @@ def create_western_ma_map(
                     zorder=5
                 )
 
-    # LAYER 2: Plot secondary regional districts with spatially-adaptive stripe coloring
-    # Stripe color changes based on what's underneath each part of the regional district
-    print(f"  Analyzing spatial stripe patterns for {len(regional_secondary)} secondary regional districts:")
+    # LAYER 2: Plot secondary regional districts with black border and cohort letter indicator
+    print(f"  Rendering {len(regional_secondary)} secondary regional districts (black border + cohort letter):")
+
+    # Cohort letter mapping
+    cohort_letters = {
+        "TINY": "T",
+        "SMALL": "S",
+        "MEDIUM": "M",
+        "LARGE": "L",
+        "X-LARGE": "XL"
+    }
+
     for idx, regional_row in regional_secondary.iterrows():
         regional_geom = regional_row.geometry
         regional_cohort = regional_row["cohort"]
         regional_name = regional_row["district_name"]
-        regional_color = COHORT_COLORS[regional_cohort]
 
-        # Find which non-regional districts this regional district overlaps
-        overlapping = non_regional[non_regional.intersects(regional_geom)]
-
-        # Separate overlaps into same-cohort and different-cohort areas
-        same_cohort_geoms = []
-        diff_cohort_geoms = []
-
-        for _, overlap_row in overlapping.iterrows():
-            overlap_geom = overlap_row.geometry
-            overlap_cohort = overlap_row["cohort"]
-
-            # Get the intersection area
-            intersection = regional_geom.intersection(overlap_geom)
-
-            if not intersection.is_empty:
-                if overlap_cohort == regional_cohort:
-                    # Same cohort underneath - will use white stripes
-                    same_cohort_geoms.append(intersection)
-                else:
-                    # Different cohort underneath - will use cohort-color stripes
-                    diff_cohort_geoms.append(intersection)
-
-        # Combine geometries for each stripe type
-        from shapely.ops import unary_union
-
-        n_same = len(same_cohort_geoms)
-        n_diff = len(diff_cohort_geoms)
-
-        print(f"    {regional_name}: {n_diff} different-cohort areas (color), {n_same} same-cohort areas (white)")
-
-        # Plot different-cohort overlaps with cohort-color stripes
-        if diff_cohort_geoms:
-            diff_union = unary_union(diff_cohort_geoms)
-
-            # Plot with diagonal stripes in regional cohort color
-            gpd.GeoDataFrame([{"geometry": diff_union}], geometry="geometry", crs=regional_secondary.crs).plot(
-                ax=ax,
-                facecolor="none",
-                edgecolor=regional_color,
-                linewidth=0.8,
-                hatch="////",
-                zorder=2
-            )
-            print(f"      -> Plotted {n_diff} color-striped areas")
-
-        # Plot same-cohort overlaps with white stripes
-        if same_cohort_geoms:
-            same_union = unary_union(same_cohort_geoms)
-
-            # Plot with white diagonal stripes for contrast
-            gpd.GeoDataFrame([{"geometry": same_union}], geometry="geometry", crs=regional_secondary.crs).plot(
-                ax=ax,
-                facecolor="none",
-                edgecolor="white",
-                linewidth=0.8,
-                hatch="////",
-                zorder=3
-            )
-            print(f"      -> Plotted {n_same} same-cohort areas (white stripes)")
-
-        # Add black border around entire secondary regional district boundary
-        # to show how collections of elementary districts are joined together
+        # Add black border around secondary regional district boundary
         gpd.GeoDataFrame([{"geometry": regional_geom}], geometry="geometry", crs=regional_secondary.crs).plot(
             ax=ax,
             facecolor="none",
@@ -510,8 +461,34 @@ def create_western_ma_map(
             zorder=6  # Top-most layer to cover all other colors
         )
 
-        if not diff_cohort_geoms and not same_cohort_geoms:
-            print(f"      -> WARNING: No geometries to plot for {regional_name}!")
+        # Add cohort letter indicator (T, S, M, L) in center of district
+        centroid = regional_geom.centroid
+        cohort_letter = cohort_letters.get(regional_cohort, "?")
+
+        # Add black outline for better visibility
+        ax.text(
+            centroid.x, centroid.y, cohort_letter,
+            color='black',
+            fontsize=20,
+            fontweight='bold',
+            ha='center',
+            va='center',
+            family='sans-serif',
+            zorder=7
+        )
+        # Add white text on top
+        ax.text(
+            centroid.x, centroid.y, cohort_letter,
+            color='white',
+            fontsize=18,
+            fontweight='bold',
+            ha='center',
+            va='center',
+            family='sans-serif',
+            zorder=7
+        )
+
+        print(f"    {regional_name}: Black border + '{cohort_letter}' marker")
 
     # Remove axes
     ax.set_axis_off()
@@ -520,7 +497,7 @@ def create_western_ma_map(
     legend_elements = []
 
     # Add cohort colors to legend with counts
-    for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
+    for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
         cohort_label = get_cohort_label(cohort_name)
         n_total = len(matched_gdf[matched_gdf["cohort"] == cohort_name])
         n_regional_secondary = len(regional_secondary[regional_secondary["cohort"] == cohort_name])
@@ -530,29 +507,18 @@ def create_western_ma_map(
         # Total solid-fill districts (non-regional + unified regional)
         n_solid = n_non_regional + n_regional_unified
 
-        # Show filled box for cohort
-        if n_solid > 0:
+        # Show filled box for cohort, including both non-regional and all regional districts
+        if n_total > 0:
             legend_elements.append(
                 mpatches.Patch(
                     facecolor=COHORT_COLORS[cohort_name],
                     edgecolor="white",
                     alpha=0.85,
-                    label=f"{cohort_label}: {n_solid} district(s)"
+                    label=f"{cohort_label}: {n_total} district(s)"
                 )
             )
 
-        # Show striped pattern for secondary regional districts in this cohort
-        if n_regional_secondary > 0:
-            legend_elements.append(
-                mpatches.Patch(
-                    facecolor="none",
-                    edgecolor=COHORT_COLORS[cohort_name],
-                    hatch="////",
-                    label=f"{cohort_label}: {n_regional_secondary} regional"
-                )
-            )
-
-    # Add explanation for secondary regional black border
+    # Add explanation for secondary regional black border and cohort letters
     if len(regional_secondary) > 0:
         legend_elements.append(
             mpatches.Patch(
@@ -567,6 +533,13 @@ def create_western_ma_map(
                 edgecolor="black",
                 linewidth=3,
                 label="Secondary regional (black border)"
+            )
+        )
+        legend_elements.append(
+            mpatches.Patch(
+                facecolor="none",
+                edgecolor="none",
+                label="  Cohort: T, S, M, L, XL"
             )
         )
 
@@ -620,47 +593,57 @@ def create_western_ma_map(
 
 
 def main():
-    """Generate Western MA choropleth map."""
+    """Generate Western MA choropleth maps for multiple years."""
     print("=" * 60)
     print("Western Massachusetts District Choropleth Map Generator")
     print("=" * 60)
 
     # Load data
-    print("\n[1/4] Loading data...")
+    print("\n[1/3] Loading data...")
     df, reg, c70 = load_data()
     print(f"  Loaded {len(df)} expenditure records")
     print(f"  Loaded {len(reg)} district metadata records")
 
-    # Load shapefiles
-    print("\n[2/4] Loading shapefiles...")
+    # Load shapefiles (only once)
+    print("\n[2/3] Loading shapefiles...")
     shapes = load_shapefiles()
 
-    # Match districts to geometries
-    print("\n[3/4] Matching districts...")
-    matched_gdf = match_districts_to_geometries(df, reg, shapes)
+    # Years to generate maps for (in reverse order: 2024, 2019, 2014, 2009)
+    years = [2024, 2019, 2014, 2009]
 
-    # Generate map
-    print("\n[4/4] Generating map...")
-    output_path = OUTPUT_DIR / "western_ma_choropleth.png"
-    create_western_ma_map(matched_gdf, output_path)
+    for year in years:
+        print(f"\n{'='*60}")
+        print(f"Generating map for FY {year}")
+        print(f"{'='*60}")
+
+        # Match districts to geometries for this year
+        print(f"\n[3/{len(years)}] Matching districts for {year}...")
+        matched_gdf = match_districts_to_geometries(df, reg, shapes, year=year)
+
+        # Generate map for this year
+        print(f"Generating map for {year}...")
+        output_path = OUTPUT_DIR / f"western_ma_choropleth_{year}.png"
+        create_western_ma_map(matched_gdf, output_path)
+
+        print(f"\n[SUCCESS] Map for {year} generated!")
+        print(f"Output: {output_path}")
+        print(f"Districts mapped: {len(matched_gdf)}")
+        print(f"  Non-regional (solid fill): {len(matched_gdf[~matched_gdf['is_regional']])}")
+        print(f"  Regional (black border + cohort letter): {len(matched_gdf[matched_gdf['is_regional']])}")
+        print("\nCohort breakdown:")
+        for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
+            n_total = len(matched_gdf[matched_gdf["cohort"] == cohort_name])
+            n_regional = len(matched_gdf[(matched_gdf["cohort"] == cohort_name) & (matched_gdf["is_regional"])])
+            n_non_regional = n_total - n_regional
+            label = get_cohort_label(cohort_name)
+            if n_regional > 0:
+                print(f"  {label}: {n_non_regional} district(s), {n_regional} regional")
+            else:
+                print(f"  {label}: {n_non_regional} district(s)")
 
     print("\n" + "=" * 60)
-    print("[SUCCESS] Map generated successfully!")
+    print("[SUCCESS] All maps generated successfully!")
     print("=" * 60)
-    print(f"\nOutput: {output_path}")
-    print(f"Districts mapped: {len(matched_gdf)}")
-    print(f"  Non-regional (solid fill): {len(matched_gdf[~matched_gdf['is_regional']])}")
-    print(f"  Regional (diagonal stripes): {len(matched_gdf[matched_gdf['is_regional']])}")
-    print("\nCohort breakdown:")
-    for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
-        n_total = len(matched_gdf[matched_gdf["cohort"] == cohort_name])
-        n_regional = len(matched_gdf[(matched_gdf["cohort"] == cohort_name) & (matched_gdf["is_regional"])])
-        n_non_regional = n_total - n_regional
-        label = get_cohort_label(cohort_name)
-        if n_regional > 0:
-            print(f"  {label}: {n_non_regional} district(s), {n_regional} regional (striped)")
-        else:
-            print(f"  {label}: {n_non_regional} district(s)")
 
 
 if __name__ == "__main__":

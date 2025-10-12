@@ -37,7 +37,7 @@ from school_shared import (
     DISTRICTS_OF_INTEREST, ENROLL_KEYS,
     compute_global_dollar_ylim, compute_districts_fte_ylim,
     canonical_order_bottom_to_top,
-    EXCLUDE_SUBCATS, aggregate_to_canonical,
+    EXCLUDE_SUBCATS, EXCLUDE_DISTRICTS, aggregate_to_canonical,
     FTE_LINE_COLORS, PPE_PEERS_YMAX, PPE_PEERS_REMOVE_SPINES, PPE_PEERS_BAR_EDGES,
     MICRO_AREA_FILL, MICRO_AREA_EDGE,
     weighted_epp_aggregation,
@@ -103,6 +103,17 @@ def _boost_plot_fonts():
 def comma_formatter():
     return FuncFormatter(lambda x, pos: f"{x:,.0f}")
 
+def k_abbreviation_formatter():
+    """Returns formatter that uses K for thousands (no dollar sign)."""
+    def format_func(x, _):
+        if x >= 1_000_000:
+            return f"{x/1_000_000:.1f}M".replace('.0M', 'M')
+        elif x >= 1000:
+            return f"{int(x/1000)}K"
+        else:
+            return f"{int(x)}"
+    return FuncFormatter(format_func)
+
 def smart_dollar_formatter():
     """Returns formatter that uses M for millions, K for thousands."""
     def format_func(x, _):
@@ -122,6 +133,7 @@ def _western_all_total_series(df: pd.DataFrame, reg: pd.DataFrame) -> tuple[pd.S
     """Get total PPE and enrollment for all Western MA traditional districts."""
     mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
     members = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
+    members = [d for d in members if d not in EXCLUDE_DISTRICTS]
     piv, enroll_in, enroll_out = weighted_epp_aggregation(df, list(members))
     return _total_ppe_series_from_pivot(piv), enroll_in
 
@@ -414,6 +426,7 @@ def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFram
     # Get all Western MA traditional districts
     mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
     western_districts = sorted(reg[mask]["DIST_NAME"].unique())
+    western_districts = [d for d in western_districts if d.lower() not in EXCLUDE_DISTRICTS]
 
     # Collect district data
     # NOTE: Building list of all Western MA districts with PPE data for t0 and latest year
@@ -484,19 +497,11 @@ def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFram
     ax_main.grid(axis="x", alpha=0.35, linewidth=0.8)
     ax_main.set_axisbelow(True)
     ax_main.set_xlabel("$ per pupil")
-    ax_main.xaxis.set_major_formatter(comma_formatter())
+    ax_main.xaxis.set_major_formatter(k_abbreviation_formatter())
 
     # Y-axis: Show only district names (letter codes removed per user request)
-    # NOTE: Highlighting districts of interest with colorblind-friendly orange
+    # Set district labels on y-axis
     ax_main.set_yticks(y_pos, dist_labels)
-
-    # Highlight districts of interest with colorblind-friendly color
-    # Using dark orange (#FF8C00) which is distinct for both normal and colorblind vision
-    districts_of_interest = {"Amherst-Pelham", "Amherst", "Leverett", "Pelham", "Shutesbury"}
-    for i, label in enumerate(dist_labels):
-        if label in districts_of_interest:
-            ax_main.get_yticklabels()[i].set_color('#FF8C00')  # Dark orange
-            ax_main.get_yticklabels()[i].set_weight('bold')    # Bold for extra emphasis
 
     # Legend above plot - 3 items in single row
     handles = [
@@ -633,7 +638,7 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame, c7
     ax_main.grid(axis="x", alpha=0.35, linewidth=0.8)
     ax_main.set_axisbelow(True)
     ax_main.set_xlabel("$ per pupil")
-    ax_main.xaxis.set_major_formatter(comma_formatter())
+    ax_main.xaxis.set_major_formatter(k_abbreviation_formatter())
     ax_main.tick_params(axis='x', labelsize=15, rotation=25)  # Slight rotation to prevent smooshing
     ax_main.set_yticks(y_pos, labels)
 
@@ -694,7 +699,7 @@ if __name__ == "__main__":
     """
     Main execution flow for generating all plots:
     1. Load data and create color mappings
-    2. Generate Western MA regional aggregates (4 enrollment groups)
+    2. Generate Western MA regional aggregates (6 enrollment groups)
     3. Generate Western MA overview (all districts, horizontal bars)
     4. Generate all district plots (simple + detailed versions)
 
@@ -715,10 +720,10 @@ if __name__ == "__main__":
     # Get Western cohorts using centralized function (ensures consistency with NSS)
     cohorts = get_western_cohort_districts(df, reg)
 
-    # Western MA - 4 enrollment groups
+    # Western MA - 6 enrollment groups
     western_prepared = {}
-    cohort_map = {"tiny": "TINY", "small": "SMALL", "medium": "MEDIUM", "large": "LARGE", "springfield": "SPRINGFIELD"}
-    for bucket in ("tiny", "small", "medium", "large", "springfield"):
+    cohort_map = {"tiny": "TINY", "small": "SMALL", "medium": "MEDIUM", "large": "LARGE", "x-large": "X-LARGE", "springfield": "SPRINGFIELD"}
+    for bucket in ("tiny", "small", "medium", "large", "x-large", "springfield"):
         district_list = cohorts[cohort_map[bucket]]
         title, piv, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket, c70, districts=district_list)
         # Use weighted average (mean) for aggregate enrollment lines, not sum
@@ -736,8 +741,8 @@ if __name__ == "__main__":
     right_ylim = compute_global_dollar_ylim(pivots_all, pad=1.06, step=500)
     left_ylim_districts = compute_districts_fte_ylim(district_lines_all, pad=1.06, step=50)
 
-    # Western plots - 4 enrollment groups
-    for bucket in ("tiny", "small", "medium", "large", "springfield"):
+    # Western plots - 6 enrollment groups
+    for bucket in ("tiny", "small", "medium", "large", "x-large", "springfield"):
         _title, piv, lines_mean = western_prepared[bucket]
         if piv.empty:
             print(f"[SKIP] No data for Western MA {bucket} group")
@@ -760,16 +765,19 @@ if __name__ == "__main__":
     # Western MA overview plot (all districts as horizontal bars)
     plot_all_western_overview(OUTPUT_DIR / "ppe_overview_all_western.png", df, reg, c70, year_lag=5)
 
-    # Generate choropleth map showing district locations and cohorts
-    print("\n[MAPS] Generating Western MA choropleth map...")
+    # Generate choropleth maps for multiple years (2024, 2019, 2014, 2009)
+    print("\n[MAPS] Generating Western MA choropleth maps for multiple years...")
     try:
         from western_map import load_shapefiles, match_districts_to_geometries, create_western_ma_map
         shapes = load_shapefiles()
-        matched_gdf = match_districts_to_geometries(df, reg, shapes)
-        create_western_ma_map(matched_gdf, OUTPUT_DIR / "western_ma_choropleth.png")
-        print("[OK] Choropleth map generated successfully")
+        years_for_maps = [2024, 2019, 2014, 2009]
+        for year in years_for_maps:
+            print(f"[MAPS] Generating map for {year}...")
+            matched_gdf = match_districts_to_geometries(df, reg, shapes, year=year)
+            create_western_ma_map(matched_gdf, OUTPUT_DIR / f"western_ma_choropleth_{year}.png")
+        print(f"[OK] Choropleth maps generated successfully for {len(years_for_maps)} years")
     except ImportError as e:
-        print(f"[SKIP] Could not generate choropleth map: {e}")
+        print(f"[SKIP] Could not generate choropleth maps: {e}")
         print("       Install geopandas to enable map generation: pip install geopandas")
     except Exception as e:
         print(f"[WARN] Choropleth map generation failed: {e}")
