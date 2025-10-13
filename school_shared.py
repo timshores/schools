@@ -101,12 +101,17 @@ def calculate_outlier_threshold(enrollments: np.ndarray) -> float:
     outlier_threshold = q3 + 3.0 * iqr  # Use 3*IQR for extreme outliers only
     return outlier_threshold
 
-def calculate_cohort_boundaries(df: pd.DataFrame, reg: pd.DataFrame) -> Dict[str, Dict]:
+def calculate_cohort_boundaries(df: pd.DataFrame, reg: pd.DataFrame, year: int = None) -> Dict[str, Dict]:
     """
-    Calculate dynamic cohort boundaries based on IQR analysis of current dataset.
+    Calculate dynamic cohort boundaries based on IQR analysis of dataset for a specific year.
 
     This ensures cohort boundaries automatically adjust when districts are added/removed,
     enabling the system to work with any group of districts (Western MA, all MA, etc.).
+
+    Args:
+        df: DataFrame with enrollment and expenditure data
+        reg: DataFrame with regional classifications
+        year: Specific year to calculate cohorts for. If None, uses latest year in data.
 
     Returns:
         Dict with cohort definitions including ranges, labels, ylim, etc.
@@ -117,25 +122,29 @@ def calculate_cohort_boundaries(df: pd.DataFrame, reg: pd.DataFrame) -> Dict[str
     present = set(df["DIST_NAME"].str.lower())
     western_districts = [d for d in western_districts if d in present and d not in EXCLUDE_DISTRICTS]
 
-    latest_year = int(df["YEAR"].max())
+    # Use specified year or latest year
+    target_year = year if year is not None else int(df["YEAR"].max())
     all_enrollments = []  # Track all enrollments including potential outliers
 
     # Collect enrollments for districts with valid PPE data (must import locally to avoid circular dependency)
     # Use IN-DISTRICT FTE for cohort calculations (not total FTE)
     for dist in western_districts:
-        ddf = df[(df["DIST_NAME"].str.lower() == dist.lower()) & (df["IND_CAT"].str.lower() == "student enrollment") & (df["IND_SUBCAT"].str.lower() == IN_DISTRICT_FTE_KEY)]
+        # Get enrollment for the target year
+        ddf = df[(df["DIST_NAME"].str.lower() == dist.lower()) &
+                 (df["IND_CAT"].str.lower() == "student enrollment") &
+                 (df["IND_SUBCAT"].str.lower() == IN_DISTRICT_FTE_KEY) &
+                 (df["YEAR"] == target_year)]
         if ddf.empty:
-            # Fallback: if no in-district FTE data, skip this district
+            # Fallback: if no in-district FTE data for this year, skip this district
             fte = 0.0
         else:
-            y = int(ddf["YEAR"].max())
-            fte = float(ddf.loc[ddf["YEAR"] == y, "IND_VALUE"].iloc[0])
+            fte = float(ddf["IND_VALUE"].iloc[0])
 
-        # Check for valid PPE data
+        # Check for valid PPE data for the target year
         ppe_data = df[
             (df["DIST_NAME"].str.lower() == dist) &
             (df["IND_CAT"].str.lower() == "expenditures per pupil") &
-            (df["YEAR"] == latest_year)
+            (df["YEAR"] == target_year)
         ]
         total_ppe = ppe_data[~ppe_data["IND_SUBCAT"].str.lower().isin(
             ["total expenditures", "total in-district expenditures"])]["IND_VALUE"].sum()
@@ -148,26 +157,24 @@ def calculate_cohort_boundaries(df: pd.DataFrame, reg: pd.DataFrame) -> Dict[str
         _COHORT_CACHE["outlier_threshold"] = 8000  # Fallback value
         return _get_static_cohort_definitions()
 
-    # Calculate statistical outlier threshold using IQR method
+    # Calculate IQR statistics on ALL districts (don't filter outliers first)
+    # This ensures cohort boundaries reflect the true distribution
     all_enrollments_array = np.array(all_enrollments)
-    outlier_threshold = calculate_outlier_threshold(all_enrollments_array)
 
-    # Store in cache for use by other functions
-    _COHORT_CACHE["outlier_threshold"] = outlier_threshold
-
-    # Filter out outliers for cohort boundary calculation
-    enrollments = all_enrollments_array[all_enrollments_array <= outlier_threshold]
-
-    if len(enrollments) == 0:
-        # Fallback if all districts are outliers (unlikely)
+    if len(all_enrollments_array) == 0:
+        # Fallback if no districts
+        _COHORT_CACHE["outlier_threshold"] = 10000
         return _get_static_cohort_definitions()
 
-    # Calculate IQR statistics (6-tier system: Tiny, Small, Medium, Large, X-Large, Springfield)
-    q1 = np.percentile(enrollments, 25)
-    median = np.median(enrollments)
-    q3 = np.percentile(enrollments, 75)
-    p90 = np.percentile(enrollments, 90)  # 90th percentile for X-Large cutoff
-    max_enrollment = np.max(enrollments)
+    # Calculate quartiles on FULL dataset (including Springfield/outliers)
+    q1 = np.percentile(all_enrollments_array, 25)
+    median = np.median(all_enrollments_array)
+    q3 = np.percentile(all_enrollments_array, 75)
+    p90 = np.percentile(all_enrollments_array, 90)  # 90th percentile for X-Large cutoff
+    max_enrollment = np.max(all_enrollments_array)
+
+    # Store fixed outlier threshold (10,000 FTE) for Springfield cutoff
+    _COHORT_CACHE["outlier_threshold"] = 10000
 
     # Round to nearest 100 (for quartile boundaries)
     def round_100(x):
@@ -610,9 +617,24 @@ def latest_indistrict_fte(df: pd.DataFrame, dist: str) -> float:
     y = int(ddf["YEAR"].max())
     return float(ddf.loc[ddf["YEAR"] == y, "IND_VALUE"].iloc[0])
 
+def _get_enrollment_group_for_boundaries(fte: float, enrollment_groups: Dict[str, Tuple[float, float]]) -> str:
+    """
+    Determine enrollment cohort for a given FTE value using custom boundaries.
+
+    Args:
+        fte: Enrollment value
+        enrollment_groups: Dict mapping cohort names to (min, max) tuples
+
+    Returns: "TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", or "SPRINGFIELD"
+    """
+    for group, (min_fte, max_fte) in enrollment_groups.items():
+        if min_fte <= fte <= max_fte:
+            return group
+    return "SMALL"  # Default fallback
+
 def get_enrollment_group(fte: float) -> str:
     """
-    Determine enrollment cohort for a given FTE value.
+    Determine enrollment cohort for a given FTE value using global boundaries.
     Returns: "TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", or "SPRINGFIELD"
     """
     for group, (min_fte, max_fte) in ENROLLMENT_GROUPS.items():
@@ -627,6 +649,11 @@ def get_cohort_label(group: str) -> str:
 def get_cohort_short_label(group: str) -> str:
     """Get the short label for a cohort (e.g., 'Small')."""
     return COHORT_DEFINITIONS.get(group, {}).get("short_label", group)
+
+def get_cohort_2024_label(group: str) -> str:
+    """Get the 2024 cohort label for PPE/CH70/NSS comparisons (e.g., '2024 Medium cohort')."""
+    short_label = COHORT_DEFINITIONS.get(group, {}).get("short_label", group)
+    return f"2024 {short_label} cohort"
 
 def get_cohort_ylim(group: str) -> int | None:
     """Get the y-axis limit for a cohort's enrollment plots."""
@@ -704,6 +731,10 @@ def get_western_cohort_districts_for_year(df: pd.DataFrame, reg: pd.DataFrame, y
     present = set(df["DIST_NAME"].str.lower())
     western_districts = [d for d in western_districts if d in present and d not in EXCLUDE_DISTRICTS]
 
+    # Calculate year-specific cohort boundaries
+    year_cohort_defs = calculate_cohort_boundaries(df, reg, year)
+    year_enrollment_groups = {k: v["range"] for k, v in year_cohort_defs.items()}
+
     cohorts = {"TINY": [], "SMALL": [], "MEDIUM": [], "LARGE": [], "X-LARGE": [], "SPRINGFIELD": []}
 
     for dist in western_districts:
@@ -720,7 +751,8 @@ def get_western_cohort_districts_for_year(df: pd.DataFrame, reg: pd.DataFrame, y
 
         # ONLY include districts with valid enrollment AND valid PPE data
         if fte > 0 and total_ppe > 0:
-            group = get_enrollment_group(fte)
+            # Use year-specific cohort boundaries
+            group = _get_enrollment_group_for_boundaries(fte, year_enrollment_groups)
             if group in cohorts:
                 cohorts[group].append(dist)
 

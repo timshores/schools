@@ -24,6 +24,7 @@ from school_shared import (
     get_enrollment_group,
     compute_districts_fte_ylim,
     get_cohort_label,
+    get_cohort_2024_label,
     get_cohort_ylim,
     get_western_cohort_districts,
     make_safe_filename,
@@ -73,12 +74,12 @@ def main():
 
     # Generate NSS/Ch70 for each enrollment cohort using centralized definitions
     enrollment_groups = [
-        ("tiny", western_tiny, f"Western MA {get_cohort_label('TINY')}"),
-        ("small", western_small, f"Western MA {get_cohort_label('SMALL')}"),
-        ("medium", western_medium, f"Western MA {get_cohort_label('MEDIUM')}"),
-        ("large", western_large, f"Western MA {get_cohort_label('LARGE')}"),
-        ("x-large", western_xlarge, f"Western MA {get_cohort_label('X-LARGE')}"),
-        ("springfield", western_springfield, f"Western MA {get_cohort_label('SPRINGFIELD')}"),
+        ("tiny", western_tiny, f"Western MA {get_cohort_2024_label('TINY')}"),
+        ("small", western_small, f"Western MA {get_cohort_2024_label('SMALL')}"),
+        ("medium", western_medium, f"Western MA {get_cohort_2024_label('MEDIUM')}"),
+        ("large", western_large, f"Western MA {get_cohort_2024_label('LARGE')}"),
+        ("x-large", western_xlarge, f"Western MA {get_cohort_2024_label('X-LARGE')}"),
+        ("springfield", western_springfield, f"Western MA {get_cohort_2024_label('SPRINGFIELD')}"),
     ]
 
     for bucket_id, districts, label in enrollment_groups:

@@ -62,11 +62,11 @@ UNIFIED_SHP = SHAPEFILE_DIR / "tl_2023_25_unsd.shp"
 ELEMENTARY_SHP = SHAPEFILE_DIR / "tl_2023_25_elsd.shp"
 SECONDARY_SHP = SHAPEFILE_DIR / "tl_2023_25_scsd.shp"
 
-# Color palette for cohorts (colorblind-friendly)
+# Color palette for cohorts (colorblind-friendly, more saturated)
 COHORT_COLORS = {
     "TINY": "#4575B4",      # Blue (low enrollment)
-    "SMALL": "#74ADD1",     # Light Blue
-    "MEDIUM": "#FEE090",    # Yellow
+    "SMALL": "#3C9DC4",     # Cyan (more saturated)
+    "MEDIUM": "#FDB749",    # Amber (more saturated)
     "LARGE": "#F46D43",     # Orange
     "X-LARGE": "#D73027",   # Red
     "SPRINGFIELD": "#A50026",  # Dark Red (outliers)
@@ -227,16 +227,17 @@ def match_districts_to_geometries(
     """
     print(f"\nMatching districts to geometries for year {year if year else 'latest'}...")
 
-    # Initialize cohort definitions from data
-    initialize_cohort_definitions(df, reg)
-
     # Load district types from data file
     district_types = load_district_types()
 
     # Get Western MA cohort districts for specified year
+    # This now uses year-specific cohort boundaries
     if year is not None:
         cohorts = get_western_cohort_districts_for_year(df, reg, year)
     else:
+        # For latest year, initialize global cohort definitions first
+        from school_shared import initialize_cohort_definitions
+        initialize_cohort_definitions(df, reg)
         cohorts = get_western_cohort_districts(df, reg)
 
     # Create mapping of district name -> cohort
@@ -344,6 +345,7 @@ def match_districts_to_geometries(
 def create_western_ma_map(
     matched_gdf: gpd.GeoDataFrame,
     output_path: Path,
+    year: int = 2024,
     title: str = "Western Massachusetts Traditional School Districts"
 ) -> None:
     """
@@ -409,25 +411,14 @@ def create_western_ma_map(
                 alpha=0.85,
                 zorder=1
             )
-            # Add white "U" label to each unified regional district
+            # Add "U" label to each unified regional district
             for idx, row in cohort_districts.iterrows():
                 centroid = row.geometry.centroid
-                # Add black outline for better visibility
+                # Black text only (no outline)
                 ax.text(
                     centroid.x, centroid.y, 'U',
                     color='black',
                     fontsize=20,
-                    fontweight='bold',
-                    ha='center',
-                    va='center',
-                    family='sans-serif',
-                    zorder=5
-                )
-                # Add white text on top
-                ax.text(
-                    centroid.x, centroid.y, 'U',
-                    color='white',
-                    fontsize=18,
                     fontweight='bold',
                     ha='center',
                     va='center',
@@ -461,26 +452,15 @@ def create_western_ma_map(
             zorder=6  # Top-most layer to cover all other colors
         )
 
-        # Add cohort letter indicator (T, S, M, L) in center of district
+        # Add cohort letter indicator (T, S, M, L, XL) in center of district
         centroid = regional_geom.centroid
         cohort_letter = cohort_letters.get(regional_cohort, "?")
 
-        # Add black outline for better visibility
+        # Black text only (no outline)
         ax.text(
             centroid.x, centroid.y, cohort_letter,
             color='black',
             fontsize=20,
-            fontweight='bold',
-            ha='center',
-            va='center',
-            family='sans-serif',
-            zorder=7
-        )
-        # Add white text on top
-        ax.text(
-            centroid.x, centroid.y, cohort_letter,
-            color='white',
-            fontsize=18,
             fontweight='bold',
             ha='center',
             va='center',
@@ -545,13 +525,12 @@ def create_western_ma_map(
 
     # Add explanation for "U" label on unified regional districts
     if len(regional_unified) > 0:
-        # Add "U" explanation
-        from matplotlib.lines import Line2D
+        # Add "U" explanation (text only, no symbol)
         legend_elements.append(
-            Line2D([0], [0], marker='$U$', color='w',
-                   markerfacecolor='gray', markersize=12,
-                   linestyle='None',
-                   label="U = Unified regional district")
+            mpatches.Patch(
+                facecolor="none",
+                edgecolor="none",
+                label="U = Unified regional district (PK-12)")
         )
 
     # Add legend to plot - positioned below the map to avoid overlap
@@ -563,20 +542,9 @@ def create_western_ma_map(
         frameon=True,
         fancybox=True,
         shadow=True,
-        title="Enrollment Cohorts",
-        title_fontsize=11,
+        title=f"Enrollment Cohorts - {year}",
+        title_fontsize=16,  # Bigger title font
         ncol=2  # Use 2 columns to make it more compact
-    )
-
-    # Add version stamp
-    fig.text(
-        0.99, 0.01,
-        CODE_VERSION,
-        fontsize=8,
-        color="gray",
-        ha="right",
-        va="bottom",
-        alpha=0.6
     )
 
     # Adjust layout
@@ -623,7 +591,7 @@ def main():
         # Generate map for this year
         print(f"Generating map for {year}...")
         output_path = OUTPUT_DIR / f"western_ma_choropleth_{year}.png"
-        create_western_ma_map(matched_gdf, output_path)
+        create_western_ma_map(matched_gdf, output_path, year=year)
 
         print(f"\n[SUCCESS] Map for {year} generated!")
         print(f"Output: {output_path}")

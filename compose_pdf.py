@@ -38,7 +38,7 @@ from school_shared import (
     weighted_epp_aggregation,
     prepare_district_nss_ch70, prepare_aggregate_nss_ch70, prepare_aggregate_nss_ch70_weighted,
     latest_total_fte, get_enrollment_group,
-    get_cohort_label, get_cohort_short_label,
+    get_cohort_label, get_cohort_short_label, get_cohort_2024_label,
     get_western_cohort_districts, get_omitted_western_districts,
     make_safe_filename,
 )
@@ -84,6 +84,7 @@ styles = getSampleStyleSheet()
 style_title_main = ParagraphStyle("title_main", parent=styles["Heading1"], fontSize=14, leading=17, spaceAfter=2)
 style_title_sub  = ParagraphStyle("title_sub",  parent=styles["Normal"],   fontSize=12, leading=14, spaceAfter=6)
 style_body       = ParagraphStyle("body",       parent=styles["Normal"],   fontSize=9,  leading=12)
+style_body_12pt  = ParagraphStyle("body_12pt",  parent=styles["Normal"],   fontSize=12, leading=16)  # Readable font for Appendix C
 style_num        = ParagraphStyle("num",        parent=styles["Normal"],   fontSize=9,  leading=12, alignment=2)
 style_legend     = ParagraphStyle("legend",     parent=style_body,         fontSize=8,  leading=10, alignment=2)
 style_legend_center = ParagraphStyle("legend_center", parent=style_body,   fontSize=8,  leading=10, alignment=1)
@@ -202,11 +203,11 @@ def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, s
     if not district_data:
         return None
 
-    # Cohort colors matching the scatterplot
+    # Cohort colors matching the scatterplot (more saturated)
     cohort_colors = {
         'TINY': HexColor('#4575B4'),      # Blue (low enrollment)
-        'SMALL': HexColor('#74ADD1'),     # Light Blue
-        'MEDIUM': HexColor('#FEE090'),    # Yellow
+        'SMALL': HexColor('#3C9DC4'),     # Cyan (more saturated)
+        'MEDIUM': HexColor('#FDB749'),    # Amber (more saturated)
         'LARGE': HexColor('#F46D43'),     # Orange
         'X-LARGE': HexColor('#D73027'),   # Red
         'SPRINGFIELD': HexColor('#A50026'),  # Dark Red (outliers)
@@ -1205,6 +1206,39 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     else:
         western_text_blocks = [western_explanation]
 
+    # PAGE 0: Executive Summary (YoY and CAGR growth analysis)
+    executive_summary_heading = "Per-pupil expenditure rate of growth for districts of interest: Year-over-Year (YoY) 2009-2024 (top) and 5-year CAGR chunks (bottom)"
+    pages.append(dict(
+        title="Executive Summary",
+        subtitle="",
+        chart_paths=[
+            str(OUTPUT_DIR / "executive_summary_yoy_growth.png"),
+            str(OUTPUT_DIR / "executive_summary_cagr_chunks.png")
+        ],
+        text_blocks=[executive_summary_heading],
+        graph_only=True,
+        two_charts_vertical=True,
+        section_id="executive_summary"
+    ))
+
+    # PAGE 0a: Executive Summary - YoY Separate Panes
+    pages.append(dict(
+        title="Executive Summary (continued)",
+        subtitle="Year-over-Year (YoY) growth rates by district and cohort",
+        chart_path=str(OUTPUT_DIR / "executive_summary_yoy_panes.png"),
+        text_blocks=[],
+        graph_only=True
+    ))
+
+    # PAGE 0b: Executive Summary - CAGR Separate Panes
+    pages.append(dict(
+        title="Executive Summary (continued)",
+        subtitle="5-year CAGR by district and cohort",
+        chart_path=str(OUTPUT_DIR / "executive_summary_cagr_panes.png"),
+        text_blocks=[],
+        graph_only=True
+    ))
+
     pages.append(dict(
         title="All Western MA Traditional Districts",
         subtitle=f"Per-pupil expenditure overview: {t0} PPE (lighter) to {latest} PPE (darker segment)",
@@ -1228,9 +1262,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "and Springfield (>10,000 FTE, statistical outlier). "
         "These cohorts enable meaningful comparisons between districts facing similar scale-related challenges "
         "in staffing, facilities, and programming."
-        "<br/><br/>"
-        "Note: To reduce the number of moving parts, the rest of this report will use the cohorts defined by "
-        "the 2024 IQR analysis for all years."
     )
 
     scatterplot_explanation = ("This scatterplot shows the relationship between district enrollment and per-pupil expenditures. "
@@ -1425,14 +1456,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
         # Map context to bucket and label using centralized cohort definitions
         bucket_map = {
-            "TINY": ("tiny", get_cohort_label("TINY")),
-            "SMALL": ("small", get_cohort_label("SMALL")),
-            "MEDIUM": ("medium", get_cohort_label("MEDIUM")),
-            "LARGE": ("large", get_cohort_label("LARGE")),
-            "X-LARGE": ("x-large", get_cohort_label("X-LARGE")),
-            "SPRINGFIELD": ("springfield", get_cohort_label("SPRINGFIELD"))
+            "TINY": ("tiny", get_cohort_2024_label("TINY")),
+            "SMALL": ("small", get_cohort_2024_label("SMALL")),
+            "MEDIUM": ("medium", get_cohort_2024_label("MEDIUM")),
+            "LARGE": ("large", get_cohort_2024_label("LARGE")),
+            "X-LARGE": ("x-large", get_cohort_2024_label("X-LARGE")),
+            "SPRINGFIELD": ("springfield", get_cohort_2024_label("SPRINGFIELD"))
         }
-        bucket, bucket_label = bucket_map.get(context, ("tiny", get_cohort_label("TINY")))
+        bucket, bucket_label = bucket_map.get(context, ("tiny", get_cohort_2024_label("TINY")))
 
         base_title = f"All Western MA Traditional Districts: {bucket_label}"
         base_map = {}
@@ -1644,6 +1675,23 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "",
         "Note: CAGR requires positive values at both endpoints and is undefined if data is missing.",
         "",
+        "<b>3a. Year-over-Year (YoY) Growth Rate</b>",
+        "",
+        "YoY growth rate measures the percentage change from one year to the next, providing insight into annual fluctuations.",
+        "",
+        "<b>Formula:</b> YoY Growth = (Value_year / Value_previous_year − 1) × 100",
+        "",
+        "<b>Example:</b> If expenditures increase from $10,000 (Year 1) to $10,500 (Year 2):",
+        "YoY Growth = ($10,500 / $10,000 − 1) × 100 = 5.0%",
+        "",
+        "If expenditures then increase to $11,000 (Year 3):",
+        "YoY Growth = ($11,000 / $10,500 − 1) × 100 = 4.76%",
+        "",
+        "<b>Key differences from CAGR:</b>",
+        "• YoY shows year-to-year changes; CAGR smooths growth over multiple years",
+        "• YoY captures annual volatility; CAGR assumes constant growth",
+        "• YoY is useful for identifying specific years with unusual growth patterns",
+        "",
         "<b>4. Enrollment-Based Peer Groups</b>",
         "",
         "Districts are grouped by total in-district FTE enrollment into five cohorts (based on IQR analysis) for meaningful peer comparison:",
@@ -1808,12 +1856,96 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         text_blocks=methodology_page3
     ))
 
+    # ===== APPENDIX C: DETAILED CALCULATION EXAMPLES =====
+    appendix_c_path = Path("appendix_c_text.txt")
+    if appendix_c_path.exists():
+        # Read and parse Appendix C content - split by "====" section markers
+        appendix_c_full = appendix_c_path.read_text(encoding='utf-8')
+
+        # Split by ===== markers to get sections
+        raw_sections = appendix_c_full.split('=' * 80)  # 80 equals signs
+
+        # First section (before first ====) is the introduction for title page
+        intro_text = []
+        if raw_sections and raw_sections[0].strip():
+            intro_lines = raw_sections[0].strip().split('\n')
+            for line in intro_lines:
+                intro_text.append(line.strip())
+
+        # If no intro found in file, use default
+        if not intro_text:
+            intro_text = [
+                "This appendix provides calculation examples showing the source of numbers and demonstrating every step of the analysis for two examples:",
+                "1. Western MA Medium Cohort (aggregate cohort calculations)",
+                "2. Amherst-Pelham Regional (individual district calculations)",
+                "",
+                "The following pages detail:",
+                "• Data sources and cohort determination methodology",
+                "• Weighted average per-pupil expenditure calculations",
+                "• Time series analysis and compound annual growth rate (CAGR) formulas",
+                "• Chapter 70 state aid and Net School Spending calculations",
+                "• Comparative analysis methods",
+            ]
+
+        # Parse all sections and concatenate into one continuous content block
+        all_content = []
+
+        # Start from index 1 to skip the intro section
+        for raw_section in raw_sections[1:]:
+            lines = raw_section.strip().split('\n')
+            if not lines or not lines[0].strip():
+                continue
+
+            # First non-empty line is the section title (from === markers)
+            section_title = lines[0].strip()
+            if not section_title:
+                continue
+
+            # Add section header as bold, larger text
+            all_content.append("")  # Spacing before section
+            all_content.append(f"<b><font size=14>{section_title}</font></b>")
+            all_content.append("")  # Spacing after header
+
+            # Rest are content - format them
+            for line in lines[1:]:
+                stripped = line.strip()
+
+                # Format headers and steps as bold
+                if stripped.startswith('Step '):
+                    all_content.append(f"<b>{stripped}</b>")
+                elif stripped.startswith('PART '):
+                    all_content.append(f"<b><font size=13>{stripped}</font></b>")
+                elif stripped.endswith(':') and len(stripped) < 100 and not stripped.startswith('•') and not stripped.startswith('http'):
+                    # Looks like a subsection header
+                    all_content.append(f"<b>{stripped}</b>")
+                elif stripped.startswith('---'):
+                    # Separator line - skip it, section headers provide enough visual separation
+                    pass  # Don't add separator lines
+                else:
+                    # Regular line - preserve original formatting
+                    all_content.append(line.rstrip())
+
+        # Create ONE combined page with intro + all content
+        # Combine intro and content into single block for natural flow
+        combined_content = intro_text + [""] + all_content  # Add blank line between intro and content
+
+        pages.append(dict(
+            title="Appendix C. Detailed Calculation Examples",
+            subtitle="",
+            chart_path=None,
+            graph_only=True,
+            text_blocks=combined_content,  # Combined intro + content
+            section_id="appendix_c",
+            appendix_c=True  # Flag for special handling
+        ))
+
     return pages
 
 # ---- Table of Contents ----
 def build_toc_page():
     """Build table of contents page dict."""
     toc_entries = [
+        ("Executive Summary", "executive_summary"),
         ("Section 1: Western MA", "section1_western"),
         ("Section 2: Amherst-Pelham Regional", "amherst_pelham"),
         ("Section 2: Amherst", "amherst"),
@@ -1822,6 +1954,7 @@ def build_toc_page():
         ("Section 2: Shutesbury", "shutesbury"),
         ("Appendix A. Data Tables", "appendix_a"),
         ("Appendix B. Data Sources & Calculation Methodology", "appendix_b"),
+        ("Appendix C. Detailed Calculation Examples", "appendix_c"),
     ]
 
     return dict(
@@ -1932,39 +2065,38 @@ def build_pdf(pages: List[dict], out_path: Path):
             if text_blocks:
                 story.append(Spacer(0, 12))
 
+                # Use 12pt font for Appendix C, 9pt for others
+                text_style = style_body_12pt if p.get("appendix_c") else style_body
+
                 # Build paragraphs for text content
                 text_content = []
                 for block in text_blocks:
-                    text_content.append(Paragraph(block, style_body))
+                    text_content.append(Paragraph(block, text_style))
                     text_content.append(Spacer(0, 6))
 
-                # Calculate available height for content on this page
-                # Must account for:
-                # - Title (~22 pt + 2 pt space = ~24 pt = 0.33 inch)
-                # - Subtitle (~14 pt + 6 pt space = ~20 pt = 0.28 inch)
-                # - Spacer before content (12 pt = 0.17 inch)
-                # - Footer buffer (footer at 0.6 inch, need ~0.3 inch clearance above)
-                # Total overhead: ~1.1 inches
-                # Use conservative 1.5 inch buffer for title + subtitle + footer
-                title_and_footer_buffer = 1.5 * inch
+                # For Appendix C, don't use KeepInFrame - let content flow naturally
+                if p.get("appendix_c"):
+                    # Add content directly without frame constraints
+                    for item in text_content:
+                        story.append(item)
+                else:
+                    # For other appendices, use KeepInFrame with shrink mode
+                    # Calculate available height for content on this page
+                    title_and_footer_buffer = 1.5 * inch
+                    available_height = doc.height - title_and_footer_buffer
 
-                # Available height = doc.height minus title/subtitle/footer
-                available_height = doc.height - title_and_footer_buffer
+                    frame_content = KeepInFrame(
+                        maxWidth=doc.width,
+                        maxHeight=available_height,
+                        content=text_content,
+                        mode='shrink',  # Shrink content if it doesn't fit
+                        name='methodology_content'
+                    )
+                    story.append(frame_content)
 
-                # Use KeepInFrame to constrain content within available height
-                # If content exceeds height, KeepInFrame will shrink or allow overflow
-                # with mode='shrink' it shrinks to fit; with mode='truncate' it clips
-                # Use mode='error' to raise error if too tall, forcing us to fix it
-                frame_content = KeepInFrame(
-                    maxWidth=doc.width,
-                    maxHeight=available_height,
-                    content=text_content,
-                    mode='shrink',  # Shrink content if it doesn't fit
-                    name='methodology_content'
-                )
-                story.append(frame_content)
-
-            if idx < len(pages)-1: story.append(PageBreak())
+            # Handle page breaks: add PageBreak unless this is the last page
+            if idx < len(pages)-1:
+                story.append(PageBreak())
             continue
 
         # Scatterplot district table: compact table with cohort colors

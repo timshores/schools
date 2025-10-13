@@ -37,11 +37,12 @@ CODE_VERSION = "v2025.10.04-ENROLLMENT-DIST-V2"
 
 def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year: int):
     """Analyze enrollment distribution for Western MA traditional districts."""
-    from school_shared import initialize_cohort_definitions
+    from school_shared import calculate_cohort_boundaries
 
-    # Initialize cohort definitions to calculate outlier threshold
-    initialize_cohort_definitions(df, reg)
-    outlier_threshold = get_outlier_threshold()
+    # Calculate year-specific cohort definitions
+    year_cohort_defs = calculate_cohort_boundaries(df, reg, latest_year)
+    year_enrollment_groups = {k: v["range"] for k, v in year_cohort_defs.items()}
+    outlier_threshold = 10000  # Fixed threshold for Springfield
 
     # Get Western MA traditional districts
     mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
@@ -67,8 +68,9 @@ def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year:
 
             # ONLY include districts with valid PPE data
             if total_ppe > 0:
-                # Get cohort assignment
-                cohort = get_enrollment_group(enrollment)
+                # Get cohort assignment using year-specific boundaries
+                from school_shared import _get_enrollment_group_for_boundaries
+                cohort = _get_enrollment_group_for_boundaries(enrollment, year_enrollment_groups)
 
                 district_data.append({
                     'name': dist,
@@ -120,6 +122,7 @@ def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year:
         'springfield_name': springfield_name[0] if springfield_name else None,
         'springfield_value': springfield_value[0] if springfield_value else None,
         'outlier_threshold': SPRINGFIELD_THRESHOLD,  # Use fixed 10,000 threshold for display
+        'year_cohort_defs': year_cohort_defs,  # Include year-specific cohort definitions
     }
 
 
@@ -130,12 +133,13 @@ def plot_scatterplot(data: dict, out_path: Path):
     cohorts = data['cohorts']
     q1, q2, q3 = data['quartiles']
     latest_year = data['latest_year']
+    year_cohort_defs = data.get('year_cohort_defs', {})
 
-    # Define cohort colors (6 tiers)
+    # Define cohort colors (6 tiers) - more saturated for visibility
     cohort_colors = {
         'TINY': '#4575B4',       # Blue (low enrollment)
-        'SMALL': '#74ADD1',      # Light Blue
-        'MEDIUM': '#FEE090',     # Yellow
+        'SMALL': '#3C9DC4',      # Cyan (more saturated)
+        'MEDIUM': '#FDB749',     # Amber (more saturated)
         'LARGE': '#F46D43',      # Orange
         'X-LARGE': '#D73027',    # Red
         'SPRINGFIELD': '#A50026'  # Dark Red (outliers)
@@ -154,10 +158,12 @@ def plot_scatterplot(data: dict, out_path: Path):
     for cohort_key in ['TINY', 'SMALL', 'MEDIUM', 'LARGE', 'X-LARGE']:
         cohort_mask = np.array([c == cohort_key for c in cohorts_plot])
         if cohort_mask.any():
+            # Use year-specific label if available, otherwise fall back to global
+            cohort_label = year_cohort_defs.get(cohort_key, {}).get('label', get_cohort_label(cohort_key))
             ax.scatter(enrollments_plot[cohort_mask], ppes_plot[cohort_mask],
                       c=cohort_colors[cohort_key], s=100, alpha=0.7,
                       edgecolors='white', linewidth=1.5,
-                      label=get_cohort_label(cohort_key), zorder=3)
+                      label=cohort_label, zorder=3)
 
     # Add quartile and percentile vertical lines
     ax.axvline(q1, color='purple', linestyle=':', linewidth=2,
@@ -196,9 +202,14 @@ def plot_scatterplot(data: dict, out_path: Path):
     ax.yaxis.set_major_formatter(FuncFormatter(ppe_formatter))
 
     ax.set_xlabel('In-District FTE Enrollment', fontsize=14)
-    ax.set_ylabel(f'Total Per-Pupil Expenditure ({latest_year})', fontsize=14)
+    ax.set_ylabel(f'Total Per-Pupil Expenditure', fontsize=14)
     # No title - page subtitle does the job
     ax.grid(True, alpha=0.3)
+
+    # Add year annotation at top right corner
+    ax.text(0.98, 0.98, str(latest_year), transform=ax.transAxes,
+            fontsize=24, fontweight='bold', ha='right', va='top',
+            bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', linewidth=2))
 
     # Remove top, left, right borders - keep only bottom
     ax.spines['top'].set_visible(False)
@@ -207,7 +218,7 @@ def plot_scatterplot(data: dict, out_path: Path):
 
     # Legend below the plot
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.12), ncol=4, fontsize=10,
-             title="Springfield (>10,000 FTE) omitted as high-enrollment outlier",
+             title="Springfield (>10K FTE) omitted as high-enrollment outlier",
              title_fontsize=9)
 
     # Annotation box removed per user request
@@ -359,17 +370,24 @@ def plot_grouping(data: dict, out_path: Path):
     enrollments = data['enrollments']
     springfield_name = data['springfield_name']
     springfield_value = data['springfield_value']
+    year_cohort_defs = data.get('year_cohort_defs', {})
 
     fig, ax = plt.subplots(figsize=(11, 6))
 
-    # Use dynamic cohort boundaries from COHORT_DEFINITIONS
-    from school_shared import COHORT_DEFINITIONS
-
-    tiny_range = COHORT_DEFINITIONS['TINY']['range']
-    small_range = COHORT_DEFINITIONS['SMALL']['range']
-    medium_range = COHORT_DEFINITIONS['MEDIUM']['range']
-    large_range = COHORT_DEFINITIONS['LARGE']['range']
-    xlarge_range = COHORT_DEFINITIONS['X-LARGE']['range']
+    # Use year-specific cohort boundaries if available, otherwise fall back to global
+    if year_cohort_defs:
+        tiny_range = year_cohort_defs['TINY']['range']
+        small_range = year_cohort_defs['SMALL']['range']
+        medium_range = year_cohort_defs['MEDIUM']['range']
+        large_range = year_cohort_defs['LARGE']['range']
+        xlarge_range = year_cohort_defs['X-LARGE']['range']
+    else:
+        from school_shared import COHORT_DEFINITIONS
+        tiny_range = COHORT_DEFINITIONS['TINY']['range']
+        small_range = COHORT_DEFINITIONS['SMALL']['range']
+        medium_range = COHORT_DEFINITIONS['MEDIUM']['range']
+        large_range = COHORT_DEFINITIONS['LARGE']['range']
+        xlarge_range = COHORT_DEFINITIONS['X-LARGE']['range']
 
     # Create 5 enrollment groups using dynamic boundaries
     proposed_thresholds = [tiny_range[0], small_range[0], medium_range[0], large_range[0], xlarge_range[0], xlarge_range[1] + 1]
@@ -393,7 +411,7 @@ def plot_grouping(data: dict, out_path: Path):
         proposed_groups.append(1)
 
     # Create bar chart with narrower bars (50% narrower: 0.5 height)
-    colors_list = ['#4575B4', '#74ADD1', '#FEE090', '#F46D43', '#D73027', '#A50026']  # Blue to Red gradient
+    colors_list = ['#4575B4', '#3C9DC4', '#FDB749', '#F46D43', '#D73027', '#A50026']  # Blue to Red gradient (saturated)
     bars = ax.barh(proposed_labels, proposed_groups, height=0.5, color=colors_list[:len(proposed_groups)],
                    edgecolor='black', alpha=0.7, linewidth=1.5)
 
