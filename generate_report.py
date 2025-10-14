@@ -22,6 +22,7 @@ from typing import List
 
 # Define the pipeline of scripts to execute
 PIPELINE = [
+    ("threshold_analysis.py", "Threshold analysis for shading thresholds"),
     ("executive_summary_plots.py", "Executive Summary plots"),
     ("district_expend_pp_stack.py", "District expenditure plots"),
     ("nss_ch70_main.py", "NSS/Ch70 funding plots"),
@@ -95,7 +96,7 @@ def main():
     failed_steps: List[str] = []
 
     for i, (script_path, description) in enumerate(PIPELINE, 1):
-        print(f"\n[Step {i}/{len(PIPELINE)}]")
+        print(f"\n[Step {i}/7]")  # Updated to 7 steps
         success = run_script(script_path, description)
 
         if not success:

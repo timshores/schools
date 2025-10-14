@@ -95,6 +95,29 @@ def calculate_cagr_chunks(series: pd.Series) -> pd.Series:
     return pd.Series(cagr_values)
 
 
+def calculate_cagr_15year(series: pd.Series) -> float:
+    """
+    Calculate 15-year CAGR from 2009 to 2024.
+
+    Args:
+        series: Time series with years as index
+
+    Returns:
+        CAGR value as percentage, or 0 if data not available
+    """
+    start_year, end_year = 2009, 2024
+    if start_year in series.index and end_year in series.index:
+        start_val = series[start_year]
+        end_val = series[end_year]
+        years = end_year - start_year
+
+        if start_val > 0 and end_val > 0:
+            cagr = ((end_val / start_val) ** (1 / years) - 1) * 100
+            return cagr
+
+    return 0
+
+
 def plot_yoy_growth_districts_of_interest(
     df: pd.DataFrame,
     reg: pd.DataFrame,
@@ -343,41 +366,93 @@ def plot_yoy_separate_panes(
 ):
     """
     Plot YoY growth with each district/cohort in its own horizontal pane.
+    Uses color shading by cohort and diagonal hatching for cohort aggregates.
     """
     print("\n[Executive Summary] Generating YoY separate panes plot...")
 
-    # Organize all items to plot (cohorts first, then districts within each cohort)
-    plot_items = []
+    from school_shared import COHORT_DEFINITIONS
+
+    # Organize all items to plot by cohort with color assignments
+    plot_items = []  # (name, yoy_data, color, is_cohort)
+
     for cohort in sorted(cohort_districts.keys()):
-        # Add cohort aggregate
+        base_color = COHORT_COLORS.get(cohort, "#777777")
+        cohort_items = []
+
+        # Get FTE range for cohort label
+        cohort_def = COHORT_DEFINITIONS.get(cohort, {})
+        fte_range = cohort_def.get('range', (0, 0))
+        fte_label = f" ({fte_range[0]:.0f}-{fte_range[1]:.0f} FTE)"
+
+        # Add cohort aggregate with FTE range
         if cohort in cohort_yoy:
-            plot_items.append((f"{cohort.title()} Cohort", cohort_yoy[cohort], cohort, True))
+            cohort_items.append((f"{cohort.title()} Cohort{fte_label}", cohort_yoy[cohort], True))
+
         # Add districts in this cohort
         for dist in cohort_districts[cohort]:
             if dist in district_yoy:
-                plot_items.append((dist, district_yoy[dist], cohort, False))
+                cohort_items.append((dist, district_yoy[dist], False))
+
+        # Generate color shades for this cohort's items
+        n_items = len(cohort_items)
+        if n_items > 1:
+            shades = generate_cohort_shades(base_color, n_items)
+        else:
+            shades = [base_color]
+
+        # Assign colors to items
+        for (name, yoy_data, is_cohort), color in zip(cohort_items, shades):
+            plot_items.append((name, yoy_data, color, is_cohort))
 
     n_items = len(plot_items)
-    fig, axes = plt.subplots(n_items, 1, figsize=(12, 2 * n_items), sharex=True)
+    fig, axes = plt.subplots(n_items, 1, figsize=(12, 2 * n_items), sharex=True, sharey=True)
     if n_items == 1:
         axes = [axes]
 
-    for idx, (name, yoy_data, cohort, is_cohort) in enumerate(plot_items):
-        ax = axes[idx]
-        color = COHORT_COLORS.get(cohort, "#777777")
-        linewidth = 3 if is_cohort else 2
-        alpha = 0.7 if is_cohort else 0.9
+    # Calculate global y-axis range across all plots
+    all_values = []
+    for name, yoy_data, color, is_cohort in plot_items:
+        all_values.extend(yoy_data.values)
+    y_min, y_max = min(all_values), max(all_values)
+    y_padding = (y_max - y_min) * 0.1
+    y_range = (y_min - y_padding, y_max + y_padding)
 
-        ax.plot(yoy_data.index, yoy_data.values, color=color, linewidth=linewidth, alpha=alpha)
+    # Ensure we show -10% if needed
+    if y_range[0] > -10:
+        y_range = (min(y_range[0], -10), y_range[1])
+
+    for idx, (name, yoy_data, color, is_cohort) in enumerate(plot_items):
+        ax = axes[idx]
+        linewidth = 5.5 if is_cohort else 2  # Bigger cohort line thickness
+        alpha = 0.8 if is_cohort else 0.9
+
+        # Plot line (fill area with hatching for cohorts)
+        if is_cohort:
+            # Plot with hatching for cohorts
+            ax.plot(yoy_data.index, yoy_data.values, color=color, linewidth=linewidth, alpha=alpha)
+            # Add hatched fill
+            ax.fill_between(yoy_data.index, 0, yoy_data.values, color=color, alpha=0.3, hatch='////', edgecolor=color, linewidth=0)
+        else:
+            ax.plot(yoy_data.index, yoy_data.values, color=color, linewidth=linewidth, alpha=alpha)
+
         ax.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5)
-        ax.set_ylabel('YoY (%)', fontsize=10)
-        ax.set_title(name, fontsize=11, fontweight='bold' if is_cohort else 'normal', loc='left')
+        ax.set_ylabel('YoY (%)', fontsize=14)
+        ax.set_title(name, fontsize=14, fontweight='bold' if is_cohort else 'normal', loc='left')
+        ax.set_ylim(y_range)  # Set consistent y-axis range
+
+        # Set specific tick marks at -10%, 0%, 10%, 20%
+        ax.set_yticks([-10, 0, 10, 20])
+
         ax.grid(True, alpha=0.3)
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.1f}%'))
+        # Format y-axis as integers without decimals
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{int(y)}%'))
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
 
-    axes[-1].set_xlabel('Year', fontsize=12)
+        # Increase tick label sizes
+        ax.tick_params(axis='both', labelsize=12)
+
+    axes[-1].set_xlabel('Year', fontsize=14)
     plt.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
@@ -386,16 +461,45 @@ def plot_yoy_separate_panes(
     print(f"  Saved: {output_path}")
 
 
-def plot_cagr_separate_panes(
+def generate_cohort_shades(base_color: str, n_shades: int) -> List[str]:
+    """
+    Generate shades of a base color for districts within a cohort.
+
+    Args:
+        base_color: Hex color (e.g., "#4575B4")
+        n_shades: Number of shades to generate
+
+    Returns:
+        List of hex color strings
+    """
+    import matplotlib.colors as mcolors
+
+    # Convert hex to RGB
+    rgb = mcolors.hex2color(base_color)
+
+    # Generate shades by adjusting brightness
+    shades = []
+    for i in range(n_shades):
+        # Vary brightness from 0.5 to 1.2
+        factor = 0.5 + (i / max(n_shades - 1, 1)) * 0.7
+        new_rgb = tuple(min(1.0, c * factor) for c in rgb)
+        shades.append(mcolors.rgb2hex(new_rgb))
+
+    return shades
+
+
+def plot_cagr_grouped_bars(
     df: pd.DataFrame,
     cohort_districts: Dict,
     cohorts: Dict,
     output_path: Path
 ):
     """
-    Plot CAGR chunks with each district/cohort in its own horizontal pane.
+    Plot 5-year CAGR as vertical grouped bars with time periods on x-axis.
+    Colors are cohort-based with shades for different districts.
+    Cohorts shown with thicker diagonal white hatching.
     """
-    print("\n[Executive Summary] Generating CAGR separate panes plot...")
+    print("\n[Executive Summary] Generating CAGR grouped bars plot...")
 
     # Calculate CAGR for all districts
     district_cagr = {}
@@ -416,38 +520,194 @@ def plot_cagr_separate_panes(
             cagr = calculate_cagr_chunks(total_ppe)
             cohort_cagr[cohort] = cagr
 
-    # Organize plot items
-    plot_items = []
+    # Organize plot items by cohort and assign colors
+    plot_items = []  # (name, cagr_data, color, is_cohort)
+
     for cohort in sorted(cohort_districts.keys()):
+        base_color = COHORT_COLORS.get(cohort, "#777777")
+        cohort_items = []
+
+        # Add cohort aggregate first
         if cohort in cohort_cagr:
-            plot_items.append((f"{cohort.title()} Cohort", cohort_cagr[cohort], cohort, True))
+            cohort_items.append((f"{cohort.title()} Cohort", cohort_cagr[cohort], True))
+
+        # Add districts in this cohort
         for dist in cohort_districts[cohort]:
             if dist in district_cagr:
-                plot_items.append((dist, district_cagr[dist], cohort, False))
+                cohort_items.append((dist, district_cagr[dist], False))
 
+        # Generate shades for this cohort's items
+        n_items = len(cohort_items)
+        if n_items > 1:
+            shades = generate_cohort_shades(base_color, n_items)
+        else:
+            shades = [base_color]
+
+        # Assign colors to items
+        for (name, cagr_data, is_cohort), color in zip(cohort_items, shades):
+            plot_items.append((name, cagr_data, color, is_cohort))
+
+    # Set up the figure
+    periods = [2014, 2019, 2024]
+    period_labels = ['2009-2014', '2014-2019', '2019-2024']
+    n_periods = len(periods)
     n_items = len(plot_items)
-    fig, axes = plt.subplots(n_items, 1, figsize=(12, 2 * n_items), sharex=True)
-    if n_items == 1:
-        axes = [axes]
 
-    for idx, (name, cagr_data, cohort, is_cohort) in enumerate(plot_items):
-        ax = axes[idx]
-        color = COHORT_COLORS.get(cohort, "#777777")
-        linewidth = 3 if is_cohort else 2
-        alpha = 0.7 if is_cohort else 0.9
+    fig, ax = plt.subplots(figsize=(16, 9))
 
-        ax.plot(cagr_data.index, cagr_data.values, color=color, linewidth=linewidth,
-                alpha=alpha, marker='o', markersize=8 if is_cohort else 6)
-        ax.set_ylabel('CAGR (%)', fontsize=10)
-        ax.set_title(name, fontsize=11, fontweight='bold' if is_cohort else 'normal', loc='left')
-        ax.grid(True, alpha=0.3)
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.1f}%'))
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+    # Bar dimensions
+    bar_width = 0.8 / n_items  # Total width of 0.8 per period group
+    x_positions = np.arange(n_periods)
 
-    axes[-1].set_xlabel('Period End Year', fontsize=12)
-    axes[-1].set_xticks([2014, 2019, 2024])
-    axes[-1].set_xticklabels(['2009-2014', '2014-2019', '2019-2024'])
+    # Plot bars
+    for item_idx, (name, cagr_data, color, is_cohort) in enumerate(plot_items):
+        x_offset = (item_idx - n_items / 2) * bar_width + bar_width / 2
+
+        cagr_values = []
+        for period in periods:
+            cagr_val = cagr_data.get(period, 0) if period in cagr_data.index else 0
+            cagr_values.append(cagr_val)
+
+        # Plot bars with thicker white diagonal lines for cohorts
+        if is_cohort:
+            ax.bar(x_positions + x_offset, cagr_values, bar_width * 0.95,
+                   color=color, alpha=0.8, edgecolor='white', linewidth=2,
+                   hatch='////', label=name)
+        else:
+            ax.bar(x_positions + x_offset, cagr_values, bar_width * 0.95,
+                   color=color, alpha=0.9, edgecolor='white', linewidth=0.5,
+                   label=name)
+
+    # Customize axes
+    ax.set_xlabel('Time Period', fontsize=20, fontweight='bold')
+    ax.set_ylabel('5-Year CAGR (%) of PPE', fontsize=20, fontweight='bold')
+    ax.set_xticks(x_positions)
+    ax.set_xticklabels(period_labels, fontsize=18)
+    ax.tick_params(axis='y', labelsize=17)
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.1f}%'))
+
+    # Add horizontal line at 0
+    ax.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5, zorder=0)
+
+    # Add legend above plot (horizontal layout spanning full width)
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.08), fontsize=13,
+              framealpha=0.95, ncol=n_items)
+
+    # Grid and spines
+    ax.grid(True, axis='y', alpha=0.3)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.92)  # Make room for legend above
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+
+    print(f"  Saved: {output_path}")
+
+
+def plot_cagr_15year_bars(
+    df: pd.DataFrame,
+    cohort_districts: Dict,
+    cohorts: Dict,
+    output_path: Path
+):
+    """
+    Plot 15-year CAGR (2009-2024) as a single group of vertical bars.
+    Colors are cohort-based with shades for different districts.
+    Cohorts shown with thicker diagonal white hatching.
+    """
+    print("\n[Executive Summary] Generating 15-year CAGR bars plot...")
+
+    # Calculate 15-year CAGR for all districts
+    district_cagr_15y = {}
+    for dist in DISTRICTS_OF_INTEREST:
+        epp_pivot, _ = prepare_district_epp_lines(df, dist)
+        if not epp_pivot.empty:
+            total_ppe = epp_pivot.sum(axis=1)
+            cagr = calculate_cagr_15year(total_ppe)
+            if cagr > 0:
+                district_cagr_15y[dist] = cagr
+
+    # Calculate 15-year CAGR for cohort aggregates
+    cohort_cagr_15y = {}
+    for cohort, dists in cohort_districts.items():
+        all_cohort_districts = cohorts[cohort]
+        epp_pivot, _, _ = weighted_epp_aggregation(df, all_cohort_districts)
+        if not epp_pivot.empty:
+            total_ppe = epp_pivot.sum(axis=1)
+            cagr = calculate_cagr_15year(total_ppe)
+            if cagr > 0:
+                cohort_cagr_15y[cohort] = cagr
+
+    # Organize plot items by cohort and assign colors
+    plot_items = []  # (name, cagr_value, color, is_cohort)
+
+    for cohort in sorted(cohort_districts.keys()):
+        base_color = COHORT_COLORS.get(cohort, "#777777")
+        cohort_items = []
+
+        # Add cohort aggregate first
+        if cohort in cohort_cagr_15y:
+            cohort_items.append((f"{cohort.title()} Cohort", cohort_cagr_15y[cohort], True))
+
+        # Add districts in this cohort
+        for dist in cohort_districts[cohort]:
+            if dist in district_cagr_15y:
+                cohort_items.append((dist, district_cagr_15y[dist], False))
+
+        # Generate shades for this cohort's items
+        n_items = len(cohort_items)
+        if n_items > 1:
+            shades = generate_cohort_shades(base_color, n_items)
+        else:
+            shades = [base_color]
+
+        # Assign colors to items
+        for (name, cagr_value, is_cohort), color in zip(cohort_items, shades):
+            plot_items.append((name, cagr_value, color, is_cohort))
+
+    # Set up the figure
+    n_items = len(plot_items)
+    fig, ax = plt.subplots(figsize=(16, 7))
+
+    # Bar positions
+    x_positions = np.arange(n_items)
+    bar_width = 0.7
+
+    # Extract values and colors
+    names = [name for name, _, _, _ in plot_items]
+    cagr_values = [cagr for _, cagr, _, _ in plot_items]
+    colors = [color for _, _, color, _ in plot_items]
+    is_cohorts = [is_cohort for _, _, _, is_cohort in plot_items]
+
+    # Plot bars
+    for i, (x, cagr_val, color, is_cohort) in enumerate(zip(x_positions, cagr_values, colors, is_cohorts)):
+        if is_cohort:
+            ax.bar(x, cagr_val, bar_width,
+                   color=color, alpha=0.8, edgecolor='white', linewidth=2,
+                   hatch='////')
+        else:
+            ax.bar(x, cagr_val, bar_width,
+                   color=color, alpha=0.9, edgecolor='white', linewidth=0.5)
+
+    # Customize axes
+    ax.set_xlabel('District / Cohort', fontsize=20, fontweight='bold')
+    ax.set_ylabel('15-Year CAGR (%) of PPE\n2009-2024', fontsize=20, fontweight='bold')
+    ax.set_xticks(x_positions)
+    ax.set_xticklabels(names, rotation=45, ha='right', fontsize=14)
+    ax.tick_params(axis='y', labelsize=17)
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.1f}%'))
+
+    # Add horizontal line at 0
+    ax.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5, zorder=0)
+
+    # Grid and spines
+    ax.grid(True, axis='y', alpha=0.3)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
     plt.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
@@ -463,31 +723,29 @@ def main():
     print("=" * 70)
 
     # Load data
-    print("\n[1/6] Loading data...")
+    print("\n[1/5] Loading data...")
     df, reg, c70 = load_data()
     print(f"  Loaded {len(df)} expenditure records")
 
     # Generate YoY growth plot (returns data for other plots)
-    print("\n[2/6] Generating YoY growth plot...")
+    print("\n[2/5] Generating YoY growth plot...")
     output_path = OUTPUT_DIR / "executive_summary_yoy_growth.png"
     district_yoy, cohort_yoy, cohort_districts, cohorts = plot_yoy_growth_districts_of_interest(df, reg, output_path)
 
-    # Generate CAGR chunks plot
-    print("\n[3/6] Generating CAGR chunks plot...")
-    output_path = OUTPUT_DIR / "executive_summary_cagr_chunks.png"
-    plot_cagr_chunks_districts_of_interest(df, reg, output_path)
-
     # Generate YoY separate panes plot
-    print("\n[4/6] Generating YoY separate panes plot...")
+    print("\n[3/5] Generating YoY separate panes plot...")
     output_path = OUTPUT_DIR / "executive_summary_yoy_panes.png"
     plot_yoy_separate_panes(district_yoy, cohort_yoy, cohort_districts, output_path)
 
-    # Generate CAGR separate panes plot
-    print("\n[5/6] Generating CAGR separate panes plot...")
-    output_path = OUTPUT_DIR / "executive_summary_cagr_panes.png"
-    plot_cagr_separate_panes(df, cohort_districts, cohorts, output_path)
+    # Generate CAGR 5-year grouped bars plot
+    print("\n[4/5] Generating 5-year CAGR grouped bars plot...")
+    output_path = OUTPUT_DIR / "executive_summary_cagr_grouped.png"
+    plot_cagr_grouped_bars(df, cohort_districts, cohorts, output_path)
 
-    print("\n[6/6] All plots generated!")
+    # Generate CAGR 15-year bars plot
+    print("\n[5/5] Generating 15-year CAGR bars plot...")
+    output_path = OUTPUT_DIR / "executive_summary_cagr_15year.png"
+    plot_cagr_15year_bars(df, cohort_districts, cohorts, output_path)
 
     print("\n" + "=" * 70)
     print("[SUCCESS] Executive Summary plots generated!")

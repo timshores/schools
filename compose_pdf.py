@@ -1183,8 +1183,205 @@ def _build_nss_ch70_data_table(nss_pivot: pd.DataFrame, title: str, doc_width: f
     return tbl
 
 # ---- Page dicts ----
+def build_threshold_analysis_page() -> dict:
+    """
+    Build threshold analysis page showing global SDs and recommended thresholds.
+
+    This is a temporary working page to help determine appropriate shading thresholds.
+    """
+    # Check if analysis files exist
+    sds_path = OUTPUT_DIR / 'threshold_sds.csv'
+    thresholds_path = OUTPUT_DIR / 'threshold_analysis.csv'
+
+    if not sds_path.exists() or not thresholds_path.exists():
+        print("[WARNING] Threshold analysis files not found. Run threshold_analysis.py first.")
+        return None
+
+    # Read data
+    sds_df = pd.read_csv(sds_path)
+    thresholds_df = pd.read_csv(thresholds_path)
+
+    # Build summary table showing SDs and current thresholds
+    summary_data = []
+    summary_data.append([
+        Paragraph("<b>Metric</b>", style_body),
+        Paragraph("<b>Mean</b>", style_body),
+        Paragraph("<b>Std Dev</b>", style_body),
+        Paragraph("<b>CV</b><br/>(SD/Mean)", style_body),
+        Paragraph("<b>Current<br/>Threshold</b>", style_body),
+        Paragraph("<b>Recommended<br/>0.5 SD</b>", style_body),
+        Paragraph("<b>Recommended<br/>1.0 SD</b>", style_body),
+    ])
+
+    # PPE metrics
+    ppe_2009_mean = sds_df['ppe_2009_mean'].values[0]
+    ppe_2009_sd = sds_df['ppe_2009_sd'].values[0]
+    ppe_2009_cv = ppe_2009_sd / ppe_2009_mean
+
+    ppe_2024_mean = sds_df['ppe_2024_mean'].values[0]
+    ppe_2024_sd = sds_df['ppe_2024_sd'].values[0]
+    ppe_2024_cv = ppe_2024_sd / ppe_2024_mean
+
+    summary_data.append([
+        Paragraph("PPE 2009", style_body),
+        Paragraph(f"${ppe_2009_mean:,.0f}", style_num),
+        Paragraph(f"${ppe_2009_sd:,.0f}", style_num),
+        Paragraph(f"{ppe_2009_cv:.1%}", style_num),
+        Paragraph("2.0%", style_num),
+        Paragraph(f"{(ppe_2009_sd * 0.5 / ppe_2009_mean):.1%}", style_num),
+        Paragraph(f"{(ppe_2009_sd * 1.0 / ppe_2009_mean):.1%}", style_num),
+    ])
+
+    summary_data.append([
+        Paragraph("PPE 2024", style_body),
+        Paragraph(f"${ppe_2024_mean:,.0f}", style_num),
+        Paragraph(f"${ppe_2024_sd:,.0f}", style_num),
+        Paragraph(f"{ppe_2024_cv:.1%}", style_num),
+        Paragraph("2.0%", style_num),
+        Paragraph(f"{(ppe_2024_sd * 0.5 / ppe_2024_mean):.1%}", style_num),
+        Paragraph(f"{(ppe_2024_sd * 1.0 / ppe_2024_mean):.1%}", style_num),
+    ])
+
+    # CAGR metrics
+    for period, label in [('15y', '15-Year'), ('10y', '10-Year'), ('5y', '5-Year')]:
+        mean_val = sds_df[f'cagr_{period}_mean'].values[0]
+        sd_val = sds_df[f'cagr_{period}_sd'].values[0]
+
+        summary_data.append([
+            Paragraph(f"PPE CAGR {label}", style_body),
+            Paragraph(f"{mean_val:.2f}%", style_num),
+            Paragraph(f"{sd_val:.2f}pp", style_num),
+            Paragraph("—", style_num),
+            Paragraph("2.0pp", style_num),
+            Paragraph(f"{(sd_val * 0.5):.2f}pp", style_num),
+            Paragraph(f"{(sd_val * 1.0):.2f}pp", style_num),
+        ])
+
+    # Enrollment metrics
+    enroll_2009_mean = sds_df['enroll_2009_mean'].values[0]
+    enroll_2009_sd = sds_df['enroll_2009_sd'].values[0]
+    enroll_2009_cv = enroll_2009_sd / enroll_2009_mean
+
+    enroll_2024_mean = sds_df['enroll_2024_mean'].values[0]
+    enroll_2024_sd = sds_df['enroll_2024_sd'].values[0]
+    enroll_2024_cv = enroll_2024_sd / enroll_2024_mean
+
+    summary_data.append([
+        Paragraph("Enrollment 2009", style_body),
+        Paragraph(f"{enroll_2009_mean:.0f}", style_num),
+        Paragraph(f"{enroll_2009_sd:.0f}", style_num),
+        Paragraph(f"{enroll_2009_cv:.1%}", style_num),
+        Paragraph("2.0%", style_num),
+        Paragraph(f"{(enroll_2009_sd * 0.5 / enroll_2009_mean):.1%}", style_num),
+        Paragraph(f"{(enroll_2009_sd * 1.0 / enroll_2009_mean):.1%}", style_num),
+    ])
+
+    summary_data.append([
+        Paragraph("Enrollment 2024", style_body),
+        Paragraph(f"{enroll_2024_mean:.0f}", style_num),
+        Paragraph(f"{enroll_2024_sd:.0f}", style_num),
+        Paragraph(f"{enroll_2024_cv:.1%}", style_num),
+        Paragraph("2.0%", style_num),
+        Paragraph(f"{(enroll_2024_sd * 0.5 / enroll_2024_mean):.1%}", style_num),
+        Paragraph(f"{(enroll_2024_sd * 1.0 / enroll_2024_mean):.1%}", style_num),
+    ])
+
+    # Enrollment CAGR metrics
+    enroll_cagr_metrics = [
+        ('enroll_cagr_15y', 'Enrollment CAGR 15y'),
+        ('enroll_cagr_10y', 'Enrollment CAGR 10y'),
+        ('enroll_cagr_5y', 'Enrollment CAGR 5y')
+    ]
+
+    for metric_key, metric_name in enroll_cagr_metrics:
+        mean_val = sds_df[f'{metric_key}_mean'].values[0]
+        sd_val = sds_df[f'{metric_key}_sd'].values[0]
+
+        summary_data.append([
+            Paragraph(metric_name, style_body),
+            Paragraph(f"{mean_val:.2f}%", style_num),
+            Paragraph(f"{sd_val:.2f}pp", style_num),
+            Paragraph("—", style_num),
+            Paragraph("2.0pp", style_num),
+            Paragraph(f"{(sd_val * 0.5):.2f}pp", style_num),
+            Paragraph(f"{(sd_val * 1.0):.2f}pp", style_num),
+        ])
+
+    # Build table
+    summary_table = Table(summary_data, colWidths=[1.5*inch, 0.9*inch, 0.9*inch, 0.9*inch, 0.9*inch, 1.0*inch, 1.0*inch])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
+    ]))
+
+    # Explanatory text
+    explanation_blocks = [
+        "<b>Analysis of Global Standard Deviations for Shading Thresholds</b>",
+        "",
+        "<b>Purpose:</b> Determine appropriate thresholds for red/green shading in district comparison tables by analyzing "
+        "the natural variation across all Western MA districts.",
+        "",
+        "<b>Current Problem:</b> Using a uniform 2.0% threshold for both $/pupil and CAGR creates unbalanced sensitivity:",
+        "• $/pupil values typically vary by 10-15% across districts (CV ≈ 0.1-0.15)",
+        "• CAGR values typically vary by 1-3 percentage points (SD ≈ 1-2pp)",
+        "• A 2.0% $/pupil difference is relatively small (< 0.5 SD), causing excessive shading",
+        "• A 2.0pp CAGR difference is relatively large (> 1.0 SD), causing insufficient shading",
+        "",
+        "<b>Methodology:</b>",
+        "1. Pooled all Western MA districts (all cohorts combined, excluding Springfield outlier)",
+        "2. Calculated global mean and standard deviation for each metric",
+        "3. Computed Coefficient of Variation (CV = SD/Mean) to assess relative spread",
+        "4. Tested threshold options at 0.5 SD and 1.0 SD multiples",
+        "",
+        "<b>Note:</b> Springfield (>10,000 FTE) was excluded as a statistical outlier to ensure SD calculations "
+        "reflect the natural variation among typical districts.",
+        "",
+        "<b>Key Findings:</b>",
+        f"• PPE 2024: Mean = ${ppe_2024_mean:,.0f}, SD = ${ppe_2024_sd:,.0f}, CV = {ppe_2024_cv:.1%}",
+        f"  - 0.5 SD = {(ppe_2024_sd * 0.5 / ppe_2024_mean):.1%} (vs current 2.0%)",
+        f"  - 1.0 SD = {(ppe_2024_sd * 1.0 / ppe_2024_mean):.1%}",
+        "",
+        f"• PPE CAGR 15y: Mean = {sds_df['cagr_15y_mean'].values[0]:.2f}%, SD = {sds_df['cagr_15y_sd'].values[0]:.2f}pp",
+        f"  - 0.5 SD = {(sds_df['cagr_15y_sd'].values[0] * 0.5):.2f}pp (vs current 2.0pp)",
+        f"  - 1.0 SD = {(sds_df['cagr_15y_sd'].values[0] * 1.0):.2f}pp",
+        "",
+        f"• Enrollment 2024: Mean = {enroll_2024_mean:.0f}, SD = {enroll_2024_sd:.0f}, CV = {enroll_2024_cv:.1%}",
+        f"  - 0.5 SD = {(enroll_2024_sd * 0.5 / enroll_2024_mean):.1%} (vs current 2.0%)",
+        "",
+        f"• Enrollment CAGR 15y: Mean = {sds_df['enroll_cagr_15y_mean'].values[0]:.2f}%, SD = {sds_df['enroll_cagr_15y_sd'].values[0]:.2f}pp",
+        f"  - 0.5 SD = {(sds_df['enroll_cagr_15y_sd'].values[0] * 0.5):.2f}pp (vs current 2.0pp)",
+        "",
+        "<b>Recommendation:</b> Consider using 0.5 SD as the threshold for both % and pp metrics. This creates more "
+        "balanced sensitivity across different metric types while highlighting meaningful differences.",
+        "",
+        "<b>Alternative:</b> Use 1.0 SD for more conservative shading that only highlights larger differences.",
+    ]
+
+    return dict(
+        title="Threshold Analysis (Working Page)",
+        subtitle="Determining Appropriate Shading Thresholds Based on Global Standard Deviations",
+        chart_path=None,
+        threshold_analysis=True,
+        summary_table=summary_table,
+        explanation_blocks=explanation_blocks
+    )
+
+
 def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> List[dict]:
     pages: List[dict] = []
+
+    # PAGE 0: Threshold Analysis (temporary working page)
+    threshold_page = build_threshold_analysis_page()
+    if threshold_page:
+        pages.append(threshold_page)
 
     latest = int(df["YEAR"].max())
     t0 = latest - 5
@@ -1206,37 +1403,47 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     else:
         western_text_blocks = [western_explanation]
 
-    # PAGE 0: Executive Summary (YoY and CAGR growth analysis)
-    executive_summary_heading = "Per-pupil expenditure rate of growth for districts of interest: Year-over-Year (YoY) 2009-2024 (top) and 5-year CAGR chunks (bottom)"
+    # PAGE 0: Executive Summary - YoY Separate Panes
+    exec_summary_explanation = (
+        "These plots show year-over-year (YoY) growth rates in per-pupil expenditure (PPE) "
+        "for districts of interest and their enrollment cohorts. The districts are organized into "
+        "enrollment cohorts based on student population size. The thicker lines represent cohort aggregates, "
+        "while thinner lines show individual districts within each cohort. "
+        "The determination of these cohorts is explained in detail in Appendix B. "
+        "While patterns can be observed in these plots, it is difficult to discern a clear, consistent signal "
+        "across all districts and cohorts over the 2009-2024 period."
+    )
     pages.append(dict(
         title="Executive Summary",
-        subtitle="",
-        chart_paths=[
-            str(OUTPUT_DIR / "executive_summary_yoy_growth.png"),
-            str(OUTPUT_DIR / "executive_summary_cagr_chunks.png")
-        ],
-        text_blocks=[executive_summary_heading],
-        graph_only=True,
-        two_charts_vertical=True,
-        section_id="executive_summary"
-    ))
-
-    # PAGE 0a: Executive Summary - YoY Separate Panes
-    pages.append(dict(
-        title="Executive Summary (continued)",
         subtitle="Year-over-Year (YoY) growth rates by district and cohort",
         chart_path=str(OUTPUT_DIR / "executive_summary_yoy_panes.png"),
-        text_blocks=[],
-        graph_only=True
+        text_blocks=[exec_summary_explanation],
+        graph_only=True,
+        section_id="executive_summary",
+        executive_summary=True  # Flag for special chart sizing
     ))
 
-    # PAGE 0b: Executive Summary - CAGR Separate Panes
+    # PAGE 0b: Executive Summary - CAGR Grouped Bars with explanation
+    cagr_explanation = (
+        "The Compound Annual Growth Rate (CAGR) provides a clearer picture of growth trends by smoothing out "
+        "year-to-year volatility. By comparing 5-year periods (2009-2014, 2014-2019, 2019-2024), we can observe "
+        "how growth rates have evolved over time. The visualization below uses color shading to group districts "
+        "by their enrollment cohorts, with diagonal white lines marking cohort aggregates for easy identification. "
+        "For a longer-term perspective, we can also examine the 15-year CAGR from 2009 to 2024, shown in the "
+        "second chart, which captures the overall growth trajectory across the entire period."
+    )
     pages.append(dict(
         title="Executive Summary (continued)",
         subtitle="5-year CAGR by district and cohort",
-        chart_path=str(OUTPUT_DIR / "executive_summary_cagr_panes.png"),
-        text_blocks=[],
-        graph_only=True
+        chart_paths=[
+            str(OUTPUT_DIR / "executive_summary_cagr_grouped.png"),
+            str(OUTPUT_DIR / "executive_summary_cagr_15year.png")
+        ],
+        text_blocks=[cagr_explanation],
+        graph_only=True,
+        executive_summary=True,  # Flag for special chart sizing
+        two_charts_vertical=True,  # Stack both CAGR charts vertically
+        cagr_with_text=True  # Special flag for text placement between charts
     ))
 
     pages.append(dict(
@@ -1972,6 +2179,27 @@ def build_pdf(pages: List[dict], out_path: Path):
 
     story: List = []
     for idx, p in enumerate(pages):
+        # Handle threshold analysis page
+        if p.get("threshold_analysis"):
+            story.append(Paragraph(p["title"], style_title_main))
+            story.append(Paragraph(p["subtitle"], style_title_sub))
+            story.append(Spacer(0, 12))
+
+            # Add summary table
+            if p.get("summary_table"):
+                story.append(p["summary_table"])
+                story.append(Spacer(0, 12))
+
+            # Add explanation blocks
+            explanation_blocks = p.get("explanation_blocks", [])
+            for block in explanation_blocks:
+                story.append(Paragraph(block, style_body))
+                story.append(Spacer(0, 6))
+
+            if idx < len(pages)-1:
+                story.append(PageBreak())
+            continue
+
         # Handle TOC page
         if p.get("page_type") == "toc":
             story.append(Paragraph(p["title"], style_title_main))
@@ -2021,21 +2249,63 @@ def build_pdf(pages: List[dict], out_path: Path):
         if chart_paths:
             # Two charts vertical: split page height between them
             if p.get("two_charts_vertical") and len(chart_paths) == 2:
-                for chart_path in chart_paths:
-                    img_path = Path(chart_path)
-                    if not img_path.exists():
-                        story.append(Paragraph(f"[Missing chart image: {img_path.name}]", style_body))
-                    else:
+                # Special handling for CAGR page with text between charts
+                if p.get("cagr_with_text"):
+                    # Add text blocks first (before first chart)
+                    text_blocks = p.get("text_blocks", []) or []
+                    if text_blocks:
+                        for block in text_blocks:
+                            story.append(Paragraph(block, style_body))
+                        story.append(Spacer(0, 12))
+
+                    # Add first chart (5-year CAGR)
+                    img_path = Path(chart_paths[0])
+                    if img_path.exists():
                         im = Image(str(img_path))
                         ratio = im.imageHeight / float(im.imageWidth)
-                        im.drawWidth = doc.width; im.drawHeight = doc.width * ratio
-                        # Each chart gets ~38% of page height (76% total for two charts)
-                        max_chart_h = doc.height * 0.38
+                        im.drawWidth = doc.width
+                        im.drawHeight = doc.width * ratio
+                        max_chart_h = doc.height * 0.32  # Smaller to fit text + 2 charts
                         if im.drawHeight > max_chart_h:
-                            im.drawHeight = max_chart_h; im.drawWidth = im.drawHeight / ratio
+                            im.drawHeight = max_chart_h
+                            im.drawWidth = im.drawHeight / ratio
                         story.append(im)
-                        if chart_path != chart_paths[-1]:  # Add small spacer between charts
-                            story.append(Spacer(0, 6))
+                        story.append(Spacer(0, 12))
+
+                    # Add second chart (15-year CAGR)
+                    img_path = Path(chart_paths[1])
+                    if img_path.exists():
+                        im = Image(str(img_path))
+                        ratio = im.imageHeight / float(im.imageWidth)
+                        im.drawWidth = doc.width
+                        im.drawHeight = doc.width * ratio
+                        max_chart_h = doc.height * 0.32
+                        if im.drawHeight > max_chart_h:
+                            im.drawHeight = max_chart_h
+                            im.drawWidth = im.drawHeight / ratio
+                        story.append(im)
+
+                    # Skip to page break - don't process further for this page type
+                    if idx < len(pages)-1:
+                        story.append(PageBreak())
+                    continue
+                else:
+                    # Standard two charts vertical (no text between)
+                    for chart_path in chart_paths:
+                        img_path = Path(chart_path)
+                        if not img_path.exists():
+                            story.append(Paragraph(f"[Missing chart image: {img_path.name}]", style_body))
+                        else:
+                            im = Image(str(img_path))
+                            ratio = im.imageHeight / float(im.imageWidth)
+                            im.drawWidth = doc.width; im.drawHeight = doc.width * ratio
+                            # Each chart gets ~38% of page height (76% total for two charts)
+                            max_chart_h = doc.height * 0.38
+                            if im.drawHeight > max_chart_h:
+                                im.drawHeight = max_chart_h; im.drawWidth = im.drawHeight / ratio
+                            story.append(im)
+                            if chart_path != chart_paths[-1]:  # Add small spacer between charts
+                                story.append(Spacer(0, 6))
             else:
                 # Single chart rendering (original logic)
                 for chart_path in chart_paths:
@@ -2048,8 +2318,11 @@ def build_pdf(pages: List[dict], out_path: Path):
                         im.drawWidth = doc.width; im.drawHeight = doc.width * ratio
                         if p.get("graph_only"):
                             name = img_path.name.lower()
-                            # Western overview gets 70% of page for breathing room, others 62%
-                            if "ppe_overview_all_western" in name:
+                            # Executive summary gets 75% of page for large multi-pane plots
+                            if p.get("executive_summary"):
+                                max_chart_h = doc.height * 0.75
+                            # Western overview gets 70% of page for breathing room
+                            elif "ppe_overview_all_western" in name:
                                 max_chart_h = doc.height * 0.70
                             else:
                                 max_chart_h = doc.height * 0.62
@@ -2060,7 +2333,8 @@ def build_pdf(pages: List[dict], out_path: Path):
                         story.append(im)
 
         # Add text blocks (for graph_only pages, add after image)
-        if p.get("graph_only"):
+        # Skip if cagr_with_text since text is already added before charts
+        if p.get("graph_only") and not p.get("cagr_with_text"):
             text_blocks = p.get("text_blocks", []) or []
             if text_blocks:
                 story.append(Spacer(0, 12))
