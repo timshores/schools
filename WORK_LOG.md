@@ -1,5 +1,426 @@
 # Work Log - School Data Analysis Project
 
+## 2025-10-16 (Session 4) - Figure/Table Label Refinement and Plot Generation Cleanup
+
+### Updated Label Layout and Removed Unused Plot Generation
+
+**Context:** User requested refinement of figure/table labels and removal of unused plot generation. Plot width changes were rolled back to original state.
+
+**Files Modified:**
+- `compose_pdf.py` (lines 86-103, 2563, 2756, 2776, 2834, 2857)
+- `executive_summary_plots.py` (lines 593-594, 732-767)
+- `western_enrollment_plots_individual.py` (lines 148, 220)
+
+**Changes Made:**
+
+1. **Refined Figure/Table Label Layout**
+   - Removed pipe separator "|" between Figure # and Table #
+   - Changed to left-justify Figure # and right-justify Table # on same line
+   - Created `build_combined_fig_table_label()` function (lines 86-103 in compose_pdf.py)
+   - Uses ReportLab Table with two columns to achieve split alignment
+   - Left column: Figure # (left-aligned with gray background)
+   - Right column: Table # (right-aligned with gray background)
+   - Applied to all 5 locations where figure/table appear adjacent:
+     - Threshold analysis table (line 2563)
+     - Scatterplot district table (line 2756)
+     - Data table pages (line 2776)
+     - NSS/Ch70 pages (line 2834)
+     - Regular district pages (line 2857)
+
+2. **Removed Unused YoY Growth Plot Generation**
+   - Deleted generation of executive_summary_yoy_growth.png (no longer used in PDF)
+   - Replaced plot generation call with inline data calculation (lines 732-767)
+   - Retained data calculation logic for use in other plots:
+     - YoY separate panes plot
+     - CAGR grouped bars plot
+     - CAGR 15-year bars plot
+   - Eliminated redundant file generation while preserving required data
+
+3. **Rolled Back Plot Width Changes**
+   - executive_summary_cagr_grouped.png: Reverted legend to ncol=4 (from ncol=5)
+   - enrollment_1_scatterplot_*.png: Reverted figsize to (11, 6) (from 30, 8) and legend to ncol=4 (from ncol=9)
+   - Both plots returned to original proportions before width problems began
+   - Maintains 2x enlarged legend font and swatches for CAGR plot
+
+**Impact:**
+- ✅ Figure # left-aligned, Table # right-aligned, no pipe separator
+- ✅ executive_summary_yoy_growth.png no longer generated (unused)
+- ✅ CAGR grouped plot and scatterplots at original dimensions
+- ✅ All plots render with original proportions
+
+**Technical Notes:**
+- Combined figure/table label uses ReportLab Table with zero padding for seamless appearance
+- Two-column table allows independent alignment (left/right) within same line
+- Plot dimensions returned to state before legend width experimentation
+
+---
+
+## 2025-10-16 (Session 3) - Final Formatting and Appendix Reorganization
+
+### Comprehensive Figure/Table Formatting and Appendix Restructuring
+
+**Context:** User requested final formatting improvements including combined figure/table labels, appendix merging, and plot size corrections.
+
+**Files Modified:**
+- `western_enrollment_plots_individual.py` (line 148)
+- `executive_summary_plots.py` (lines 556, 677-679)
+- `compose_pdf.py` (lines 53-84, 125, 2522-2530, 2672-2679, 2704, 2728-2734, 2776-2781, 2791-2798, 2017-2443, 2483-2487, 2505-2507)
+
+**Changes Made:**
+
+1. **Scatterplot Size Correction**
+   - Increased figsize from `(11, 6)` to `(11, 8)` in western_enrollment_plots_individual.py:148
+   - Plot no longer appears as narrow rectangle despite wide 9-column legend
+   - Maintains full plot height while accommodating horizontal legend layout
+
+2. **Combined Figure and Table Numbers**
+   - Added `_PENDING_FIGURE_NUM` tracking system (lines 53-84 in compose_pdf.py)
+   - Created `style_fig_table_num` style for combined labels (line 125)
+   - Implemented `set_pending_figure()` and `get_and_clear_pending_figure()` functions
+   - Modified figure rendering to store pending figure numbers for non-graph_only pages (lines 2672-2679)
+   - Updated all table rendering locations to check for pending figures and combine labels:
+     - Threshold analysis table (lines 2522-2530)
+     - Scatterplot district table (lines 2728-2734)
+     - Data table pages (lines 2743-2748)
+     - NSS/Ch70 pages (lines 2776-2781)
+     - Regular district pages (lines 2791-2798)
+   - Format: "Figure # | Table #" when figure and table appear adjacent on same page
+   - Maintains separate labels when no figure precedes table
+
+3. **Appendix A Font Size Consistency**
+   - Modified KeepInFrame condition to include Appendix A (line 2704)
+   - Changed from: `if p.get("appendix_b") or p.get("section_id") == "appendix_c"`
+   - Changed to: `if p.get("appendix_b") or p.get("section_id") == "appendix_a"`
+   - Appendix A now flows naturally without shrinking, maintaining consistent 9pt font throughout
+
+4. **Merged Appendix B and Appendix C**
+   - Combined "Complete Calculations" (old Appendix C) with "Detailed Examples" (old Appendix B)
+   - New structure: "Appendix B. Calculations and Examples" (lines 2017-2443)
+   - Organized by figure/table order as requested
+   - Complete calculations appear first (systematic coverage of all figures/tables)
+   - Detailed worked examples follow (specific cases: Medium Cohort, Amherst-Pelham)
+   - Uses 12pt font for readability (appendix_b flag)
+   - Section ID: appendix_b
+
+5. **Renamed Appendix D → Appendix C**
+   - Updated all references to "Appendix D. Data Tables" → "Appendix C. Data Tables"
+   - Modified appendix_title (line 2483)
+   - Modified section_id from "appendix_d" to "appendix_c" (line 2487)
+   - Updated TOC entry (line 2507)
+   - Updated internal references in Appendix B content (line 2404)
+
+**Final Appendix Structure:**
+- **Appendix A**: Data Sources & Calculation Methodology (including Threshold Analysis)
+- **Appendix B**: Calculations and Examples (merged complete calculations + detailed examples)
+- **Appendix C**: Data Tables (raw data for all districts and regions)
+
+**Impact:**
+- ✅ Scatterplot restored to full size with optimized legend
+- ✅ Figure and table numbers combined on same line when adjacent
+- ✅ Appendix A font size now consistent throughout (no shrinking)
+- ✅ Appendices B and C merged into logical flow
+- ✅ Appendix D renamed to C, completing 3-appendix structure
+- ✅ All calculations and examples now in single location
+
+**Technical Notes:**
+- Pending figure tracking system allows PDF generator to defer figure number rendering until it knows if a table follows
+- Combined labels use pipe separator "|" with proper spacing in gray-shaded box
+- Appendix B synthesis maintains figure/table order for easy verification workflow
+- Data Tables (Appendix C) unaffected by merging of B/C calculation appendices
+
+---
+
+## 2025-10-16 (Session 2) - Final Figure/Table Formatting & Plot Sizing Fixes
+
+### Fixed Remaining Visual Issues from Previous Session
+
+**Context:** Continued from earlier session to address user feedback on figure/table positioning, plot sizing, and legend layouts.
+
+**Files Modified:**
+- `western_enrollment_plots_individual.py` (line 220)
+- `executive_summary_plots.py` (lines 556, 677-679)
+
+**Changes Made:**
+
+1. **Scatterplot Legend - Full Width Layout**
+   - Changed legend from `ncol=4` to `ncol=9` (line 220 in western_enrollment_plots_individual.py)
+   - Legend now spans full plot width horizontally, reducing vertical space usage
+   - Maintains all legend items (5 cohorts + 4 quartile/percentile lines)
+
+2. **5-Year CAGR Grouped Plot - Restored Original Size**
+   - Changed figsize from `(16, 7)` back to `(16, 9)` (line 556 in executive_summary_plots.py)
+   - Plot no longer appears "tiny" - matches proper proportions with large legend above
+   - Width remains 16 inches to match 15-year plot width
+
+3. **15-Year CAGR Plot - Corrected Bar Width Calculation**
+   - Changed bar_width from `1.4` to `0.6` (line 679 in executive_summary_plots.py)
+   - CRITICAL FIX: Bars are now 2-3x wider than individual bars in 5-year grouped plot
+   - Previous change incorrectly made bars 2x their original width (0.7 → 1.4)
+   - Correct calculation: 5-year bars = 0.8/n_items * 0.95 ≈ 0.076 units (for n=10)
+   - 15-year bars at 0.6 = approximately 2.5x the 5-year individual bar width
+   - Added explanatory comments documenting the calculation
+
+**Impact:**
+- ✅ All figure/table numbering complete (from previous session)
+- ✅ All appendices in correct order A, B, C, D (from previous session)
+- ✅ Scatterplot legend optimized for horizontal space
+- ✅ CAGR plots properly sized relative to each other
+- ✅ Bar width relationship between 5-year and 15-year plots corrected
+
+**Technical Notes:**
+- Bar width calculation accounts for different plot types: grouped bars (5-year) vs individual bars (15-year)
+- Grouped plot divides 0.8 units among n_items, while 15-year plot spaces bars at integer positions
+- Visual consistency achieved through careful calculation of data unit proportions
+
+---
+
+## 2025-10-16 - Fixed Appendix Section Order in compose_pdf.py
+
+### Reorganized Appendix pages.append() Calls to Match Logical Order
+
+**Context:** The appendix sections in compose_pdf.py were being added to the `pages` list in the wrong order. The content definitions were in one sequence, but the pages.append() calls were happening in a different order, causing the PDF to have appendices out of sequence.
+
+**Problem:**
+- Pages were being appended in order: C, D, A, B (lines ~1754-2456)
+- Should have been appended in order: A, B, C, D
+
+**Changes Made:**
+
+**File Modified:**
+- `compose_pdf.py`
+
+**Reorganization:**
+Moved four major code blocks to correct the pages.append() order:
+1. **Appendix A** (lines 2127-2373) → moved to lines 1754-2000
+   - Data Sources & Calculation Methodology
+   - Includes threshold analysis and methodology pages
+2. **Appendix B** (lines 2375-2456) → moved to lines 2002-2083
+   - Detailed Calculation Examples
+   - Reads from appendix_c_text.txt file
+3. **Appendix C** (lines 1754-2078) → moved to lines 2085-2409
+   - Complete Calculations
+   - Step-by-step calculations for all figures and tables
+4. **Appendix D** (lines 2080-2125) → moved to lines 2411-2456
+   - Data Tables
+   - Raw data tables for all districts
+
+**Final Structure (pages.append() order):**
+- Line 1754: APPENDIX A starts (Data Sources & Calculation Methodology)
+- Line 2002: APPENDIX B starts (Detailed Calculation Examples)
+- Line 2085: APPENDIX C starts (Complete Calculations)
+- Line 2411: APPENDIX D starts (Data Tables)
+
+**Impact:**
+- ✅ Appendices now appear in PDF in correct alphabetical order: A, B, C, D
+- ✅ No changes to content or functionality - pure reorganization
+- ✅ Maintains all existing section IDs and references
+
+---
+
+## 2025-10-15 - Major Document Enhancements: Figure/Table Numbering & Appendix Reorganization
+
+### Comprehensive Report Structure Improvements
+
+**Context:** Implemented systematic figure and table numbering throughout the PDF, reorganized appendices for better logical flow, and enhanced plot formatting for consistency.
+
+**Changes Made:**
+
+### 1. Figure and Table Numbering System
+
+**Files Modified:**
+- `compose_pdf.py`
+
+**Implementation:**
+- Added global figure and table counters with `next_figure_number()` and `next_table_number()` functions
+- Created `style_figure_num` and `style_table_num` paragraph styles (small, italic, centered)
+- Added `reset_counters()` function called at start of PDF generation
+- Systematically added figure numbers below all plots throughout the document
+- Systematically added table numbers below all data tables
+
+**Locations:**
+- Lines 50-70: Counter functions and reset mechanism
+- Lines 101-102: Figure and table number styles
+- Line 2158: Counter reset in `build_pdf()`
+- Lines 2256-2322: Figure numbers added after all image insertions
+- Lines 2174-2435: Table numbers added after all table insertions
+
+**Impact:**
+- ✅ All plots now have sequential figure numbers (small, italic, centered)
+- ✅ All tables now have sequential table numbers (small, italic, centered)
+- ✅ Easy cross-referencing throughout the document
+- ✅ Professional document formatting
+
+### 2. Executive Summary Plot Adjustments
+
+**Files Modified:**
+- `executive_summary_plots.py`
+
+**Changes:**
+- Made `executive_summary_cagr_grouped.png` and `executive_summary_cagr_15year.png` same height (16×7)
+- Increased bar width in 15-year CAGR plot from 0.7 to 1.4 (2x wider)
+- Enlarged legend in grouped CAGR plot: fontsize 13→26, added markerscale=2.0, handlelength=4, handleheight=2
+
+**Locations:**
+- Line 556: Changed figsize from (16, 9) to (16, 7)
+- Line 677: Changed bar_width from 0.7 to 1.4
+- Lines 593-594: Enhanced legend with 2x larger font and swatches
+
+**Impact:**
+- ✅ Both CAGR plots now have consistent width
+- ✅ 15-year plot bars are properly proportioned relative to grouped plot
+- ✅ Grouped plot legend is more readable with larger font and swatches
+
+### 3. Appendix Reorganization
+
+**Files Modified:**
+- `compose_pdf.py`
+
+**Major Structural Changes:**
+
+**Old Structure:**
+- Appendix A: Data Tables
+- Appendix B: Data Sources & Calculation Methodology
+- Appendix C: Detailed Calculation Examples
+
+**New Structure:**
+- **Appendix A: Data Sources & Calculation Methodology** (was Appendix B)
+  - Includes Threshold Analysis as first page
+- **Appendix B: Detailed Calculation Examples** (was Appendix C)
+- **Appendix C: Complete Calculations** (NEW - placeholder)
+  - Framework for comprehensive step-by-step calculations for all figures and tables
+- **Appendix D: Data Tables** (was Appendix A)
+
+**Specific Changes:**
+- Moved Threshold Analysis from standalone Page 0 to first page of Appendix A (lines 2010-2015)
+- Renamed all appendix titles and section IDs throughout document
+- Updated TOC entries to reflect new structure (lines 2145-2148)
+- Updated cross-references (e.g., "Appendix B" → "Appendix A" in cohort determination text)
+- Added comprehensive Appendix C placeholder with structure for future calculations (lines 1754-1801)
+- Changed style references from `appendix_c` to `appendix_b` for 12pt font handling
+
+**Key Locations:**
+- Line 1354: Removed standalone Threshold Analysis page
+- Line 1757: Renamed to "APPENDIX D: DATA TABLES"
+- Line 1795: Changed appendix_title to "Appendix D. Data Tables", section_id to "appendix_d"
+- Line 1804: Renamed to "APPENDIX A: DATA SOURCES & CALCULATION METHODOLOGY"
+- Lines 2010-2050: Threshold Analysis moved to Appendix A, all methodology pages renamed
+- Lines 1754-1801: New Appendix C (Complete Calculations) placeholder created
+- Line 2052: Renamed to "APPENDIX B: DETAILED CALCULATION EXAMPLES"
+- Lines 2338-2348: Updated style and handling references from appendix_c to appendix_b
+
+**Impact:**
+- ✅ Logical flow: Methodology first, then detailed examples, then comprehensive calculations, then raw data
+- ✅ Threshold Analysis now integrated with methodology rather than standalone
+- ✅ Framework in place for comprehensive calculation documentation in Appendix C
+- ✅ All cross-references updated consistently
+- ✅ TOC reflects new structure
+
+### Summary of Files Modified
+
+1. **executive_summary_plots.py**
+   - Plot sizing and legend enhancements
+
+2. **compose_pdf.py**
+   - Figure/table numbering system infrastructure
+   - All image and table insertion locations
+   - Complete appendix reorganization
+   - TOC updates
+   - Style reference updates
+
+**Next Steps:**
+- Run `python executive_summary_plots.py` to regenerate plots with new formatting
+- Run `python compose_pdf.py` to generate PDF with figure/table numbers and reorganized appendices
+- ~~Populate Appendix C with detailed calculations for all figures and tables~~ ✅ COMPLETED
+
+### 4. Appendix C - Complete Calculations Implementation
+
+**Context:** Created comprehensive step-by-step calculations for all figures and tables to enable mathematical verification.
+
+**Files Modified:**
+- `compose_pdf.py` (lines 1756-2069, 2220-2224)
+
+**Content Added:**
+1. **Executive Summary Calculations:**
+   - Figure 1: YoY Growth Rate formula and methodology
+   - Figure 2: 5-Year CAGR calculation steps
+   - Figure 3: 15-Year CAGR methodology
+
+2. **Cohort Determination Calculations:**
+   - Percentile calculations (Q1, Q2, Q3, P90) on full dataset
+   - Rounding methodology for clean boundaries
+   - FY2024 cohort membership breakdown
+
+3. **Weighted Aggregation Methodology:**
+   - Enrollment-weighted PPE formula
+   - Step-by-step calculation process
+   - Worked example with real structure
+
+4. **Shading Threshold Calculations:**
+   - Statistical analysis (mean, SD, CV) for PPE and CAGR
+   - Threshold evaluation methodology
+   - Gradient shading bin definitions
+
+5. **District Comparison Table Calculations:**
+   - CAGR comparison methodology
+   - Dollar difference calculations
+   - Shading intensity determination
+
+6. **Additional Calculations:**
+   - Enrollment FTE component summation
+   - NSS/Ch70 funding component breakdown
+
+**Bug Fix:**
+- Fixed missing anchor for 'appendix_a' link (line 2220-2224)
+- Added section_id anchor to threshold_analysis page rendering
+
+**Impact:**
+- ✅ Comprehensive calculations documented for QA verification
+- ✅ All formulas extracted from source code with line references
+- ✅ Step-by-step methodology for each calculation type
+- ✅ Worked examples provided for clarity
+- ✅ PDF generation error resolved
+
+---
+
+## 2025-10-15 - Threshold Analysis Enhancement: Gradient Shading Design Philosophy
+
+### Added Design Philosophy Section to Threshold Analysis Page
+
+**Context:** Enhanced the threshold analysis "working page" to include comprehensive explanation of why ~80% flagging rates work perfectly with gradient shading, and why 5%/1pp is the "Goldilocks solution."
+
+**Changes Made:**
+
+**Location:** `compose_pdf.py` lines 1278-1307 (within `build_threshold_analysis_page()`)
+
+**New Section Added:** "Design Philosophy: Why ~80% Flagging Rates Work with Gradient Shading"
+
+**Key Content:**
+1. **Three Levels of Information:**
+   - No shading (white): Districts statistically similar (<5% / <1pp difference)
+   - Light shading (subtle color): Notable differences worth attention
+   - Intense shading (saturated color): Exceptional outliers that grab the eye
+
+2. **Threshold as "Noise Floor":**
+   - Filters trivial differences below 5%/1pp
+   - Gradient intensity shows *how much* a district differs from peers
+   - Creates natural visual hierarchy
+
+3. **The Goldilocks Solution (5%/1pp):**
+   - **Statistical balance:** Similar flagging rates (~82% vs ~76%) despite different natural variation
+   - **Practical communication:** Round, memorable numbers vs impractically precise 0.72pp
+   - **Appropriate sensitivity:** Loosens overly-tight previous thresholds, filters noise, reserves intense shading for true outliers
+
+**Impact:**
+- ✅ Explains why high flagging rates are actually ideal with gradient shading (not binary on/off)
+- ✅ Justifies design choice with visual hierarchy theory
+- ✅ Contrasts with alternative approaches (0.72pp perfectionism, 5%/5pp imbalance)
+- ✅ Reinforces the multi-dimensional optimality of 5%/1pp choice
+
+**Files Modified:**
+- `compose_pdf.py`: Added ~30 lines to explanation_blocks in build_threshold_analysis_page()
+
+---
+
 ## 2025-10-12 - Year-Specific Cohorts and Label Updates
 
 ### Comprehensive Cohort System Refinement (6-Point Update)

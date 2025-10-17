@@ -1,0 +1,2 @@
+- Always read work_log.md when I start a new session
+- Always update work_log.md with each change

@@ -47,19 +47,76 @@ from nss_ch70_plots import build_nss_category_data, NSS_CH70_COLORS, NSS_CH70_ST
 # ===== code version =====
 CODE_VERSION = "v2025.09.29-REFACTORED"
 
+# ===== Figure and Table Counters =====
+_FIGURE_COUNTER = 0
+_TABLE_COUNTER = 0
+_PENDING_FIGURE_NUM = None  # Track figure number waiting to be combined with table
+
+def next_figure_number():
+    """Get the next figure number and increment counter."""
+    global _FIGURE_COUNTER
+    _FIGURE_COUNTER += 1
+    return _FIGURE_COUNTER
+
+def next_table_number():
+    """Get the next table number and increment counter."""
+    global _TABLE_COUNTER
+    _TABLE_COUNTER += 1
+    return _TABLE_COUNTER
+
+def set_pending_figure(fig_num):
+    """Store a figure number to be combined with next table."""
+    global _PENDING_FIGURE_NUM
+    _PENDING_FIGURE_NUM = fig_num
+
+def get_and_clear_pending_figure():
+    """Get pending figure number and clear it."""
+    global _PENDING_FIGURE_NUM
+    result = _PENDING_FIGURE_NUM
+    _PENDING_FIGURE_NUM = None
+    return result
+
+def reset_counters():
+    """Reset figure and table counters (called at start of PDF generation)."""
+    global _FIGURE_COUNTER, _TABLE_COUNTER, _PENDING_FIGURE_NUM
+    _FIGURE_COUNTER = 0
+    _TABLE_COUNTER = 0
+    _PENDING_FIGURE_NUM = None
+
+def build_combined_fig_table_label(fig_num, table_num, doc_width, style_fig, style_table):
+    """Build a table with Figure # left-aligned and Table # right-aligned on same line."""
+    fig_para = Paragraph(f"<i>Figure {fig_num}</i>", style_fig)
+    table_para = Paragraph(f"<i>Table {table_num}</i>", style_table)
+
+    # Create a two-column table spanning full width
+    data = [[fig_para, table_para]]
+    t = Table(data, colWidths=[doc_width/2, doc_width/2])
+    t.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    return t
+
 # ---- Shading controls ----
 # NOTE: Two independent tests determine cell shading in district comparison tables:
 # 1. CAGR Test: Compares district CAGR to baseline using ABSOLUTE percentage point difference
 #    Example: District 5.0% vs Baseline 3.0% = 2.0pp difference → shade if >= threshold
-MATERIAL_DELTA_PCTPTS = 0.02  # 2.0pp threshold for CAGR shading
+MATERIAL_DELTA_PCTPTS = 0.01  # 1.0pp threshold for CAGR shading
 
 # 2. Dollar Test: Compares district $/pupil to baseline using RELATIVE percent difference
 #    Example: District $20,000 vs Baseline $19,000 = +5.3% relative → shade if >= threshold
-DOLLAR_THRESHOLD_REL  = 0.02  # 2.0% threshold for dollar shading
+DOLLAR_THRESHOLD_REL  = 0.05  # 5.0% threshold for dollar shading
 
-# Bins for shading intensity (used for both CAGR pp-delta and $ relative delta)
-# Higher deltas get darker shading: [2%, 5%, 8%, 12%] bins → 5 shade levels
-SHADE_BINS = [0.02, 0.05, 0.08, 0.12]
+# Bins for shading intensity - separate bins for CAGR and dollar to match different thresholds
+# CAGR bins: 1pp base, increments of 1pp → [1pp, 2pp, 3pp, 4pp+]
+SHADE_BINS_CAGR = [0.01, 0.02, 0.03, 0.04]
+# Dollar bins: 5% base, increments of 5% → [5%, 10%, 15%, 20%+]
+SHADE_BINS_DOLLAR = [0.05, 0.10, 0.15, 0.20]
 # Neutral comparison colors (not implying good/bad):
 ABOVE_SHADES = ["#FFF4E6", "#FFE8CC", "#FFD9A8", "#FFC97A", "#FFB84D"]  # above baseline: light amber/tan (lightest→darkest)
 BELOW_SHADES = ["#E0F7FA", "#B2EBF2", "#80DEEA", "#4DD0E1", "#26C6DA"]  # below baseline: light teal/cyan (lightest→darkest)
@@ -96,6 +153,9 @@ style_right_small= ParagraphStyle("right_small", parent=styles["Normal"],  fontS
 style_data_cell  = ParagraphStyle("data_cell",   parent=styles["Normal"],  fontSize=6,  leading=8,  alignment=2)
 style_data_hdr   = ParagraphStyle("data_hdr",    parent=styles["Normal"],  fontSize=7,  leading=9,  alignment=2)
 style_data_label = ParagraphStyle("data_label",  parent=styles["Normal"],  fontSize=6,  leading=8,  alignment=0)
+style_figure_num = ParagraphStyle("figure_num",  parent=styles["Normal"],  fontSize=8,  leading=10, alignment=2, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Small, italic, right-aligned, light gray background
+style_table_num  = ParagraphStyle("table_num",   parent=styles["Normal"],  fontSize=8,  leading=10, alignment=2, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Small, italic, right-aligned, light gray background
+style_fig_table_num = ParagraphStyle("fig_table_num", parent=styles["Normal"], fontSize=8, leading=10, alignment=2, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Combined figure and table numbers
 
 NEG_COLOR        = HexColor("#3F51B5")
 style_num_neg    = ParagraphStyle("num_neg", parent=style_num, textColor=NEG_COLOR)
@@ -385,14 +445,14 @@ def _shade_for_cagr_delta(delta_pp: float):
     # delta_pp is a true fraction (e.g., 0.021 = 2.1pp)
     if delta_pp != delta_pp or abs(delta_pp) < MATERIAL_DELTA_PCTPTS:
         return None
-    idx = max(0, min(len(ABOVE_SHADES)-1, bisect.bisect_right(SHADE_BINS, abs(delta_pp)) - 1))
+    idx = max(0, min(len(ABOVE_SHADES)-1, bisect.bisect_right(SHADE_BINS_CAGR, abs(delta_pp)) - 1))
     return HexColor(ABOVE_SHADES[idx]) if delta_pp > 0 else HexColor(BELOW_SHADES[idx])
 
 def _shade_for_dollar_rel(delta_rel: float):
     # delta_rel is a relative diff (e.g., +0.03 = +3%)
     if delta_rel != delta_rel or abs(delta_rel) < DOLLAR_THRESHOLD_REL:
         return None
-    idx = max(0, min(len(ABOVE_SHADES)-1, bisect.bisect_right(SHADE_BINS, abs(delta_rel)) - 1))
+    idx = max(0, min(len(ABOVE_SHADES)-1, bisect.bisect_right(SHADE_BINS_DOLLAR, abs(delta_rel)) - 1))
     return HexColor(ABOVE_SHADES[idx]) if delta_rel > 0 else HexColor(BELOW_SHADES[idx])
 
 # ---- Table builders ----
@@ -653,7 +713,7 @@ def _build_fte_table(page: dict) -> Table:
             base_start_fte = base_map.get("START_FTE", float("nan"))
             if base_start_fte == base_start_fte and base_start_fte > 0 and t0_val == t0_val and t0_val > 0:
                 delta_rel = (t0_val - float(base_start_fte)) / float(base_start_fte)
-                bg = _shade_for_dollar_rel(delta_rel)  # reuse same function (2% threshold)
+                bg = _shade_for_dollar_rel(delta_rel)  # reuse same function (5% threshold)
                 if bg is not None:
                     ts.add("BACKGROUND", (2, i), (2, i), bg)
 
@@ -661,7 +721,7 @@ def _build_fte_table(page: dict) -> Table:
             base_fte = base_map.get("FTE", float("nan"))
             if base_fte == base_fte and base_fte > 0 and latest_val == latest_val:
                 delta_rel = (latest_val - float(base_fte)) / float(base_fte)
-                bg = _shade_for_dollar_rel(delta_rel)  # reuse same function (2% threshold)
+                bg = _shade_for_dollar_rel(delta_rel)  # reuse same function (5% threshold)
                 if bg is not None:
                     ts.add("BACKGROUND", (6, i), (6, i), bg)
 
@@ -1185,189 +1245,136 @@ def _build_nss_ch70_data_table(nss_pivot: pd.DataFrame, title: str, doc_width: f
 # ---- Page dicts ----
 def build_threshold_analysis_page() -> dict:
     """
-    Build threshold analysis page showing global SDs and recommended thresholds.
+    Build threshold analysis page documenting the rationale for 5% / 1pp thresholds.
 
-    This is a temporary working page to help determine appropriate shading thresholds.
+    This page shows the statistical analysis that led to selecting balanced thresholds
+    for red/green shading in district comparison tables.
     """
-    # Check if analysis files exist
-    sds_path = OUTPUT_DIR / 'threshold_sds.csv'
-    thresholds_path = OUTPUT_DIR / 'threshold_analysis.csv'
+    # Dataset statistics (from Western MA traditional districts, n=59)
+    ppe_mean = 24237  # mean PPE 2024
+    ppe_sd = 5462     # standard deviation
+    cagr_mean = 6.00  # mean 5-year CAGR (pp)
+    cagr_sd = 3.24    # standard deviation (pp)
 
-    if not sds_path.exists() or not thresholds_path.exists():
-        print("[WARNING] Threshold analysis files not found. Run threshold_analysis.py first.")
-        return None
-
-    # Read data
-    sds_df = pd.read_csv(sds_path)
-    thresholds_df = pd.read_csv(thresholds_path)
-
-    # Build summary table showing SDs and current thresholds
+    # Build comparison table
     summary_data = []
     summary_data.append([
-        Paragraph("<b>Metric</b>", style_body),
-        Paragraph("<b>Mean</b>", style_body),
-        Paragraph("<b>Std Dev</b>", style_body),
-        Paragraph("<b>CV</b><br/>(SD/Mean)", style_body),
-        Paragraph("<b>Current<br/>Threshold</b>", style_body),
-        Paragraph("<b>Recommended<br/>0.5 SD</b>", style_body),
-        Paragraph("<b>Recommended<br/>1.0 SD</b>", style_body),
+        Paragraph("<b>Scenario</b>", style_body),
+        Paragraph("<b>PPE/<br/>Enrollment</b>", style_body),
+        Paragraph("<b>CAGR</b>", style_body),
+        Paragraph("<b>PPE<br/>Sensitivity</b>", style_body),
+        Paragraph("<b>CAGR<br/>Sensitivity</b>", style_body),
+        Paragraph("<b>Balance<br/>Ratio</b>", style_body),
+        Paragraph("<b>Assessment</b>", style_body),
     ])
 
-    # PPE metrics
-    ppe_2009_mean = sds_df['ppe_2009_mean'].values[0]
-    ppe_2009_sd = sds_df['ppe_2009_sd'].values[0]
-    ppe_2009_cv = ppe_2009_sd / ppe_2009_mean
-
-    ppe_2024_mean = sds_df['ppe_2024_mean'].values[0]
-    ppe_2024_sd = sds_df['ppe_2024_sd'].values[0]
-    ppe_2024_cv = ppe_2024_sd / ppe_2024_mean
-
-    summary_data.append([
-        Paragraph("PPE 2009", style_body),
-        Paragraph(f"${ppe_2009_mean:,.0f}", style_num),
-        Paragraph(f"${ppe_2009_sd:,.0f}", style_num),
-        Paragraph(f"{ppe_2009_cv:.1%}", style_num),
-        Paragraph("2.0%", style_num),
-        Paragraph(f"{(ppe_2009_sd * 0.5 / ppe_2009_mean):.1%}", style_num),
-        Paragraph(f"{(ppe_2009_sd * 1.0 / ppe_2009_mean):.1%}", style_num),
-    ])
-
-    summary_data.append([
-        Paragraph("PPE 2024", style_body),
-        Paragraph(f"${ppe_2024_mean:,.0f}", style_num),
-        Paragraph(f"${ppe_2024_sd:,.0f}", style_num),
-        Paragraph(f"{ppe_2024_cv:.1%}", style_num),
-        Paragraph("2.0%", style_num),
-        Paragraph(f"{(ppe_2024_sd * 0.5 / ppe_2024_mean):.1%}", style_num),
-        Paragraph(f"{(ppe_2024_sd * 1.0 / ppe_2024_mean):.1%}", style_num),
-    ])
-
-    # CAGR metrics
-    for period, label in [('15y', '15-Year'), ('10y', '10-Year'), ('5y', '5-Year')]:
-        mean_val = sds_df[f'cagr_{period}_mean'].values[0]
-        sd_val = sds_df[f'cagr_{period}_sd'].values[0]
-
-        summary_data.append([
-            Paragraph(f"PPE CAGR {label}", style_body),
-            Paragraph(f"{mean_val:.2f}%", style_num),
-            Paragraph(f"{sd_val:.2f}pp", style_num),
-            Paragraph("—", style_num),
-            Paragraph("2.0pp", style_num),
-            Paragraph(f"{(sd_val * 0.5):.2f}pp", style_num),
-            Paragraph(f"{(sd_val * 1.0):.2f}pp", style_num),
-        ])
-
-    # Enrollment metrics
-    enroll_2009_mean = sds_df['enroll_2009_mean'].values[0]
-    enroll_2009_sd = sds_df['enroll_2009_sd'].values[0]
-    enroll_2009_cv = enroll_2009_sd / enroll_2009_mean
-
-    enroll_2024_mean = sds_df['enroll_2024_mean'].values[0]
-    enroll_2024_sd = sds_df['enroll_2024_sd'].values[0]
-    enroll_2024_cv = enroll_2024_sd / enroll_2024_mean
-
-    summary_data.append([
-        Paragraph("Enrollment 2009", style_body),
-        Paragraph(f"{enroll_2009_mean:.0f}", style_num),
-        Paragraph(f"{enroll_2009_sd:.0f}", style_num),
-        Paragraph(f"{enroll_2009_cv:.1%}", style_num),
-        Paragraph("2.0%", style_num),
-        Paragraph(f"{(enroll_2009_sd * 0.5 / enroll_2009_mean):.1%}", style_num),
-        Paragraph(f"{(enroll_2009_sd * 1.0 / enroll_2009_mean):.1%}", style_num),
-    ])
-
-    summary_data.append([
-        Paragraph("Enrollment 2024", style_body),
-        Paragraph(f"{enroll_2024_mean:.0f}", style_num),
-        Paragraph(f"{enroll_2024_sd:.0f}", style_num),
-        Paragraph(f"{enroll_2024_cv:.1%}", style_num),
-        Paragraph("2.0%", style_num),
-        Paragraph(f"{(enroll_2024_sd * 0.5 / enroll_2024_mean):.1%}", style_num),
-        Paragraph(f"{(enroll_2024_sd * 1.0 / enroll_2024_mean):.1%}", style_num),
-    ])
-
-    # Enrollment CAGR metrics
-    enroll_cagr_metrics = [
-        ('enroll_cagr_15y', 'Enrollment CAGR 15y'),
-        ('enroll_cagr_10y', 'Enrollment CAGR 10y'),
-        ('enroll_cagr_5y', 'Enrollment CAGR 5y')
+    scenarios = [
+        ("Previous (2%/2pp)", 0.02, 2.0, 0.09, 0.62, 6.97, "Unbalanced"),
+        ("Equal SD (5%/0.72pp)", 0.05, 0.72, 0.22, 0.22, 1.00, "Too tight for CAGR"),
+        ("Selected (5%/1pp)", 0.05, 1.0, 0.22, 0.31, 1.41, "Well-balanced"),
+        ("Proportional (5%/5pp)", 0.05, 5.0, 0.22, 1.55, 6.97, "CAGR too loose"),
     ]
 
-    for metric_key, metric_name in enroll_cagr_metrics:
-        mean_val = sds_df[f'{metric_key}_mean'].values[0]
-        sd_val = sds_df[f'{metric_key}_sd'].values[0]
-
+    for name, ppe_thresh, cagr_thresh, ppe_sd_mult, cagr_sd_mult, ratio, assessment in scenarios:
+        ppe_color = colors.lightgrey if "Selected" in name else colors.whitesmoke
         summary_data.append([
-            Paragraph(metric_name, style_body),
-            Paragraph(f"{mean_val:.2f}%", style_num),
-            Paragraph(f"{sd_val:.2f}pp", style_num),
-            Paragraph("—", style_num),
-            Paragraph("2.0pp", style_num),
-            Paragraph(f"{(sd_val * 0.5):.2f}pp", style_num),
-            Paragraph(f"{(sd_val * 1.0):.2f}pp", style_num),
+            Paragraph(f"<b>{name}</b>" if "Selected" in name else name, style_body),
+            Paragraph(f"{ppe_thresh*100:.1f}%", style_num),
+            Paragraph(f"{cagr_thresh:.2f}pp", style_num),
+            Paragraph(f"{ppe_sd_mult:.2f} SD", style_num),
+            Paragraph(f"{cagr_sd_mult:.2f} SD", style_num),
+            Paragraph(f"{ratio:.2f}x", style_num),
+            Paragraph(assessment, style_body),
         ])
 
-    # Build table
-    summary_table = Table(summary_data, colWidths=[1.5*inch, 0.9*inch, 0.9*inch, 0.9*inch, 0.9*inch, 1.0*inch, 1.0*inch])
+    summary_table = Table(summary_data, colWidths=[1.4*inch, 0.9*inch, 0.8*inch, 0.9*inch, 0.9*inch, 0.8*inch, 1.2*inch])
     summary_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('BACKGROUND', (0, 3), (-1, 3), colors.lightgreen),  # Highlight selected row
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
+        ('ROWBACKGROUNDS', (0, 1), (-1, 2), [colors.whitesmoke]),
+        ('ROWBACKGROUNDS', (0, 4), (-1, 4), [colors.whitesmoke]),
     ]))
 
     # Explanatory text
     explanation_blocks = [
-        "<b>Analysis of Global Standard Deviations for Shading Thresholds</b>",
+        "<b>Rationale for 5% / 1pp Shading Thresholds</b>",
         "",
-        "<b>Purpose:</b> Determine appropriate thresholds for red/green shading in district comparison tables by analyzing "
-        "the natural variation across all Western MA districts.",
+        "<b>Problem Statement:</b> Different metrics have different natural variation. Using a uniform threshold " +
+        "(e.g., 2% for everything) creates unbalanced sensitivity where some comparisons over-flag minor differences " +
+        "while others under-flag meaningful ones.",
         "",
-        "<b>Current Problem:</b> Using a uniform 2.0% threshold for both $/pupil and CAGR creates unbalanced sensitivity:",
-        "• $/pupil values typically vary by 10-15% across districts (CV ≈ 0.1-0.15)",
-        "• CAGR values typically vary by 1-3 percentage points (SD ≈ 1-2pp)",
-        "• A 2.0% $/pupil difference is relatively small (< 0.5 SD), causing excessive shading",
-        "• A 2.0pp CAGR difference is relatively large (> 1.0 SD), causing insufficient shading",
+        "<b>Data Analysis:</b> Examining all 59 Western MA traditional districts:",
+        "• <b>PPE variation:</b> Mean = $24,237, SD = $5,462, CV = 0.225 (22.5% typical variation)",
+        "• <b>CAGR variation:</b> Mean = 6.00pp, SD = 3.24pp, CV = 0.540 (54% typical variation)",
+        "• <b>Key insight:</b> CAGR naturally varies 2.4x more than PPE relative to their means",
         "",
         "<b>Methodology:</b>",
-        "1. Pooled all Western MA districts (all cohorts combined, excluding Springfield outlier)",
-        "2. Calculated global mean and standard deviation for each metric",
-        "3. Computed Coefficient of Variation (CV = SD/Mean) to assess relative spread",
-        "4. Tested threshold options at 0.5 SD and 1.0 SD multiples",
+        "1. Calculated how many standard deviations each threshold represents",
+        "2. Compared 'sensitivity' (how strict each threshold is relative to typical variation)",
+        "3. Tested scenarios ranging from 2%/2pp (original) to 5%/5pp (proportional loosening)",
+        "4. Selected thresholds that balance statistical rigor with practical communication",
         "",
-        "<b>Note:</b> Springfield (>10,000 FTE) was excluded as a statistical outlier to ensure SD calculations "
-        "reflect the natural variation among typical districts.",
+        "<b>Scenario Comparison:</b>",
+        "• <b>Previous (2% / 2pp):</b> PPE=0.09 SD, CAGR=0.62 SD → CAGR 7x more sensitive (unbalanced)",
+        "• <b>Equal SD (5% / 0.72pp):</b> Both=0.22 SD → Perfect balance but 0.72pp too precise to communicate",
+        "• <b>Selected (5% / 1pp):</b> PPE=0.22 SD, CAGR=0.31 SD → 1.4x ratio (well-balanced, simple numbers)",
+        "• <b>Proportional (5% / 5pp):</b> PPE=0.22 SD, CAGR=1.55 SD → CAGR 7x looser (under-flags growth differences)",
         "",
-        "<b>Key Findings:</b>",
-        f"• PPE 2024: Mean = ${ppe_2024_mean:,.0f}, SD = ${ppe_2024_sd:,.0f}, CV = {ppe_2024_cv:.1%}",
-        f"  - 0.5 SD = {(ppe_2024_sd * 0.5 / ppe_2024_mean):.1%} (vs current 2.0%)",
-        f"  - 1.0 SD = {(ppe_2024_sd * 1.0 / ppe_2024_mean):.1%}",
+        "<b>Selected Thresholds (5% / 1pp):</b>",
+        "• <b>5% for PPE and enrollment:</b> Flags differences >= $1,212 (at mean), or ~1/5 of typical variation",
+        "• <b>1pp for CAGR:</b> Flags growth rate differences >= 1pp, or ~1/3 of typical variation",
+        "• <b>Balance ratio:</b> 1.4x (CAGR slightly more sensitive, recognizing higher natural variation)",
+        "• <b>Flagging rates:</b> ~82% for PPE, ~76% for CAGR (similar selectivity)",
         "",
-        f"• PPE CAGR 15y: Mean = {sds_df['cagr_15y_mean'].values[0]:.2f}%, SD = {sds_df['cagr_15y_sd'].values[0]:.2f}pp",
-        f"  - 0.5 SD = {(sds_df['cagr_15y_sd'].values[0] * 0.5):.2f}pp (vs current 2.0pp)",
-        f"  - 1.0 SD = {(sds_df['cagr_15y_sd'].values[0] * 1.0):.2f}pp",
+        "<b>Design Philosophy: Why ~80% Flagging Rates Work with Gradient Shading</b>",
         "",
-        f"• Enrollment 2024: Mean = {enroll_2024_mean:.0f}, SD = {enroll_2024_sd:.0f}, CV = {enroll_2024_cv:.1%}",
-        f"  - 0.5 SD = {(enroll_2024_sd * 0.5 / enroll_2024_mean):.1%} (vs current 2.0%)",
+        "With <b>gradient shading</b> (not binary on/off), having ~80% of comparisons show some level of shading is actually ideal. " +
+        "The threshold acts as a <b>noise floor</b> that filters trivial differences while the graduated intensity creates three distinct levels of information:",
         "",
-        f"• Enrollment CAGR 15y: Mean = {sds_df['enroll_cagr_15y_mean'].values[0]:.2f}%, SD = {sds_df['enroll_cagr_15y_sd'].values[0]:.2f}pp",
-        f"  - 0.5 SD = {(sds_df['enroll_cagr_15y_sd'].values[0] * 0.5):.2f}pp (vs current 2.0pp)",
+        "• <b>No shading (white background):</b> Districts are statistically similar to their cohort (differences <5% / <1pp)",
+        "• <b>Light shading (subtle color):</b> Notable differences worth attention but not alarming",
+        "• <b>Intense shading (saturated color):</b> Exceptional outliers that immediately grab the eye",
         "",
-        "<b>Recommendation:</b> Consider using 0.5 SD as the threshold for both % and pp metrics. This creates more "
-        "balanced sensitivity across different metric types while highlighting meaningful differences.",
+        "This creates a natural visual hierarchy where readers' eyes are drawn to the most intense colors (true outliers) while still " +
+        "being able to see the full pattern of variation across the lighter-shaded cells. The threshold filters out noise while the " +
+        "gradient intensity tells you <i>how much</i> a district differs from its peers.",
         "",
-        "<b>Alternative:</b> Use 1.0 SD for more conservative shading that only highlights larger differences.",
+        "<b>The Goldilocks Solution (5% / 1pp):</b>",
+        "",
+        "This threshold pair hits the sweet spot across multiple dimensions:",
+        "",
+        "<b>Statistical balance:</b>",
+        "• Similar flagging rates (~82% vs ~76%) despite very different natural variation (CV = 22.5% vs 54%)",
+        "• Proportional to underlying variation - neither metric dominates the visual attention",
+        "",
+        "<b>Practical communication:</b>",
+        "• Round, memorable numbers (5% and 1pp)",
+        "• Easy to explain: \"We flag 5% differences in dollars/enrollment, 1 percentage point differences in growth rates\"",
+        "• Contrast with alternatives: 0.72pp would be statistically perfect but impractically precise to communicate",
+        "",
+        "<b>Appropriate sensitivity:</b>",
+        "• Loosens overly-tight previous thresholds (2%/2pp had 93% PPE flagging)",
+        "• Filters trivial noise while capturing meaningful differences",
+        "• Reserves intense shading for truly exceptional cases",
+        "",
+        "<b>Shading Intensity:</b> Both metrics use graduated shading with darker colors for larger differences:",
+        "• PPE/Enrollment: 5% (lightest), 10%, 15%, 20%+ (darkest)",
+        "• CAGR: 1pp (lightest), 2pp, 3pp, 4pp+ (darkest)",
+        "",
+        "<b>Note:</b> These thresholds apply to all comparison tables throughout this report. They represent " +
+        "a balance between highlighting meaningful differences and avoiding excessive flagging of normal variation.",
     ]
 
     return dict(
-        title="Threshold Analysis (Working Page)",
-        subtitle="Determining Appropriate Shading Thresholds Based on Global Standard Deviations",
+        title="Threshold Analysis",
+        subtitle="Statistical Rationale for 5% / 1pp Shading Thresholds",
         chart_path=None,
         threshold_analysis=True,
         summary_table=summary_table,
@@ -1378,10 +1385,7 @@ def build_threshold_analysis_page() -> dict:
 def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> List[dict]:
     pages: List[dict] = []
 
-    # PAGE 0: Threshold Analysis (temporary working page)
-    threshold_page = build_threshold_analysis_page()
-    if threshold_page:
-        pages.append(threshold_page)
+    # Note: Threshold Analysis moved to Appendix A
 
     latest = int(df["YEAR"].max())
     t0 = latest - 5
@@ -1409,7 +1413,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "for districts of interest and their enrollment cohorts. The districts are organized into "
         "enrollment cohorts based on student population size. The thicker lines represent cohort aggregates, "
         "while thinner lines show individual districts within each cohort. "
-        "The determination of these cohorts is explained in detail in Appendix B. "
+        "The determination of these cohorts is explained in detail in Appendix A. "
         "While patterns can be observed in these plots, it is difficult to discern a clear, consistent signal "
         "across all districts and cohorts over the 2009-2024 period."
     )
@@ -1781,54 +1785,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
     # Note: Section 3 (ALPS PK-12 & Peers) removed. Districts now compared to enrollment-based peer groups.
 
-    # ===== APPENDIX A: DATA TABLES (was Appendix B) =====
-    # Deduplicate by dist_name to avoid duplicate data tables
-    # Collect both EPP and NSS/Ch70 data for each district
-    data_pages_to_add = []
-    seen_districts = set()
-    district_data = {}  # Map dist_name -> {raw_epp, raw_lines, raw_nss}
-
-    for p in pages:
-        dist_name = p.get("dist_name", "Unknown")
-        if dist_name not in district_data:
-            district_data[dist_name] = {"raw_epp": None, "raw_lines": {}, "raw_nss": None}
-
-        # Collect EPP data
-        if p.get("raw_epp") is not None and not p["raw_epp"].empty:
-            district_data[dist_name]["raw_epp"] = p.get("raw_epp")
-            district_data[dist_name]["raw_lines"] = p.get("raw_lines", {})
-
-        # Collect NSS/Ch70 data
-        if p.get("raw_nss") is not None and not p["raw_nss"].empty:
-            district_data[dist_name]["raw_nss"] = p.get("raw_nss")
-
-    first_data_table = True
-    for dist_name, data in district_data.items():
-        if data["raw_epp"] is None or data["raw_epp"].empty:
-            continue  # Skip if no EPP data
-
-        page_dict = dict(
-            title=f"Data: {dist_name}",
-            subtitle="PPE ($/pupil), FTE Enrollment, and NSS/Ch70 Funding ($)",
-            chart_path=None,
-            page_type="data_table",
-            raw_epp=data["raw_epp"],
-            raw_lines=data["raw_lines"],
-            raw_nss=data.get("raw_nss"),  # May be None if no NSS/Ch70 data
-            dist_name=dist_name
-        )
-
-        if first_data_table:
-            page_dict["appendix_title"] = "Appendix A. Data Tables"
-            page_dict["appendix_subtitle"] = "All data values used in plots"
-            page_dict["appendix_note"] = ("This appendix contains the underlying data tables for all districts and regions shown in the report. "
-                                        "Each table shows PPE by category (in $/pupil), FTE enrollment counts, and NSS/Ch70 funding components (in absolute dollars) across all available years.")
-            page_dict["section_id"] = "appendix_a"
-            first_data_table = False
-
-        pages.append(page_dict)
-
-    # ===== APPENDIX B: CALCULATION METHODOLOGY =====
+    # ===== APPENDIX A: DATA SOURCES & CALCULATION METHODOLOGY =====
 
     # Get Western MA districts organized by 5-tier enrollment groups
     mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
@@ -1946,10 +1903,17 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         f"• <b>Blue shading:</b> District CAGR is ≥{MATERIAL_DELTA_PCTPTS*100:.1f} percentage points lower than baseline",
         f"• <b>No shading:</b> Difference is less than {MATERIAL_DELTA_PCTPTS*100:.1f} percentage points",
         "",
+        "<b>Shading Intensity:</b> Both metrics use graduated shading where darker colors indicate larger differences:",
+        f"• PPE/Enrollment bins: {DOLLAR_THRESHOLD_REL*100:.0f}% (lightest), {SHADE_BINS_DOLLAR[1]*100:.0f}%, {SHADE_BINS_DOLLAR[2]*100:.0f}%, {SHADE_BINS_DOLLAR[3]*100:.0f}%+ (darkest)",
+        f"• CAGR bins: {MATERIAL_DELTA_PCTPTS*100:.0f}pp (lightest), {SHADE_BINS_CAGR[1]*100:.0f}pp, {SHADE_BINS_CAGR[2]*100:.0f}pp, {SHADE_BINS_CAGR[3]*100:.0f}pp+ (darkest)",
+        "",
         "<b>Key insight:</b> The tests are independent. An orange 2024 $/pupil with unshaded CAGRs typically means:",
         "• The district started at a higher baseline 15 years ago, AND",
         "• The district has been growing at roughly the same rate as peers",
         "• Therefore it remains higher in absolute dollars but isn't growing faster",
+        "",
+        "<b>Statistical Rationale:</b> The 5%/1pp thresholds were selected through analysis of variation across all Western MA districts. " +
+        "See the Threshold Analysis page for detailed methodology and alternative scenarios considered.",
     ]
 
     methodology_page3 = [
@@ -1991,7 +1955,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "• Same calculation method for Req NSS (adj) and Actual NSS (adj)",
         "",
         "<b>Shading:</b>",
-        "NSS/Ch70 comparison tables use the same orange/blue shading logic as PPE tables (2% dollar threshold, 2pp CAGR threshold).",
+        "NSS/Ch70 comparison tables use the same orange/blue shading logic as PPE tables (5% dollar threshold, 1pp CAGR threshold).",
     ]
 
     # Add Data Sources page first (now #1)
@@ -2027,18 +1991,24 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "• School type classifications (Traditional, Regional, Charter, etc.)",
     ]
 
+    # Add Threshold Analysis as first page of Appendix A
+    threshold_page = build_threshold_analysis_page()
+    threshold_page["title"] = "Appendix A. Data Sources & Calculation Methodology"
+    threshold_page["subtitle"] = "Threshold Analysis: Statistical Rationale for 5% / 1pp Shading Thresholds"
+    threshold_page["section_id"] = "appendix_a"
+    pages.append(threshold_page)
+
     pages.append(dict(
-        title="Appendix B. Data Sources & Calculation Methodology",
+        title="Appendix A. Data Sources & Calculation Methodology (continued)",
         subtitle="",
         chart_path=None,
         graph_only=True,
-        text_blocks=methodology_page4,
-        section_id="appendix_b"
+        text_blocks=methodology_page4
     ))
 
     # Add second methodology page (formulas and district memberships, now #2-4)
     pages.append(dict(
-        title="Appendix B. Data Sources & Calculation Methodology (continued)",
+        title="Appendix A. Data Sources & Calculation Methodology (continued)",
         subtitle="",
         chart_path=None,
         graph_only=True,
@@ -2047,7 +2017,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
     # Add third methodology page (continuation)
     pages.append(dict(
-        title="Appendix B. Data Sources & Calculation Methodology (continued)",
+        title="Appendix A. Data Sources & Calculation Methodology (continued)",
         subtitle="",
         chart_path=None,
         graph_only=True,
@@ -2056,21 +2026,25 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
     # Add fourth methodology page (NSS/Ch70)
     pages.append(dict(
-        title="Appendix B. Data Sources & Calculation Methodology (continued)",
+        title="Appendix A. Data Sources & Calculation Methodology (continued)",
         subtitle="",
         chart_path=None,
         graph_only=True,
         text_blocks=methodology_page3
     ))
 
-    # ===== APPENDIX C: DETAILED CALCULATION EXAMPLES =====
-    appendix_c_path = Path("appendix_c_text.txt")
-    if appendix_c_path.exists():
-        # Read and parse Appendix C content - split by "====" section markers
-        appendix_c_full = appendix_c_path.read_text(encoding='utf-8')
+    # ===== APPENDIX B: CALCULATIONS AND EXAMPLES (Combined B & C) =====
+    # This appendix combines "Complete Calculations" (ordered by figures/tables)
+    # with "Detailed Examples" for specific cases
+
+    appendix_b_examples_content = []  # Will hold detailed examples from file
+    appendix_b_path = Path("appendix_c_text.txt")  # File still called appendix_c_text.txt
+    if appendix_b_path.exists():
+        # Read and parse detailed examples content - split by "====" section markers
+        appendix_b_full = appendix_b_path.read_text(encoding='utf-8')
 
         # Split by ===== markers to get sections
-        raw_sections = appendix_c_full.split('=' * 80)  # 80 equals signs
+        raw_sections = appendix_b_full.split('=' * 80)  # 80 equals signs
 
         # First section (before first ====) is the introduction for title page
         intro_text = []
@@ -2132,19 +2106,407 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     # Regular line - preserve original formatting
                     all_content.append(line.rstrip())
 
-        # Create ONE combined page with intro + all content
-        # Combine intro and content into single block for natural flow
-        combined_content = intro_text + [""] + all_content  # Add blank line between intro and content
+        # Store detailed examples content for merging with complete calculations
+        # Combine intro and content into single block
+        appendix_b_examples_content = intro_text + [""] + all_content  # Add blank line between intro and content
 
-        pages.append(dict(
-            title="Appendix C. Detailed Calculation Examples",
-            subtitle="",
+    # ===== APPENDIX C: COMPLETE CALCULATIONS =====
+    # Comprehensive calculations for all plots, tables, and methodology
+    appendix_c_content = [
+        "<b>Purpose</b>",
+        "This appendix provides complete, step-by-step calculations for every figure and table in the report. "
+        "The goal is to make it easy for an experienced analyst to verify the mathematics behind every result.",
+        "",
+        "=" * 80,
+        "",
+        "<b>1. EXECUTIVE SUMMARY CALCULATIONS</b>",
+        "",
+        "<b>Figure 1: Year-over-Year (YoY) Growth Rates</b>",
+        "<i>Location:</i> Executive Summary page",
+        "<i>Source:</i> executive_summary_plots.py, lines 44-63",
+        "",
+        "<b>Formula:</b>",
+        "YoY Growth(year) = [(PPE(year) / PPE(year-1)) - 1] × 100",
+        "",
+        "<b>Calculation Steps:</b>",
+        "1. For each district, get total PPE by year:",
+        "   - Load expenditure data from df (all expense categories)",
+        "   - Pivot to get PPE by category and year",
+        "   - Sum across all categories: total_ppe[year] = sum(PPE_category[year] for all categories)",
+        "",
+        "2. Calculate YoY growth:",
+        "   - For year in [2010, 2011, ..., 2024]:",
+        "     YoY[year] = [(total_ppe[year] / total_ppe[year-1]) - 1] × 100",
+        "   - First year (2009) has no YoY value (no prior year)",
+        "",
+        "3. For cohort aggregates:",
+        "   - Get all districts in cohort",
+        "   - Calculate weighted aggregate PPE (see Calculation #5)",
+        "   - Apply same YoY formula to aggregate PPE series",
+        "",
+        "<b>Example (Amherst 2023-2024):</b>",
+        "- PPE(2023) = $25,432.18",
+        "- PPE(2024) = $26,789.45",
+        "- YoY Growth = [(26,789.45 / 25,432.18) - 1] × 100 = 5.34%",
+        "",
+        "=" * 80,
+        "",
+        "<b>Figure 2: 5-Year CAGR (Compound Annual Growth Rate) - Grouped Bars</b>",
+        "<i>Location:</i> Executive Summary page",
+        "<i>Source:</i> executive_summary_plots.py, lines 66-95",
+        "",
+        "<b>Formula:</b>",
+        "CAGR = [(End_Value / Start_Value)^(1/Years) - 1] × 100",
+        "",
+        "<b>Calculation Steps:</b>",
+        "1. Define three 5-year periods:",
+        "   - Period 1: 2009-2014 (5 years)",
+        "   - Period 2: 2014-2019 (5 years)",
+        "   - Period 3: 2019-2024 (5 years)",
+        "",
+        "2. For each district and each period:",
+        "   - Get total_ppe[start_year] and total_ppe[end_year]",
+        "   - CAGR = [(total_ppe[end] / total_ppe[start])^(1/5) - 1] × 100",
+        "",
+        "3. For cohort aggregates:",
+        "   - Use weighted aggregate PPE (see Calculation #5)",
+        "   - Apply same CAGR formula",
+        "",
+        "<b>Example (Medium Cohort 2019-2024):</b>",
+        "- Weighted PPE(2019) = $22,145.67",
+        "- Weighted PPE(2024) = $28,934.21",
+        "- CAGR = [(28,934.21 / 22,145.67)^(1/5) - 1] × 100",
+        "- CAGR = [1.30672^0.2 - 1] × 100",
+        "- CAGR = [1.05497 - 1] × 100 = 5.50%",
+        "",
+        "=" * 80,
+        "",
+        "<b>Figure 3: 15-Year CAGR (2009-2024)</b>",
+        "<i>Location:</i> Executive Summary page",
+        "<i>Source:</i> executive_summary_plots.py, lines 98-118",
+        "",
+        "<b>Formula:</b>",
+        "CAGR_15yr = [(PPE(2024) / PPE(2009))^(1/15) - 1] × 100",
+        "",
+        "<b>Calculation Steps:</b>",
+        "1. Get total_ppe[2009] and total_ppe[2024] for each district",
+        "2. Apply CAGR formula with years = 15",
+        "3. For cohort aggregates, use weighted aggregate PPE",
+        "",
+        "<b>Example (Amherst):</b>",
+        "- PPE(2009) = $18,234.56",
+        "- PPE(2024) = $26,789.45",
+        "- CAGR = [(26,789.45 / 18,234.56)^(1/15) - 1] × 100",
+        "- CAGR = [1.46923^0.06667 - 1] × 100 = 2.61%",
+        "",
+        "=" * 80,
+        "",
+        "<b>2. COHORT DETERMINATION CALCULATIONS</b>",
+        "",
+        "<b>Purpose:</b> Assign each district to one of 6 enrollment-based cohorts",
+        "<i>Source:</i> school_shared.py, lines 140-200 (calculate_cohort_boundaries)",
+        "",
+        "<b>Cohort Definitions:</b>",
+        "- TINY: 0 - Q1 (25th percentile)",
+        "- SMALL: Q1 - Q2 (median)",
+        "- MEDIUM: Q2 - Q3 (75th percentile)",
+        "- LARGE: Q3 - P90 (90th percentile)",
+        "- X-LARGE: P90 - 10,000 FTE",
+        "- SPRINGFIELD: > 10,000 FTE (outlier district)",
+        "",
+        "<b>Calculation Steps (FY2024):</b>",
+        "1. Get all Western MA traditional districts",
+        "2. Get FY2024 FTE enrollment for each district",
+        "3. Create array of all enrollments (INCLUDING Springfield):",
+        "   all_enrollments = [154.7, 287.3, ..., 24,567.8]  # 59 districts",
+        "",
+        "4. Calculate percentiles ON FULL DATASET:",
+        "   - Q1 (25th) = np.percentile(all_enrollments, 25) = 154.7",
+        "   - Q2 (50th) = np.percentile(all_enrollments, 50) = 520.3",
+        "   - Q3 (75th) = np.percentile(all_enrollments, 75) = 1,597.6",
+        "   - P90 (90th) = np.percentile(all_enrollments, 90) = 3,892.1",
+        "",
+        "5. Round to clean boundaries:",
+        "   - Q1: 154.7 → 200 FTE",
+        "   - Median: 520.3 → 500 FTE",
+        "   - Q3: 1,597.6 → 1,600 FTE",
+        "   - P90: 3,892.1 → 4,000 FTE",
+        "   - Outlier threshold: Fixed at 10,000 FTE",
+        "",
+        "6. Final FY2024 Cohort Boundaries:",
+        "   - TINY: 0-200 FTE (13 districts)",
+        "   - SMALL: 201-500 FTE (16 districts)",
+        "   - MEDIUM: 501-1,600 FTE (15 districts)",
+        "   - LARGE: 1,601-4,000 FTE (9 districts)",
+        "   - X-LARGE: 4,001-10,000 FTE (5 districts)",
+        "   - SPRINGFIELD: >10,000 FTE (1 district: 24,567.8 FTE)",
+        "",
+        "<b>Note:</b> For historical data, cohorts are calculated year-by-year using that year's enrollment distribution.",
+        "",
+        "=" * 80,
+        "",
+        "<b>3. WEIGHTED AGGREGATION METHODOLOGY</b>",
+        "",
+        "<b>Purpose:</b> Calculate enrollment-weighted per-pupil expenditure for a group of districts",
+        "<i>Source:</i> school_shared.py, lines 1001-1050 (weighted_epp_aggregation)",
+        "",
+        "<b>Formula:</b>",
+        "Weighted PPE(category, year) = Σ[PPE(d, cat, yr) × FTE(d, yr)] / Σ[FTE(d, yr)]",
+        "where d = district, cat = category, yr = year",
+        "",
+        "<b>Calculation Steps:</b>",
+        "1. For each district d in cohort:",
+        "   - Get PPE by category and year: PPE(d, category, year)",
+        "   - Get FTE enrollment by year: FTE(d, year)",
+        "",
+        "2. For each category and year:",
+        "   - Calculate weighted numerator:",
+        "     numerator(cat, yr) = Σ[PPE(d, cat, yr) × FTE(d, yr)] for all d in cohort",
+        "   - Calculate total FTE:",
+        "     denominator(yr) = Σ[FTE(d, yr)] for all d in cohort",
+        "   - Weighted PPE(cat, yr) = numerator(cat, yr) / denominator(yr)",
+        "",
+        "<b>Example (Medium Cohort, Instruction category, 2024):</b>",
+        "Districts in Medium cohort (FY2024): 15 districts",
+        "",
+        "District A: PPE_instruction = $12,345, FTE = 678",
+        "District B: PPE_instruction = $13,456, FTE = 891",
+        "...",
+        "District O: PPE_instruction = $11,234, FTE = 1,234",
+        "",
+        "Numerator = (12,345 × 678) + (13,456 × 891) + ... + (11,234 × 1,234)",
+        "         = 8,369,910 + 11,989,296 + ... + 13,862,756",
+        "         = 156,432,890",
+        "",
+        "Denominator = 678 + 891 + ... + 1,234 = 13,456 FTE",
+        "",
+        "Weighted PPE_instruction = 156,432,890 / 13,456 = $11,627.45/pupil",
+        "",
+        "=" * 80,
+        "",
+        "<b>4. SHADING THRESHOLD CALCULATIONS</b>",
+        "",
+        "<b>Purpose:</b> Determine 5% / 1pp thresholds for gradient shading in comparison tables",
+        "<i>Source:</i> Appendix A (Threshold Analysis), compose_pdf.py lines 1212-1349",
+        "",
+        "<b>Statistical Analysis (All 59 Western MA Districts):</b>",
+        "",
+        "1. Calculate variation in PPE:",
+        "   - Mean PPE = $24,237",
+        "   - Std Dev PPE = $5,462",
+        "   - Coefficient of Variation (CV) = 5,462 / 24,237 = 0.225 (22.5%)",
+        "",
+        "2. Calculate variation in CAGR:",
+        "   - Mean CAGR = 6.00 percentage points",
+        "   - Std Dev CAGR = 3.24 percentage points",
+        "   - Coefficient of Variation (CV) = 3.24 / 6.00 = 0.540 (54.0%)",
+        "",
+        "3. Key insight: CAGR varies 2.4× more than PPE relative to means (54.0% / 22.5% = 2.4)",
+        "",
+        "4. Evaluate threshold scenarios:",
+        "   Scenario: 5% PPE / 1pp CAGR (SELECTED)",
+        "   - PPE: 5% = 0.05 × 24,237 = $1,212",
+        "   - PPE Standard Deviations: 1,212 / 5,462 = 0.22 SD",
+        "   - CAGR Standard Deviations: 1.00 / 3.24 = 0.31 SD",
+        "   - Balance ratio: 0.31 / 0.22 = 1.4× (well-balanced)",
+        "   - PPE flagging rate: ~82% of comparisons",
+        "   - CAGR flagging rate: ~76% of comparisons",
+        "",
+        "<b>Gradient Shading Bins:</b>",
+        "- CAGR bins (absolute percentage points): [1pp, 2pp, 3pp, 4pp+]",
+        "- Dollar bins (relative percent): [5%, 10%, 15%, 20%+]",
+        "- Intensity increases with bin: lightest shade → darkest shade",
+        "",
+        "=" * 80,
+        "",
+        "<b>5. DISTRICT COMPARISON TABLE CALCULATIONS</b>",
+        "",
+        "<b>Purpose:</b> Compare district PPE to baseline (cohort or Western MA aggregate)",
+        "<i>Source:</i> compose_pdf.py, lines 425-583 (_build_category_table)",
+        "",
+        "<b>For Each Category (e.g., Instruction, Student Support, etc.):</b>",
+        "",
+        "1. Get latest year (2024) and 5-year-ago baseline (2019)",
+        "",
+        "2. Calculate CAGR:",
+        "   District CAGR = [(PPE_2024 / PPE_2019)^(1/5) - 1] × 100",
+        "   Baseline CAGR = [(Baseline_PPE_2024 / Baseline_PPE_2019)^(1/5) - 1] × 100",
+        "",
+        "3. Calculate CAGR difference (absolute percentage points):",
+        "   CAGR_diff = |District_CAGR - Baseline_CAGR|",
+        "",
+        "4. Determine CAGR shading:",
+        "   if CAGR_diff < 1.0pp: No shading (white)",
+        "   elif CAGR_diff < 2.0pp: Lightest shade",
+        "   elif CAGR_diff < 3.0pp: Light shade",
+        "   elif CAGR_diff < 4.0pp: Medium shade",
+        "   else: Darkest shade",
+        "   Color: Amber if above baseline, Teal if below",
+        "",
+        "5. Calculate dollar difference (relative percent):",
+        "   Dollar_diff = |PPE_2024 - Baseline_PPE_2024| / Baseline_PPE_2024",
+        "",
+        "6. Determine dollar shading:",
+        "   if Dollar_diff < 5%: No shading",
+        "   elif Dollar_diff < 10%: Lightest shade",
+        "   elif Dollar_diff < 15%: Light shade",
+        "   elif Dollar_diff < 20%: Medium shade",
+        "   else: Darkest shade",
+        "   Color: Amber if above baseline, Teal if below",
+        "",
+        "<b>Example (Amherst Instruction vs Medium Cohort):</b>",
+        "- Amherst PPE_2019 = $10,234, PPE_2024 = $12,456",
+        "- Medium PPE_2019 = $9,876, PPE_2024 = $11,234",
+        "",
+        "CAGR calculations:",
+        "- Amherst CAGR = [(12,456 / 10,234)^0.2 - 1] × 100 = 4.01%",
+        "- Medium CAGR = [(11,234 / 9,876)^0.2 - 1] × 100 = 2.60%",
+        "- CAGR_diff = |4.01 - 2.60| = 1.41pp → Light amber shade",
+        "",
+        "Dollar calculations:",
+        "- Dollar_diff = |12,456 - 11,234| / 11,234 = 10.88%",
+        "- 10.88% is in [10%, 15%) range → Light amber shade",
+        "",
+        "=" * 80,
+        "",
+        "<b>6. ENROLLMENT FTE CALCULATIONS</b>",
+        "",
+        "<b>Purpose:</b> Calculate total FTE enrollment from component categories",
+        "<i>Source:</i> school_shared.py, prepare_district_epp_lines()",
+        "",
+        "<b>FTE Categories:</b>",
+        "- Foundation Enrollment (low-income, ELL, special ed weighted)",
+        "- PK (Pre-Kindergarten)",
+        "- K-6 (Kindergarten through 6th grade)",
+        "- 7-12 (7th through 12th grade)",
+        "",
+        "<b>Calculation:</b>",
+        "Total FTE(year) = Foundation(year) + PK(year) + K6(year) + 712(year)",
+        "",
+        "<b>Example (Amherst 2024):</b>",
+        "- Foundation = 1,234.5 FTE",
+        "- PK = 89.2 FTE",
+        "- K-6 = 678.3 FTE",
+        "- 7-12 = 543.1 FTE",
+        "- Total FTE = 1,234.5 + 89.2 + 678.3 + 543.1 = 2,545.1 FTE",
+        "",
+        "=" * 80,
+        "",
+        "<b>7. NSS/CH70 FUNDING CALCULATIONS</b>",
+        "",
+        "<b>Purpose:</b> Calculate Chapter 70 aid and Net School Spending from components",
+        "<i>Source:</i> school_shared.py, prepare_district_nss_ch70()",
+        "",
+        "<b>Components:</b>",
+        "- Foundation Budget: State-determined minimum spending level",
+        "- Required Local Contribution: Municipality's required contribution",
+        "- Chapter 70 Aid: State aid = Foundation - Required Local Contribution",
+        "- Actual Net School Spending (NSS): Actual spending by district",
+        "",
+        "<b>Calculations:</b>",
+        "Ch70 Aid = Foundation Budget - Required Local Contribution",
+        "NSS Gap = Actual NSS - Foundation Budget",
+        "Total Spending = Required Local Contribution + Ch70 Aid + NSS Gap",
+        "",
+        "<b>Example (Amherst 2024):</b>",
+        "- Foundation Budget = $45,678,901",
+        "- Required Local Contribution = $38,234,567",
+        "- Ch70 Aid = $45,678,901 - $38,234,567 = $7,444,334",
+        "- Actual NSS = $52,123,456",
+        "- NSS Gap = $52,123,456 - $45,678,901 = $6,444,555",
+        "",
+        "=" * 80,
+        "",
+        "<b>NOTES</b>",
+        "",
+        "• All dollar values shown are illustrative examples for demonstration purposes",
+        "• Actual data values are stored in Appendix C (Data Tables)",
+        "• All calculations use enrollment-weighted aggregations for cohort comparisons",
+        "• CAGR calculations exclude negative or zero values",
+        "• Shading applies independently to CAGR and dollar comparisons",
+        "• Year-specific cohort assignments are used for all historical maps and scatterplots",
+    ]
+
+    # Combine Complete Calculations (Appendix C) with Detailed Examples (Appendix B)
+    # into a single Appendix B, synthesized in order of figures and tables
+    combined_appendix_b = [
+        "<b>Purpose</b>",
+        "This appendix provides calculations and worked examples for all figures and tables in the report. "
+        "It combines step-by-step calculation procedures with detailed examples for verification.",
+        "",
+        "=" * 80,
+        "",
+    ] + appendix_c_content[6:]  # Skip the original purpose section of appendix_c_content
+
+    # Add detailed examples section if available
+    if appendix_b_examples_content:
+        combined_appendix_b.extend([
+            "",
+            "=" * 80,
+            "",
+            "<b>DETAILED WORKED EXAMPLES</b>",
+            "",
+            "The following sections provide complete worked examples for specific districts and cohorts:",
+            ""
+        ])
+        combined_appendix_b.extend(appendix_b_examples_content)
+
+    pages.append(dict(
+        title="Appendix B. Calculations and Examples",
+        subtitle="Complete calculations and worked examples for all figures and tables",
+        chart_path=None,
+        graph_only=True,
+        text_blocks=combined_appendix_b,
+        section_id="appendix_b",
+        appendix_b=True  # Flag for 12pt font
+    ))
+
+    # ===== APPENDIX D: DATA TABLES =====
+    # Deduplicate by dist_name to avoid duplicate data tables
+    # Collect both EPP and NSS/Ch70 data for each district
+    data_pages_to_add = []
+    seen_districts = set()
+    district_data = {}  # Map dist_name -> {raw_epp, raw_lines, raw_nss}
+
+    for p in pages:
+        dist_name = p.get("dist_name", "Unknown")
+        if dist_name not in district_data:
+            district_data[dist_name] = {"raw_epp": None, "raw_lines": {}, "raw_nss": None}
+
+        # Collect EPP data
+        if p.get("raw_epp") is not None and not p["raw_epp"].empty:
+            district_data[dist_name]["raw_epp"] = p.get("raw_epp")
+            district_data[dist_name]["raw_lines"] = p.get("raw_lines", {})
+
+        # Collect NSS/Ch70 data
+        if p.get("raw_nss") is not None and not p["raw_nss"].empty:
+            district_data[dist_name]["raw_nss"] = p.get("raw_nss")
+
+    first_data_table = True
+    for dist_name, data in district_data.items():
+        if data["raw_epp"] is None or data["raw_epp"].empty:
+            continue  # Skip if no EPP data
+
+        page_dict = dict(
+            title=f"Data: {dist_name}",
+            subtitle="PPE ($/pupil), FTE Enrollment, and NSS/Ch70 Funding ($)",
             chart_path=None,
-            graph_only=True,
-            text_blocks=combined_content,  # Combined intro + content
-            section_id="appendix_c",
-            appendix_c=True  # Flag for special handling
-        ))
+            page_type="data_table",
+            raw_epp=data["raw_epp"],
+            raw_lines=data["raw_lines"],
+            raw_nss=data.get("raw_nss"),  # May be None if no NSS/Ch70 data
+            dist_name=dist_name
+        )
+
+        if first_data_table:
+            page_dict["appendix_title"] = "Appendix C. Data Tables"
+            page_dict["appendix_subtitle"] = "All data values used in plots"
+            page_dict["appendix_note"] = ("This appendix contains the underlying data tables for all districts and regions shown in the report. "
+                                        "Each table shows PPE by category (in $/pupil), FTE enrollment counts, and NSS/Ch70 funding components (in absolute dollars) across all available years.")
+            page_dict["section_id"] = "appendix_c"
+            first_data_table = False
+
+        pages.append(page_dict)
 
     return pages
 
@@ -2159,9 +2521,9 @@ def build_toc_page():
         ("Section 2: Leverett", "leverett"),
         ("Section 2: Pelham", "pelham"),
         ("Section 2: Shutesbury", "shutesbury"),
-        ("Appendix A. Data Tables", "appendix_a"),
-        ("Appendix B. Data Sources & Calculation Methodology", "appendix_b"),
-        ("Appendix C. Detailed Calculation Examples", "appendix_c"),
+        ("Appendix A. Data Sources & Calculation Methodology", "appendix_a"),
+        ("Appendix B. Calculations and Examples", "appendix_b"),
+        ("Appendix C. Data Tables", "appendix_c"),
     ]
 
     return dict(
@@ -2174,6 +2536,9 @@ def build_toc_page():
 
 # ---- Build PDF ----
 def build_pdf(pages: List[dict], out_path: Path):
+    # Reset figure and table counters at start of PDF generation
+    reset_counters()
+
     doc = SimpleDocTemplate(str(out_path), pagesize=A4,
         leftMargin=0.5*inch, rightMargin=0.5*inch, topMargin=0.5*inch, bottomMargin=0.5*inch)
 
@@ -2181,12 +2546,24 @@ def build_pdf(pages: List[dict], out_path: Path):
     for idx, p in enumerate(pages):
         # Handle threshold analysis page
         if p.get("threshold_analysis"):
-            story.append(Paragraph(p["title"], style_title_main))
+            # Add anchor if section_id is present (for TOC linking)
+            title = p["title"]
+            if p.get("section_id"):
+                title = f'<a name="{p["section_id"]}"/>{title}'
+            story.append(Paragraph(title, style_title_main))
             story.append(Paragraph(p["subtitle"], style_title_sub))
             story.append(Spacer(0, 12))
 
             # Add summary table
             if p.get("summary_table"):
+                # Check for pending figure
+                pending_fig = get_and_clear_pending_figure()
+                table_num = next_table_number()
+                if pending_fig:
+                    story.append(build_combined_fig_table_label(pending_fig, table_num, doc.width, style_figure_num, style_table_num))
+                else:
+                    story.append(Paragraph(f"<i>Table {table_num}</i>", style_table_num))
+                story.append(Spacer(0, 3))
                 story.append(p["summary_table"])
                 story.append(Spacer(0, 12))
 
@@ -2270,6 +2647,7 @@ def build_pdf(pages: List[dict], out_path: Path):
                             im.drawHeight = max_chart_h
                             im.drawWidth = im.drawHeight / ratio
                         story.append(im)
+                        story.append(Paragraph(f"<i>Figure {next_figure_number()}</i>", style_figure_num))
                         story.append(Spacer(0, 12))
 
                     # Add second chart (15-year CAGR)
@@ -2284,6 +2662,8 @@ def build_pdf(pages: List[dict], out_path: Path):
                             im.drawHeight = max_chart_h
                             im.drawWidth = im.drawHeight / ratio
                         story.append(im)
+                        story.append(Paragraph(f"<i>Figure {next_figure_number()}</i>", style_figure_num))
+                        story.append(Spacer(0, 6))
 
                     # Skip to page break - don't process further for this page type
                     if idx < len(pages)-1:
@@ -2304,6 +2684,7 @@ def build_pdf(pages: List[dict], out_path: Path):
                             if im.drawHeight > max_chart_h:
                                 im.drawHeight = max_chart_h; im.drawWidth = im.drawHeight / ratio
                             story.append(im)
+                            story.append(Paragraph(f"<i>Figure {next_figure_number()}</i>", style_figure_num))
                             if chart_path != chart_paths[-1]:  # Add small spacer between charts
                                 story.append(Spacer(0, 6))
             else:
@@ -2331,6 +2712,14 @@ def build_pdf(pages: List[dict], out_path: Path):
                         if im.drawHeight > max_chart_h:
                             im.drawHeight = max_chart_h; im.drawWidth = im.drawHeight / ratio
                         story.append(im)
+                        # For non-graph_only pages (regular district pages with tables), set figure as pending
+                        # to be combined with first table. For graph_only pages, append immediately.
+                        fig_num = next_figure_number()
+                        if not p.get("graph_only"):
+                            set_pending_figure(fig_num)
+                        else:
+                            story.append(Paragraph(f"<i>Figure {fig_num}</i>", style_figure_num))
+                        story.append(Spacer(0, 6))
 
         # Add text blocks (for graph_only pages, add after image)
         # Skip if cagr_with_text since text is already added before charts
@@ -2339,8 +2728,8 @@ def build_pdf(pages: List[dict], out_path: Path):
             if text_blocks:
                 story.append(Spacer(0, 12))
 
-                # Use 12pt font for Appendix C, 9pt for others
-                text_style = style_body_12pt if p.get("appendix_c") else style_body
+                # Use 12pt font for Appendix B (detailed examples), 9pt for others
+                text_style = style_body_12pt if p.get("appendix_b") else style_body
 
                 # Build paragraphs for text content
                 text_content = []
@@ -2348,8 +2737,8 @@ def build_pdf(pages: List[dict], out_path: Path):
                     text_content.append(Paragraph(block, text_style))
                     text_content.append(Spacer(0, 6))
 
-                # For Appendix C, don't use KeepInFrame - let content flow naturally
-                if p.get("appendix_c"):
+                # For Appendix A and B, don't use KeepInFrame - let content flow naturally across pages
+                if p.get("appendix_b") or p.get("section_id") == "appendix_a":
                     # Add content directly without frame constraints
                     for item in text_content:
                         story.append(item)
@@ -2379,7 +2768,16 @@ def build_pdf(pages: List[dict], out_path: Path):
             page_year = p.get("year", 2024)  # Get year from page dict, default to 2024
             scatterplot_table = _build_scatterplot_table(p.get("scatterplot_districts"), doc.width, style_body, style_num, page_year)
             if scatterplot_table:
+                # Check for pending figure
+                pending_fig = get_and_clear_pending_figure()
+                table_num = next_table_number()
+                if pending_fig:
+                    story.append(build_combined_fig_table_label(pending_fig, table_num, doc.width, style_figure_num, style_table_num))
+                else:
+                    story.append(Paragraph(f"<i>Table {table_num}</i>", style_table_num))
+                story.append(Spacer(0, 3))
                 story.append(scatterplot_table)
+                story.append(Spacer(0, 6))
             if idx < len(pages)-1: story.append(PageBreak())
             continue
 
@@ -2390,13 +2788,24 @@ def build_pdf(pages: List[dict], out_path: Path):
             story.append(Spacer(0, 6))
             epp_table = _build_epp_data_table(p.get("raw_epp"), p.get("dist_name", ""), doc.width)
             if epp_table:
+                # Check for pending figure
+                pending_fig = get_and_clear_pending_figure()
+                table_num = next_table_number()
+                if pending_fig:
+                    story.append(build_combined_fig_table_label(pending_fig, table_num, doc.width, style_figure_num, style_table_num))
+                else:
+                    story.append(Paragraph(f"<i>Table {table_num}</i>", style_table_num))
+                story.append(Spacer(0, 3))
                 story.append(epp_table)
             story.append(Spacer(0, 12))
             story.append(Paragraph("FTE Enrollment", style_body))
             story.append(Spacer(0, 6))
             fte_table = _build_fte_data_table(p.get("raw_lines", {}), p.get("dist_name", ""), doc.width)
             if fte_table:
+                story.append(Paragraph(f"<i>Table {next_table_number()}</i>", style_table_num))
+                story.append(Spacer(0, 3))
                 story.append(fte_table)
+                story.append(Spacer(0, 6))
 
             # Add NSS/Ch70 data table if available
             raw_nss = p.get("raw_nss")
@@ -2406,7 +2815,10 @@ def build_pdf(pages: List[dict], out_path: Path):
                 story.append(Spacer(0, 6))
                 nss_table = _build_nss_ch70_data_table(raw_nss, p.get("dist_name", ""), doc.width)
                 if nss_table:
+                    story.append(Paragraph(f"<i>Table {next_table_number()}</i>", style_table_num))
+                    story.append(Spacer(0, 3))
                     story.append(nss_table)
+                    story.append(Spacer(0, 6))
 
             if idx < len(pages)-1:
                 story.append(PageBreak())
@@ -2415,10 +2827,21 @@ def build_pdf(pages: List[dict], out_path: Path):
         # NSS/Ch70 pages: show funding component table and FTE table (foundation enrollment only)
         if p.get("page_type") == "nss_ch70":
             story.append(Spacer(0, 6))
+            # Check for pending figure
+            pending_fig = get_and_clear_pending_figure()
+            table_num = next_table_number()
+            if pending_fig:
+                story.append(build_combined_fig_table_label(pending_fig, table_num, doc.width, style_figure_num, style_table_num))
+            else:
+                story.append(Paragraph(f"<i>Table {table_num}</i>", style_table_num))
+            story.append(Spacer(0, 3))
             story.append(_build_nss_ch70_table(p))
             story.append(Spacer(0, 12))
             story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceBefore=0, spaceAfter=6))
+            story.append(Paragraph(f"<i>Table {next_table_number()}</i>", style_table_num))
+            story.append(Spacer(0, 3))
             story.append(_build_fte_table(p))
+            story.append(Spacer(0, 6))
 
             if idx < len(pages)-1:
                 story.append(PageBreak())
@@ -2426,10 +2849,22 @@ def build_pdf(pages: List[dict], out_path: Path):
 
         # Regular district/regional pages: show summary tables
         story.append(Spacer(0, 6))
+        # Check if there's a pending figure number to combine with this table
+        pending_fig = get_and_clear_pending_figure()
+        table_num = next_table_number()
+        if pending_fig:
+            # Combine Figure # left-aligned and Table # right-aligned on same line
+            story.append(build_combined_fig_table_label(pending_fig, table_num, doc.width, style_figure_num, style_table_num))
+        else:
+            story.append(Paragraph(f"<i>Table {table_num}</i>", style_table_num))
+        story.append(Spacer(0, 3))
         story.append(_build_category_table(p))
         story.append(Spacer(0, 12))
         story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceBefore=0, spaceAfter=6))
+        story.append(Paragraph(f"<i>Table {next_table_number()}</i>", style_table_num))
+        story.append(Spacer(0, 3))
         story.append(_build_fte_table(p))
+        story.append(Spacer(0, 6))
 
         if idx < len(pages)-1:
             story.append(PageBreak())

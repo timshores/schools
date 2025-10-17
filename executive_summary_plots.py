@@ -553,7 +553,7 @@ def plot_cagr_grouped_bars(
     n_periods = len(periods)
     n_items = len(plot_items)
 
-    fig, ax = plt.subplots(figsize=(16, 9))
+    fig, ax = plt.subplots(figsize=(16, 9))  # Same width as legend and 15-year plot
 
     # Bar dimensions
     bar_width = 0.8 / n_items  # Total width of 0.8 per period group
@@ -589,9 +589,9 @@ def plot_cagr_grouped_bars(
     # Add horizontal line at 0
     ax.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5, zorder=0)
 
-    # Add legend above plot (horizontal layout spanning full width)
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.08), fontsize=13,
-              framealpha=0.95, ncol=n_items)
+    # Add legend above plot (horizontal layout, 2x bigger font and swatches)
+    legend = ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.08), fontsize=26,
+                       framealpha=0.95, ncol=4, markerscale=2.0, handlelength=4, handleheight=2)
 
     # Grid and spines
     ax.grid(True, axis='y', alpha=0.3)
@@ -672,9 +672,11 @@ def plot_cagr_15year_bars(
     n_items = len(plot_items)
     fig, ax = plt.subplots(figsize=(16, 7))
 
-    # Bar positions
+    # Bar positions - bars 2-3x wider than individual grouped plot bars
     x_positions = np.arange(n_items)
-    bar_width = 0.7
+    # Grouped plot bars are: 0.8/n_items * 0.95 ≈ 0.076 (for n=10)
+    # For 2.5x that width: bar_width ≈ 0.6
+    bar_width = 0.6
 
     # Extract values and colors
     names = [name for name, _, _, _ in plot_items]
@@ -727,10 +729,42 @@ def main():
     df, reg, c70 = load_data()
     print(f"  Loaded {len(df)} expenditure records")
 
-    # Generate YoY growth plot (returns data for other plots)
-    print("\n[2/5] Generating YoY growth plot...")
-    output_path = OUTPUT_DIR / "executive_summary_yoy_growth.png"
-    district_yoy, cohort_yoy, cohort_districts, cohorts = plot_yoy_growth_districts_of_interest(df, reg, output_path)
+    # Calculate YoY growth data for other plots (no longer generating standalone YoY plot)
+    print("\n[2/5] Calculating YoY growth data...")
+    # Get cohort assignments
+    cohorts = get_western_cohort_districts(df, reg)
+    district_cohort_map = {}
+    for cohort_name, district_list in cohorts.items():
+        for dist in district_list:
+            district_cohort_map[dist.lower()] = cohort_name
+
+    # Organize districts by cohort
+    cohort_districts = {}
+    for dist in DISTRICTS_OF_INTEREST:
+        cohort = district_cohort_map.get(dist.lower())
+        if cohort:
+            if cohort not in cohort_districts:
+                cohort_districts[cohort] = []
+            cohort_districts[cohort].append(dist)
+
+    # Calculate YoY growth for each district
+    district_yoy = {}
+    for dist in DISTRICTS_OF_INTEREST:
+        epp_pivot, _ = prepare_district_epp_lines(df, dist)
+        if not epp_pivot.empty:
+            total_ppe = epp_pivot.sum(axis=1)
+            yoy = calculate_yoy_growth(total_ppe)
+            district_yoy[dist] = yoy
+
+    # Calculate YoY growth for each cohort aggregate
+    cohort_yoy = {}
+    for cohort, dists in cohort_districts.items():
+        all_cohort_districts = cohorts[cohort]
+        epp_pivot, _, _ = weighted_epp_aggregation(df, all_cohort_districts)
+        if not epp_pivot.empty:
+            total_ppe = epp_pivot.sum(axis=1)
+            yoy = calculate_yoy_growth(total_ppe)
+            cohort_yoy[cohort] = yoy
 
     # Generate YoY separate panes plot
     print("\n[3/5] Generating YoY separate panes plot...")

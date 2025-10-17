@@ -1,0 +1,130 @@
+================================================================================
+THRESHOLD METHODOLOGY ANALYSIS
+================================================================================
+
+Analysis Year: 2024
+
+
+Tiny Cohort (17 districts)
+------------------------------------------------------------
+  Enrollment: n=17, mean=113, median=126, CV=0.360
+  Total PPE: n=17, mean=$27,630, median=$26,631, CV=0.253
+  5yr CAGR: n=15, mean=6.65pp, median=6.63pp, CV=0.689
+
+Small Cohort (13 districts)
+------------------------------------------------------------
+  Enrollment: n=13, mean=542, median=581, CV=0.314
+  Total PPE: n=13, mean=$24,240, median=$24,382, CV=0.185
+  5yr CAGR: n=12, mean=7.35pp, median=7.19pp, CV=0.386
+
+Medium Cohort (15 districts)
+------------------------------------------------------------
+  Enrollment: n=15, mean=1144, median=1174, CV=0.196
+  Total PPE: n=15, mean=$24,103, median=$23,154, CV=0.168
+  5yr CAGR: n=15, mean=6.06pp, median=5.70pp, CV=0.217
+
+Large Cohort (9 districts)
+------------------------------------------------------------
+  Enrollment: n=9, mean=2424, median=2503, CV=0.250
+  Total PPE: n=9, mean=$19,376, median=$19,444, CV=0.064
+  5yr CAGR: n=9, mean=4.81pp, median=5.00pp, CV=0.264
+
+X-Large Cohort (5 districts)
+------------------------------------------------------------
+  Enrollment: n=5, mean=5098, median=4899, CV=0.205
+  Total PPE: n=5, mean=$21,844, median=$22,866, CV=0.123
+  5yr CAGR: n=5, mean=6.75pp, median=6.84pp, CV=0.175
+
+================================================================================
+GLOBAL ANALYSIS (All Western MA Traditional Districts)
+================================================================================
+
+================================================================================
+THRESHOLD COMPARISON
+================================================================================
+
+ENROLLMENT THRESHOLDS:
+--------------------------------------------------------------------------------
+Cohort          N     Median       MAD        MAD Thresh   MAD %     
+--------------------------------------------------------------------------------
+Tiny            17            126        20          15     11.5%
+Small           13            581        81          60     10.3%
+Medium          15           1174       172         127     10.8%
+Large           9            2503       355         263     10.5%
+X-Large         5            4899        78          57      1.2%
+Global          59            779       633         469     60.2%
+--------------------------------------------------------------------------------
+Current fixed threshold: 2.0%
+
+
+TOTAL PPE THRESHOLDS:
+--------------------------------------------------------------------------------
+Cohort          N     Mean         CV       CV Thresh    CV %      
+--------------------------------------------------------------------------------
+Tiny            17    $    27,630   0.253 $     3,496     12.7%
+Small           13    $    24,240   0.185 $     2,239      9.2%
+Medium          15    $    24,103   0.168 $     2,023      8.4%
+Large           9     $    19,376   0.064 $       625      3.2%
+X-Large         5     $    21,844   0.123 $     1,338      6.1%
+Global          59    $    24,237   0.225 $     2,731     11.3%
+--------------------------------------------------------------------------------
+Current fixed threshold: 2.0%
+
+
+5-YEAR CAGR THRESHOLDS:
+--------------------------------------------------------------------------------
+Cohort          N     Mean       CV       CV Thresh    CV (abs)  
+--------------------------------------------------------------------------------
+Tiny            15         6.65pp   0.689        2.29pp     34.5%
+Small           12         7.35pp   0.386        1.42pp     19.3%
+Medium          15         6.06pp   0.217        0.66pp     10.8%
+Large           9          4.81pp   0.264        0.64pp     13.2%
+X-Large         5          6.75pp   0.175        0.59pp      8.8%
+Global          56         6.36pp   0.456        1.45pp     22.8%
+--------------------------------------------------------------------------------
+Current fixed threshold: 2.0pp
+
+
+================================================================================
+RECOMMENDATIONS
+================================================================================
+
+1. ENROLLMENT:
+   - Current: 2.0% fixed threshold
+   - MAD-based global: 60.2% (median ± 469 students)
+   - Distribution: Right-skewed (median=779, mean=1245)
+   OK: MAD threshold (60.2%) is more lenient than current 2%
+
+2. TOTAL PPE:
+   - Current: 2.0% fixed threshold
+   - CV-based global: 11.3% (mean ± $2,731)
+   - CV = 0.225 (typical variation)
+   OK: CV threshold (11.3%) is more lenient than current 2%
+
+3. CAGR:
+   - Current: 2.0pp fixed threshold
+   - CV-based global: 1.45pp (mean ± 1.45pp)
+   - CV = 0.456 (typical variation)
+   WARNING: CV threshold (1.45pp) is TIGHTER than current 2pp
+
+================================================================================
+INTERPRETATION NOTES
+================================================================================
+Traceback (most recent call last):
+  File "C:\Users\townc\OneDrive\Documents\Python Scripts\schools\analyze_thresholds.py", line 312, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\townc\OneDrive\Documents\Python Scripts\schools\analyze_thresholds.py", line 289, in main
+        print("""
+        ~~~~~^^^^
+    The Coefficient of Variation (CV) approach is scale-independent and works well
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<16 lines>...
+    Option B is more adaptive: "We flag districts in the top/bottom X% of variation"
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        """)
+        ^^^^
+  File "C:\Users\townc\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2265' in position 868: character maps to <undefined>
