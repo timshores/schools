@@ -21,6 +21,7 @@ Plot Types:
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 from typing import Dict, List, Tuple
 import numpy as np
@@ -709,9 +710,15 @@ if __name__ == "__main__":
     - expenditures_per_pupil_vs_enrollment_*_detail.png for detailed district views
     - ppe_overview_all_western.png for Western overview
     """
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Generate district expenditure plots")
+    parser.add_argument("--force-recompute", action="store_true",
+                        help="Bypass cache and recompute from source")
+    args = parser.parse_args()
+
     _boost_plot_fonts()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    df, reg, c70 = load_data()
+    df, reg, c70 = load_data(force_recompute=args.force_recompute)
     # Note: add_alps_pk12() removed - no longer using ALPS PK-12 aggregate concept
     cmap_all = create_or_load_color_map(df)
 

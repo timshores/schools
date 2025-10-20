@@ -11,6 +11,7 @@ This script:
 4. Outputs PNG files to the output/ directory
 """
 
+import argparse
 from pathlib import Path
 from school_shared import (
     load_data,
@@ -38,6 +39,11 @@ from nss_ch70_plots import (
 
 def main():
     """Generate all NSS/Ch70 plots and data."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Generate NSS/Ch70 plots")
+    parser.add_argument("--force-recompute", action="store_true",
+                        help="Bypass cache and recompute from source")
+    args = parser.parse_args()
 
     print("=" * 60)
     print("Chapter 70 and Net School Spending Analysis")
@@ -45,7 +51,7 @@ def main():
 
     # Load data
     print("\n[1/4] Loading data...")
-    df, reg, c70 = load_data()
+    df, reg, c70 = load_data(force_recompute=args.force_recompute)
 
     if c70.empty:
         print("[ERROR] No C70 data found. Cannot generate NSS/Ch70 plots.")

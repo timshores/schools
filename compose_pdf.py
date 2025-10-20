@@ -258,6 +258,116 @@ def compute_cagr_last(series: pd.Series, years: int) -> float:
     # Standard case: both values positive
     return (v1 / v0) ** (1.0 / years) - 1.0
 
+
+def _build_western_ma_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, cmap_all: dict, latest_year: int, exclude_springfield: bool = True) -> Tuple[dict, dict]:
+    """
+    Build baseline comparison map for Western MA weighted average (excluding Springfield).
+
+    This baseline is used for comparing cohort aggregates to the regional average.
+
+    Args:
+        df: Main expenditure DataFrame
+        reg: Regional classification DataFrame
+        c70: Chapter 70 data
+        cmap_all: Color map
+        latest_year: Latest year in dataset
+        exclude_springfield: If True, exclude Springfield from the average (default True)
+
+    Returns:
+        Tuple of (baseline_map for PPE, baseline_map for FTE)
+    """
+    # Get all Western MA traditional districts
+    western_mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
+    western_all = sorted(set(reg[western_mask]["DIST_NAME"].str.lower()))
+    western_present = [d for d in western_all if d in set(df["DIST_NAME"].str.lower())]
+
+    # Exclude Springfield if requested
+    if exclude_springfield:
+        western_present = [d for d in western_present if get_enrollment_group(latest_total_fte(df, d)) != "SPRINGFIELD"]
+
+    # Calculate weighted Western MA aggregate
+    epp_western, _, _ = weighted_epp_aggregation(df, western_present)
+
+    # Build PPE baseline map
+    base_map = {}
+    if not epp_western.empty:
+        start_year = latest_year - 15  # 15 years before latest for START_DOLLAR
+        for sc in epp_western.columns:
+            s = epp_western[sc]
+            base_map[sc] = {
+                "5": compute_cagr_last(s, 5),
+                "10": compute_cagr_last(s, 10),
+                "15": compute_cagr_last(s, 15),
+                "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
+                "START_DOLLAR": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
+            }
+
+        # Add Total entry to baseline map
+        total_series = epp_western.sum(axis=1)
+        base_map["Total"] = {
+            "5": compute_cagr_last(total_series, 5),
+            "10": compute_cagr_last(total_series, 10),
+            "15": compute_cagr_last(total_series, 15),
+            "DOLLAR": (float(total_series.loc[latest_year]) if latest_year in total_series.index else float("nan")),
+            "START_DOLLAR": (float(total_series.loc[start_year]) if start_year in total_series.index else float("nan")),
+        }
+
+    # Build FTE baseline map (using weighted average enrollment)
+    # Get enrollment data for Western MA districts
+    _, _, _, lines_western = prepare_western_epp_lines(df, reg, "all_western", c70, districts=western_present)
+
+    fte_base_map = {}
+    if lines_western:
+        for key, label in ENROLL_KEYS:
+            s = lines_western.get(label)
+            if s is not None and not s.empty:
+                start_year = latest_year - 15
+                fte_base_map[label] = {
+                    "5": compute_cagr_last(s, 5),
+                    "10": compute_cagr_last(s, 10),
+                    "15": compute_cagr_last(s, 15),
+                    "FTE": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
+                    "START_FTE": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
+                }
+
+    return base_map, fte_base_map
+
+
+def _build_western_ma_nss_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, latest_year: int, exclude_springfield: bool = True) -> dict:
+    """
+    Build NSS/Ch70 baseline comparison map for Western MA weighted average (excluding Springfield).
+
+    This baseline is used for comparing cohort aggregates to the regional average for NSS/Ch70 data.
+
+    Args:
+        df: Main expenditure DataFrame
+        reg: Regional classification DataFrame
+        c70: Chapter 70 data
+        latest_year: Latest year in dataset
+        exclude_springfield: If True, exclude Springfield from the average (default True)
+
+    Returns:
+        dict mapping component names to baseline values
+    """
+    # Get all Western MA traditional districts
+    western_mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
+    western_all = sorted(set(reg[western_mask]["DIST_NAME"].str.lower()))
+    western_present = [d for d in western_all if d in set(df["DIST_NAME"].str.lower())]
+
+    # Exclude Springfield if requested
+    if exclude_springfield:
+        western_present = [d for d in western_present if get_enrollment_group(latest_total_fte(df, d)) != "SPRINGFIELD"]
+
+    # Calculate weighted Western MA aggregate for NSS/Ch70
+    nss_western, _, foundation_western = prepare_aggregate_nss_ch70_weighted(df, c70, western_present)
+
+    if nss_western.empty:
+        return {}
+
+    # Use existing function to build baseline map
+    return _build_nss_ch70_baseline_map(nss_western, latest_year, foundation_western)
+
+
 def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, str]], doc_width: float, style_body, style_num, year: int = 2024):
     """Build compact 3-column table showing all districts with cohort colors, enrollment, and year-specific PPE."""
     if not district_data:
@@ -419,6 +529,10 @@ def _abbr_bucket_suffix(full: str) -> str:
     # Match by cohort keywords (case-insensitive) - works with any dynamic boundaries
     full_lower = (full or "").lower()
 
+    # Check for "All Western MA (excluding Springfield)" - used for cohort comparisons
+    if "all western" in full_lower and "excluding springfield" in full_lower:
+        return "MA (excl. Springfield)"
+
     # Check for each cohort keyword (order matters - check "tiny" before "small", "x-large" before "large"!)
     if "tiny" in full_lower:
         return f"({get_cohort_label('TINY')})"
@@ -570,7 +684,8 @@ def _build_category_table(page: dict) -> Table:
                 ts.add("BACKGROUND", (col, i), (col, i), bg)
 
     # Shade TOTAL row (same logic as category rows)
-    if page.get("page_type") == "district" and total_row_idx is not None:
+    # Enable shading for: district pages, cohort aggregate pages (western), and NSS/Ch70 pages
+    if page.get("page_type") in ["district", "western", "nss_ch70"] and total_row_idx is not None:
         total_base_map = base.get("Total", {})
 
         # Parse total values from the total tuple
@@ -661,7 +776,8 @@ def _build_fte_table(page: dict) -> Table:
     # Legend rows: Show only if there's a baseline (i.e., comparison page, not aggregate)
     # Merge 4 leftmost cells (0-3) for shading rule text, span rightmost 3 cells (4-6) for swatches
     legend_rows = []
-    if page.get("page_type") in ["district", "nss_ch70"] and (page.get("baseline_map") or page.get("fte_baseline_map")):
+    # Show legend if baseline comparison is available (for district, western cohort, or nss_ch70 pages)
+    if page.get("page_type") in ["district", "western", "nss_ch70"] and (page.get("baseline_map") or page.get("fte_baseline_map")):
         baseline_title = page.get("baseline_title", "")
         bucket_suffix = _abbr_bucket_suffix(baseline_title)
 
@@ -695,7 +811,8 @@ def _build_fte_table(page: dict) -> Table:
     ])
 
     # Shade FTE columns (cols 2 and 6: start and latest) and CAGR columns (cols 3–5)
-    if page.get("page_type") in ["district", "nss_ch70"]:
+    # Show comparison info for district, western cohort, and nss_ch70 pages
+    if page.get("page_type") in ["district", "western", "nss_ch70"]:
         for i, (color, label, latest_str, r5s, r10s, r15s) in enumerate(rows_in, start=1):
             base_map = fte_base.get(label, {})
 
@@ -1440,14 +1557,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         title="Executive Summary (continued)",
         subtitle="5-year CAGR by district and cohort",
         chart_paths=[
+            str(OUTPUT_DIR / "executive_summary_cagr_legend.png"),
             str(OUTPUT_DIR / "executive_summary_cagr_grouped.png"),
             str(OUTPUT_DIR / "executive_summary_cagr_15year.png")
         ],
         text_blocks=[cagr_explanation],
         graph_only=True,
         executive_summary=True,  # Flag for special chart sizing
-        two_charts_vertical=True,  # Stack both CAGR charts vertically
-        cagr_with_text=True  # Special flag for text placement between charts
+        cagr_with_legend=True  # Special flag for legend + two charts layout
     ))
 
     pages.append(dict(
@@ -1547,6 +1664,10 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     cohorts = get_western_cohort_districts(df, reg)
     cohort_map = {"tiny": "TINY", "small": "SMALL", "medium": "MEDIUM", "large": "LARGE", "x-large": "X-LARGE", "springfield": "SPRINGFIELD"}
 
+    # Calculate Western MA baseline (excluding Springfield) for cohort comparisons
+    # This is used once and shared across all cohort pages
+    western_baseline_map, western_fte_baseline_map = _build_western_ma_baseline(df, reg, c70, cmap_all, df["YEAR"].max(), exclude_springfield=True)
+
     # Add Western MA aggregate pages to Section 1 (6 enrollment groups)
     for bucket in ("tiny", "small", "medium", "large", "x-large", "springfield"):
         district_list = cohorts[cohort_map[bucket]]
@@ -1561,11 +1682,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         fte_rows, fte_map, latest_fte_year = _build_fte_data(lines_mean, latest_year)
 
         pages.append(dict(title=title,
-                        subtitle="PPE vs Enrollment — Weighted average per district",
+                        subtitle="PPE vs Enrollment — Weighted average per district. Expense category table shaded by comparison to weighted average of all Western MA (excluding Springfield)",
                         chart_path=str(regional_png(bucket)),
                         latest_year=latest_year, latest_year_fte=latest_fte_year,
                         cat_rows=rows, cat_total=total, cat_start_map=start_map, fte_rows=fte_rows,
                         fte_series_map=fte_map, page_type="western",
+                        baseline_title="All Western MA (excluding Springfield)",
+                        baseline_map=western_baseline_map,
+                        fte_baseline_map=western_fte_baseline_map,
                         raw_epp=epp, raw_lines=lines_mean, dist_name=title))
 
         # Add NSS/Ch70 page for this Western aggregate (weighted per-pupil)
@@ -1591,10 +1715,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                 cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_west, latest_year_nss)
                 fte_rows_nss, fte_map_nss, latest_fte_year_nss = _build_nss_fte_data(foundation_west, latest_year_nss)
 
+                # Build Western MA baseline for NSS/Ch70 (shared across all cohorts)
+                # Calculate once and reuse - this will be the same for all cohort pages
+                western_nss_baseline = _build_western_ma_nss_baseline(df, reg, c70, latest_year_nss, exclude_springfield=True)
+
                 safe_name = f"Western_MA_{bucket}"
                 pages.append(dict(
                     title=title,
-                    subtitle="Chapter 70 Aid and Net School Spending (NSS). Weighted avg funding per district: State aid (Ch70), Required local contribution, and Actual spending above requirement",
+                    subtitle="Chapter 70 Aid and Net School Spending (NSS). Weighted avg funding per district: State aid (Ch70), Required local contribution, and Actual spending above requirement. Funding component table shaded by comparison to weighted average of all Western MA (excluding Springfield)",
                     chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
                     latest_year=latest_year_nss,
                     cat_rows=cat_rows_nss,
@@ -1604,6 +1732,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     fte_series_map=fte_map_nss,
                     latest_year_fte=latest_fte_year_nss,
                     page_type="nss_ch70",
+                    baseline_title="All Western MA (excluding Springfield)",
+                    baseline_map=western_nss_baseline,
+                    fte_baseline_map=western_nss_baseline if "Foundation Enrollment" in western_nss_baseline else {},
                     dist_name=title,
                     raw_nss=nss_west  # Store for Appendix A data tables
                 ))
@@ -2624,69 +2755,83 @@ def build_pdf(pages: List[dict], out_path: Path):
             chart_paths = [chart_path]
 
         if chart_paths:
+            # Special handling for CAGR page with legend + two charts
+            if p.get("cagr_with_legend") and len(chart_paths) == 3:
+                # Add text blocks first (explanation)
+                text_blocks = p.get("text_blocks", []) or []
+                if text_blocks:
+                    for block in text_blocks:
+                        story.append(Paragraph(block, style_body))
+                    story.append(Spacer(0, 12))
+
+                # Add legend (first image in chart_paths)
+                legend_path = Path(chart_paths[0])
+                if legend_path.exists():
+                    im = Image(str(legend_path))
+                    ratio = im.imageHeight / float(im.imageWidth)
+                    im.drawWidth = doc.width
+                    im.drawHeight = doc.width * ratio
+                    # Legend - increased to 22% of page height for better visibility
+                    max_legend_h = doc.height * 0.22
+                    if im.drawHeight > max_legend_h:
+                        im.drawHeight = max_legend_h
+                        im.drawWidth = im.drawHeight / ratio
+                    story.append(im)
+                    story.append(Spacer(0, 8))
+
+                # Add first chart (5-year CAGR grouped bars)
+                img_path = Path(chart_paths[1])
+                if img_path.exists():
+                    im = Image(str(img_path))
+                    ratio = im.imageHeight / float(im.imageWidth)
+                    im.drawWidth = doc.width
+                    im.drawHeight = doc.width * ratio
+                    max_chart_h = doc.height * 0.42  # Increased for better visibility
+                    if im.drawHeight > max_chart_h:
+                        im.drawHeight = max_chart_h
+                        im.drawWidth = im.drawHeight / ratio
+                    story.append(im)
+                    story.append(Paragraph(f"<i>Figure {next_figure_number()}</i>", style_figure_num))
+                    story.append(Spacer(0, 10))
+
+                # Add second chart (15-year CAGR bars)
+                img_path = Path(chart_paths[2])
+                if img_path.exists():
+                    im = Image(str(img_path))
+                    ratio = im.imageHeight / float(im.imageWidth)
+                    im.drawWidth = doc.width
+                    im.drawHeight = doc.width * ratio
+                    max_chart_h = doc.height * 0.42  # Increased for better visibility
+                    if im.drawHeight > max_chart_h:
+                        im.drawHeight = max_chart_h
+                        im.drawWidth = im.drawHeight / ratio
+                    story.append(im)
+                    story.append(Paragraph(f"<i>Figure {next_figure_number()}</i>", style_figure_num))
+                    story.append(Spacer(0, 6))
+
+                # Skip to page break - don't process further for this page type
+                if idx < len(pages)-1:
+                    story.append(PageBreak())
+                continue
             # Two charts vertical: split page height between them
-            if p.get("two_charts_vertical") and len(chart_paths) == 2:
-                # Special handling for CAGR page with text between charts
-                if p.get("cagr_with_text"):
-                    # Add text blocks first (before first chart)
-                    text_blocks = p.get("text_blocks", []) or []
-                    if text_blocks:
-                        for block in text_blocks:
-                            story.append(Paragraph(block, style_body))
-                        story.append(Spacer(0, 12))
-
-                    # Add first chart (5-year CAGR)
-                    img_path = Path(chart_paths[0])
-                    if img_path.exists():
+            elif p.get("two_charts_vertical") and len(chart_paths) == 2:
+                # Standard two charts vertical (no text between)
+                for chart_path in chart_paths:
+                    img_path = Path(chart_path)
+                    if not img_path.exists():
+                        story.append(Paragraph(f"[Missing chart image: {img_path.name}]", style_body))
+                    else:
                         im = Image(str(img_path))
                         ratio = im.imageHeight / float(im.imageWidth)
-                        im.drawWidth = doc.width
-                        im.drawHeight = doc.width * ratio
-                        max_chart_h = doc.height * 0.32  # Smaller to fit text + 2 charts
+                        im.drawWidth = doc.width; im.drawHeight = doc.width * ratio
+                        # Each chart gets ~38% of page height (76% total for two charts)
+                        max_chart_h = doc.height * 0.38
                         if im.drawHeight > max_chart_h:
-                            im.drawHeight = max_chart_h
-                            im.drawWidth = im.drawHeight / ratio
+                            im.drawHeight = max_chart_h; im.drawWidth = im.drawHeight / ratio
                         story.append(im)
                         story.append(Paragraph(f"<i>Figure {next_figure_number()}</i>", style_figure_num))
-                        story.append(Spacer(0, 12))
-
-                    # Add second chart (15-year CAGR)
-                    img_path = Path(chart_paths[1])
-                    if img_path.exists():
-                        im = Image(str(img_path))
-                        ratio = im.imageHeight / float(im.imageWidth)
-                        im.drawWidth = doc.width
-                        im.drawHeight = doc.width * ratio
-                        max_chart_h = doc.height * 0.32
-                        if im.drawHeight > max_chart_h:
-                            im.drawHeight = max_chart_h
-                            im.drawWidth = im.drawHeight / ratio
-                        story.append(im)
-                        story.append(Paragraph(f"<i>Figure {next_figure_number()}</i>", style_figure_num))
-                        story.append(Spacer(0, 6))
-
-                    # Skip to page break - don't process further for this page type
-                    if idx < len(pages)-1:
-                        story.append(PageBreak())
-                    continue
-                else:
-                    # Standard two charts vertical (no text between)
-                    for chart_path in chart_paths:
-                        img_path = Path(chart_path)
-                        if not img_path.exists():
-                            story.append(Paragraph(f"[Missing chart image: {img_path.name}]", style_body))
-                        else:
-                            im = Image(str(img_path))
-                            ratio = im.imageHeight / float(im.imageWidth)
-                            im.drawWidth = doc.width; im.drawHeight = doc.width * ratio
-                            # Each chart gets ~38% of page height (76% total for two charts)
-                            max_chart_h = doc.height * 0.38
-                            if im.drawHeight > max_chart_h:
-                                im.drawHeight = max_chart_h; im.drawWidth = im.drawHeight / ratio
-                            story.append(im)
-                            story.append(Paragraph(f"<i>Figure {next_figure_number()}</i>", style_figure_num))
-                            if chart_path != chart_paths[-1]:  # Add small spacer between charts
-                                story.append(Spacer(0, 6))
+                        if chart_path != chart_paths[-1]:  # Add small spacer between charts
+                            story.append(Spacer(0, 6))
             else:
                 # Single chart rendering (original logic)
                 for chart_path in chart_paths:

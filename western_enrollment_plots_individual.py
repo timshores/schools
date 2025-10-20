@@ -10,6 +10,7 @@ Creates 4 separate plots for PDF integration:
 Each plot saved separately for PDF layout (2 per page).
 """
 
+import argparse
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -145,7 +146,7 @@ def plot_scatterplot(data: dict, out_path: Path):
         'SPRINGFIELD': '#A50026'  # Dark Red (outliers)
     }
 
-    fig, ax = plt.subplots(figsize=(11, 6))
+    fig, ax = plt.subplots(figsize=(11, 5))
 
     # Filter out extreme outliers (SPRINGFIELD) for plotting
     outlier_threshold = data['outlier_threshold']
@@ -207,8 +208,8 @@ def plot_scatterplot(data: dict, out_path: Path):
     ax.grid(True, alpha=0.3)
 
     # Add year annotation at top right corner
-    ax.text(0.98, 0.98, str(latest_year), transform=ax.transAxes,
-            fontsize=24, fontweight='bold', ha='right', va='top',
+    ax.text(0.98, 0.90, str(latest_year), transform=ax.transAxes,
+            fontsize=20, fontweight='bold', ha='right', va='top',
             bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', linewidth=2))
 
     # Remove top, left, right borders - keep only bottom
@@ -217,12 +218,13 @@ def plot_scatterplot(data: dict, out_path: Path):
     ax.spines['right'].set_visible(False)
 
     # Legend below the plot
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.12), ncol=4, fontsize=10,
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=5, fontsize=10,
              title="Springfield (>10K FTE) omitted as high-enrollment outlier",
              title_fontsize=9)
 
     # Annotation box removed per user request
-    plt.tight_layout()
+    # Adjust layout to make room for legend without overlapping x-axis label
+    plt.subplots_adjust(bottom=0.25)
     # Version stamp removed
 
 
@@ -445,13 +447,19 @@ def plot_grouping(data: dict, out_path: Path):
 
 
 def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Generate enrollment distribution plots")
+    parser.add_argument("--force-recompute", action="store_true",
+                        help="Bypass cache and recompute from source")
+    args = parser.parse_args()
+
     print("="*70)
     print("Western MA Enrollment Distribution - Individual Plots")
     print("="*70)
 
     # Load data
     print("\n[1/5] Loading data...")
-    df, reg, c70 = load_data()
+    df, reg, c70 = load_data(force_recompute=args.force_recompute)
     latest_year = int(df["YEAR"].max())
     print(f"  Latest year: {latest_year}")
 

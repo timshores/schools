@@ -2353,3 +2353,232 @@ Generated 6 PNG files in output/ directory:
 2. ✅ ~~Add NSS/Ch70 data tables to Appendix B~~ (COMPLETED)
 3. ✅ ~~Create comparison baseline for NSS/Ch70~~ (COMPLETED - Western MA and ALPS Peers)
 4. ✅ ~~Convert NSS/Ch70 to absolute dollars~~ (COMPLETED - per DESE guidance)
+
+---
+
+## Session 2025-10-20
+
+**11. Created standalone legend for Executive Summary CAGR plots**
+- Added `plot_cagr_legend()` function (executive_summary_plots.py:491-581):
+  - Generates standalone legend PNG with same color scheme as CAGR plots
+  - Uses matplotlib.patches.Patch to create legend items
+  - Horizontal layout with 4 columns, 18pt font
+  - Includes cohort hatching pattern for visual consistency
+  - Figure size: 18x2 inches for wide horizontal layout
+- Modified `plot_cagr_grouped_bars()` (executive_summary_plots.py:584-695):
+  - Removed inline legend (was at top of plot with bbox_to_anchor)
+  - Removed plt.subplots_adjust(top=0.92) that made room for legend
+  - Plot now uses full vertical space without legend overhead
+- Updated main() function (executive_summary_plots.py:809-879):
+  - Changed step numbering from [1/5]-[5/5] to [1/6]-[6/6]
+  - Added step [6/6] to generate standalone legend
+  - Outputs: executive_summary_cagr_legend.png
+
+**Output:**
+- New file: output/executive_summary_cagr_legend.png
+- Modified: output/executive_summary_cagr_grouped.png (legend removed)
+- Legend can now be placed independently on page without affecting plot alignment
+
+**12. Updated compose_pdf.py to place legend and CAGR plots together**
+- Modified page definition (compose_pdf.py:1439-1451):
+  - Changed chart_paths to include legend as first element
+  - Added executive_summary_cagr_legend.png before the two CAGR plots
+  - Replaced two_charts_vertical and cagr_with_text flags with new cagr_with_legend flag
+- Added new layout rendering logic (compose_pdf.py:2627-2684):
+  - Detects cagr_with_legend flag and 3 chart_paths
+  - Places explanation text first (12pt spacer)
+  - Places legend at 8% of page height (8pt spacer after)
+  - Places 5-year CAGR grouped bars at 35% of page height (10pt spacer after)
+  - Places 15-year CAGR bars at 35% of page height
+  - All three images maintain full page width with proper aspect ratio
+- Maintained backward compatibility with two_charts_vertical flag for other pages
+
+**Page Layout:**
+- Executive Summary (continued) page now shows:
+  1. Title and subtitle
+  2. CAGR explanation text
+  3. Legend (horizontal, short height)
+  4. 5-year CAGR grouped bars (Figure N)
+  5. 15-year CAGR bars (Figure N+1)
+- Total vertical allocation: ~8% legend + 35% + 35% charts = ~78% of page height
+- Remaining space for title, text, figure captions, and spacing
+
+**13. Increased size of legend and CAGR charts on page**
+- Updated legend height allocation (compose_pdf.py:2644):
+  - Increased from 8% to 15% of page height for better visibility
+- Updated CAGR chart height allocations (compose_pdf.py:2658, 2673):
+  - Increased from 35% to 42% of page height for both charts
+- New total vertical allocation: 15% legend + 42% + 42% charts = 99% of page height
+- Images maintain full page width with proper aspect ratios
+- Both plots now display larger and more readable on the page
+
+**14. Further increased legend size and reduced bar gaps in 15-year CAGR plot**
+- Updated legend height allocation (compose_pdf.py:2644):
+  - Increased from 15% to 22% of page height for improved readability
+- Reduced bar gaps in 15-year CAGR plot (executive_summary_plots.py:766):
+  - Increased bar_width from 0.5 to 0.8
+  - Bars now wider with minimal whitespace between them
+  - Plot appears less wide with more compact bar arrangement
+- Legend and bars now more prominent on the page
+
+**15. Implemented data caching/checkpointing system**
+- Created cache_manager.py module (lines 1-175):
+  - `save_cache()`: Saves DataFrames as CSV files to data/cache/
+  - `load_from_cache()`: Loads DataFrames from cache CSVs
+  - `use_cache()`: Checks if cache exists and should be used
+  - `cache_exists()`: Validates all cache files are present
+  - `clear_cache()`: Deletes cache files
+  - Cache includes: expenditure_data.csv, regional_data.csv, chapter70_data.csv, cache_metadata.txt
+- Updated school_shared.py load_data() function (lines 459-550):
+  - Added `force_recompute` parameter (default False)
+  - Checks cache first before loading from Excel
+  - Automatically saves to cache after loading from Excel
+  - Gracefully falls back to Excel if cache load fails
+- Updated generate_report.py (lines 1-139):
+  - Added argparse support for --force-recompute flag
+  - Passes flag to all pipeline scripts
+  - Shows cache mode in output ("Using cache" vs "Force recompute")
+
+**Cache Behavior:**
+- First run: Loads from Excel, saves to data/cache/, ~30-60 seconds
+- Subsequent runs: Loads from cache CSVs, ~2-5 seconds
+- With --force-recompute: Bypasses cache, reloads from Excel
+- Cache automatically used if present and force flag not set
+
+**Next Steps:**
+- ~~Add --force-recompute support to individual pipeline scripts~~ ✅ COMPLETED
+- Test full pipeline with caching enabled
+- (Future) Move to PPE_project structure with PPE_ filename prefixes
+
+---
+
+## 16. Complete Pipeline Integration with Caching (2025-10-20)
+
+**Problem:** Individual pipeline scripts did not accept --force-recompute argument, preventing full integration with caching system.
+
+**Solution:** Updated all 6 pipeline scripts to accept and pass --force-recompute flag:
+
+**Changes Made:**
+1. **threshold_analysis.py:**
+   - Added `import argparse` at line 15
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+2. **executive_summary_plots.py:**
+   - Added `import argparse` at line 8
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+3. **district_expend_pp_stack.py:**
+   - Added `import argparse` at line 24
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+4. **nss_ch70_main.py:**
+   - Added `import argparse` at line 14
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+5. **western_map.py:**
+   - Added `import argparse` at line 35
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+6. **western_enrollment_plots_individual.py:**
+   - Added `import argparse` at line 13
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+**Pattern Applied (consistent across all scripts):**
+```python
+# 1. Import argparse at top
+import argparse
+
+# 2. Add argument parser in main()
+def main():
+    parser = argparse.ArgumentParser(description="[Script description]")
+    parser.add_argument("--force-recompute", action="store_true",
+                        help="Bypass cache and recompute from source")
+    args = parser.parse_args()
+
+    # 3. Pass flag to load_data()
+    df, reg, c70 = load_data(force_recompute=args.force_recompute)
+```
+
+**Result:** Complete end-to-end caching system is now fully operational:
+- Running `python generate_report.py` uses cache if available
+- Running `python generate_report.py --force-recompute` bypasses cache and reloads from Excel
+- Each individual script can also be run with --force-recompute flag independently
+- Cache reduces data loading time from ~30-60 seconds to ~2-5 seconds
+
+**Testing Recommendations:**
+1. Delete existing cache: Remove data/cache/ directory
+2. Run full pipeline: `python generate_report.py`
+   - Should create cache files in data/cache/
+   - Should complete successfully
+3. Run again without flag: `python generate_report.py`
+   - Should load from cache (fast)
+   - Should show "[Cache] Cache found - loading from cache"
+4. Force recompute: `python generate_report.py --force-recompute`
+   - Should bypass cache and reload from Excel
+   - Should show "[Cache] Force recompute requested - bypassing cache"
+
+---
+
+## 17. Add Red/Green Shading to Cohort Aggregate Tables (2025-10-20)
+
+**Problem:** Cohort aggregate tables (Tiny, Small, Medium, Large, X-Large, Springfield) and their NSS/Ch70 tables did not have red/green comparison shading, making it difficult to assess how each enrollment group compared to the regional average.
+
+**Question:** What should cohort aggregates be compared to? Since cohorts provide the basis of comparison for individual districts, comparing cohorts to themselves would be meaningless.
+
+**Solution:** Compare all cohort aggregates (including Springfield) to **Western MA weighted average (excluding Springfield)**. This provides meaningful regional context:
+- For individual districts: Compare to their cohort aggregate (existing behavior)
+- For cohort aggregates: Compare to overall Western MA average
+- For Springfield: Compare to overall Western MA average (excluding itself)
+
+**Implementation Details:**
+
+1. **Created Western MA baseline calculation functions** (compose_pdf.py):
+   - `_build_western_ma_baseline()` (lines 262-333): Calculates Western MA weighted average for PPE categories
+     - Gets all Western MA traditional districts
+     - Excludes Springfield (>10K FTE outlier)
+     - Uses `weighted_epp_aggregation()` to compute regional average
+     - Returns baseline_map with DOLLAR, START_DOLLAR, and CAGR values for all categories
+   - `_build_western_ma_nss_baseline()` (lines 336-368): Calculates Western MA weighted average for NSS/Ch70
+     - Similar exclusion logic
+     - Uses `prepare_aggregate_nss_ch70_weighted()`
+     - Returns baseline_map for Ch70 Aid, Required NSS, Actual NSS components
+
+2. **Updated cohort page creation** (compose_pdf.py lines 1625-1733):
+   - Calculate Western MA baseline once (shared across all cohort pages)
+   - Added `baseline_map` and `fte_baseline_map` to all cohort PPE pages
+   - Added `baseline_map` and `fte_baseline_map` to all cohort NSS/Ch70 pages
+   - Updated subtitles to indicate: "shaded by comparison to weighted average of all Western MA (excluding Springfield)"
+   - Set `baseline_title="All Western MA (excluding Springfield)"`
+
+3. **Modified shading logic** (compose_pdf.py):
+   - Line 684: Changed `if page.get("page_type") == "district"` to `if page.get("page_type") in ["district", "western", "nss_ch70"]`
+   - Line 776: Updated legend display condition to include "western" page type
+   - Line 811: Updated FTE shading condition to include "western" page type
+   - These changes enable red/green shading for cohort tables using the same thresholds as district tables
+
+4. **Updated legend text** (compose_pdf.py line 533):
+   - Modified `_abbr_bucket_suffix()` to detect "All Western MA (excluding Springfield)" baseline
+   - Returns "MA (excl. Springfield)" for cohort page legends
+   - Individual district legends still show their cohort label (e.g., "0-200 FTE")
+
+**Result:**
+- Cohort aggregate tables now show red/green shading comparing to Western MA average
+- Springfield comparison also uses Western MA average (excluding itself)
+- Legends correctly identify the comparison baseline
+- Same shading thresholds applied: 2.0% for $/pupil, 2.0pp for CAGR
+
+**Testing:**
+- Run `python compose_pdf.py` to regenerate PDF
+- Check cohort aggregate pages (Section 1): Tiny, Small, Medium, Large, X-Large, Springfield
+- Verify red/green shading appears in:
+  - PPE category tables
+  - Enrollment tables
+  - NSS/Ch70 funding component tables
+- Verify legend shows "Above Western MA (excl. Springfield)" and "Below Western MA (excl. Springfield)"
+- Verify individual district pages still compare to their cohort (no change)

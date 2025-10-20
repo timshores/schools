@@ -32,6 +32,7 @@ Extensibility:
 
 from __future__ import annotations
 
+import argparse
 import os
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -562,13 +563,19 @@ def create_western_ma_map(
 
 def main():
     """Generate Western MA choropleth maps for multiple years."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Generate Western MA choropleth maps")
+    parser.add_argument("--force-recompute", action="store_true",
+                        help="Bypass cache and recompute from source")
+    args = parser.parse_args()
+
     print("=" * 60)
     print("Western Massachusetts District Choropleth Map Generator")
     print("=" * 60)
 
     # Load data
     print("\n[1/3] Loading data...")
-    df, reg, c70 = load_data()
+    df, reg, c70 = load_data(force_recompute=args.force_recompute)
     print(f"  Loaded {len(df)} expenditure records")
     print(f"  Loaded {len(reg)} district metadata records")
 

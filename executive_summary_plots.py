@@ -5,6 +5,7 @@ Generates year-over-year (YoY) growth rate plots for districts of interest
 and their cohort aggregates.
 """
 
+import argparse
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -345,7 +346,7 @@ def plot_cagr_chunks_districts_of_interest(
     ax.set_xticks([2014, 2019, 2024])
     ax.set_xticklabels(['2009-2014', '2014-2019', '2019-2024'])
     ax.grid(True, alpha=0.3)
-    ax.legend(loc='best', fontsize=10, framealpha=0.9)
+    ax.legend(loc='best', fontsize=16, framealpha=0.9)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.1f}%'))
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -488,6 +489,99 @@ def generate_cohort_shades(base_color: str, n_shades: int) -> List[str]:
     return shades
 
 
+def plot_cagr_legend(
+    df: pd.DataFrame,
+    cohort_districts: Dict,
+    cohorts: Dict,
+    output_path: Path
+):
+    """
+    Create a standalone legend PNG for the CAGR plots.
+    Uses the same color scheme and labels as the grouped bar plots.
+    """
+    print("\n[Executive Summary] Generating standalone legend...")
+
+    # Calculate CAGR for all districts (needed to build plot_items)
+    district_cagr = {}
+    for dist in DISTRICTS_OF_INTEREST:
+        epp_pivot, _ = prepare_district_epp_lines(df, dist)
+        if not epp_pivot.empty:
+            total_ppe = epp_pivot.sum(axis=1)
+            cagr = calculate_cagr_chunks(total_ppe)
+            district_cagr[dist] = cagr
+
+    # Calculate CAGR for cohort aggregates
+    cohort_cagr = {}
+    for cohort, dists in cohort_districts.items():
+        all_cohort_districts = cohorts[cohort]
+        epp_pivot, _, _ = weighted_epp_aggregation(df, all_cohort_districts)
+        if not epp_pivot.empty:
+            total_ppe = epp_pivot.sum(axis=1)
+            cagr = calculate_cagr_chunks(total_ppe)
+            cohort_cagr[cohort] = cagr
+
+    # Organize plot items by cohort and assign colors (same as grouped bars)
+    plot_items = []  # (name, color, is_cohort)
+
+    for cohort in sorted(cohort_districts.keys()):
+        base_color = COHORT_COLORS.get(cohort, "#777777")
+        cohort_items = []
+
+        # Add cohort aggregate first
+        if cohort in cohort_cagr:
+            cohort_items.append((f"{cohort.title()} Cohort", True))
+
+        # Add districts in this cohort
+        for dist in cohort_districts[cohort]:
+            if dist in district_cagr:
+                cohort_items.append((dist, False))
+
+        # Generate shades for this cohort's items
+        n_items = len(cohort_items)
+        if n_items > 1:
+            shades = generate_cohort_shades(base_color, n_items)
+        else:
+            shades = [base_color]
+
+        # Assign colors to items
+        for (name, is_cohort), color in zip(cohort_items, shades):
+            plot_items.append((name, color, is_cohort))
+
+    # Create a figure with just the legend
+    fig = plt.figure(figsize=(18, 2))  # Wide, short figure for horizontal legend
+    ax = fig.add_subplot(111)
+
+    # Create dummy patches for the legend
+    import matplotlib.patches as mpatches
+    legend_handles = []
+
+    for name, color, is_cohort in plot_items:
+        if is_cohort:
+            # Cohort with hatching
+            patch = mpatches.Patch(facecolor=color, edgecolor='white',
+                                  linewidth=2, hatch='////', alpha=0.8, label=name)
+        else:
+            # Regular district
+            patch = mpatches.Patch(facecolor=color, edgecolor='white',
+                                  linewidth=0.5, alpha=0.9, label=name)
+        legend_handles.append(patch)
+
+    # Create the legend
+    legend = ax.legend(handles=legend_handles, loc='center', fontsize=18,
+                      framealpha=0.95, ncol=4, markerscale=1.5,
+                      handlelength=4, handleheight=2)
+
+    # Hide the axes
+    ax.axis('off')
+
+    # Save with tight layout
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+
+    print(f"  Saved: {output_path}")
+
+
 def plot_cagr_grouped_bars(
     df: pd.DataFrame,
     cohort_districts: Dict,
@@ -589,17 +683,12 @@ def plot_cagr_grouped_bars(
     # Add horizontal line at 0
     ax.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5, zorder=0)
 
-    # Add legend above plot (horizontal layout, 2x bigger font and swatches)
-    legend = ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.08), fontsize=26,
-                       framealpha=0.95, ncol=4, markerscale=2.0, handlelength=4, handleheight=2)
-
     # Grid and spines
     ax.grid(True, axis='y', alpha=0.3)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
     plt.tight_layout()
-    plt.subplots_adjust(top=0.92)  # Make room for legend above
     output_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close(fig)
@@ -670,13 +759,12 @@ def plot_cagr_15year_bars(
 
     # Set up the figure
     n_items = len(plot_items)
-    fig, ax = plt.subplots(figsize=(16, 7))
+    fig, ax = plt.subplots(figsize=(16, 6))
 
-    # Bar positions - bars 2-3x wider than individual grouped plot bars
+    # Bar positions - bars wider to reduce gaps
     x_positions = np.arange(n_items)
-    # Grouped plot bars are: 0.8/n_items * 0.95 ≈ 0.076 (for n=10)
-    # For 2.5x that width: bar_width ≈ 0.6
-    bar_width = 0.6
+    # Wider bars to minimize whitespace between bars
+    bar_width = 0.8
 
     # Extract values and colors
     names = [name for name, _, _, _ in plot_items]
@@ -720,17 +808,23 @@ def plot_cagr_15year_bars(
 
 def main():
     """Generate Executive Summary plots."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Generate Executive Summary plots")
+    parser.add_argument("--force-recompute", action="store_true",
+                        help="Bypass cache and recompute from source")
+    args = parser.parse_args()
+
     print("=" * 70)
     print("Executive Summary - Growth Analysis")
     print("=" * 70)
 
     # Load data
-    print("\n[1/5] Loading data...")
-    df, reg, c70 = load_data()
+    print("\n[1/6] Loading data...")
+    df, reg, c70 = load_data(force_recompute=args.force_recompute)
     print(f"  Loaded {len(df)} expenditure records")
 
     # Calculate YoY growth data for other plots (no longer generating standalone YoY plot)
-    print("\n[2/5] Calculating YoY growth data...")
+    print("\n[2/6] Calculating YoY growth data...")
     # Get cohort assignments
     cohorts = get_western_cohort_districts(df, reg)
     district_cohort_map = {}
@@ -767,19 +861,24 @@ def main():
             cohort_yoy[cohort] = yoy
 
     # Generate YoY separate panes plot
-    print("\n[3/5] Generating YoY separate panes plot...")
+    print("\n[3/6] Generating YoY separate panes plot...")
     output_path = OUTPUT_DIR / "executive_summary_yoy_panes.png"
     plot_yoy_separate_panes(district_yoy, cohort_yoy, cohort_districts, output_path)
 
     # Generate CAGR 5-year grouped bars plot
-    print("\n[4/5] Generating 5-year CAGR grouped bars plot...")
+    print("\n[4/6] Generating 5-year CAGR grouped bars plot...")
     output_path = OUTPUT_DIR / "executive_summary_cagr_grouped.png"
     plot_cagr_grouped_bars(df, cohort_districts, cohorts, output_path)
 
     # Generate CAGR 15-year bars plot
-    print("\n[5/5] Generating 15-year CAGR bars plot...")
+    print("\n[5/6] Generating 15-year CAGR bars plot...")
     output_path = OUTPUT_DIR / "executive_summary_cagr_15year.png"
     plot_cagr_15year_bars(df, cohort_districts, cohorts, output_path)
+
+    # Generate standalone legend
+    print("\n[6/6] Generating standalone legend...")
+    output_path = OUTPUT_DIR / "executive_summary_cagr_legend.png"
+    plot_cagr_legend(df, cohort_districts, cohorts, output_path)
 
     print("\n" + "=" * 70)
     print("[SUCCESS] Executive Summary plots generated!")

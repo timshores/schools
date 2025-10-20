@@ -12,6 +12,7 @@ This analysis determines whether these thresholds are appropriate by
 examining the natural variation in the data.
 """
 
+import argparse
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -270,13 +271,19 @@ def save_analysis_results(sds: Dict[str, float], thresholds_df: pd.DataFrame, ou
 
 def main():
     """Run threshold analysis."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Run threshold analysis for shading logic")
+    parser.add_argument("--force-recompute", action="store_true",
+                        help="Bypass cache and recompute from source")
+    args = parser.parse_args()
+
     print("=" * 70)
     print("THRESHOLD ANALYSIS FOR SHADING LOGIC")
     print("=" * 70)
 
     # Load data
     print("\n[1/4] Loading data...")
-    df, reg, c70 = load_data()
+    df, reg, c70 = load_data(force_recompute=args.force_recompute)
 
     # Collect metrics for all districts
     print("\n[2/4] Collecting district metrics...")

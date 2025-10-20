@@ -10,11 +10,10 @@ This script orchestrates the execution of all analysis components:
 
 Usage:
     python generate_report.py
-
-Future extensions:
-    python generate_report.py --districts Amherst,Pelham --output custom_report.pdf
+    python generate_report.py --force-recompute  # Bypass cache and recompute from source
 """
 
+import argparse
 import subprocess
 import sys
 from pathlib import Path
@@ -32,13 +31,14 @@ PIPELINE = [
 ]
 
 
-def run_script(script_path: str, description: str) -> bool:
+def run_script(script_path: str, description: str, force_recompute: bool = False) -> bool:
     """
     Run a Python script and return success status.
 
     Args:
         script_path: Path to the script to execute
         description: Human-readable description for logging
+        force_recompute: If True, pass --force-recompute flag to script
 
     Returns:
         True if script succeeded, False otherwise
@@ -49,8 +49,12 @@ def run_script(script_path: str, description: str) -> bool:
     print("=" * 70)
 
     try:
+        cmd = [sys.executable, script_path]
+        if force_recompute:
+            cmd.append("--force-recompute")
+
         result = subprocess.run(
-            [sys.executable, script_path],
+            cmd,
             check=True,
             capture_output=False,  # Show output in real-time
             text=True
@@ -71,12 +75,22 @@ def run_script(script_path: str, description: str) -> bool:
 
 def main():
     """Execute the complete report generation pipeline."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Generate school district analysis report")
+    parser.add_argument("--force-recompute", action="store_true",
+                        help="Bypass cache and recompute all data from source")
+    args = parser.parse_args()
+
     print("\n" + "=" * 70)
     print("SCHOOL DISTRICT ANALYSIS REPORT GENERATOR")
     print("=" * 70)
     print(f"Working directory: {Path.cwd()}")
     print(f"Python executable: {sys.executable}")
     print(f"Pipeline steps: {len(PIPELINE)}")
+    if args.force_recompute:
+        print(f"Mode: Force recompute (bypassing cache)")
+    else:
+        print(f"Mode: Using cache if available")
 
     # Verify all scripts exist before starting
     missing_scripts = []
@@ -97,7 +111,7 @@ def main():
 
     for i, (script_path, description) in enumerate(PIPELINE, 1):
         print(f"\n[Step {i}/7]")  # Updated to 7 steps
-        success = run_script(script_path, description)
+        success = run_script(script_path, description, force_recompute=args.force_recompute)
 
         if not success:
             failed_steps.append(description)

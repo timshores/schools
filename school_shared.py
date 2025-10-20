@@ -456,7 +456,29 @@ def coalesce_year_column(df: pd.DataFrame) -> pd.DataFrame:
     df["YEAR"] = df["YEAR"].astype(int)
     return df
 
-def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_data(force_recompute: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Load school district data from Excel or cache.
+
+    Args:
+        force_recompute: If True, bypass cache and reload from Excel
+
+    Returns:
+        Tuple of (df, reg, profile_c70) DataFrames
+    """
+    # Try to use cache first
+    import cache_manager
+    if cache_manager.use_cache(force_recompute):
+        try:
+            df, reg, profile_c70 = cache_manager.load_from_cache()
+            # Initialize cohort definitions with cached data
+            initialize_cohort_definitions(df, reg)
+            return df, reg, profile_c70
+        except Exception as e:
+            print(f"[Cache] Error loading cache: {e}")
+            print("[Cache] Falling back to Excel source")
+
+    # Load from Excel
     xls = pd.ExcelFile(EXCEL_FILE)
 
     df = pd.read_excel(xls, sheet_name=find_sheet_name(xls, SHEET_EXPEND))
@@ -520,6 +542,10 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
     # Initialize dynamic cohort definitions based on loaded data
     initialize_cohort_definitions(df, reg)
+
+    # Save to cache for future runs
+    import cache_manager
+    cache_manager.save_cache(df, reg, profile_c70)
 
     return df, reg, profile_c70
 
