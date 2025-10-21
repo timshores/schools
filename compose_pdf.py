@@ -153,7 +153,7 @@ style_right_small= ParagraphStyle("right_small", parent=styles["Normal"],  fontS
 style_data_cell  = ParagraphStyle("data_cell",   parent=styles["Normal"],  fontSize=6,  leading=8,  alignment=2)
 style_data_hdr   = ParagraphStyle("data_hdr",    parent=styles["Normal"],  fontSize=7,  leading=9,  alignment=2)
 style_data_label = ParagraphStyle("data_label",  parent=styles["Normal"],  fontSize=6,  leading=8,  alignment=0)
-style_figure_num = ParagraphStyle("figure_num",  parent=styles["Normal"],  fontSize=8,  leading=10, alignment=2, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Small, italic, right-aligned, light gray background
+style_figure_num = ParagraphStyle("figure_num",  parent=styles["Normal"],  fontSize=8,  leading=10, alignment=0, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Small, italic, left-aligned, light gray background
 style_table_num  = ParagraphStyle("table_num",   parent=styles["Normal"],  fontSize=8,  leading=10, alignment=2, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Small, italic, right-aligned, light gray background
 style_fig_table_num = ParagraphStyle("fig_table_num", parent=styles["Normal"], fontSize=8, leading=10, alignment=2, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Combined figure and table numbers
 
@@ -1359,6 +1359,116 @@ def _build_nss_ch70_data_table(nss_pivot: pd.DataFrame, title: str, doc_width: f
 
     return tbl
 
+def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = None, apply_shading: bool = True, skip_shading_rows: set = None) -> Table:
+    """
+    Build cohort summary table showing Total PPE metrics across cohorts.
+
+    Args:
+        cohort_rows: List of (label, start_dollar, cagr15, cagr10, cagr5, latest_dollar) tuples
+        baseline_row: Optional baseline row data for shading comparisons
+        apply_shading: Whether to apply shading (True for first table, False for comparison tables)
+        skip_shading_rows: Set of row indices (0-based, excluding header) to skip shading for
+
+    Returns:
+        ReportLab Table with formatted cohort data
+    """
+    skip_shading_rows = skip_shading_rows or set()
+
+    # Header
+    summary_data = [[
+        Paragraph("<b>Cohort/District</b>", style_hdr_left),
+        Paragraph("<b>2009 $/pupil</b>", style_hdr_right),
+        Paragraph("<b>CAGR 15y</b>", style_hdr_right),
+        Paragraph("<b>CAGR 10y</b>", style_hdr_right),
+        Paragraph("<b>CAGR 5y</b>", style_hdr_right),
+        Paragraph("<b>2024 $/pupil</b>", style_hdr_right),
+    ]]
+
+    # Data rows
+    for label, start_dollar, cagr15, cagr10, cagr5, latest_dollar in cohort_rows:
+        summary_data.append([
+            Paragraph(label, style_body),
+            Paragraph(f"${start_dollar:,.0f}" if start_dollar > 0 else "—", style_num),
+            Paragraph(fmt_pct(cagr15), style_num),
+            Paragraph(fmt_pct(cagr10), style_num),
+            Paragraph(fmt_pct(cagr5), style_num),
+            Paragraph(f"${latest_dollar:,.0f}" if latest_dollar > 0 else "—", style_num),
+        ])
+
+    summary_table = Table(summary_data, colWidths=[2.4*inch, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch])
+    ts = TableStyle([
+        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.black),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (1,1), (-1,-1), 'RIGHT'),
+        ('ALIGN', (0,1), (0,-1), 'LEFT'),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 3),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+    ])
+
+    # Apply shading if requested and baseline is provided
+    if apply_shading and baseline_row is not None:
+        base_label, base_start, base_c15, base_c10, base_c5, base_latest = baseline_row
+
+        for i, (label, start_dollar, cagr15, cagr10, cagr5, latest_dollar) in enumerate(cohort_rows, start=1):
+            # Skip shading for specified rows
+            if (i - 1) in skip_shading_rows:
+                continue
+
+            # Shade 2009 $/pupil (col 1)
+            if base_start > 0 and start_dollar > 0:
+                delta_rel = (start_dollar - base_start) / base_start
+                bg = _shade_for_dollar_rel(delta_rel)
+                if bg is not None:
+                    ts.add("BACKGROUND", (1, i), (1, i), bg)
+
+            # Shade 2024 $/pupil (col 5)
+            if base_latest > 0 and latest_dollar > 0:
+                delta_rel = (latest_dollar - base_latest) / base_latest
+                bg = _shade_for_dollar_rel(delta_rel)
+                if bg is not None:
+                    ts.add("BACKGROUND", (5, i), (5, i), bg)
+
+            # Shade CAGR columns (2, 3, 4 = 15y, 10y, 5y)
+            for col, (cagr_val, base_cagr) in zip([2, 3, 4], [(cagr15, base_c15), (cagr10, base_c10), (cagr5, base_c5)]):
+                if cagr_val == cagr_val and base_cagr == base_cagr:  # Check for non-NaN
+                    delta_pp = cagr_val - base_cagr
+                    bg = _shade_for_cagr_delta(delta_pp)
+                    if bg is not None:
+                        ts.add("BACKGROUND", (col, i), (col, i), bg)
+
+    summary_table.setStyle(ts)
+    return summary_table
+
+def _extract_total_from_cat_total(cat_total: tuple) -> tuple:
+    """
+    Extract and reorder data from cat_total tuple.
+
+    cat_total format: (label, latest_str, c5s, c10s, c15s, start_str)
+    Returns: (start_dollar, cagr15, cagr10, cagr5, latest_dollar) as floats
+    """
+    if not cat_total or len(cat_total) < 6:
+        return (0.0, 0.0, 0.0, 0.0, 0.0)
+
+    label, latest_str, c5s, c10s, c15s, start_str = cat_total
+
+    # Parse dollar strings (e.g., "$24,237" -> 24237.0)
+    def parse_dollar(s):
+        if s == "—" or not s:
+            return 0.0
+        return float(s.replace("$", "").replace(",", ""))
+
+    latest_dollar = parse_dollar(latest_str)
+    start_dollar = parse_dollar(start_str)
+
+    # Parse CAGR strings - they're already floats or NaN from fmt_pct
+    cagr5 = parse_pct_str_to_float(c5s)
+    cagr10 = parse_pct_str_to_float(c10s)
+    cagr15 = parse_pct_str_to_float(c15s)
+
+    return (start_dollar, cagr15, cagr10, cagr5, latest_dollar)
+
 # ---- Page dicts ----
 def build_threshold_analysis_page() -> dict:
     """
@@ -1565,6 +1675,146 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         graph_only=True,
         executive_summary=True,  # Flag for special chart sizing
         cagr_with_legend=True  # Special flag for legend + two charts layout
+    ))
+
+    # ===== NEW EXECUTIVE SUMMARY COHORT TABLES =====
+    # Build cohort summary data using same functions as Western MA pages
+    cohorts_exec = get_western_cohort_districts(df, reg)
+    cmap_exec = create_or_load_color_map(df)
+
+    # Helper function to build cohort/district total PPE data
+    def build_cohort_total_data(bucket_key: str, district_list: List[str]) -> tuple:
+        """
+        Build total PPE data for a cohort or district.
+
+        Args:
+            bucket_key: Cohort identifier (tiny, small, etc.) or "district" for individual districts
+            district_list: List of district names
+
+        Returns:
+            Tuple of (start_dollar, cagr15, cagr10, cagr5, latest_dollar)
+        """
+        if not district_list:
+            return (0.0, 0.0, 0.0, 0.0, 0.0)
+
+        try:
+            if bucket_key in ["tiny", "small", "medium", "large", "x-large", "springfield", "all_western"]:
+                # Cohort aggregate: use prepare_western_epp_lines
+                title, epp, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket_key, c70, districts=district_list)
+                if epp.empty:
+                    return (0.0, 0.0, 0.0, 0.0, 0.0)
+                latest_year_local = get_latest_year(df, epp)
+                context = context_for_western(bucket_key)
+            else:
+                # Individual district: use prepare_district_epp_lines
+                dist_name = district_list[0]
+                epp, lines = prepare_district_epp_lines(df, dist_name)
+                if epp.empty:
+                    return (0.0, 0.0, 0.0, 0.0, 0.0)
+                latest_year_local = get_latest_year(df, epp)
+                context = context_for_district(df, dist_name)
+
+            # Build category data (common for both cohorts and districts)
+            rows, total, start_map = _build_category_data(epp, latest_year_local, context, cmap_exec)
+            return _extract_total_from_cat_total(total)
+
+        except Exception as e:
+            # Log error but continue - return zeros for this cohort/district
+            print(f"Warning: Failed to build data for {bucket_key} ({district_list}): {e}")
+            return (0.0, 0.0, 0.0, 0.0, 0.0)
+
+    # Build all Western MA cohort districts (excluding Springfield)
+    western_all_excl_springfield = [d for group in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE"] for d in cohorts_exec.get(group, [])]
+
+    # Build data for all cohorts and districts needed for summary tables
+    cohort_summary_data = {
+        "Western MA (all, excl. Springfield)": build_cohort_total_data("all_western", western_all_excl_springfield),
+        "Western MA Tiny (0-200 FTE)": build_cohort_total_data("tiny", cohorts_exec.get("TINY", [])),
+        "Western MA Small (201-800 FTE)": build_cohort_total_data("small", cohorts_exec.get("SMALL", [])),
+        "Western MA Medium (801-1600 FTE)": build_cohort_total_data("medium", cohorts_exec.get("MEDIUM", [])),
+        "Western MA Large (1601-4000 FTE)": build_cohort_total_data("large", cohorts_exec.get("LARGE", [])),
+        "Western MA X-Large (4001-10K FTE)": build_cohort_total_data("x-large", cohorts_exec.get("X-LARGE", [])),
+        "Outliers (Springfield)": build_cohort_total_data("springfield", cohorts_exec.get("SPRINGFIELD", [])),
+        "Amherst-Pelham Regional": build_cohort_total_data("district", ["Amherst-Pelham"]),  # Note: actual district name is "Amherst-Pelham"
+        "Amherst": build_cohort_total_data("district", ["Amherst"]),
+        "Leverett": build_cohort_total_data("district", ["Leverett"]),
+        "Pelham": build_cohort_total_data("district", ["Pelham"]),
+        "Shutesbury": build_cohort_total_data("district", ["Shutesbury"]),
+    }
+
+    # Helper to build table rows from cohort names
+    def make_table_rows(cohort_names: List[str]) -> List[tuple]:
+        """Build table rows from cohort/district names."""
+        return [(name, *cohort_summary_data.get(name, (0, 0, 0, 0, 0))) for name in cohort_names]
+
+    # TABLE 1: All Western MA cohorts with shading (all rows shaded vs Western MA baseline)
+    table1_names = [
+        "Western MA (all, excl. Springfield)",
+        "Western MA Tiny (0-200 FTE)",
+        "Western MA Small (201-800 FTE)",
+        "Western MA Medium (801-1600 FTE)",
+        "Western MA Large (1601-4000 FTE)",
+        "Western MA X-Large (4001-10K FTE)",
+        "Outliers (Springfield)",
+    ]
+    cohort_table1_rows = make_table_rows(table1_names)
+    baseline_western = cohort_table1_rows[0][1:]
+    cohort_table1 = _build_cohort_summary_table(
+        cohort_table1_rows,
+        baseline_row=("Western MA (all, excl. Springfield)", *baseline_western),
+        apply_shading=True
+    )
+
+    pages.append(dict(
+        title="Executive Summary (continued)",
+        subtitle="Cohort comparison: Western Massachusetts enrollment groups",
+        summary_table=cohort_table1,
+        explanation_blocks=["This table compares per-pupil expenditure growth across enrollment-based cohorts in Western Massachusetts. All cohorts are shaded relative to the overall Western MA average (excluding Springfield)."],
+        first_cohort_table=True  # Flag to show legend at top
+    ))
+
+    # TABLE 2: The Mediums (baseline row not shaded, districts shaded vs Medium cohort)
+    table2_names = ["Western MA Medium (801-1600 FTE)", "Amherst-Pelham Regional", "Amherst"]
+    cohort_table2_rows = make_table_rows(table2_names)
+    baseline_medium = cohort_table2_rows[0][1:]
+    cohort_table2 = _build_cohort_summary_table(
+        cohort_table2_rows,
+        baseline_row=("Western MA Medium (801-1600 FTE)", *baseline_medium),
+        apply_shading=True,
+        skip_shading_rows={0}  # Don't shade the comparison baseline
+    )
+
+    pages.append(dict(
+        title="Executive Summary (continued)",  # Won't be displayed due to omit_title flag
+        subtitle="District comparison: Medium enrollment cohort (801-1600 FTE)",
+        summary_table=cohort_table2,
+        explanation_blocks=["This table compares Amherst-Pelham Regional and Amherst to the Western MA Medium cohort average. Districts are shaded relative to the cohort average."],
+        omit_title=True  # Skip title since it's on the same page as Table 1
+    ))
+
+    # TABLE 3: The Tinies (baseline row not shaded, districts shaded vs Tiny cohort)
+    table3_names = ["Western MA Tiny (0-200 FTE)", "Leverett", "Pelham", "Shutesbury"]
+    cohort_table3_rows = make_table_rows(table3_names)
+    baseline_tiny = cohort_table3_rows[0][1:]
+    cohort_table3 = _build_cohort_summary_table(
+        cohort_table3_rows,
+        baseline_row=("Western MA Tiny (0-200 FTE)", *baseline_tiny),
+        apply_shading=True,
+        skip_shading_rows={0}  # Don't shade the comparison baseline
+    )
+
+    explanation_text = [
+        "This table compares Leverett, Pelham, and Shutesbury to the Western MA Tiny cohort average. Districts are shaded relative to the cohort average.",
+        "",
+        "<b>Calculation methodology:</b> All figures represent enrollment-weighted per-pupil expenditures. For cohort aggregates, we calculate weighted averages where each district's contribution is proportional to its enrollment. CAGR (Compound Annual Growth Rate) is computed as (End/Start)^(1/years) - 1. Shading indicates deviations from baseline: blue for below, orange for above. Intensity increases with deviation magnitude."
+    ]
+
+    pages.append(dict(
+        title="Executive Summary (continued)",  # Won't be displayed due to omit_title flag
+        subtitle="District comparison: Tiny enrollment cohort (0-200 FTE)",
+        summary_table=cohort_table3,
+        explanation_blocks=explanation_text,
+        omit_title=True  # Skip title since it's on the same page as Table 1
     ))
 
     pages.append(dict(
@@ -2723,6 +2973,67 @@ def build_pdf(pages: List[dict], out_path: Path):
 
             if idx < len(pages)-1:
                 story.append(PageBreak())
+            continue
+
+        # Handle executive summary cohort table pages (summary_table without threshold_analysis)
+        if p.get("summary_table") and not p.get("threshold_analysis"):
+            # Add title (unless omit_title flag is set) and subtitle
+            if not p.get("omit_title"):
+                title = p["title"]
+                if p.get("section_id"):
+                    title = f'<a name="{p["section_id"]}"/>{title}'
+                story.append(Paragraph(title, style_title_main))
+
+            story.append(Paragraph(p["subtitle"], style_title_sub))
+            story.append(Spacer(0, 12))
+
+            # Add shading legend once at the top (only for first cohort table)
+            if p.get("first_cohort_table"):
+                # Build legend table with color swatches
+                shade_rule = (
+                    f"Shading vs baseline: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}%, "
+                    f"|ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp"
+                )
+                cagr_def = "CAGR = (End/Start)^(1/years) − 1"
+                legend_data = [
+                    [Paragraph(shade_rule, style_legend_right), "", "", "", Paragraph("Above baseline", style_legend_center), ""],
+                    [Paragraph(cagr_def, style_legend_right), "", "", "", Paragraph("Below baseline", style_legend_center), ""],
+                ]
+                legend_table = Table(legend_data, colWidths=[2.4*inch, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch])
+                legend_style = TableStyle([
+                    ('SPAN', (0, 0), (3, 0)),  # Merge first 4 columns for shade rule text
+                    ('SPAN', (0, 1), (3, 1)),  # Merge first 4 columns for CAGR def text
+                    ('SPAN', (4, 0), (5, 0)),  # Merge last 2 columns for "Above baseline"
+                    ('SPAN', (4, 1), (5, 1)),  # Merge last 2 columns for "Below baseline"
+                    ('BACKGROUND', (4, 0), (5, 0), HexColor(ABOVE_SHADES[2])),  # Orange swatch
+                    ('BACKGROUND', (4, 1), (5, 1), HexColor(BELOW_SHADES[2])),  # Blue swatch
+                    ('LEFTPADDING', (0,0), (-1,-1), 4),
+                    ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                    ('TOPPADDING', (0,0), (-1,-1), 2),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+                ])
+                legend_table.setStyle(legend_style)
+                story.append(legend_table)
+                story.append(Spacer(0, 8))
+
+            # Add table with Table number
+            table_num = next_table_number()
+            story.append(Paragraph(f"<i>Table {table_num}</i>", style_table_num))
+            story.append(Spacer(0, 3))
+            story.append(p["summary_table"])
+            story.append(Spacer(0, 12))
+
+            # Add explanation blocks
+            explanation_blocks = p.get("explanation_blocks", [])
+            for block in explanation_blocks:
+                story.append(Paragraph(block, style_body))
+                story.append(Spacer(0, 6))
+
+            # Only add page break if next page is NOT also a summary table
+            if idx < len(pages)-1:
+                next_page = pages[idx+1]
+                if not (next_page.get("summary_table") and not next_page.get("threshold_analysis")):
+                    story.append(PageBreak())
             continue
 
         # Add appendix title if present

@@ -1,5 +1,88 @@
 # Work Log - School Data Analysis Project
 
+## 2025-10-20 (Session 5) - Figure Label Alignment and Executive Summary Cohort Tables
+
+### Updated Figure Label Alignment and Added Cohort Comparison Tables
+
+**Context:** User requested two changes: (1) change "Figure N" labels from right-justified to left-justified, and (2) create new executive summary pages with three cohort comparison tables showing enrollment-based cohorts and district comparisons.
+
+**Files Modified:**
+- `compose_pdf.py` (line 156, lines 1362-1477, lines 1680-1820, lines 1738-1742, lines 2998-3032)
+
+**Changes Made:**
+
+1. **Figure Label Alignment**
+   - Changed `style_figure_num` alignment from `alignment=2` (right) to `alignment=0` (left)
+   - Updated comment from "right-aligned" to "left-aligned"
+   - Location: compose_pdf.py:156
+
+2. **New Executive Summary Cohort Tables (Pages 2-3)**
+   - Added `_extract_total_from_cat_total()` function (lines 1444-1473)
+     - Extracts and reorders data from cat_total tuple used by Western MA and district pages
+     - Converts strings to numeric values for table display
+   - Added `_build_cohort_summary_table()` function (lines 1362-1477)
+     - Builds comparison tables with configurable shading
+     - Supports skipping shading for specific rows (comparison baseline rows)
+     - Shows: Cohort/District, 2009 $/pupil, CAGR 15y, CAGR 10y, CAGR 5y, 2024 $/pupil
+     - Applies blue/orange gradient shading based on deviations from baseline
+   - **Shading legend shown once at top of page** (lines 2985-3012)
+     - Appears before first cohort table only
+     - Shows thresholds: |Δ$/pupil| ≥ 5%, |ΔCAGR| ≥ 1pp
+     - Color swatches for above/below baseline
+   - Created `build_cohort_total_data()` helper function (lines 1686-1726)
+     - Reuses existing `prepare_western_epp_lines()` for cohorts
+     - Reuses existing `prepare_district_epp_lines()` for individual districts
+     - Ensures data matches what appears on Western MA and district pages
+   - Inserted three new pages after Executive Summary CAGR page (lines 1753-1820):
+     - **Table 1:** Western MA enrollment cohorts
+       - Rows: Western MA (all, excl. Springfield), Tiny, Small, Medium, Large, X-Large, Outliers (Springfield)
+       - All rows shaded relative to "Western MA (all, excl. Springfield)" baseline
+     - **Table 2:** Medium cohort comparison
+       - Rows: Western MA Medium (no shading), Amherst-Pelham Regional, Amherst
+       - Districts shaded relative to Medium cohort baseline
+     - **Table 3:** Tiny cohort comparison
+       - Rows: Western MA Tiny (no shading), Leverett, Pelham, Shutesbury
+       - Districts shaded relative to Tiny cohort baseline
+       - Includes calculation methodology explanation after table
+
+3. **Bug Fixes and Refinements**
+   - Fixed district name for Amherst-Pelham Regional (line 1738)
+     - Changed from "amherst-pelham regional" to "Amherst-Pelham" (actual district identifier)
+     - Also fixed case sensitivity for other districts (Amherst, Leverett, Pelham, Shutesbury)
+   - Fixed rendering bug where tables weren't displaying (lines 2998-3032)
+     - Added dedicated handler for `summary_table` pages without `threshold_analysis` flag
+     - Tables now render with proper title, subtitle, table number, and explanation blocks
+   - Removed page breaks between consecutive summary tables (lines 3027-3031)
+     - Tables flow together on same page when space permits
+     - Only breaks to new page if next content is not a summary table
+   - Optimized titles for multi-table pages (lines 1787-1818, 2981-2985)
+     - Table 1: Shows full title "Executive Summary (continued)"
+     - Tables 2 & 3: Omit title (subtitle only) since they're on the same page
+     - Reduces redundancy and saves vertical space
+
+4. **Calculation Methodology Explanation**
+   - Added detailed explanation after Table 3
+   - Describes enrollment-weighted aggregation approach
+   - Explains CAGR calculation formula
+   - Documents shading logic (blue=below, orange=above baseline)
+
+**Impact:**
+- ✅ Figure labels now left-aligned for better visual hierarchy
+- ✅ Executive summary includes three cohort comparison tables (pages 2-3)
+- ✅ All table data matches corresponding Western MA and district pages
+- ✅ Shading legend appears once at top of page (before first table)
+- ✅ Tables flow together on same page without unnecessary page breaks
+- ✅ Comparison baseline rows (first row in tables 2 & 3) have no shading
+- ✅ Calculation methodology documented for user reference
+
+**Technical Notes:**
+- Tables reuse exact same data preparation functions as Western MA and district pages
+- `skip_shading_rows` parameter allows selective shading control
+- Shading thresholds match existing report logic (5% for dollars, 1pp for CAGR)
+- Error handling with try/except prevents crashes if district data unavailable
+
+---
+
 ## 2025-10-16 (Session 4) - Figure/Table Label Refinement and Plot Generation Cleanup
 
 ### Updated Label Layout and Removed Unused Plot Generation
