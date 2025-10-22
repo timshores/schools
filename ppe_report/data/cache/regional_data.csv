@@ -1,0 +1,438 @@
+district_code,DIST_NAME,EOHHS_REGION,region_confidence,SCHOOL_TYPE
+4450000,Abby Kelley Foster Charter Public (District),Central,host-town-curated,Charter
+10000,Abington,Southeast,largest-area,Traditional
+4120000,Academy Of the Pacific Rim Charter Public (District),Boston,host-town-curated,Charter
+6000000,Acton-Boxborough,Metro West,largest-area,Traditional
+30000,Acushnet,Southeast,largest-area,Traditional
+4300000,Advanced Math and Science Academy Charter (District),Metro West,host-town-curated,Charter
+50000,Agawam,Western,largest-area,Traditional
+4090000,Alma del Mar Charter School (District),Southeast,host-town-curated,Charter
+70000,Amesbury,Northeast,largest-area,Traditional
+4150000,Amesbury Academy Charter Public (District),Northeast,host-town-inferred,Charter
+80000,Amherst,Western,largest-area,Traditional
+6050000,Amherst-Pelham,Western,largest-area,Traditional
+90000,Andover,Northeast,largest-area,Traditional
+35090000,Argosy Collegiate Charter School (District),Southeast,host-town-curated,Charter
+100000,Arlington,Metro West,largest-area,Traditional
+6100000,Ashburnham-Westminster,Central,largest-area,Traditional
+6120000,Ashfield-Plainfield Reg,Western,host-town-inferred,Traditional
+140000,Ashland,Metro West,largest-area,Traditional
+8010000,Assabet Valley Regional Vocational Technical,Unknown,no_intersection,Vocational
+6150000,Athol-Royalston,Western,largest-area,Traditional
+4910000,Atlantis Charter (District),Southeast,host-town-curated,Charter
+160000,Attleboro,Southeast,largest-area,Traditional
+170000,Auburn,Central,largest-area,Traditional
+180000,Avon,Southeast,largest-area,Traditional
+6160000,Ayer Shirley School District,Central,largest-area,Traditional
+200000,Barnstable,Southeast,largest-area,Traditional
+4270000,Barnstable Community Horace Mann Charter Public (District),Southeast,host-town-curated,Charter
+4230000,Barnstable Horace Mann Charter (District),Southeast,host-town-curated,Charter
+35020000,Baystate Academy Charter Public School (District),Western,host-town-curated,Charter
+230000,Bedford,Metro West,largest-area,Traditional
+240000,Belchertown,Western,largest-area,Traditional
+250000,Bellingham,Central,largest-area,Traditional
+260000,Belmont,Metro West,largest-area,Traditional
+4200000,Benjamin Banneker Charter Public (District),Metro West,host-town-curated,Charter
+4470000,Benjamin Franklin Classical Charter Public (District),Central,host-town-curated,Charter
+35110000,Bentley Academy Charter School (District),Northeast,host-town-curated,Charter
+270000,Berkley,Southeast,largest-area,Traditional
+4140000,Berkshire Arts and Technology Charter Public (District),Western,host-town-curated,Charter
+6180000,Berkshire Hills,Western,largest-area,Traditional
+6200000,Berlin-Boylston,Central,largest-area,Traditional
+300000,Beverly,Northeast,largest-area,Traditional
+310000,Billerica,Northeast,largest-area,Traditional
+8050000,Blackstone Valley Regional Vocational Technical,Central,host-town-inferred,Vocational
+6220000,Blackstone-Millville,Central,largest-area,Traditional
+8060605,Blue Hills Regional Vocational Technical,Unknown,no_intersection,Vocational
+350000,Boston,Boston,largest-area,Traditional
+4490000,Boston Collegiate Charter (District),Boston,host-town-curated,Charter
+4240000,Boston Day and Evening Academy Charter (District),Boston,host-town-inferred,Charter
+4110000,Boston Green Academy Horace Mann Charter School (District),Boston,host-town-inferred,Charter
+4160000,Boston Preparatory Charter Public (District),Boston,host-town-curated,Charter
+4810000,Boston Renaissance Charter Public (District),Boston,host-town-inferred,Charter
+4250000,Boston University Charter,Boston,host-town-inferred,Charter
+360000,Bourne,Southeast,largest-area,Traditional
+380000,Boxford,Northeast,largest-area,Traditional
+400000,Braintree,Metro West,largest-area,Traditional
+410000,Brewster,Southeast,largest-area,Traditional
+4170000,Bridge Boston Charter School (District),Boston,host-town-inferred,Charter
+6250000,Bridgewater-Raynham,Southeast,largest-area,Traditional
+430000,Brimfield,Central,largest-area,Traditional
+9100000,Bristol County Agricultural,Unknown,no_intersection,Vocational
+8100000,Bristol-Plymouth Regional Vocational Technical,Southeast,host-town-inferred,Vocational
+440000,Brockton,Southeast,largest-area,Traditional
+4280000,Brooke Charter School (District),Boston,host-town-curated,Charter
+4570000,Brooke Charter School East Boston (District),Boston,host-town-curated,Charter
+4430000,Brooke Charter School Mattapan (District),Boston,host-town-curated,Charter
+440010,Brookfield,Central,host-town-inferred,Traditional
+460000,Brookline,Boston,largest-area,Traditional
+6300000,Buckland Colrain Shelburn Regional,Western,host-town-inferred,Traditional
+480000,Burlington,Metro West,largest-area,Traditional
+490000,Cambridge,Metro West,largest-area,Traditional
+500000,Canton,Metro West,largest-area,Traditional
+4320000,Cape Cod Lighthouse Charter (District),Unknown,no_intersection,Charter
+8150000,Cape Cod Regional Vocational Technical,Unknown,no_intersection,Vocational
+510000,Carlisle,Metro West,largest-area,Traditional
+520000,Carver,Southeast,largest-area,Traditional
+6350000,Central Berkshire,Western,largest-area,Traditional
+4340000,Champion Charter (District),Unknown,no_intersection,Charter
+560000,Chelmsford,Northeast,largest-area,Traditional
+570000,Chelsea,Boston,largest-area,Traditional
+6320000,Chesterfield-Goshen,Western,largest-area,Traditional
+610000,Chicopee,Western,largest-area,Traditional
+4180000,Christa McAuliffe Charter School (District),Metro West,host-town-curated,Charter
+4370000,City on a Hill Charter Public School (District),Boston,host-town-curated,Charter
+35040000,City on a Hill Charter Public School Dudley Square (District),Boston,host-town-curated,Charter
+35070000,City on a Hill Charter Public School New Bedford (District),Boston,host-town-curated,Charter
+630000,Clarksburg,Western,largest-area,Traditional
+640000,Clinton,Central,largest-area,Traditional
+4380000,Codman Academy Charter Public (District),Unknown,no_intersection,Charter
+650000,Cohasset,Metro West,largest-area,Traditional
+35030000,Collegiate Charter School of Lowell (District),Northeast,host-town-inferred,Charter
+4360000,Community Charter School of Cambridge (District),Metro West,host-town-curated,Charter
+4260000,Community Day Charter Public School - Gateway (District),Unknown,no_intersection,Charter
+4310000,Community Day Charter Public School - R. Kingman Webster (District),Central,host-town-inferred,Charter
+4400000,Community Day Charter Public School (District),Unknown,no_intersection,Charter
+670000,Concord,Metro West,largest-area,Traditional
+6400000,Concord-Carlisle,Metro West,largest-area,Traditional
+4390000,Conservatory Lab Charter (District),Boston,host-town-curated,Charter
+680000,Conway,Western,largest-area,Traditional
+710000,Danvers,Northeast,largest-area,Traditional
+720000,Dartmouth,Southeast,largest-area,Traditional
+730000,Dedham,Metro West,largest-area,Traditional
+740000,Deerfield,Western,largest-area,Traditional
+6450000,Dennis-Yarmouth,Southeast,largest-area,Traditional
+6500000,Dighton-Rehoboth,Southeast,largest-area,Traditional
+4750000,Dorchester Collegiate Academy Charter (District),Unknown,no_intersection,Charter
+770000,Douglas,Central,largest-area,Traditional
+780000,Dover,Metro West,largest-area,Traditional
+6550000,Dover-Sherborn,Metro West,largest-area,Traditional
+790000,Dracut,Northeast,largest-area,Traditional
+4070000,Dudley Street Neighborhood Charter School (District),Central,host-town-inferred,Charter
+6580000,Dudley-Charlton Reg,Central,largest-area,Traditional
+820000,Duxbury,Southeast,largest-area,Traditional
+830000,East Bridgewater,Southeast,largest-area,Traditional
+870000,East Longmeadow,Western,largest-area,Traditional
+850000,Eastham,Southeast,largest-area,Traditional
+860000,Easthampton,Western,largest-area,Traditional
+880000,Easton,Southeast,largest-area,Traditional
+890000,Edgartown,Southeast,largest-area,Traditional
+4520000,Edward M. Kennedy Academy for Health Careers: A Horace Mann Charter Public School (District),Boston,host-town-curated,Charter
+910000,Erving,Western,largest-area,Traditional
+9130000,Essex Agricultural Technical,Northeast,host-town-inferred,Vocational
+8170000,Essex North Shore Agricultural and Technical School District,Northeast,host-town-inferred,Vocational
+930000,Everett,Northeast,largest-area,Traditional
+4100000,Excel Academy Charter (District),Boston,host-town-curated,Charter
+4590000,Excel Academy Charter School - Boston II (District),Boston,host-town-curated,Charter
+4610000,Excel Academy Charter School - Chelsea (District),Boston,host-town-curated,Charter
+940000,Fairhaven,Southeast,largest-area,Traditional
+950000,Fall River,Southeast,largest-area,Traditional
+960000,Falmouth,Southeast,largest-area,Traditional
+6620000,Farmington River Reg,Western,largest-area,Traditional
+970000,Fitchburg,Central,largest-area,Traditional
+980000,Florida,Western,largest-area,Traditional
+4130000,Four Rivers Charter Public (District),Western,host-town-curated,Charter
+990000,Foxborough,Metro West,largest-area,Traditional
+4460000,Foxborough Regional Charter (District),Metro West,host-town-inferred,Charter
+1000000,Framingham,Metro West,largest-area,Traditional
+4780000,Francis W. Parker Charter Essential (District),Unknown,no_intersection,Charter
+1010000,Franklin,Central,largest-area,Traditional
+8180000,Franklin County Regional Vocational Technical,Central,host-town-inferred,Vocational
+4420000,Frederick Douglass Charter (District),Unknown,no_intersection,Charter
+6650000,Freetown-Lakeville,Southeast,largest-area,Traditional
+6700000,Frontier,Western,largest-area,Traditional
+2920015,Gardner,Central,host-town-inferred,Traditional
+6720000,Gateway,Western,largest-area,Traditional
+1050000,Georgetown,Northeast,largest-area,Traditional
+6740000,Gill-Montague,Western,largest-area,Traditional
+4960000,Global Learning Charter Public (District),Southeast,host-town-curated,Charter
+1070000,Gloucester,Northeast,largest-area,Traditional
+4480000,Gloucester Community Arts Charter (District),Northeast,host-town-inferred,Charter
+1090000,Gosnold,Southeast,largest-area,Traditional
+1100000,Grafton,Central,largest-area,Traditional
+1110000,Granby,Western,largest-area,Traditional
+39010000,Greater Commonwealth Virtual District,Western,no_intersection,Traditional
+8210000,Greater Fall River Regional Vocational Technical,Southeast,host-town-inferred,Vocational
+8230000,Greater Lawrence Regional Vocational Technical,Northeast,host-town-inferred,Vocational
+8280000,Greater Lowell Regional Vocational Technical,Northeast,host-town-inferred,Vocational
+8250000,Greater New Bedford Regional Vocational Technical,Metro West,host-town-inferred,Vocational
+1140000,Greenfield,Western,largest-area,Traditional
+6730000,Groton-Dunstable,Central,largest-area,Traditional
+4620000,Grove Hall Preparatory Charter School (District),Unknown,no_intersection,Charter
+1170000,Hadley,Western,largest-area,Traditional
+1180000,Halifax,Southeast,largest-area,Traditional
+6750000,Hamilton-Wenham,Northeast,largest-area,Traditional
+4990000,Hampden Charter School of Science (District),Western,host-town-curated,Charter
+35160000,Hampden Charter School of Science West (District),Western,host-town-curated,Charter
+6800000,Hampden-Wilbraham,Western,largest-area,Traditional
+6830000,Hampshire,Western,largest-area,Traditional
+440045,Hancock,Western,host-town-inferred,Traditional
+1220000,Hanover,Southeast,largest-area,Traditional
+1250000,Harvard,Central,largest-area,Traditional
+1270000,Hatfield,Western,largest-area,Traditional
+1280000,Haverhill,Northeast,largest-area,Traditional
+6850000,Hawlemont,Western,largest-area,Traditional
+4190000,Helen Y. Davis Leadership Academy Charter Public (District),Unknown,no_intersection,Charter
+4550000,Hill View Montessori Charter Public (District),Unknown,no_intersection,Charter
+4500000,Hilltown Cooperative Charter Public (District),Unknown,no_intersection,Charter
+1310000,Hingham,Metro West,largest-area,Traditional
+1330000,Holbrook,Southeast,largest-area,Traditional
+1350000,Holland,Central,largest-area,Traditional
+1360000,Holliston,Metro West,largest-area,Traditional
+1370000,Holyoke,Western,largest-area,Traditional
+4530000,Holyoke Community Charter (District),Western,host-town-inferred,Charter
+6030000,Hoosac Valley Regional,Western,largest-area,Traditional
+1380000,Hopedale,Central,largest-area,Traditional
+1390000,Hopkinton,Metro West,largest-area,Traditional
+1410000,Hudson,Metro West,largest-area,Traditional
+1420000,Hull,Metro West,largest-area,Traditional
+4350000,Innovation Academy Charter (District),Unknown,no_intersection,Charter
+3700000,Institutional Schools,Unknown,no_intersection,Traditional
+1440000,Ipswich,Northeast,largest-area,Traditional
+6900000,King Philip,Metro West,largest-area,Traditional
+1450000,Kingston,Southeast,largest-area,Traditional
+4630000,KIPP Academy Boston Charter School (District),Boston,host-town-inferred,Charter
+4290000,KIPP Academy Lynn Charter (District),Northeast,host-town-curated,Charter
+460030,Lawrence,Northeast,host-town-inferred,Traditional
+4540000,Lawrence Family Development Charter (District),Northeast,host-town-inferred,Charter
+4010000,Lawrence Vocational,Northeast,host-town-inferred,Vocational
+4860000,Learning First Charter Public School (District),Unknown,no_intersection,Charter
+1500000,Lee,Western,largest-area,Traditional
+1510000,Leicester,Central,largest-area,Traditional
+1520000,Lenox,Western,largest-area,Traditional
+1530000,Leominster,Central,largest-area,Traditional
+1540000,Leverett,Western,largest-area,Traditional
+1550000,Lexington,Metro West,largest-area,Traditional
+35140000,Libertas Academy Charter School (District),Unknown,no_intersection,Charter
+1570000,Lincoln,Metro West,largest-area,Traditional
+6950000,Lincoln-Sudbury,Metro West,largest-area,Traditional
+1580000,Littleton,Metro West,largest-area,Traditional
+1590000,Longmeadow,Western,largest-area,Traditional
+1600000,Lowell,Northeast,largest-area,Traditional
+4560000,Lowell Community Charter Public (District),Northeast,host-town-curated,Charter
+4580000,Lowell Middlesex Academy Charter (District),Northeast,host-town-inferred,Charter
+1610000,Ludlow,Western,largest-area,Traditional
+1620000,Lunenburg,Central,largest-area,Traditional
+1630000,Lynn,Northeast,largest-area,Traditional
+4600000,Lynn Community Charter,Northeast,host-town-inferred,Charter
+1640000,Lynnfield,Northeast,largest-area,Traditional
+4680000,Ma Academy for Math and Science,Unknown,no_intersection,Traditional
+1650000,Malden,Northeast,largest-area,Traditional
+6980000,Manchester Essex Regional,Northeast,largest-area,Traditional
+1670000,Mansfield,Southeast,largest-area,Traditional
+35170000,Map Academy Charter School (District),Unknown,no_intersection,Charter
+1680000,Marblehead,Northeast,largest-area,Traditional
+4640000,Marblehead Community Charter Public (District),Northeast,host-town-inferred,Charter
+1690000,Marion,Southeast,largest-area,Traditional
+1700000,Marlborough,Metro West,largest-area,Traditional
+1710000,Marshfield,Southeast,largest-area,Traditional
+7000000,Martha's Vineyard,Southeast,largest-area,Traditional
+4660000,Martha's Vineyard Charter Public School (District),Unknown,no_intersection,Charter
+4920000,"Martin Luther King, Jr. Charter School of Excellence (District)",Unknown,no_intersection,Charter
+7050000,Masconomet,Northeast,largest-area,Traditional
+1720000,Mashpee,Southeast,largest-area,Traditional
+4690000,Match Charter Public School (District),Boston,host-town-curated,Charter
+4650000,MATCH Community Day Charter Public School (District),Unknown,no_intersection,Charter
+1730000,Mattapoisett,Southeast,largest-area,Traditional
+1740000,Maynard,Metro West,largest-area,Traditional
+1750000,Medfield,Metro West,largest-area,Traditional
+1760000,Medford,Northeast,largest-area,Traditional
+1770000,Medway,Central,largest-area,Traditional
+1780000,Melrose,Northeast,largest-area,Traditional
+7100000,Mendon-Upton,Central,largest-area,Traditional
+1810000,Methuen,Northeast,largest-area,Traditional
+1820000,Middleborough,Southeast,largest-area,Traditional
+1840000,Middleton,Northeast,largest-area,Traditional
+1850000,Milford,Central,largest-area,Traditional
+1860000,Millbury,Central,largest-area,Traditional
+1870000,Millis,Metro West,largest-area,Traditional
+1890000,Milton,Metro West,largest-area,Traditional
+8300000,Minuteman Regional Vocational Technical,Unknown,no_intersection,Vocational
+7170000,Mohawk Trail,Western,largest-area,Traditional
+7120000,Monomoy Regional School District,Southeast,largest-area,Traditional
+1910000,Monson,Western,largest-area,Traditional
+8320605,Montachusett Regional Vocational Technical,Unknown,no_intersection,Vocational
+7150000,Mount Greylock,Western,largest-area,Traditional
+4700000,Mystic Valley Regional Charter (District),Northeast,host-town-curated,Charter
+1960000,Nahant,Northeast,largest-area,Traditional
+1970000,Nantucket,Southeast,largest-area,Traditional
+7200000,Narragansett,Central,largest-area,Traditional
+7250000,Nashoba,Central,largest-area,Traditional
+8520000,Nashoba Valley Regional Vocational Technical,Unknown,no_intersection,Vocational
+1980000,Natick,Metro West,largest-area,Traditional
+6600000,Nauset,Southeast,largest-area,Traditional
+1990000,Needham,Metro West,largest-area,Traditional
+4440000,Neighborhood House Charter (District),Unknown,no_intersection,Charter
+2010000,New Bedford,Southeast,largest-area,Traditional
+4720000,New Bedford Global Learning Charter (District),Southeast,host-town-curated,Charter
+35130000,New Heights Charter School of Brockton (District),Southeast,host-town-curated,Charter
+4710000,New Leadership Charter (District),Unknown,no_intersection,Charter
+4670000,New Liberty Charter School of Salem (District),Northeast,host-town-inferred,Charter
+7280000,New Salem-Wendell,Western,largest-area,Traditional
+2040000,Newburyport,Northeast,largest-area,Traditional
+2070000,Newton,Metro West,largest-area,Traditional
+2080000,Norfolk,Metro West,largest-area,Traditional
+9150705,Norfolk County Agricultural,Metro West,host-town-inferred,Vocational
+2090000,North Adams,Western,largest-area,Traditional
+2110000,North Andover,Northeast,largest-area,Traditional
+2120000,North Attleborough,Southeast,largest-area,Traditional
+2150000,North Brookfield,Central,largest-area,Traditional
+7350000,North Middlesex,Central,largest-area,Traditional
+2170000,North Reading,Northeast,largest-area,Traditional
+8540000,North Shore Regional Vocational Technical,Unknown,no_intersection,Vocational
+4730000,North Star Academy Charter,Unknown,no_intersection,Charter
+2100000,Northampton,Western,largest-area,Traditional
+4060000,Northampton-Smith Vocational Agricultural,Western,host-town-inferred,Vocational
+7300000,Northboro-Southboro,Metro West,largest-area,Traditional
+2130000,Northborough,Metro West,largest-area,Traditional
+2140000,Northbridge,Central,largest-area,Traditional
+8530000,Northeast Metropolitan Regional Vocational Technical,Unknown,no_intersection,Vocational
+8510000,Northern Berkshire Regional Vocational Technical,Unknown,no_intersection,Vocational
+2180000,Norton,Southeast,largest-area,Traditional
+2190000,Norwell,Metro West,largest-area,Traditional
+2200000,Norwood,Metro West,largest-area,Traditional
+2210000,Oak Bluffs,Southeast,largest-area,Traditional
+8550000,Old Colony Regional Vocational Technical,Unknown,no_intersection,Vocational
+7400000,Old Rochester,Southeast,largest-area,Traditional
+35150000,Old Sturbridge Academy Charter Public School (District),Central,host-town-curated,Charter
+2230000,Orange,Western,largest-area,Traditional
+2240000,Orleans,Southeast,largest-area,Traditional
+2260000,Oxford,Central,largest-area,Traditional
+2270000,Palmer,Western,largest-area,Traditional
+8600000,Pathfinder Regional Vocational Technical,Unknown,no_intersection,Vocational
+35010000,Paulo Freire Social Justice Charter School (District),Western,host-town-curated,Charter
+490050,Peabody,Northeast,host-town-inferred,Traditional
+2300000,Pelham,Western,largest-area,Traditional
+2310000,Pembroke,Southeast,largest-area,Traditional
+7450000,Pentucket,Northeast,largest-area,Traditional
+2340000,Petersham,Western,largest-area,Traditional
+4930000,"Phoenix Academy Charter Public High School, Chelsea (District)",Boston,host-town-inferred,Charter
+35180000,"Phoenix Academy Public Charter High School, Lawrence (District)",Northeast,host-town-inferred,Charter
+35080000,"Phoenix Academy Public Charter High School, Springfield (District)",Western,host-town-inferred,Charter
+4940000,Pioneer Charter School of Science (District),Northeast,host-town-curated,Charter
+35060000,Pioneer Charter School of Science II (District),Northeast,host-town-curated,Charter
+7500000,Pioneer Valley,Western,largest-area,Traditional
+4970000,Pioneer Valley Chinese Immersion Charter (District),Western,host-town-curated,Charter
+4790000,Pioneer Valley Performing Arts Charter Public (District),Western,no_intersection,Charter
+2360000,Pittsfield,Western,largest-area,Traditional
+2380000,Plainville,Metro West,largest-area,Traditional
+2390000,Plymouth,Southeast,largest-area,Traditional
+7510000,Plymouth-Carver Regional,Southeast,host-town-inferred,Traditional
+2400000,Plympton,Southeast,largest-area,Traditional
+4870000,Prospect Hill Academy Charter (District),Unknown,no_intersection,Charter
+2420000,Provincetown,Southeast,largest-area,Traditional
+7530000,Quabbin,Central,largest-area,Traditional
+7780000,Quaboag Regional,Central,largest-area,Traditional
+2430000,Quincy,Metro West,largest-area,Traditional
+7550000,Ralph C Mahar,Western,largest-area,Traditional
+2440000,Randolph,Metro West,largest-area,Traditional
+2460000,Reading,Northeast,largest-area,Traditional
+2480000,Revere,Boston,largest-area,Traditional
+2490000,Richmond,Western,largest-area,Traditional
+4830000,Rising Tide Charter Public (District),Unknown,no_intersection,Charter
+4820000,River Valley Charter (District),Unknown,no_intersection,Charter
+4510000,Robert M. Hughes Academy Charter Public (District),Unknown,no_intersection,Charter
+2500000,Rochester,Southeast,largest-area,Traditional
+2510000,Rockland,Southeast,largest-area,Traditional
+2520000,Rockport,Northeast,largest-area,Traditional
+2530000,Rowe,Western,largest-area,Traditional
+4220000,Roxbury Charter High Public (District),Unknown,no_intersection,Charter
+4840000,Roxbury Preparatory Charter (District),Unknown,no_intersection,Charter
+2580000,Salem,Northeast,largest-area,Traditional
+4850000,Salem Academy Charter (District),Northeast,host-town-inferred,Charter
+2610000,Sandwich,Southeast,largest-area,Traditional
+2620000,Saugus,Northeast,largest-area,Traditional
+2630000,Savoy,Western,largest-area,Traditional
+2640000,Scituate,Metro West,largest-area,Traditional
+2650000,Seekonk,Southeast,largest-area,Traditional
+2660000,Sharon,Metro West,largest-area,Traditional
+8710000,Shawsheen Valley Regional Vocational Technical,Unknown,no_intersection,Vocational
+2690000,Sherborn,Metro West,largest-area,Traditional
+2710000,Shrewsbury,Central,largest-area,Traditional
+2720000,Shutesbury,Western,largest-area,Traditional
+4770000,Silver Hill Horace Mann Charter (District),Unknown,no_intersection,Charter
+7600000,Silver Lake,Southeast,largest-area,Traditional
+4740000,Sizer School: A North Central Charter Essential (District),Unknown,no_intersection,Charter
+2730000,Somerset,Southeast,largest-area,Traditional
+7630000,Somerset Berkley Regional School District,Southeast,largest-area,Traditional
+2740000,Somerville,Metro West,largest-area,Traditional
+2780000,South Hadley,Western,largest-area,Traditional
+8290000,South Middlesex Regional Vocational Technical,Unknown,no_intersection,Vocational
+4880000,South Shore Charter Public (District),Unknown,no_intersection,Charter
+8730000,South Shore Regional Vocational Technical,Unknown,no_intersection,Vocational
+2750000,Southampton,Western,largest-area,Traditional
+2760000,Southborough,Metro West,largest-area,Traditional
+2770000,Southbridge,Central,largest-area,Traditional
+8720000,Southeastern Regional Vocational Technical,Unknown,no_intersection,Vocational
+7650000,Southern Berkshire,Western,largest-area,Traditional
+8760000,Southern Worcester County Regional Vocational School District,Central,host-town-inferred,Vocational
+7660000,Southwick-Tolland-Granville Regional School District,Western,largest-area,Traditional
+7670000,Spencer-E Brookfield,Central,largest-area,Traditional
+4760000,Spirit of Knowledge Charter School (District),Unknown,no_intersection,Charter
+2810000,Springfield,Western,largest-area,Traditional
+4410000,Springfield International Charter (District),Western,host-town-inferred,Charter
+35100000,Springfield Preparatory Charter School (District),Western,host-town-inferred,Charter
+2840000,Stoneham,Northeast,largest-area,Traditional
+2850000,Stoughton,Southeast,largest-area,Traditional
+2870000,Sturbridge,Central,largest-area,Traditional
+4890000,Sturgis Charter Public (District),Unknown,no_intersection,Charter
+2880000,Sudbury,Metro West,largest-area,Traditional
+2890000,Sunderland,Western,largest-area,Traditional
+2900000,Sutton,Central,largest-area,Traditional
+2910000,Swampscott,Northeast,largest-area,Traditional
+2920000,Swansea,Southeast,largest-area,Traditional
+7700000,Tantasqua,Central,largest-area,Traditional
+2930000,Taunton,Southeast,largest-area,Traditional
+39020000,TEC Connections Academy Commonwealth Virtual School District,Unknown,no_intersection,Traditional
+2950000,Tewksbury,Northeast,largest-area,Traditional
+2960000,Tisbury,Southeast,largest-area,Traditional
+2980000,Topsfield,Northeast,largest-area,Traditional
+8780605,Tri-County Regional Vocational Technical,Unknown,no_intersection,Vocational
+7730000,Triton,Northeast,largest-area,Traditional
+3000000,Truro,Southeast,largest-area,Traditional
+3010000,Tyngsborough,Northeast,largest-area,Traditional
+4800000,UP Academy Charter School of Boston (District),Boston,host-town-inferred,Charter
+35050000,UP Academy Charter School of Dorchester (District),Unknown,no_intersection,Charter
+7740000,Up-Island Regional,Southeast,largest-area,Traditional
+4900000,Uphams Corner Charter (District),Unknown,no_intersection,Charter
+8790000,Upper Cape Cod Regional Vocational Technical,Unknown,no_intersection,Vocational
+3040000,Uxbridge,Central,largest-area,Traditional
+4980000,Veritas Preparatory Charter School (District),Western,host-town-curated,Charter
+7750000,Wachusett,Central,largest-area,Traditional
+3050000,Wakefield,Northeast,largest-area,Traditional
+3060000,Wales,Central,largest-area,Traditional
+3070000,Walpole,Metro West,largest-area,Traditional
+3080000,Waltham,Metro West,largest-area,Traditional
+3090000,Ware,Western,largest-area,Traditional
+3100000,Wareham,Southeast,largest-area,Traditional
+3120000,Warwick,Western,host-town-inferred,Traditional
+3140000,Watertown,Metro West,largest-area,Traditional
+3150000,Wayland,Metro West,largest-area,Traditional
+3160000,Webster,Central,largest-area,Traditional
+3170000,Wellesley,Metro West,largest-area,Traditional
+3180000,Wellfleet,Southeast,largest-area,Traditional
+3220000,West Boylston,Central,largest-area,Traditional
+3230000,West Bridgewater,Southeast,largest-area,Traditional
+3320000,West Springfield,Western,largest-area,Traditional
+3210000,Westborough,Metro West,largest-area,Traditional
+3250000,Westfield,Western,largest-area,Traditional
+3260000,Westford,Northeast,largest-area,Traditional
+3270000,Westhampton,Western,largest-area,Traditional
+3300000,Weston,Metro West,largest-area,Traditional
+3310000,Westport,Southeast,largest-area,Traditional
+3350000,Westwood,Metro West,largest-area,Traditional
+3360000,Weymouth,Metro West,largest-area,Traditional
+3370000,Whately,Western,largest-area,Traditional
+7800000,Whitman-Hanson,Southeast,largest-area,Traditional
+8850000,Whittier Regional Vocational Technical,Unknown,no_intersection,Vocational
+3400000,Williamsburg,Western,largest-area,Traditional
+3420000,Wilmington,Metro West,largest-area,Traditional
+3430000,Winchendon,Central,largest-area,Traditional
+3440000,Winchester,Metro West,largest-area,Traditional
+1440015,Winthrop,Boston,host-town-inferred,Traditional
+3470000,Woburn,Metro West,largest-area,Traditional
+3480000,Worcester,Central,largest-area,Traditional
+35190000,Worcester Cultural Academy Charter Public School (District),Central,host-town-curated,Charter
+4080000,Worcester Trade Complex,Central,host-town-inferred,Traditional
+3490000,Worthington,Western,largest-area,Traditional
+3500000,Wrentham,Metro West,largest-area,Traditional

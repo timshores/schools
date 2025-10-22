@@ -48,13 +48,14 @@ def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year:
         - std: standard deviation
         - quartiles: [Q1, Q2, Q3]
     """
-    # Get Western MA traditional districts
-    mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
-    western_districts = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
+    from school_shared import get_western_cohort_districts
 
-    # Filter to districts present in data
-    present = set(df["DIST_NAME"].str.lower())
-    western_districts = [d for d in western_districts if d in present]
+    # Get Western MA traditional districts using centralized cohort function
+    # This ensures consistent filtering (includes PPE validation)
+    cohorts = get_western_cohort_districts(df, reg)
+    western_districts = []
+    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
+        western_districts.extend(cohorts.get(cohort_key, []))
 
     # Get enrollment for each district
     district_data = []

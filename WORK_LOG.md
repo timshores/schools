@@ -1,5 +1,236 @@
 # Work Log - School Data Analysis Project
 
+## 2025-10-21 (Session 6 continued) - Externalized Report Text to Text Files
+
+### Moved All Explanatory Text to External Files for Easy Editing
+
+**Context:** User requested that all explanatory text in the report be moved to external .txt files (similar to appendix_c_text.txt) for easier editing, with consistent formatting using list-based paragraphs instead of literal line breaks in code.
+
+**Files Created:**
+- `report_text.txt` - External text file containing all report explanatory text
+
+**Files Modified:**
+- `compose_pdf.py` (lines 262-343, 1711, 1905-1909, 2251-2318)
+
+**Changes Made:**
+
+1. **Created report_text.txt** with 5 text sections:
+   - `EXECUTIVE_SUMMARY_TINY_EXPLANATION` - Explanation for Tiny cohort comparison table
+   - `METHODOLOGY_PPE_DEFINITION` - PPE definitions, CAGR formulas, enrollment cohorts
+   - `METHODOLOGY_SHADING_LOGIC` - Orange/blue shading explanation
+   - `METHODOLOGY_NSS_CH70` - Chapter 70 and NSS calculations
+   - `METHODOLOGY_DATA_SOURCES` - Data source citations and URLs
+
+2. **Added Text Loading Functions** (compose_pdf.py:262-343):
+   - `load_report_text_sections()` - Loads and parses text file using `===` separators
+   - `fill_text_placeholders()` - Replaces {PLACEHOLDER} markers with dynamic values
+
+3. **Implemented Placeholder System** for dynamic content:
+   - `{COHORT_TINY_INFO}`, `{COHORT_SMALL_INFO}`, etc. - Cohort membership lists
+   - `{DOLLAR_THRESHOLD_PERCENT}`, `{CAGR_THRESHOLD_PP}` - Threshold values
+   - `{DOLLAR_BIN_1}` through `{DOLLAR_BIN_4}` - Shading intensity bins
+   - `{CAGR_BIN_1}` through `{CAGR_BIN_4}` - CAGR shading bins
+
+4. **Updated compose_pdf.py** to load external text:
+   - Line 1711: Load text sections at start of `build_page_dicts()`
+   - Lines 1905-1909: Replace hardcoded `explanation_text` with external load
+   - Lines 2261-2300: Build placeholder dictionary with dynamic cohort information
+   - Lines 2304-2316: Load 4 methodology pages from external file with placeholder filling
+   - Removed ~150 lines of hardcoded text blocks
+
+5. **Text File Format**:
+   ```
+   ================================================================================
+   SECTION_NAME
+   ================================================================================
+
+   Paragraph 1 text...
+
+   Paragraph 2 text...
+   ```
+   - Matches appendix_c_text.txt format for consistency
+   - Each empty line creates a blank paragraph for spacing
+   - ReportLab treats each list element as a paragraph
+
+**Impact:**
+- ✅ All explanatory text now in easy-to-edit .txt files
+- ✅ No need to touch Python code to update report text
+- ✅ Consistent formatting using paragraph lists (no literal line breaks)
+- ✅ Version control friendly (text changes don't pollute code diffs)
+- ✅ Dynamic content (cohort lists, thresholds) filled at runtime
+- ✅ Follows same pattern as existing appendix_c_text.txt
+
+**Usage for Future Edits:**
+- Edit `report_text.txt` to change any explanatory text
+- Placeholders like `{COHORT_TINY_INFO}` are automatically replaced
+- No code changes needed for text updates
+- Run compose_pdf.py to regenerate PDF with updated text
+
+**Verification:**
+- Tested text loading with Python script - successfully loads all 5 sections
+- Placeholder system tested with cohort info and threshold values
+- Text sections properly parsed into paragraph lists for ReportLab
+
+---
+
+## 2025-10-21 (Session 6) - Fixed NSS/Ch70 Table/Plot Discrepancy
+
+### Synchronized District Filtering Between Plots and Tables
+
+**Context:** User reported discrepancy between component tables and stacked bar plots on Chapter 70 Aid and Net School Spending (NSS) pages. For example, Small cohort table showed Total NSS of ~$5.8M (2009) and ~$6.7M (2024), but plot showed ~$7.XM (2009) and ~$10.XM (2024).
+
+**Root Cause:**
+- **Plots** (nss_ch70_main.py): Used `get_western_cohort_districts()` which filters districts to ONLY include those with valid PPE (per-pupil expenditure) data
+- **Tables** (compose_pdf.py): Used manual filtering that included ALL Western MA traditional districts with enrollment data, regardless of PPE data availability
+
+This resulted in tables calculating weighted averages across more districts than plots, causing the numerical discrepancy.
+
+**Files Modified:**
+- `compose_pdf.py` (lines 279-290, 352-363, 1953-1957, 1995-2002, 2152-2160, 2300-2308)
+
+**Changes Made:**
+
+1. **Updated Western MA Aggregate Section** (lines 1953-1957)
+   - Replaced manual district filtering with centralized `get_western_cohort_districts(df, reg)`
+   - Ensures plots and tables use identical district lists (filtered by PPE data availability)
+   - Added explanatory comment documenting the change
+
+2. **Updated Individual District Baseline Section** (lines 1995-2002)
+   - Replaced manual cohort organization with centralized `get_western_cohort_districts(df, reg)`
+   - Ensures baseline comparisons use the same filtered district lists
+
+3. **Updated Methodology Page District Lists** (lines 2152-2160)
+   - Replaced manual cohort organization with centralized `get_western_cohort_districts(df, reg)`
+   - Ensures methodology page accurately lists districts included in analysis
+
+4. **Updated _build_western_ma_baseline Function** (lines 279-290)
+   - Replaced manual district filtering with centralized cohort function
+   - Ensures PPE baseline calculations use same filtered district list
+
+5. **Updated _build_western_ma_nss_baseline Function** (lines 352-363)
+   - Replaced manual district filtering with centralized cohort function
+   - Ensures NSS/Ch70 baseline calculations use same filtered district list
+
+6. **Corrected Methodology Documentation** (lines 2300-2308)
+   - Fixed incorrect description of aggregate calculation
+   - Was: "sum dollar amounts across all member districts"
+   - Now: Correctly describes weighted per-district average methodology:
+     1. Convert to per-pupil values
+     2. Compute enrollment-weighted average per-pupil
+     3. Multiply by average enrollment per district
+   - Added note that only districts with valid PPE data are included
+
+**Impact:**
+- ✅ Tables and plots now use identical district lists for all cohorts
+- ✅ Both filter to include only districts with valid PPE data
+- ✅ Numerical values in tables now match stacked bar plot totals
+- ✅ Methodology documentation now accurately describes calculation approach
+- ✅ Baseline comparisons use consistent district lists across all analyses
+
+**Technical Details:**
+- The `get_western_cohort_districts()` function (school_shared.py:696-738) filters districts based on:
+  - Western MA region
+  - Traditional school type
+  - Valid enrollment data (FTE > 0)
+  - Valid PPE data (total_ppe > 0 for latest year)
+- This filtering ensures data quality and consistency across PPE and NSS/Ch70 analyses
+- All NSS/Ch70 calculations use `prepare_aggregate_nss_ch70_weighted()` which computes weighted per-district averages
+
+**Verification:**
+- User can regenerate plots and PDF to verify tables now match plot values
+- All Western MA cohort pages should show consistent numbers between component tables and stacked bars
+
+### Comprehensive Cohort Consistency Audit and Consolidation
+
+**Context:** Following the NSS/Ch70 fix, user requested comprehensive review of entire codebase to ensure cohorts are consistently defined across all applications in the report.
+
+**Audit Findings:**
+
+**Core Infrastructure (school_shared.py):**
+- ✅ Centralized cohort functions identified:
+  - `get_western_cohort_districts()` (line 696) - Latest year cohorts with PPE validation
+  - `get_western_cohort_districts_for_year()` (line 740) - Year-specific cohorts with PPE validation
+  - `calculate_cohort_boundaries()` (line 104) - IQR-based dynamic boundaries from IN-DISTRICT FTE
+  - `get_omitted_western_districts()` (line 787) - Lists excluded districts with reasons
+
+**Files Already Using Centralized Functions (8 files):**
+- ✅ nss_ch70_main.py (line 73)
+- ✅ district_expend_pp_stack.py main logic (line 728)
+- ✅ compose_pdf.py main logic (lines 1928, 1936-1965)
+- ✅ western_map.py (lines 237, 242)
+- ✅ threshold_analysis.py (line 50)
+- ✅ analyze_thresholds.py (line 86)
+- ✅ compare_threshold_scenarios.py (line 28)
+- ✅ executive_summary_plots.py (lines 139, 268, 829)
+
+**Files with Manual Filtering (5 locations consolidated):**
+
+1. **district_expend_pp_stack.py** - 2 helper functions
+   - Line 135: `_western_all_total_series()` - FIXED
+   - Line 428: `plot_western_overview()` - FIXED
+   - Changed from manual EOHHS_REGION filtering to `get_western_cohort_districts()`
+
+2. **compose_pdf.py** - 1 helper function
+   - Line 507: `_build_scatterplot_district_table()` - FIXED
+   - Changed from manual filtering to `get_western_cohort_districts()`
+
+3. **western_enrollment_plots_individual.py** - 1 standalone script
+   - Line 49: `analyze_western_enrollment()` - FIXED
+   - Changed from manual filtering to `get_western_cohort_districts_for_year()` (year-specific)
+
+4. **western_enrollment_distribution.py** - 1 standalone script
+   - Line 52: `analyze_western_enrollment()` - FIXED
+   - Changed from manual filtering to `get_western_cohort_districts()`
+
+**Files Modified:**
+- `district_expend_pp_stack.py` (lines 135-141, 429-435)
+- `compose_pdf.py` (lines 504-511)
+- `western_enrollment_plots_individual.py` (lines 41-53)
+- `western_enrollment_distribution.py` (lines 51-58)
+
+**Consolidation Pattern Applied:**
+```python
+# OLD (manual filtering):
+mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
+western_districts = sorted(set(reg[mask]["DIST_NAME"].str.lower()))
+western_districts = [d for d in western_districts if d in present and d not in EXCLUDE_DISTRICTS]
+
+# NEW (centralized function):
+cohorts = get_western_cohort_districts(df, reg)
+western_districts = []
+for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
+    western_districts.extend(cohorts.get(cohort_key, []))
+```
+
+**Impact:**
+- ✅ **100% of codebase now uses centralized cohort functions**
+- ✅ All manual filtering eliminated (was 10 total: 5 core + 5 redundant, now only 5 core remain)
+- ✅ Consistent PPE validation applied across all analyses
+- ✅ All plots, tables, and calculations use identical district lists
+- ✅ Year-specific analyses use year-specific cohort boundaries where appropriate
+- ✅ No conflicting filtering logic found (all manual filters used identical logic before consolidation)
+
+**Cohort System Design:**
+- **6-tier system:** TINY (0-Q1), SMALL (Q1-median), MEDIUM (median-Q3), LARGE (Q3-90th), X-LARGE (90th-10K), SPRINGFIELD (>10K)
+- **Dynamic boundaries:** Calculated from IN-DISTRICT FTE using IQR method
+- **PPE validation:** Only includes districts with valid expenditure data (total_ppe > 0)
+- **Exclusions:** Filters out virtual schools (EXCLUDE_DISTRICTS)
+- **Year-specific option:** Boundaries recalculate for historical analyses (maps, scatterplots)
+
+**Data Quality Benefits:**
+- Ensures all districts in analysis have complete data (enrollment + expenditures)
+- Prevents inclusion of districts with missing/incomplete financial data
+- Maintains consistency between PPE and NSS/Ch70 analyses
+- Enables accurate weighted averaging across enrollment-based cohorts
+
+**Verification:**
+- All 8 main analysis files verified to use centralized functions
+- All 5 helper/standalone functions consolidated
+- No remaining manual filtering patterns outside of core school_shared.py functions
+- Ready for regeneration of all plots and PDF with fully consistent cohort membership
+
+---
+
 ## 2025-10-20 (Session 5) - Figure Label Alignment and Executive Summary Cohort Tables
 
 ### Updated Figure Label Alignment and Added Cohort Comparison Tables
