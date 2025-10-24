@@ -6,7 +6,7 @@ This module generates stacked bar charts showing:
 2. Required NSS minus Ch70 Aid (middle stack)
 3. Actual NSS minus Required NSS (top stack)
 
-All values displayed in absolute dollars (not per-pupil).
+All values displayed in dollars per pupil.
 """
 
 from __future__ import annotations
@@ -80,12 +80,12 @@ def plot_nss_ch70(
         enrollment: Series with in-district FTE enrollment by year (not plotted, kept for compatibility)
         title: Plot title
         right_ylim: Optional y-axis limit for dollars
-        per_pupil: If True, label y-axis as "$ per pupil"; if False, label as "Dollars ($)"
+        per_pupil: If True, label y-axis as "Weighted avg $ per pupil"; if False, label as "$ per pupil"
         foundation_enrollment: Optional Series with foundation enrollment by year (plotted as blue line)
 
     Notes:
         - Stacks are plotted bottom-to-top: Ch70 Aid, Req NSS (adj), Actual NSS (adj)
-        - For individual districts: absolute dollars; for aggregates: weighted per-pupil
+        - All values are in dollars per pupil (weighted average for aggregates, direct per-pupil for individual districts)
         - Foundation enrollment shown as blue line on left axis when provided
     """
     if nss_pivot is None or nss_pivot.empty:
@@ -124,7 +124,7 @@ def plot_nss_ch70(
 
     # Labels and formatting (match font sizes from district_expend_pp_stack.py)
     axL.set_xlabel("School Year", fontsize=20)
-    ylabel = "Weighted avg $ per district" if per_pupil else "$ per district"
+    ylabel = "Weighted avg $ per pupil" if per_pupil else "$ per pupil"
     axR.set_ylabel(ylabel, fontsize=20)
     axR.yaxis.set_major_formatter(smart_dollar_formatter())
     axL.tick_params(axis='both', labelsize=14)

@@ -201,10 +201,10 @@ def main():
             nss_pivot=nss_piv,
             enrollment=enroll,
             title=title,
-            right_ylim=None,  # Auto-scale each plot individually
+            right_ylim=30000,  # Match PPE plot y-axis range (0-$30K)
             per_pupil=is_aggregate,
-            foundation_enrollment=foundation,
-            left_ylim=left_ylim,
+            foundation_enrollment=None,  # Foundation enrollment line removed per CR16
+            left_ylim=None,  # Left y-axis removed since no enrollment line
             enrollment_label=enrollment_label,
         )
 

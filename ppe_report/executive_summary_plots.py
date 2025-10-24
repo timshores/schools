@@ -664,11 +664,11 @@ def plot_cagr_grouped_bars(
         # Plot bars with thicker white diagonal lines for cohorts
         if is_cohort:
             ax.bar(x_positions + x_offset, cagr_values, bar_width * 0.95,
-                   color=color, alpha=0.8, edgecolor='white', linewidth=2,
+                   color=color, alpha=0.8, edgecolor='white', linewidth=3.5,
                    hatch='////', label=name)
         else:
             ax.bar(x_positions + x_offset, cagr_values, bar_width * 0.95,
-                   color=color, alpha=0.9, edgecolor='white', linewidth=0.5,
+                   color=color, alpha=0.9, edgecolor='white', linewidth=1.2,
                    label=name)
 
     # Customize axes
@@ -775,11 +775,11 @@ def plot_cagr_15year_bars(
     for i, (x, cagr_val, color, is_cohort) in enumerate(zip(x_positions, cagr_values, colors, is_cohorts)):
         if is_cohort:
             ax.bar(x, cagr_val, bar_width,
-                   color=color, alpha=0.8, edgecolor='white', linewidth=2,
+                   color=color, alpha=0.8, edgecolor='white', linewidth=3.5,
                    hatch='////')
         else:
             ax.bar(x, cagr_val, bar_width,
-                   color=color, alpha=0.9, edgecolor='white', linewidth=0.5)
+                   color=color, alpha=0.9, edgecolor='white', linewidth=1.2)
 
     # Customize axes
     ax.set_xlabel('District / Cohort', fontsize=20, fontweight='bold')

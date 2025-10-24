@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.colors import HexColor
+from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
@@ -721,6 +722,252 @@ def _shade_for_dollar_rel(delta_rel: float):
     idx = max(0, min(len(ABOVE_SHADES)-1, bisect.bisect_right(SHADE_BINS_DOLLAR, abs(delta_rel)) - 1))
     return HexColor(ABOVE_SHADES[idx]) if delta_rel > 0 else HexColor(BELOW_SHADES[idx])
 
+# ---- Cohort Distribution Statistics (CR 1005) ----
+def calculate_cohort_ppe_distribution(df: pd.DataFrame, reg: pd.DataFrame, year: int = 2024) -> pd.DataFrame:
+    """
+    Calculate five-number summary of PPE distribution for each cohort.
+
+    Args:
+        df: Main expenditure data
+        reg: District regions/metadata
+        year: Year to analyze (default 2024)
+
+    Returns:
+        DataFrame with columns: cohort, n, min, q1, median, q3, max
+    """
+    cohorts = get_western_cohort_districts(df, reg)
+    results = []
+
+    for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
+        districts = cohorts.get(cohort_name, [])
+        if not districts:
+            continue
+
+        # Collect PPE values for this cohort
+        ppe_values = []
+        for dist in districts:
+            epp_pivot, _ = prepare_district_epp_lines(df, dist)
+            if not epp_pivot.empty and year in epp_pivot.index:
+                total_ppe = epp_pivot.loc[year].sum()  # Sum across all categories
+                if total_ppe > 0:
+                    ppe_values.append(total_ppe)
+
+        if ppe_values:
+            ppe_series = pd.Series(ppe_values)
+            results.append({
+                "cohort": get_cohort_label(cohort_name),
+                "cohort_name": cohort_name,
+                "n": len(ppe_values),
+                "min": ppe_series.min(),
+                "q1": ppe_series.quantile(0.25),
+                "median": ppe_series.median(),
+                "q3": ppe_series.quantile(0.75),
+                "max": ppe_series.max()
+            })
+
+    return pd.DataFrame(results)
+
+def calculate_cohort_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, start_year: int = 2009, end_year: int = 2024) -> pd.DataFrame:
+    """
+    Calculate five-number summary of CAGR distribution for each cohort.
+
+    Args:
+        df: Main expenditure data
+        reg: District regions/metadata
+        start_year: Period start year (default 2009)
+        end_year: Period end year (default 2024)
+
+    Returns:
+        DataFrame with columns: cohort, n, min, q1, median, q3, max
+    """
+    cohorts = get_western_cohort_districts(df, reg)
+    results = []
+    years = end_year - start_year
+
+    for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
+        districts = cohorts.get(cohort_name, [])
+        if not districts:
+            continue
+
+        # Collect CAGR values for this cohort
+        cagr_values = []
+        for dist in districts:
+            epp_pivot, _ = prepare_district_epp_lines(df, dist)
+            if not epp_pivot.empty:
+                if start_year in epp_pivot.index and end_year in epp_pivot.index:
+                    start_val = epp_pivot.loc[start_year].sum()
+                    end_val = epp_pivot.loc[end_year].sum()
+                    if start_val > 0 and end_val > 0:
+                        cagr = ((end_val / start_val) ** (1 / years) - 1) * 100
+                        cagr_values.append(cagr)
+
+        if cagr_values:
+            cagr_series = pd.Series(cagr_values)
+            results.append({
+                "cohort": get_cohort_label(cohort_name),
+                "cohort_name": cohort_name,
+                "n": len(cagr_values),
+                "min": cagr_series.min(),
+                "q1": cagr_series.quantile(0.25),
+                "median": cagr_series.median(),
+                "q3": cagr_series.quantile(0.75),
+                "max": cagr_series.max()
+            })
+
+    return pd.DataFrame(results)
+
+def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohort_colors: dict) -> None:
+    """
+    Create a horizontal mini box-and-whisker plot for a cohort.
+
+    Args:
+        values: Dictionary with keys: min, q1, median, q3, max
+        cohort_name: Cohort name for color lookup (TINY, SMALL, etc.)
+        output_path: Path to save PNG
+        cohort_colors: Dictionary mapping cohort names to colors
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+
+    fig, ax = plt.subplots(figsize=(2.0, 0.35))
+
+    # Get cohort color
+    color = cohort_colors.get(cohort_name, "#888888")
+
+    # Draw box-and-whisker horizontally
+    y_pos = 0.5
+    min_val, q1, median, q3, max_val = values["min"], values["q1"], values["median"], values["q3"], values["max"]
+
+    # Whisker lines (min to q1, q3 to max)
+    ax.plot([min_val, q1], [y_pos, y_pos], color=color, linewidth=2)
+    ax.plot([q3, max_val], [y_pos, y_pos], color=color, linewidth=2)
+
+    # Box (q1 to q3)
+    box_width = q3 - q1
+    rect = patches.Rectangle((q1, y_pos - 0.15), box_width, 0.3, linewidth=1.5,
+                             edgecolor=color, facecolor=color, alpha=0.6)
+    ax.add_patch(rect)
+
+    # Median line
+    ax.plot([median, median], [y_pos - 0.15, y_pos + 0.15], color='black', linewidth=2)
+
+    # Min/max markers
+    ax.plot(min_val, y_pos, '|', color=color, markersize=10, markeredgewidth=2)
+    ax.plot(max_val, y_pos, '|', color=color, markersize=10, markeredgewidth=2)
+
+    # Clean up axes
+    ax.set_ylim(0, 1)
+
+    # Handle case where all values are identical (min == max)
+    if min_val == max_val:
+        # Add small padding around the single value
+        padding = max(abs(min_val) * 0.1, 100)  # 10% of value or minimum 100
+        ax.set_xlim(min_val - padding, max_val + padding)
+    else:
+        ax.set_xlim(min_val - (max_val - min_val) * 0.05, max_val + (max_val - min_val) * 0.05)
+
+    ax.axis('off')
+
+    # Save
+    plt.tight_layout(pad=0)
+    plt.savefig(output_path, dpi=150, bbox_inches='tight', transparent=True)
+    plt.close(fig)
+
+def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, cohort_colors: dict, doc_width: float) -> Table:
+    """
+    Build table showing five-number summary with embedded mini boxplots for each cohort.
+
+    Args:
+        dist_df: DataFrame with columns: cohort, cohort_name, n, min, q1, median, q3, max
+        metric_name: "PPE" or "CAGR" for formatting
+        cohort_colors: Dictionary mapping cohort_name -> hex color
+        doc_width: Available width for table
+
+    Returns:
+        ReportLab Table with five-number summaries and embedded boxplots
+    """
+    # Generate mini boxplot images
+    boxplot_dir = OUTPUT_DIR / "temp_boxplots"
+    boxplot_dir.mkdir(exist_ok=True)
+
+    # Header
+    is_ppe = metric_name == "PPE"
+    data = [[
+        Paragraph("<b>Cohort</b>", style_hdr_left),
+        Paragraph("<b>n</b>", style_hdr_right),
+        Paragraph("<b>Min</b>", style_hdr_right),
+        Paragraph("<b>Q1</b>", style_hdr_right),
+        Paragraph("<b>Median</b>", style_hdr_right),
+        Paragraph("<b>Q3</b>", style_hdr_right),
+        Paragraph("<b>Max</b>", style_hdr_right),
+        Paragraph("<b>Distribution</b>", style_legend_center),
+    ]]
+
+    # Data rows
+    for _, row in dist_df.iterrows():
+        cohort_name = row["cohort_name"]
+        cohort_label = row["cohort"]
+
+        # Format values based on metric type
+        if is_ppe:
+            min_str = f"${row['min']:,.0f}"
+            q1_str = f"${row['q1']:,.0f}"
+            med_str = f"${row['median']:,.0f}"
+            q3_str = f"${row['q3']:,.0f}"
+            max_str = f"${row['max']:,.0f}"
+        else:  # CAGR
+            min_str = f"{row['min']:.1f}%"
+            q1_str = f"{row['q1']:.1f}%"
+            med_str = f"{row['median']:.1f}%"
+            q3_str = f"{row['q3']:.1f}%"
+            max_str = f"{row['max']:.1f}%"
+
+        # Create mini boxplot
+        boxplot_path = boxplot_dir / f"cohort_{cohort_name}_{metric_name}.png"
+        create_mini_boxplot(
+            {"min": row["min"], "q1": row["q1"], "median": row["median"], "q3": row["q3"], "max": row["max"]},
+            cohort_name,
+            boxplot_path,
+            cohort_colors
+        )
+
+        # Create table row
+        data.append([
+            Paragraph(cohort_label, style_body),
+            Paragraph(str(row["n"]), style_num),
+            Paragraph(min_str, style_num),
+            Paragraph(q1_str, style_num),
+            Paragraph(med_str, style_num),
+            Paragraph(q3_str, style_num),
+            Paragraph(max_str, style_num),
+            Image(str(boxplot_path), width=2.0*inch, height=0.35*inch)
+        ])
+
+    # Column widths - adjusted to fit within ~7 inch page width
+    cohort_width = 1.1*inch
+    n_width = 0.3*inch
+    stat_width = 0.65*inch
+    boxplot_width = 2.0*inch
+    col_widths = [cohort_width, n_width, stat_width, stat_width, stat_width, stat_width, stat_width, boxplot_width]
+    # Total: 1.1 + 0.3 + 0.65*5 + 2.0 = 6.65 inches
+
+    # Build table
+    table = Table(data, colWidths=col_widths)
+    ts = TableStyle([
+        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.black),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (1,1), (-1,-1), 'RIGHT'),
+        ('ALIGN', (0,1), (0,-1), 'LEFT'),
+        ('ALIGN', (-1,0), (-1,-1), 'CENTER'),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 3),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+    ])
+    table.setStyle(ts)
+
+    return table
+
 # ---- Table builders ----
 def _build_category_table(page: dict) -> Table:
     """
@@ -1051,11 +1298,11 @@ def _build_nss_ch70_table(page: dict) -> Table:
     # Header row (reordered chronologically)
     hdr = [Paragraph("", style_hdr_left),  # Swatch column
            Paragraph("Component", style_hdr_left),
-           Paragraph(f"{start_year}<br/>$", style_hdr_right),
+           Paragraph(f"{start_year}<br/>$/pupil", style_hdr_right),
            Paragraph("CAGR<br/>15y", style_hdr_right),
            Paragraph("CAGR<br/>10y", style_hdr_right),
            Paragraph("CAGR<br/>5y", style_hdr_right),
-           Paragraph(f"{latest_year}<br/>$", style_hdr_right)]
+           Paragraph(f"{latest_year}<br/>$/pupil", style_hdr_right)]
     data = [hdr]
 
     # Category rows (top to bottom: Actual NSS (adj), Req NSS (adj), Ch70 Aid)
@@ -1080,7 +1327,34 @@ def _build_nss_ch70_table(page: dict) -> Table:
                  Paragraph(latest_total, style_num)])
     total_row_idx = len(data) - 1
 
-    # Legend removed from NSS/Ch70 table - now shown only after enrollment table below
+    # Add legend rows (restored per user request)
+    legend_rows = []
+    if base:  # Only show legend if there's a baseline comparison
+        baseline_title = page.get("baseline_title", "")
+        bucket_suffix = _abbr_bucket_suffix(baseline_title)
+
+        # Generate baseline-focused legend text
+        if bucket_suffix == "MA (excl. Springfield)":
+            above_text = "Above Western MA baseline"
+            below_text = "Below Western MA baseline"
+        else:
+            # Cohort baseline - remove " FTE" suffix for cleaner display
+            clean_suffix = bucket_suffix.replace(" FTE)", ")")
+            above_text = f"Above cohort baseline {clean_suffix}".strip()
+            below_text = f"Below cohort baseline {clean_suffix}".strip()
+
+        shade_rule = (
+            f"Shading vs baseline: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}%, "
+            f"|ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp"
+        )
+        cagr_def = "CAGR = (End/Start)^(1/years) − 1"
+        legend_rows = [
+            ["", Paragraph(shade_rule, style_legend_right), "", "", "", Paragraph(above_text, style_legend_center), ""],  # Col 1-4 merged for text
+            ["", Paragraph(cagr_def, style_legend_right), "", "", "", Paragraph(below_text, style_legend_center), ""],  # Col 1-4 merged for text
+        ]
+    data.extend(legend_rows)
+    leg1_idx = len(data) - 2 if legend_rows else None
+    leg2_idx = len(data) - 1 if legend_rows else None
 
     # Column widths (flexible Component column, match FTE table dollar column widths)
     tbl = Table(data, colWidths=[0.45*inch, None, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch])
@@ -1176,6 +1450,21 @@ def _build_nss_ch70_table(page: dict) -> Table:
                     ts.add("BACKGROUND", (col, total_row_idx), (col, total_row_idx), bg)
 
     ts.add("LINEABOVE", (0,total_row_idx), (-1,total_row_idx), 0.5, colors.black)
+
+    # Add legend styling if legend rows exist
+    if leg1_idx is not None and leg2_idx is not None:
+        # Merge cells for legend text spans (cols 1-4) and swatch spans (cols 5-6)
+        ts.add("SPAN", (1, leg1_idx), (4, leg1_idx))  # Shade rule text
+        ts.add("SPAN", (5, leg1_idx), (6, leg1_idx))  # "Above baseline" swatch
+        ts.add("SPAN", (1, leg2_idx), (4, leg2_idx))  # CAGR definition text
+        ts.add("SPAN", (5, leg2_idx), (6, leg2_idx))  # "Below baseline" swatch
+
+        # Add color swatches for Above/Below baseline
+        ts.add("BACKGROUND", (5, leg1_idx), (6, leg1_idx), HexColor(ABOVE_SHADES[2]))  # Mid-range above color
+        ts.add("BACKGROUND", (5, leg2_idx), (6, leg2_idx), HexColor(BELOW_SHADES[2]))  # Mid-range below color
+
+        # Add line above legend to separate from data
+        ts.add("LINEABOVE", (0, leg1_idx), (-1, leg1_idx), 0.5, colors.lightgrey)
 
     tbl.setStyle(ts)
     return tbl
@@ -1802,13 +2091,40 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "<b>Quick-start guide:</b>"
     ])
 
+    exec_summary_context = report_text.get("EXECUTIVE_SUMMARY_CONTEXT", [])
+
     exec_summary_footer = report_text.get("EXECUTIVE_SUMMARY_FOOTER", [
         "Refer to the appendices for information about data sources and calculations."
     ])
 
+    # Build mini ToC for executive summary (CR+5)
+    mini_toc_entries = [
+        ("Table of Contents", "toc"),
+        ("Executive Summary", "executive_summary"),
+        ("Section 1: Western MA Traditional District Trends", "section1_summary"),
+        ("Section 2: Western MA Cohort Details", "section2_intro"),
+        ("Section 3: Selected Districts", "section3_intro"),
+        ("Appendix A: Data Sources & Calculation Methodology", "appendix_a"),
+        ("Appendix B: Calculations and Examples", "appendix_b"),
+        ("Appendix C: Data Tables", "appendix_c"),
+        ("Appendix D: Additional Visualizations", "appendix_d"),
+    ]
+
+    mini_toc_text = ["<b>Report Navigation:</b>", ""]
+    for title, section_id in mini_toc_entries:
+        # Placeholder for page number - will be replaced during rendering
+        mini_toc_text.append(f'<a href="#{section_id}" color="blue">{title}</a> ........ {{PAGE_{section_id.upper()}}}')
+
     # Combine all text blocks for the Executive Summary page
     # Mark the quick-start guide with a special marker for boxed rendering
-    exec_summary_all_text = exec_summary_intro_text + ["__BOXED_START__"] + exec_summary_quick_start + ["__BOXED_END__"] + exec_summary_footer
+    exec_summary_all_text = (
+        exec_summary_intro_text +
+        ["__BOXED_START__"] + exec_summary_quick_start + ["__BOXED_END__"] +
+        exec_summary_context +  # Add context section (not boxed)
+        exec_summary_footer +
+        ["<br />"] +  # Add space before Report Navigation box
+        ["__BOXED_START__"] + mini_toc_text + ["__BOXED_END__"]  # Add mini ToC in box
+    )
 
     pages.append(dict(
         title="Executive Summary",
@@ -1840,7 +2156,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         subtitle=f"Per-pupil expenditure and recent growth overview: {t0} PPE (lighter) to {latest} PPE (darker segment)",
         chart_path=str(OUTPUT_DIR / "ppe_overview_all_western.png"),
         text_blocks=western_text_blocks_exec,
-        graph_only=True
+        graph_only=True,
+        section_id="exec_summary_scatter"
     )
 
     # PAGE 0b: Executive Summary - Statistical Analysis (text from report_text.txt)
@@ -1943,7 +2260,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         subtitle="Total PPE comparison: Western MA enrollment cohorts and selected districts",
         summary_table=cohort_table1,
         explanation_blocks=[],  # Removed - explanation moved to bottom after all tables
-        first_cohort_table=True  # Flag to show legend at top
+        first_cohort_table=True,  # Flag to show legend at top
+        section_id="exec_summary_cohort_comparison"
     ))
 
     # TABLE 2: The Mediums (baseline row not shaded, districts shaded vs Medium cohort)
@@ -1997,11 +2315,45 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
     # Executive Summary - Statistical Analysis (add after PPE overview)
     if stat_text_blocks:
+        # CR 1005: Calculate cohort distributions and build tables
+        # Define cohort colors (from western_map.py)
+        cohort_colors = {
+            "TINY": "#4575B4",
+            "SMALL": "#3C9DC4",
+            "MEDIUM": "#FDB749",
+            "LARGE": "#D73027",
+            "SPRINGFIELD": "#984EA3"
+        }
+
+        # Calculate page width (A4 width minus margins)
+        # A4 is 8.27 inches, with 0.5 inch margins on each side = 7.27 inches usable width
+        page_width = A4[0] / inch - 1.0*inch  # A4[0] is in points, convert to inches and subtract 1" for margins
+
+        # Calculate distributions
+        ppe_dist_df = calculate_cohort_ppe_distribution(df, reg, year=2024)
+        cagr_dist_df = calculate_cohort_cagr_distribution(df, reg, start_year=2009, end_year=2024)
+
+        # Build tables
+        ppe_table = build_cohort_distribution_table(ppe_dist_df, "PPE", cohort_colors, page_width)
+        cagr_table = build_cohort_distribution_table(cagr_dist_df, "CAGR", cohort_colors, page_width)
+
+        # Keep all content on one page but replace placeholders with tables
+        stat_text_blocks_with_tables = []
+        for block in stat_text_blocks:
+            if isinstance(block, str) and "__COHORT_PPE_TABLE__" in block:
+                stat_text_blocks_with_tables.append(ppe_table)
+            elif isinstance(block, str) and "__COHORT_CAGR_TABLE__" in block:
+                stat_text_blocks_with_tables.append(cagr_table)
+            else:
+                stat_text_blocks_with_tables.append(block)
+
+        # Page: Statistical Associations (all content on one page with wrapping)
         pages.append(dict(
             title="Executive Summary (continued)",
             subtitle="Statistical Associations",
-            text_blocks=stat_text_blocks,
-            text_only_page=True
+            text_blocks=stat_text_blocks_with_tables,
+            text_only_page=True,
+            section_id="exec_summary_statistical"
         ))
 
     # ===== SECTION 1: WESTERN MA TRADITIONAL PUBLIC SCHOOL DISTRICT TRENDS =====
@@ -2009,10 +2361,17 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     section1_summary_text = report_text.get("SECTION1_SUMMARY", [
         "Section 1 examines per-pupil expenditure trends across Western Massachusetts."
     ])
+
+    # Add mini ToC navigation box to Section 1 intro (CR 1004)
+    section1_all_text = (
+        section1_summary_text +
+        ["__BOXED_START__"] + mini_toc_text + ["__BOXED_END__"]
+    )
+
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
         subtitle="",
-        text_blocks=section1_summary_text,
+        text_blocks=section1_all_text,
         text_only_page=True,
         section_id="section1_summary"
     ))
@@ -2074,7 +2433,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         graph_only=False,  # Includes table
         scatterplot_districts=scatterplot_table_data,
         year=2024,
-        section_id="section1_scatterplot"
+        section_id="section1_scatter"
     ))
 
     # PAGE 5: Geographic map 2024
@@ -2091,6 +2450,34 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         section_id="section1_map"
     ))
 
+    # PAGE 6: PPE comparison map 2024
+    ppe_comparison_explanation_2024 = report_text.get("SECTION1_PPE_COMPARISON_EXPLANATION", [
+        "This map shows district PPE compared to cohort baseline."
+    ])[0]
+
+    pages.append(dict(
+        title="Section 1 — Western MA traditional public school district trends",
+        subtitle=f"Geographic map showing 2024 PPE vs enrollment cohort baseline",
+        chart_path=str(OUTPUT_DIR / f"western_ma_ppe_comparison_2024.png"),
+        text_blocks=[ppe_comparison_explanation_2024],
+        graph_only=True,
+        section_id="section1_ppe_comparison"
+    ))
+
+    # PAGE 7: CAGR comparison map 2009-2024
+    cagr_comparison_explanation_2024 = report_text.get("SECTION1_CAGR_COMPARISON_EXPLANATION", [
+        "This map shows district CAGR compared to cohort baseline."
+    ])[0]
+
+    pages.append(dict(
+        title="Section 1 — Western MA traditional public school district trends",
+        subtitle=f"Geographic map showing 15-year PPE growth (2009-2024) vs enrollment cohort baseline",
+        chart_path=str(OUTPUT_DIR / f"western_ma_cagr_comparison_2009_2024.png"),
+        text_blocks=[cagr_comparison_explanation_2024],
+        graph_only=True,
+        section_id="section1_cagr_comparison"
+    ))
+
     # Set up cohort data structures for Section 2
     cmap_all = create_or_load_color_map(df)
 
@@ -2103,6 +2490,33 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     western_baseline_map, western_fte_baseline_map = _build_western_ma_baseline(df, reg, c70, cmap_all, df["YEAR"].max(), exclude_springfield=True)
 
     # ===== SECTION 2: WESTERN MA COHORT DETAILS =====
+    # Add intro page for Section 2
+    section2_intro_text = report_text.get("SECTION2_SUMMARY", [
+        "Section 2 provides detailed analysis for Western Massachusetts enrollment cohorts."
+    ])
+
+    # Get page number for Section 3 (amherst_pelham is the first district page)
+    section3_page = "{PAGE_SECTION3}"  # Placeholder, will be replaced after page numbers are captured
+
+    # Replace placeholder in text
+    section2_text_formatted = []
+    for paragraph in section2_intro_text:
+        section2_text_formatted.append(paragraph.replace("{PAGE_SECTION3}", section3_page))
+
+    # Add mini ToC navigation box to Section 2 intro (CR 1004)
+    section2_all_text = (
+        section2_text_formatted +
+        ["__BOXED_START__"] + mini_toc_text + ["__BOXED_END__"]
+    )
+
+    pages.append(dict(
+        title="Section 2 — Western MA cohort details",
+        subtitle="",
+        text_blocks=section2_all_text,
+        text_only_page=True,
+        section_id="section2_intro"
+    ))
+
     # Each cohort gets PPE and NSS/Ch70 aggregate pages (moved from Section 1)
 
     for bucket in ("tiny", "small", "medium", "large", "springfield"):
@@ -2179,7 +2593,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                 if not nss_west.empty:
                     latest_year_nss = int(nss_west.index.max())
                     cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_west, latest_year_nss)
-                    fte_rows_nss, fte_map_nss, latest_fte_year_nss = _build_nss_fte_data(foundation_west, latest_year_nss)
 
                     # Build Western MA baseline for NSS/Ch70 (shared across all cohorts)
                     western_nss_baseline = _build_western_ma_nss_baseline(df, reg, c70, latest_year_nss, exclude_springfield=True)
@@ -2193,19 +2606,41 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                         cat_rows=cat_rows_nss,
                         cat_total=cat_total_nss,
                         cat_start_map=cat_start_map_nss,
-                        fte_rows=fte_rows_nss,
-                        fte_series_map=fte_map_nss,
-                        latest_year_fte=latest_fte_year_nss,
                         page_type="nss_ch70",
                         baseline_title="All Western MA (excluding Springfield)",
                         baseline_map=western_nss_baseline,
-                        fte_baseline_map=western_nss_baseline if "Foundation Enrollment" in western_nss_baseline else {},
                         dist_name=title,
                         raw_nss=nss_west,  # Store for Appendix C data tables
-                        district_list_text=district_list_text  # Add district list text below enrollment table
+                        district_list_text=district_list_text  # Add district list text below NSS table
                     ))
 
     # ===== SECTION 3: SPECIFIC DISTRICTS COMPARED TO COHORTS =====
+    # Add intro page for Section 3
+    section3_intro_text = report_text.get("SECTION3_SUMMARY", [
+        "Section 3 examines selected districts in depth."
+    ])
+
+    # Get page number for Appendix A
+    appendix_a_page = "{PAGE_APPENDIX_A}"  # Placeholder, will be replaced after page numbers are captured
+
+    # Replace placeholder in text
+    section3_text_formatted = []
+    for paragraph in section3_intro_text:
+        section3_text_formatted.append(paragraph.replace("{PAGE_APPENDIX_A}", appendix_a_page))
+
+    # Add mini ToC navigation box to Section 3 intro (CR 1004)
+    section3_all_text = (
+        section3_text_formatted +
+        ["__BOXED_START__"] + mini_toc_text + ["__BOXED_END__"]
+    )
+
+    pages.append(dict(
+        title="Section 3 — Selected districts",
+        subtitle="",
+        text_blocks=section3_all_text,
+        text_only_page=True,
+        section_id="section3_intro"
+    ))
 
     # Pre-compute Western district lists for NSS/Ch70 baseline computation (6 enrollment groups)
     # Use centralized cohort function to ensure consistency with plots (filters by PPE data availability)
@@ -2302,7 +2737,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             if not nss_dist.empty:
                 latest_year_nss = int(nss_dist.index.max())
                 cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_dist, latest_year_nss)
-                fte_rows_nss, fte_map_nss, latest_fte_year_nss = _build_nss_fte_data(foundation_dist, latest_year_nss)
 
                 # Determine Western baseline using 4-tier enrollment groups
                 fte = latest_total_fte(df, dist)
@@ -2320,32 +2754,24 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
                 # Compute Western NSS/Ch70 baseline (weighted per-pupil for comparison)
                 nss_west_baseline = {}
-                fte_west_baseline = {}
                 if western_dists:
                     nss_west, _, foundation_west = prepare_aggregate_nss_ch70_weighted(df, c70, western_dists)
                     if not nss_west.empty:
                         nss_west_baseline = _build_nss_ch70_baseline_map(nss_west, latest_year_nss, foundation_west)
-                        # Extract FTE baseline for the enrollment table
-                        if "Foundation Enrollment" in nss_west_baseline:
-                            fte_west_baseline["Foundation Enrollment"] = nss_west_baseline["Foundation Enrollment"]
 
                 safe_name = make_safe_filename(dist)
 
                 pages.append(dict(
-                    title="Section 3 — Specific districts",
-                    subtitle=f"{dist_title} — Chapter 70 Aid, Net School Spending (NSS), and Foundation Enrollment",
+                    title="Section 3 — Selected districts",
+                    subtitle=f"{dist_title} — Chapter 70 Aid and Net School Spending (NSS)",
                     chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
                     latest_year=latest_year_nss,
                     cat_rows=cat_rows_nss,
                     cat_total=cat_total_nss,
                     cat_start_map=cat_start_map_nss,
-                    fte_rows=fte_rows_nss,
-                    fte_series_map=fte_map_nss,
-                    latest_year_fte=latest_fte_year_nss,
                     page_type="nss_ch70",
                     baseline_title=f"Western Traditional ({group_label})",
                     baseline_map=nss_west_baseline,
-                    fte_baseline_map=fte_west_baseline,
                     dist_name=dist,
                     raw_nss=nss_dist  # Store raw data for Appendix A
                 ))
@@ -2420,23 +2846,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
     methodology_page4 = report_text.get("METHODOLOGY_DATA_SOURCES", [])
 
-    # Appendix A - Page 1: Data Sources
+    # Appendix A - Page 1: Data Sources and PPE Definition (combined to avoid page break)
     pages.append(dict(
         title="Appendix A. Data Sources & Calculation Methodology",
         subtitle="",
         chart_path=None,
         graph_only=True,
-        text_blocks=methodology_page4,
+        text_blocks=methodology_page4 + methodology_page1,  # Combine both sections
         section_id="appendix_a"
-    ))
-
-    # Appendix A - Page 2: PPE Definition, CAGR, YoY, Enrollment-Based Cohorts
-    pages.append(dict(
-        title="Appendix A. Data Sources & Calculation Methodology (continued)",
-        subtitle="",
-        chart_path=None,
-        graph_only=True,
-        text_blocks=methodology_page1
     ))
 
     # Appendix A - Page 3: Orange/Blue Shading Logic
@@ -2986,6 +3403,43 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             graph_only=True
         ))
 
+        # Add PPE comparison map for this year
+        ppe_comparison_explanation = report_text.get("SECTION1_PPE_COMPARISON_EXPLANATION", [
+            "This map shows district PPE compared to cohort baseline."
+        ])[0]
+        pages.append(dict(
+            title="Appendix D. Additional Visualizations (continued)",
+            subtitle=f"Geographic map showing {year} PPE vs enrollment cohort baseline",
+            chart_path=str(OUTPUT_DIR / f"western_ma_ppe_comparison_{year}.png"),
+            text_blocks=[ppe_comparison_explanation],
+            graph_only=True
+        ))
+
+        # Add CAGR comparison map for this year (only if not 2009, the baseline year)
+        if year != 2009:
+            cagr_comparison_explanation = report_text.get("SECTION1_CAGR_COMPARISON_EXPLANATION", [
+                "This map shows district CAGR compared to cohort baseline."
+            ])[0]
+
+            # Determine period description based on year
+            if year == 2019:
+                period_desc = "10-year PPE growth (2009-2019)"
+                filename = "western_ma_cagr_comparison_2009_2019.png"
+            elif year == 2014:
+                period_desc = "5-year PPE growth (2009-2014)"
+                filename = "western_ma_cagr_comparison_2009_2014.png"
+            else:
+                period_desc = f"{year-2009}-year PPE growth (2009-{year})"
+                filename = f"western_ma_cagr_comparison_2009_{year}.png"
+
+            pages.append(dict(
+                title="Appendix D. Additional Visualizations (continued)",
+                subtitle=f"Geographic map showing {period_desc} vs enrollment cohort baseline",
+                chart_path=str(OUTPUT_DIR / filename),
+                text_blocks=[cagr_comparison_explanation],
+                graph_only=True
+            ))
+
     return pages
 
 # ---- Table of Contents ----
@@ -3005,6 +3459,8 @@ def build_toc_page():
         ("    Distribution of 2024 enrollment and proposed cohort grouping", "section1_distribution", 1),
         ("    Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries (2024)", "section1_scatter", 1),
         ("    Geographic map showing district locations and enrollment cohorts (2024)", "section1_map", 1),
+        ("    Geographic map showing 2024 PPE vs enrollment cohort baseline", "section1_ppe_comparison", 1),
+        ("    Geographic map showing 15-year PPE growth (2009-2024) vs enrollment cohort baseline", "section1_cagr_comparison", 1),
 
         ("Section 2: Western MA Cohort Details", "section2_tiny", 0),
         ("    Tiny Cohort (0-200 FTE)", "section2_tiny", 1),
@@ -3035,7 +3491,8 @@ def build_toc_page():
         page_type="toc",
         toc_entries=toc_entries,
         report_title="Western MA Per Pupil Spending Report",
-        report_subtitle="With selected districts for comparison"
+        report_subtitle="With selected districts for comparison",
+        section_id="toc"
     )
 
 # ---- Build PDF ----
@@ -3087,6 +3544,10 @@ def build_pdf(pages: List[dict], out_path: Path):
 
         # Handle TOC page
         if p.get("page_type") == "toc":
+            # Add page marker for TOC page numbering and anchor
+            if p.get("section_id"):
+                story.append(PageMarker(p["section_id"]))
+
             # Add report title and subtitle if present
             if p.get("report_title"):
                 # Create centered style for report title
@@ -3110,11 +3571,18 @@ def build_pdf(pages: List[dict], out_path: Path):
                 )
                 story.append(Paragraph(p["report_subtitle"], report_subtitle_style))
 
-            story.append(Paragraph(p["title"], style_title_main))
+            # Add title with anchor if section_id is present
+            title_text = p["title"]
+            if p.get("section_id"):
+                title_text = f'<a name="{p["section_id"]}"/>{title_text}'
+            story.append(Paragraph(title_text, style_title_main))
             story.append(Spacer(0, 12))
 
-            # Build hierarchical TOC entries with indentation (CR3: improved spacing and indentation)
+            # Build hierarchical TOC entries as a table with aligned page numbers
             toc_entries = p.get("toc_entries", [])
+            table_data = []
+            last_main_section_idx = None
+
             for idx_entry, entry in enumerate(toc_entries):
                 # Handle both old format (title, section_id) and new format (title, section_id, indent_level)
                 if len(entry) == 2:
@@ -3123,48 +3591,82 @@ def build_pdf(pages: List[dict], out_path: Path):
                 else:
                     entry_title, entry_id, indent_level = entry
 
-                # Add extra spacing before "Appendices" section (CR3)
-                if entry_title == "Appendices":
-                    story.append(Spacer(0, 18))
+                # Skip empty spacing entries (indent_level == -1)
+                if indent_level == -1:
+                    continue
 
-                # Apply indentation based on level
-                if indent_level == 0:
-                    # Main section - bold, add spacing between main sections (CR3)
-                    page_num = get_page_number(entry_id) if entry_id else None
-                    if entry_id:
-                        if page_num:
-                            link_text = f'<b><a href="#{entry_id}" color="blue">{entry_title}</a> ........ {page_num}</b>'
-                        else:
-                            link_text = f'<b><a href="#{entry_id}" color="blue">{entry_title}</a></b>'
+                # Get page number
+                page_num = get_page_number(entry_id) if entry_id else ""
+                page_num_str = str(page_num) if page_num else ""
+
+                # Build title cell with link
+                if entry_id:
+                    if indent_level == 0:
+                        title_cell = Paragraph(f'<b><a href="#{entry_id}" color="blue">{entry_title}</a></b>', style_body)
+                        page_cell = Paragraph(f'<b>{page_num_str}</b>', style_body) if page_num_str else Paragraph('', style_body)
+                        last_main_section_idx = len(table_data)
+                    elif indent_level == 1:
+                        title_cell = Paragraph(f'<a href="#{entry_id}" color="blue">{entry_title}</a>', style_body)
+                        page_cell = Paragraph(page_num_str, style_body) if page_num_str else Paragraph('', style_body)
                     else:
-                        link_text = f'<b>{entry_title}</b>'
-                    story.append(Paragraph(link_text, style_body))
-                    story.append(Spacer(0, 14))  # Increased from 10
-                elif indent_level == 1:
-                    # Sub-section - indented with visual indent (CR3)
-                    page_num = get_page_number(entry_id) if entry_id else None
-                    if entry_id:
-                        if page_num:
-                            link_text = f'<a href="#{entry_id}" color="blue">{entry_title}</a> ........ {page_num}'
-                        else:
-                            link_text = f'<a href="#{entry_id}" color="blue">{entry_title}</a>'
-                    else:
-                        link_text = entry_title
-                    # Create indented paragraph style
-                    from reportlab.lib.styles import ParagraphStyle
-                    indented_style = ParagraphStyle('indented', parent=style_body, leftIndent=20)
-                    story.append(Paragraph(link_text, indented_style))
-                    story.append(Spacer(0, 6))
+                        title_cell = Paragraph(f'<font size="9"><a href="#{entry_id}" color="blue">{entry_title}</a></font>', style_body)
+                        page_cell = Paragraph(f'<font size="9">{page_num_str}</font>', style_body) if page_num_str else Paragraph('', style_body)
                 else:
-                    # Sub-sub-section - more indented, smaller font
-                    if entry_id:
-                        link_text = f'<font size="9"><a href="#{entry_id}" color="blue">{entry_title}</a></font>'
+                    if indent_level == 0:
+                        title_cell = Paragraph(f'<b>{entry_title}</b>', style_body)
+                        page_cell = Paragraph('', style_body)
+                        last_main_section_idx = len(table_data)
                     else:
-                        link_text = f'<font size="9">{entry_title}</font>'
-                    from reportlab.lib.styles import ParagraphStyle
-                    more_indented_style = ParagraphStyle('more_indented', parent=style_body, leftIndent=40)
-                    story.append(Paragraph(link_text, more_indented_style))
-                    story.append(Spacer(0, 4))
+                        title_cell = Paragraph(entry_title, style_body)
+                        page_cell = Paragraph('', style_body)
+
+                table_data.append([title_cell, page_cell, indent_level])
+
+            # Build table with custom styling
+            from reportlab.platypus import Table
+            from reportlab.lib import colors
+
+            # Extract just title and page columns (indent_level used for styling)
+            table_rows = [[row[0], row[1]] for row in table_data]
+
+            # Create table with column widths: wide for title, narrow for page number
+            toc_table = Table(table_rows, colWidths=[doc.width * 0.85, doc.width * 0.15])
+
+            # Build table style with gray dividers between main sections
+            table_style_commands = [
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),    # Left-align titles
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),   # Right-align page numbers
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),   # Top-align content
+                ('TOPPADDING', (0, 0), (-1, -1), 3),   # Uniform top padding
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3), # Uniform bottom padding
+                ('LEFTPADDING', (0, 0), (0, -1), 0),   # No left padding for titles (handled by indent)
+                ('LEFTPADDING', (1, 0), (1, -1), 8),   # Small left padding for page numbers
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0), # No right padding
+            ]
+
+            # Add gray lines after main sections and indentation
+            for idx, row_data in enumerate(table_data):
+                indent_level = row_data[2]
+
+                # Add left padding based on indent level
+                if indent_level == 1:
+                    table_style_commands.append(('LEFTPADDING', (0, idx), (0, idx), 20))
+                elif indent_level >= 2:
+                    table_style_commands.append(('LEFTPADDING', (0, idx), (0, idx), 40))
+
+                # Add gray line below main sections (but not before subsections)
+                if indent_level == 0:
+                    # Check if next entry is a main section (or end of table)
+                    is_last_main_before_subsections = (
+                        idx == len(table_data) - 1 or
+                        (idx + 1 < len(table_data) and table_data[idx + 1][2] == 0)
+                    )
+                    if is_last_main_before_subsections:
+                        table_style_commands.append(('LINEBELOW', (0, idx), (-1, idx), 0.5, colors.Color(0.7, 0.7, 0.7)))
+                        table_style_commands.append(('BOTTOMPADDING', (0, idx), (-1, idx), 8))
+
+            toc_table.setStyle(table_style_commands)
+            story.append(toc_table)
 
             if idx < len(pages)-1:
                 story.append(PageBreak())
@@ -3185,21 +3687,49 @@ def build_pdf(pages: List[dict], out_path: Path):
 
             # Add text blocks (CR4: handle boxed text sections)
             text_blocks = p.get("text_blocks", [])
+
+            # Replace page number placeholders with actual page numbers from _PAGE_MAP
+            text_blocks_resolved = []
+            for block in text_blocks:
+                # Only do string replacements on string blocks (not Table objects)
+                if isinstance(block, str):
+                    # Replace {PAGE_SECTION3} with actual page number
+                    if "{PAGE_SECTION3}" in block:
+                        section3_page_num = get_page_number("section3_intro")
+                        block = block.replace("{PAGE_SECTION3}", str(section3_page_num) if section3_page_num else "TBD")
+                    # Replace {PAGE_APPENDIX_A} with actual page number
+                    if "{PAGE_APPENDIX_A}" in block:
+                        appendix_a_page_num = get_page_number("appendix_a")
+                        block = block.replace("{PAGE_APPENDIX_A}", str(appendix_a_page_num) if appendix_a_page_num else "TBD")
+
+                    # Replace mini ToC page number placeholders (CR+5)
+                    # Format: {PAGE_<SECTION_ID>} where section_id is uppercase
+                    import re
+                    page_placeholders = re.findall(r'\{PAGE_([A-Z0-9_]+)\}', block)
+                    for placeholder in page_placeholders:
+                        section_id = placeholder.lower()
+                        page_num = get_page_number(section_id)
+                        block = block.replace(f"{{PAGE_{placeholder}}}", str(page_num) if page_num else "TBD")
+
+                text_blocks_resolved.append(block)
+
+            text_blocks = text_blocks_resolved
             in_box = False
             boxed_content = []
 
             for block in text_blocks:
-                if block == "__BOXED_START__":
+                if isinstance(block, str) and block == "__BOXED_START__":
                     in_box = True
                     continue
-                elif block == "__BOXED_END__":
+                elif isinstance(block, str) and block == "__BOXED_END__":
                     # Render accumulated boxed content in a table with a border
                     if boxed_content:
                         # Create paragraphs for each boxed text block
                         boxed_paragraphs = [Paragraph(b, style_body) for b in boxed_content]
                         # Create a table with a single cell containing all paragraphs
                         boxed_table_data = [[boxed_paragraphs]]
-                        boxed_table = Table(boxed_table_data, colWidths=[doc.width])
+                        # Account for padding in column width to avoid overflow
+                        boxed_table = Table(boxed_table_data, colWidths=[doc.width - 24])  # Subtract L/R padding
                         boxed_table.setStyle(TableStyle([
                             ('BOX', (0, 0), (-1, -1), 1, colors.grey),
                             ('LEFTPADDING', (0, 0), (-1, -1), 12),
@@ -3208,17 +3738,37 @@ def build_pdf(pages: List[dict], out_path: Path):
                             ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
                             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                         ]))
-                        story.append(boxed_table)
+                        # Wrap in KeepInFrame to prevent overflow if content is too tall
+                        frame_container = KeepInFrame(
+                            doc.width,
+                            doc.height - 100,  # Leave room for title and other content
+                            [boxed_table],
+                            mode='shrink'
+                        )
+                        story.append(frame_container)
                         story.append(Spacer(0, 12))
                         boxed_content = []
                     in_box = False
                     continue
 
                 if in_box:
-                    boxed_content.append(block)
+                    # Boxed content should only contain strings
+                    if isinstance(block, str):
+                        boxed_content.append(block)
+                    else:
+                        # Non-string objects (like Tables) should not be in boxes
+                        # Add them to story directly
+                        story.append(block)
+                        story.append(Spacer(0, 6))
                 else:
-                    story.append(Paragraph(block, style_body))
-                    story.append(Spacer(0, 6))
+                    # Check if block is a string or already a flowable object (like Table)
+                    if isinstance(block, str):
+                        story.append(Paragraph(block, style_body))
+                        story.append(Spacer(0, 6))
+                    else:
+                        # Already a flowable object (like Table), add directly
+                        story.append(block)
+                        story.append(Spacer(0, 6))
 
             if idx < len(pages)-1:
                 story.append(PageBreak())
@@ -3573,15 +4123,10 @@ def build_pdf(pages: List[dict], out_path: Path):
                 story.append(Paragraph(f"<i>Table {table_num}</i>", style_table_num))
             story.append(Spacer(0, 3))
             story.append(_build_nss_ch70_table(p))
-            story.append(Spacer(0, 12))
-            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceBefore=0, spaceAfter=6))
-            story.append(Paragraph(f"<i>Table {next_table_number()}</i>", style_table_num))
-            story.append(Spacer(0, 3))
-            story.append(_build_fte_table(p))
-            story.append(Spacer(0, 6))
 
             # Add district list text if provided (for Section 2 cohort pages)
             if p.get("district_list_text"):
+                story.append(Spacer(0, 18))  # Increased spacing before cohort member list (CR+4)
                 for text_block in p["district_list_text"]:
                     if text_block.strip():  # Skip empty lines
                         story.append(Paragraph(text_block, style_body))

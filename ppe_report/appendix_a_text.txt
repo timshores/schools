@@ -45,7 +45,7 @@ Per the DESE's Researcher's Guide, section XV. Using financial data:
 
 <b>3. Compound Annual Growth Rate (CAGR)</b>
 
-CAGR measures the mean annual growth rate over a specified time period, assuming constant growth.
+For a budget that grows at variable rates year-over-year, CAGR tells us: "If growth had been perfectly steady over this period, what annual rate would produce the same start-to-end result?" It's the geometric mean growth rate, smoothing out year-to-year volatility into a single comparable number.
 
 <b>Formula:</b> CAGR = (End_Value / Start_Value)^(1 / Years) − 1
 
@@ -140,35 +140,35 @@ Chapter 70 is Massachusetts' primary state aid program for K-12 education. Net S
 • <b>Actual NSS (actualNSS):</b> Total district spending on education (DESE profile_DataC70 sheet)
 
 <b>Important Note:</b>
-NSS/Ch70 values are reported in <b>absolute dollars</b>, NOT per-pupil. Unlike PPE (which divides by in-district FTE), NSS/Ch70 values represent total district funding amounts.
+NSS/Ch70 values are reported in <b>dollars per pupil</b>, consistent with PPE reporting. All absolute dollar amounts are divided by in-district FTE enrollment to produce per-pupil values.
 
 <b>Stacked Components (bottom to top in plots):</b>
-1. <b>Ch70 Aid ($):</b> c70aid
-   • Green bar in plots • State funding received by district
+1. <b>Ch70 Aid ($/pupil):</b> c70aid / enrollment
+   • Green bar in plots • State funding received per pupil
 
-2. <b>Req NSS (adj) ($):</b> max(0, rqdnss2 − c70aid)
-   • Amber bar in plots • Required local contribution (after subtracting Ch70)
+2. <b>Req NSS (adj) ($/pupil):</b> max(0, rqdnss2 − c70aid) / enrollment
+   • Amber bar in plots • Required local contribution per pupil (after subtracting Ch70)
    • Uses max(0, ...) to handle rare cases where Ch70 > Required NSS
 
-3. <b>Actual NSS (adj) ($):</b> actualNSS − rqdnss2
-   • Purple bar in plots • Spending above minimum requirement
+3. <b>Actual NSS (adj) ($/pupil):</b> (actualNSS − rqdnss2) / enrollment
+   • Purple bar in plots • Spending above minimum requirement per pupil
    • Represents discretionary local spending beyond state mandates
 
-<b>Total NSS ($):</b> Sum of all three components = actualNSS
+<b>Total NSS ($/pupil):</b> Sum of all three components = actualNSS / enrollment
 
 <b>Example Calculation (Amherst, FY2024):</b>
-• Ch70 Aid: $6,791,000
-• Required NSS: $18,859,000; Req NSS (adj): $18,859,000 − $6,791,000 = $12,068,000
-• Actual NSS: $31,511,000; Actual NSS (adj): $31,511,000 − $18,859,000 = $12,652,000
-• Total NSS: $6,791,000 + $12,068,000 + $12,652,000 = $31,511,000
+Enrollment: 1,721 in-district FTE
+• Ch70 Aid: $6,791,000 / 1,721 = $3,946/pupil
+• Req NSS (adj): ($18,859,000 − $6,791,000) / 1,721 = $7,014/pupil
+• Actual NSS (adj): ($31,511,000 − $18,859,000) / 1,721 = $7,353/pupil
+• Total NSS: $3,946 + $7,014 + $7,353 = $18,313/pupil
 
-<b>Aggregate Calculation (Weighted Per-District Average):</b>
-For aggregate enrollment groups (Tiny, Small, Medium, Large, Outliers):
+<b>Aggregate Calculation (Weighted Per-Pupil Average):</b>
+For aggregate enrollment groups (Tiny, Small, Medium, Large, Springfield):
 1. Convert each district's absolute dollars to per-pupil values
 2. Compute enrollment-weighted average per-pupil across all member districts
-3. Multiply by average enrollment per district to get weighted avg $ per district
 
-This methodology produces per-district values that are weighted by enrollment size, enabling fair comparison across different-sized district aggregates.
+This methodology produces per-pupil values that are weighted by enrollment size, enabling fair comparison across different-sized district aggregates.
 
 <b>Important:</b> Only districts with valid PPE (per-pupil expenditure) data are included in NSS/Ch70 aggregates to ensure data quality and consistency across all analyses.
 
