@@ -1,4 +1,90 @@
 ================================================================================
+EXECUTIVE_SUMMARY_PAGE1
+================================================================================
+
+<b>Per-pupil expenditure (PPE)</b> is a cloudy lens for education finance analysis. It reduces complex school systems—shaped by community wealth, student needs, facility age, governance choices, and historical commitments—into a single number that tempts expedient comparisons. Examined on its own, PPE tells us little about education quality, district efficiency, or resource adequacy.
+
+Yet PPE can't be wished away. It's embedded in state reporting and media coverage. It's a customary metric for officials and taxpayers making sense of school spending. Ignoring it looks evasive. The question isn't whether to use PPE, but how to use it responsibly—with appropriate context to prevent misleading conclusions about revenue and expense while surfacing patterns that support decisions.
+
+This report takes that approach: describing PPE across Western Massachusetts not to rank districts like racehorses, but as a starting point for more grounded deliberation about education funding. 
+
+The report is organized from broad regional patterns down to district-level details. You could read straight through to build understanding from high-level trends to fine detail. Or you could follow this quick-start guidance to answer two specific questions: How do my school district finances compare to other districts in Western MA with similar enrollment? How does the growth rate of my district finances compare? Since most of this report is a descriptive statistical reference, on way to use it would be as a reference guide alongside discussion that would benefit from meaningful comparisons. As a descriptive observational report, it offers no recommendations.
+<br /><br />
+
+================================================================================
+EXECUTIVE_SUMMARY_QUICK_START
+================================================================================
+
+<b>Quick-start guide:</b>
+<br /><br />
+1.    Review the <b>Cohort comparison: Western MA enrollment cohorts and districts of interest</b> on the next page.
+
+<br /><br />
+
+2.    Refer to <b>Section 1: Western MA traditional district trends—Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries (2024)</b> to see how all districts are grouped into cohorts using 2024 enrollment numbers.
+
+<br /><br />
+
+3.    Locate your district in <b>Section 3: Specific districts compared to cohorts</b> to see details of district expense categories, enrollment, Chapter 70 aid, and required net school spending (NSS) and actual NSS compared to cohort benchmarks.
+
+================================================================================
+EXECUTIVE_SUMMARY_FOOTER
+================================================================================
+
+<br /><br />
+All data in this report comes from the Massachusetts Department of Elementary and Secondary Education (DESE). See Appendix A for detailed source information.
+
+DESE's comparison tools (DART, RADAR) use multi-factor matching weighted toward demographics for performance analysis. This report takes a complementary approach focused on enrollment for cost pattern analysis, while acknowledging that districts within cohorts still differ substantially in wealth, demographics, geography, and governance.
+
+<b>Room for improvement:</b> 
+
+1) This report presents costs in per-pupil terms, which places enrollment in the denominator—controlling for enrollment fluctuations when analyzing expense growth over time. The report touches on revenue through Chapter 70 aid and net school spending requirements, but primarily to show state aid versus actual local contribution rather than analyzing revenue source composition. Comprehensive analysis of revenue trends and strategies for revenue development would strengthen this work. For related analysis, see the draft report by the Amherst-Pelham Regional School Committee's Fiscal Sustainability Subcommittee at the September 23, 2025 meeting:
+https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DLM3SC083619
+
+<br />
+2) Another approach to a more complete picture would include per capita analysis—calculating costs per municipal resident alongside costs per student. When enrollment declines while population and total school spending remain relatively stable, per-pupil costs rise faster than per-capita costs, signaling fixed costs that haven't adjusted to smaller student populations. When population declines while enrollment and spending remain relatively stable, per-capita costs rise faster than per-pupil costs, signaling increased fiscal burden on a shrinking tax base. Either pattern reveals rising fiscal effort required to sustain adequate education—information essential for long-term planning.
+
+<br />
+3) Synthesis between this report and the July 2022 report by the Rural Schools Commission, along with ongoing advocacy by the MASC Rural Schools Committee, would provide valuable context:
+https://www.repblais.org/ruralschools
+https://www.ruralschoolsma.org/
+
+Combining these perspectives would help communities discuss education costs in the broader context of rural fiscal capacity, demographic trends, and the structural challenges facing many districts.
+
+<br /><br />
+Draft Status: As of October 24, 2025, this report is under review and has not been presented to any committee. Questions and comments should be directed to the author, Tim Shores (Leverett and Amherst-Pelham Regional School Committee member) at shorest@arps.org.
+
+================================================================================
+SECTION1_SUMMARY
+================================================================================
+
+Section 1 examines per-pupil expenditure (PPE) trends across all Western Massachusetts traditional school districts, organized by enrollment-based cohorts.
+
+This section provides a regional overview before diving into cohort-specific details (Section 2) and individual district comparisons (Section 3).
+
+<b>Contents:</b>
+
+<b>Year-over-Year (YoY) growth rates:</b> Shows the rate of PPE change from 2009-2024 for Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury, and their cohorts.
+
+<b>5-year and 15-year CAGR by district and cohort:</b> Shows how compound annual growth rate (CAGR) smooths out the volatility of YoY rates of change, making it easier to understand and compare change in PPE over time.
+
+<b>Distribution of 2024 enrollment and proposed cohort grouping:</b> Shows a histogram of Western MA districts by enrollment with cohorts determined by statistics visualized by the histogram.
+
+<b>Scatterplot analysis:</b> Shows the relationship between district enrollment and PPE for 2024, with a table of cohort members. 
+
+All districts are grouped into enrollment cohorts based on 2024 in-district FTE using IQR (Interquartile Range) analysis. This grouping enables meaningful peer comparisons while acknowledging that enrollment size is just one factor influencing costs. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance—all of which shape costs and outcomes.
+
+================================================================================
+EXECUTIVE_SUMMARY_COHORT_EXPLANATION
+================================================================================
+
+<b>Table {N}</b> compares PPE and cost growth of Western MA school district cohorts with the benchmark of all Western MA districts. <b>Tables {N+1} and {N+2}</b> benchmark districts against their cohort averages. 
+
+Cohorts are organized by enrollment size. Grouping districts by enrollment size enables more meaningful cost comparisons—districts of similar size face similar challenges with administration, staffing, facilities, and program requirements. Detailed information about cohorts follow in <b>sections 1 and 2</b>. Detailed comparisons of individual districts to cohorts follow in <b>sections 2 and 3</b>.
+
+Enrollment size is just one factor. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance, all of which shape costs and outcomes. Per-pupil expenditure (PPE) figures can obscure these differences, which is why this report examines PPE through detailed revenue and expenditure subcategories over time, not just top-line comparisons. Therefore, this breakdown alone won't tell the complete story of education funding and outcomes in each district and cannot support useful claims about which districts are 'efficient' or 'wasteful.' That requires local knowledge and deliberation of community priorities, student needs, and historical context. Instead, this breakdown can reveal patterns and anomalies that support and invite well-grounded investigation of education costs across a large region.
+
+================================================================================
 EXECUTIVE_SUMMARY_TINY_EXPLANATION
 ================================================================================
 
@@ -45,7 +131,7 @@ YoY Growth = ($11,000 / $10,500 − 1) × 100 = 4.76%
 • YoY captures annual volatility; CAGR assumes constant growth
 • YoY is useful for identifying specific years with unusual growth patterns
 
-<b>4. Enrollment-Based Peer Groups</b>
+<b>4. Enrollment-Based Cohorts</b>
 
 Districts are grouped by total in-district FTE enrollment into five cohorts (based on IQR analysis) for meaningful peer comparison:
 
@@ -137,7 +223,7 @@ NSS/Ch70 values are reported in <b>absolute dollars</b>, NOT per-pupil. Unlike P
 • Total NSS: $6,791,000 + $12,068,000 + $12,652,000 = $31,511,000
 
 <b>Aggregate Calculation (Weighted Per-District Average):</b>
-For aggregate enrollment groups (Tiny, Small, Medium, Large, X-Large, Springfield):
+For aggregate enrollment groups (Tiny, Small, Medium, Large, Outliers):
 1. Convert each district's absolute dollars to per-pupil values
 2. Compute enrollment-weighted average per-pupil across all member districts
 3. Multiply by average enrollment per district to get weighted avg $ per district
@@ -182,3 +268,67 @@ This dataset provides:
 Source: DESE district profiles and regional service mappings
 • Districts classified as Western MA based on EOHHS regional designations
 • School type classifications (Traditional, Regional, Charter, etc.)
+
+================================================================================
+PPE_OVERVIEW_EXPLANATION
+================================================================================
+
+Each bar represents a district's per-pupil expenditures (PPE) in 2024, with growth from 2019 shown by a darker color. Districts are sorted by 2024 spending. While the spread is visible, this alone is nearly meaningless: we don't know if the difference between $15K and $30K per student reflects education quality, cost-of-living adjustments, special education demand, economies of scale, administrative decisions, ballot box decisions, or legacy cost structures.
+
+================================================================================
+SECTION1_CHOROPLETH_EXPLANATION
+================================================================================
+
+This map situates the districts within their geographic context in Western Massachusetts. Districts are shaded according to their enrollment cohort: Tiny (blue), Small (light blue), Medium (yellow), Large (orange). Elementary and PK-12 districts that are associated with a single town appear as solid filled areas. PK-12 unified regional districts (marked with 'U') span across multiple towns. Secondary regional districts are bounded by a thick black border with a cohort letter indicator (T = Tiny, S = Small, M = Medium, L = Large) showing the enrollment cohort of the secondary regional district. Note a secondary regional district's underlying member districts may belong to different enrollment cohorts.
+
+================================================================================
+STATISTICAL_ASSOCIATIONS
+================================================================================
+
+<b>Statistical Analysis: Associations Between Enrollment Cohorts, Enrollment Growth, and Per-Pupil Expenditures</b>
+
+This section examines statistical associations between district characteristics (enrollment cohort, enrollment growth rate) and per-pupil expenditure patterns (2024 amounts and 2009-2024 growth rates). These analyses help identify whether certain district characteristics are systematically associated with spending levels or growth rates.
+
+<b>Summary of Findings:</b>
+
+Analysis of Western Massachusetts traditional districts (2009-2024) reveals weak to moderate statistical associations between enrollment characteristics and per-pupil expenditures. Enrollment cohort (district size) shows a modest association with 2024 spending levels but minimal association with spending growth rates. Enrollment growth rate shows weak associations with both current spending and spending growth. Combined models explain only a small portion of variation in district spending patterns, confirming that enrollment characteristics alone cannot predict per-pupil expenditures.
+
+<b>Detailed Statistical Results:</b>
+
+<b>1. Enrollment Cohort and 2024 Per-Pupil Expenditure</b>
+ANOVA test examining whether different enrollment cohorts (Tiny, Small, Medium, Large) have systematically different per-pupil expenditures in 2024. Results show a statistically significant but modest association (F = 3.85, p = 0.014, η² = 0.216), indicating that enrollment cohort explains approximately 22% of the variation in 2024 PPE. Effect size interpretation: small to medium effect, suggesting cohort membership has some predictive value but substantial variation exists within cohorts.
+
+<b>2. Enrollment Cohort and Per-Pupil Expenditure Growth (2009-2024)</b>
+ANOVA test examining whether different enrollment cohorts experienced different growth rates in per-pupil expenditures from 2009 to 2024. Results show no significant association (F = 0.61, p = 0.611, η² = 0.036), indicating that enrollment cohort does not predict PPE growth patterns. Effect size interpretation: negligible effect.
+
+<b>3. Enrollment Growth Rate and 2024 Per-Pupil Expenditure</b>
+Linear regression examining whether districts with higher enrollment growth rates (2009-2024) have higher 2024 per-pupil expenditures. Results show a weak positive association (r = 0.226, R² = 0.051, p = 0.160), which is not statistically significant at α = 0.05. The model explains only 5.1% of PPE variation. Slope interpretation: for every 1% increase in enrollment growth, 2024 PPE increases by approximately $33.50, but this relationship is not reliable given the weak correlation.
+
+<b>4. Enrollment Growth Rate and Per-Pupil Expenditure Growth (2009-2024)</b>
+Linear regression examining whether districts with higher enrollment growth experienced higher PPE growth rates. Results show a weak negative association (r = -0.175, R² = 0.031, p = 0.283), which is not statistically significant. The model explains only 3.1% of PPE growth variation. Slope interpretation: enrollment growth does not predict PPE growth patterns.
+
+<b>5. Combined Model: Cohort + Enrollment Growth → 2024 Per-Pupil Expenditure</b>
+ANCOVA combining both predictors (enrollment cohort and enrollment growth rate) to predict 2024 PPE. Results show modest explanatory power (R² = 0.232, Adjusted R² = 0.155, F = 3.02, p = 0.023). The combined model is statistically significant but explains only 23% of PPE variation, with the adjusted R² suggesting that adding enrollment growth provides minimal improvement over cohort alone.
+
+<b>6. Combined Model: Cohort + Enrollment Growth → PPE Growth (2009-2024)</b>
+ANCOVA combining both predictors to predict PPE growth rates from 2009-2024. Results show no significant explanatory power (R² = 0.069, Adjusted R² = -0.027, F = 0.74, p = 0.569). The negative adjusted R² indicates that the model performs worse than simply using the mean PPE growth rate. Effect size interpretation: enrollment characteristics do not predict spending growth patterns.
+
+<b>Interpretation Notes:</b> These analyses examine statistical associations, not causal relationships. Significant associations indicate that certain district characteristics tend to occur together with certain spending patterns, but do not prove that one causes the other. Many other factors (wealth, demographics, facility age, governance, etc.) also influence per-pupil expenditures.
+
+================================================================================
+SECTION1_YOY_EXPLANATION
+================================================================================
+
+These plots show year-over-year (YoY) growth rates in per-pupil expenditure (PPE) for districts of interest and their enrollment cohorts. The districts are organized into enrollment cohorts based on student population size. The thicker lines represent cohort aggregates, while thinner lines show individual districts within each cohort. The determination of these cohorts is explained in detail in Appendix A. While patterns can be observed in these plots, it is difficult to discern a clear, consistent signal across all districts and cohorts over the 2009-2024 period.
+
+================================================================================
+SECTION1_CAGR_EXPLANATION
+================================================================================
+
+The Compound Annual Growth Rate (CAGR) provides a clearer picture of growth trends by smoothing out year-to-year volatility. By comparing 5-year periods (2009-2014, 2014-2019, 2019-2024), we can observe how growth rates have evolved over time. The visualization below uses color shading to group districts by their enrollment cohorts, with diagonal white lines marking cohort aggregates for easy identification. For a longer-term perspective, we can also examine the 15-year CAGR from 2009 to 2024, shown in the second chart, which captures the overall growth trajectory across the entire period.
+
+================================================================================
+SECTION1_DISTRIBUTION_EXPLANATION
+================================================================================
+
+The histogram (top) shows right-skewed distribution of districts by 2024 enrollment using 250 FTE bins, with a long right tail and sparse districts at higher enrollments. Based on IQR analysis, districts are grouped into five enrollment-based cohorts (bottom): Tiny Cohort (0-200 FTE), Small Cohort (201-800 FTE), Medium Cohort (801-1600 FTE), and Large Cohort (1601-10000 FTE). Springfield (>10,000 FTE) is excluded as a statistical outlier. As noted earlier, these cohorts group districts by scale, not sameness. This breakdown alone won't tell the complete story of education funding and outcomes in each district. That requires local knowledge and deliberation.

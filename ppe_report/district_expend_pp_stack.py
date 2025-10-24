@@ -135,7 +135,7 @@ def _western_all_total_series(df: pd.DataFrame, reg: pd.DataFrame) -> tuple[pd.S
     # Use centralized cohort function to ensure consistent filtering (includes PPE validation)
     cohorts = get_western_cohort_districts(df, reg)
     members = []
-    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
+    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
         members.extend(cohorts.get(cohort_key, []))
     piv, enroll_in, enroll_out = weighted_epp_aggregation(df, list(members))
     return _total_ppe_series_from_pivot(piv), enroll_in
@@ -430,7 +430,7 @@ def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFram
     # This ensures consistent filtering across all analyses (includes PPE validation)
     cohorts = get_western_cohort_districts(df, reg)
     western_districts = []
-    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
+    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
         western_districts.extend(cohorts.get(cohort_key, []))
     western_districts = sorted(western_districts)
 
@@ -732,10 +732,10 @@ if __name__ == "__main__":
     # Get Western cohorts using centralized function (ensures consistency with NSS)
     cohorts = get_western_cohort_districts(df, reg)
 
-    # Western MA - 6 enrollment groups
+    # Western MA - 5 enrollment groups
     western_prepared = {}
-    cohort_map = {"tiny": "TINY", "small": "SMALL", "medium": "MEDIUM", "large": "LARGE", "x-large": "X-LARGE", "springfield": "SPRINGFIELD"}
-    for bucket in ("tiny", "small", "medium", "large", "x-large", "springfield"):
+    cohort_map = {"tiny": "TINY", "small": "SMALL", "medium": "MEDIUM", "large": "LARGE", "springfield": "SPRINGFIELD"}
+    for bucket in ("tiny", "small", "medium", "large", "springfield"):
         district_list = cohorts[cohort_map[bucket]]
         title, piv, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket, c70, districts=district_list)
         # Use weighted average (mean) for aggregate enrollment lines, not sum
@@ -753,8 +753,8 @@ if __name__ == "__main__":
     right_ylim = compute_global_dollar_ylim(pivots_all, pad=1.06, step=500)
     left_ylim_districts = compute_districts_fte_ylim(district_lines_all, pad=1.06, step=50)
 
-    # Western plots - 6 enrollment groups
-    for bucket in ("tiny", "small", "medium", "large", "x-large", "springfield"):
+    # Western plots - 5 enrollment groups
+    for bucket in ("tiny", "small", "medium", "large", "springfield"):
         _title, piv, lines_mean = western_prepared[bucket]
         if piv.empty:
             print(f"[SKIP] No data for Western MA {bucket} group")

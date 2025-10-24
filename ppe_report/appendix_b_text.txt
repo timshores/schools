@@ -1,0 +1,515 @@
+This appendix provides calculation examples showing the source of numbers and demonstrating every step of the analysis for two examples:
+1. Western MA Medium Cohort (aggregate cohort calculations)
+2. Amherst-Pelham Regional (individual district calculations)
+
+The following pages detail:
+• Data sources and cohort determination methodology
+• Weighted average per-pupil expenditure calculations
+• Time series analysis and compound annual growth rate (CAGR) formulas
+• Chapter 70 state aid and Net School Spending calculations
+• Comparative analysis methods
+
+================================================================================
+PART 1: DATA SOURCES AND COHORT DETERMINATION
+================================================================================
+
+All calculations use data from the file "E2C_Hub_MA_DESE_Data.xlsx" which contains multiple sheets:
+
+• Sheet "District Expend by Category": Contains expenditure and enrollment data with columns DIST_NAME, YEAR, IND_CAT, IND_SUBCAT, IND_VALUE, SOURCE
+• Sheet "District Regions": Contains regional classifications and school types
+• Sheet "profile_DataC70": Contains Chapter 70 and Net School Spending data
+
+Data sources by sheet (per SOURCE column):
+
+<b>District Expend by Category - Expenditures per Pupil:</b>
+Source: Massachusetts Department of Elementary and Secondary Education (DESE)
+Dataset: "District Expenditures by Spending Category"
+Last updated: August 12, 2025
+URL: https://educationtocareer.data.mass.gov/Finance-and-Budget/District-Expenditures-by-Spending-Category/er3w-dyti/
+
+This dataset provides:
+• Expenditures per pupil (EPP) by spending category for all Massachusetts school districts
+• Annual data from FY1993 to present
+• Eight spending categories: Teachers, Insurance/Retirement/Other, Pupil Services, Other Teaching Services, Operations and Maintenance, Instructional Leadership, Administration, Other
+
+<b>District Expend by Category - Student Enrollment:</b>
+Source: Massachusetts Department of Elementary and Secondary Education (DESE)
+Dataset: "District Expenditures by Spending Category"
+URL: https://educationtocareer.data.mass.gov/Finance-and-Budget/District-Expenditures-by-Spending-Category/er3w-dyti/
+
+This dataset provides three enrollment indicators:
+• In-District FTE Pupils: Students enrolled in district-operated schools (used for cohort calculations)
+• Out-of-District FTE Pupils: District students placed in other schools
+• Total FTE Pupils: Sum of In-District and Out-of-District FTE
+
+<b>profile_DataC70 - Chapter 70 and Net School Spending:</b>
+Source: Massachusetts Department of Elementary and Secondary Education (DESE)
+Dataset: Chapter 70 District Profiles (compiled from various DESE sources)
+URL: Various sources compiled in profile_DataC70 spreadsheet
+
+This dataset provides:
+• Chapter 70 Aid (c70aid): State aid received by each district
+• Required Net School Spending (rqdnss2): Minimum spending required by state law
+• Actual Net School Spending (actualNSS): Total district spending on education
+• Foundation Enrollment (distfoundenro): District foundation enrollment used for Ch70 funding calculations
+
+<b>District Regions - Regional Classifications:</b>
+Source: DESE district profiles and regional service mappings
+
+This dataset provides:
+• EOHHS regional designations (Western MA, Central MA, etc.)
+• School type classifications (Traditional, Regional, Charter, Virtual, etc.)
+
+--------------------------------------------------------------------------------
+1.1 COHORT BOUNDARY DETERMINATION
+--------------------------------------------------------------------------------
+
+Cohort boundaries are determined by reference to Interquartile Range (IQR) analysis on Fiscal Year 2024 Full-Time Equivalent (FTE) in-district enrollment for all traditional public school districts in Western Massachusetts. Cohort boundaries are rounded for easier readability.
+
+Step 1: Extract FY24 In-district FTE enrollment data
+From Sheet "District Expend by Category", filter rows where:
+• IND_CAT = "Student Enrollment"
+• IND_SUBCAT = "In-District FTE Pupils" (Full-Time Equivalent students enrolled in district-operated schools)
+• YEAR = 2024
+
+Step 2: Calculate quartile statistics
+Using the 60 traditional districts in Western MA with valid data (including Springfield), calculate:
+• First quartile (Q1) = 25th percentile = 154.7 In-district FTE
+• Second quartile/Median (Q2) = 50th percentile = 792.0 In-district FTE
+• Third quartile (Q3) = 75th percentile = 1,597.6 In-district FTE
+• 90th percentile (P90) = 3,571.1 In-district FTE
+
+Step 3: Define cohort boundaries
+• TINY: 0 to 200 In-district FTE (from zero to Q1 rounded to nearest 100)
+• SMALL: 201 to 800 In-district FTE (from max TINY +1 to Median rounded to nearest 100)
+• MEDIUM: 801 to 1,600 In-district FTE (from max SMALL +1 to Q3 rounded to nearest 100)
+• LARGE: 1,601 to 4,000 In-district FTE (from max MEDIUM +1 to P90 rounded to nearest 1,000)
+• X-LARGE: 4,001 to 10K In-district FTE (from max LARGE +1 to fixed threshold of 10,000)
+• OUTLIERS (Springfield): Greater than fixed threshold of 10,000 In-district FTE
+
+Step 4: Assign each district to its cohort
+For each district, compare its FY24 In-district FTE enrollment to the boundaries above.
+
+Example: Amherst-Pelham Regional has 1,209.3 In-district FTE in FY24
+Since 801 ≤ 1,209.3 ≤ 1,600, Amherst-Pelham is assigned to the MEDIUM cohort.
+
+Example: Gill-Montague Regional has 899.8 In-district FTE in FY24
+Since 801 ≤ 899.8 ≤ 1,600, Gill-Montague is assigned to the MEDIUM cohort.
+
+Example: Belchertown has 2,067.8 In-district FTE in FY24
+Since 1,601 ≤ 2,067.8 ≤ 4,000, Belchertown is assigned to the LARGE cohort.
+
+--------------------------------------------------------------------------------
+1.2 EXPENDITURE CATEGORIES
+--------------------------------------------------------------------------------
+
+All Per-Pupil Expenditure (PPE) calculations use eight categories:
+
+1. Teachers
+2. Insurance, Retirement and Other
+3. Pupil Services
+4. Other Teaching Services
+5. Operations and Maintenance
+6. Instructional Leadership
+7. Administration
+8. Other
+
+These categories are derived from the Massachusetts Department of Elementary and Secondary Education (DESE) function code groupings in end-of-year reporting, and provide a standardized breakdown of all district expenditures. Note: District budgeting practices typically use categories that do not match the DESE end-of-year reporting standard.
+
+================================================================================
+PART 2: WESTERN MA MEDIUM COHORT CALCULATIONS
+================================================================================
+
+The Medium cohort contains 15 districts with in-district enrollment between 801 and 1,600 FTE in FY24. This section demonstrates how weighted average Per-Pupil Expenditure (PPE) is calculated for the cohort.
+
+--------------------------------------------------------------------------------
+2.1 MEMBER DISTRICTS
+--------------------------------------------------------------------------------
+
+Districts in the Medium cohort (sorted by FY24 In-district FTE enrollment):
+1. Mohawk Trail: 804.8 In-district FTE
+2. Monson: 807.8 In-district FTE
+3. Gill-Montague: 899.8 In-district FTE
+4. Amherst: 1,001.5 In-district FTE
+5. Hoosac Valley Regional: 1,002.7 In-district FTE
+6. Palmer: 1,061.5 In-district FTE
+7. Ware: 1,095.8 In-district FTE
+8. Berkshire Hills: 1,174.4 In-district FTE
+9. North Adams: 1,196.0 In-district FTE
+10. Mount Greylock: 1,206.9 In-district FTE
+11. Amherst-Pelham: 1,209.3 In-district FTE
+12. Southwick-Tolland-Granville Regional School District: 1,312.8 In-district FTE
+13. Greenfield: 1,394.0 In-district FTE
+14. Easthampton: 1,403.7 In-district FTE
+15. Central Berkshire: 1,585.9 In-district FTE
+
+Total In-district FTE for Medium cohort = Sum of all member In-district FTE = 17,156.9 FTE
+
+--------------------------------------------------------------------------------
+2.2 WEIGHTED AVERAGE PPE CALCULATION (EXAMPLE: FY2024 TEACHERS)
+--------------------------------------------------------------------------------
+
+For each expenditure category, we calculate an enrollment-weighted average across all districts in the cohort.
+
+Step 1: Extract per-pupil expenditure data for Teachers category
+From Sheet "District Expend by Category", filter rows where:
+• IND_CAT = "Expenditures per Pupil"
+• IND_SUBCAT = "Teachers"
+• YEAR = 2024
+
+Step 2: For each district, multiply PPE by enrollment weight
+Example calculations for first three districts:
+
+Mohawk Trail:
+• FY24 Teachers PPE = [actual value from data] per pupil
+• FY24 In-district FTE Enrollment = 804.8 FTE
+• Weight = 804.8 / 17,156.9 = 0.0469 (4.69% of cohort enrollment)
+• Weighted contribution = [Teachers PPE] × 0.0469
+
+Monson:
+• FY24 Teachers PPE = [actual value from data] per pupil
+• FY24 In-district FTE Enrollment = 807.8 FTE
+• Weight = 807.8 / 17,156.9 = 0.0471 (4.71% of cohort enrollment)
+• Weighted contribution = [Teachers PPE] × 0.0471
+
+Gill-Montague:
+• FY24 Teachers PPE = [actual value from data] per pupil
+• FY24 In-district FTE Enrollment = 899.8 FTE
+• Weight = 899.8 / 17,156.9 = 0.0524 (5.24% of cohort enrollment)
+• Weighted contribution = [Teachers PPE] × 0.0524
+
+[Continue for all 15 districts...]
+
+Step 3: Sum all weighted contributions
+Weighted Average Teachers PPE = Sum of all weighted contributions = [calculated value] per pupil
+
+This weighted average calculation is repeated for all eight categories:
+1. Teachers
+2. Insurance, Retirement and Other
+3. Pupil Services
+4. Other Teaching Services
+5. Operations and Maintenance
+6. Instructional Leadership
+7. Administration
+8. Other
+
+Step 4: Calculate total weighted average PPE
+Total Weighted Average PPE (FY24) = Sum of all eight category weighted averages
+= Teachers + Insurance + Pupil Services + Other Teaching + Operations + Instructional Leadership + Administration + Other
+= [sum of actual calculated values] per pupil
+
+--------------------------------------------------------------------------------
+2.3 TIME SERIES CALCULATIONS
+--------------------------------------------------------------------------------
+
+The same weighted average calculation is performed for each fiscal year from 2009 to 2024, producing a time series of cohort-level PPE values.
+
+For each year Y from 2009 to 2024:
+1. Extract FY Y enrollment for all 13 Medium cohort districts
+2. Calculate cohort total enrollment for year Y
+3. For each of the 8 expenditure categories:
+   a. Extract PPE values for year Y
+   b. Calculate enrollment weight for each district in year Y
+   c. Calculate weighted average PPE for that category in year Y
+4. Sum the 8 category weighted averages to get total PPE for year Y
+
+This produces arrays:
+• Years: [2009, 2010, 2011, ..., 2024]
+• Total PPE: [PPE_2009, PPE_2010, PPE_2011, ..., PPE_2024]
+• Teachers PPE: [Teachers_2009, Teachers_2010, ..., Teachers_2024]
+• [Similar arrays for other 7 categories]
+
+--------------------------------------------------------------------------------
+2.4 COMPOUND ANNUAL GROWTH RATE (CAGR)
+--------------------------------------------------------------------------------
+
+CAGR measures the annualized growth rate over multiple years.
+
+Formula:
+CAGR = ((Value_end / Value_start)^(1/number_of_years) - 1) × 100%
+
+Where:
+• Value_end = PPE in final year (2024)
+• Value_start = PPE in initial year (2009)
+• number_of_years = 2024 - 2009 = 15 years
+
+Example for Medium cohort Total PPE:
+• PPE_2009 = [calculated weighted average for 2009] per pupil
+• PPE_2024 = [calculated weighted average for 2024] per pupil
+• Number of years = 15
+
+CAGR = ((PPE_2024 / PPE_2009)^(1/15) - 1) × 100%
+     = [calculated value] % per year
+
+This calculation is performed for:
+• Total PPE CAGR
+• Each of the 8 category-specific PPE CAGRs
+• Chapter 70 state aid CAGR
+• Net School Spending (NSS) CAGR
+• Enrollment CAGR
+
+--------------------------------------------------------------------------------
+2.5 YEAR-OVER-YEAR (YOY) GROWTH RATE
+--------------------------------------------------------------------------------
+
+Year-over-Year (YoY) growth rate measures the percentage change from one year to the next, providing insight into annual fluctuations in expenditures.
+
+Formula:
+YoY Growth Rate = ((Value_year / Value_previous_year) - 1) × 100%
+
+Where:
+• Value_year = PPE in current year
+• Value_previous_year = PPE in previous year
+
+Example for Medium cohort Total PPE:
+Assume the time series shows:
+• PPE_2009 = $12,000 per pupil
+• PPE_2010 = $12,500 per pupil
+• PPE_2011 = $13,000 per pupil
+• PPE_2012 = $13,100 per pupil
+• ...
+
+YoY calculations:
+• YoY_2010 = (($12,500 / $12,000) - 1) × 100% = 4.17%
+• YoY_2011 = (($13,000 / $12,500) - 1) × 100% = 4.00%
+• YoY_2012 = (($13,100 / $13,000) - 1) × 100% = 0.77%
+• ...
+
+Key differences from CAGR:
+• YoY shows year-to-year changes; CAGR smooths growth over multiple years
+• YoY captures annual volatility; CAGR assumes constant growth
+• YoY is useful for identifying specific years with unusual growth patterns
+
+Example comparison:
+If CAGR from 2009 to 2024 is 3.71% per year, but YoY rates vary from 0.5% to 8.0% across individual years, this reveals that growth was not constant—some years had much higher or lower increases than the average.
+
+Use cases:
+• Identifying years with budget constraints (low YoY)
+• Identifying years with significant increases (high YoY)
+• Understanding the impact of specific events (e.g., pandemic, policy changes) on year-to-year spending
+
+This YoY calculation is performed for:
+• Total PPE YoY for each year from 2010 to 2024 (15 values)
+• Each of the 8 category-specific PPE YoY rates
+• Chapter 70 state aid YoY
+• Net School Spending (NSS) YoY
+• Enrollment YoY
+
+Note: YoY for year N requires data from year N-1, so the first YoY value is for 2010 (comparing 2010 to 2009).
+
+================================================================================
+PART 3: AMHERST-PELHAM REGIONAL DISTRICT CALCULATIONS
+================================================================================
+
+This section demonstrates all calculations for a single district: Amherst-Pelham Regional.
+
+--------------------------------------------------------------------------------
+3.1 DISTRICT PROFILE
+--------------------------------------------------------------------------------
+
+District: Amherst-Pelham Regional
+Cohort Assignment: MEDIUM (801-1,600 In-district FTE)
+FY24 In-district FTE Enrollment: 1,209.3 FTE
+
+Data Source: Appendix A Data Tables
+• Enrollment data: See "In-District FTE" column in Appendix A
+• PPE data: See expenditure category columns in Appendix A
+• Chapter 70 data: See "Chapter 70 Aid" column in Appendix A
+• NSS data: See "Required NSS" and "Actual NSS" columns in Appendix A
+
+--------------------------------------------------------------------------------
+3.2 ENROLLMENT TIME SERIES
+--------------------------------------------------------------------------------
+
+Step 1: Extract in-district enrollment data
+From Appendix A Data Tables, locate:
+• District: "Amherst-Pelham Regional"
+• Find the "In-District FTE" column
+• Read values for all years from 2009 to 2024
+
+Step 2: Create time series array
+Years: [2009, 2010, 2011, ..., 2023, 2024]
+In-district FTE: [FTE_2009, FTE_2010, FTE_2011, ..., FTE_2023, 1,209.3]
+
+(Extract actual values for each year from Appendix A)
+
+Step 3: Calculate enrollment CAGR
+CAGR = ((FTE_2024 / FTE_2009)^(1/15) - 1) × 100%
+     = ((1,209.3 / FTE_2009)^(1/15) - 1) × 100%
+     = [calculated value] % per year
+
+Where:
+• FTE_2024 = 1,209.3 In-district FTE (from data)
+• FTE_2009 = [actual value from data] In-district FTE
+• Number of years = 15 (2024 - 2009)
+
+A negative CAGR indicates declining enrollment, positive indicates growth.
+
+--------------------------------------------------------------------------------
+3.3 PER-PUPIL EXPENDITURE CALCULATIONS
+--------------------------------------------------------------------------------
+
+For Amherst-Pelham Regional, PPE is calculated for each of the eight categories:
+
+1. Teachers
+2. Insurance, Retirement and Other
+3. Pupil Services
+4. Other Teaching Services
+5. Operations and Maintenance
+6. Instructional Leadership
+7. Administration
+8. Other
+
+Step 1: Extract PPE data for each category
+From Appendix A Data Tables, locate:
+• District: "Amherst-Pelham Regional"
+• Find the columns for each of the 8 expenditure categories
+• Read values for all years from 2009 to 2024
+
+Step 2: Example calculation for Teachers category (FY2024)
+From Appendix A Data Tables:
+• District: "Amherst-Pelham Regional"
+• Year: 2024
+• Column: "Teachers"
+• Value: [actual value from Appendix A] per pupil
+
+This value represents the amount Amherst-Pelham Regional spent per Full-Time Equivalent (FTE) student on Teachers in FY2024.
+
+Step 3: Calculate total PPE for FY2024
+Total PPE (FY2024) = Teachers + Insurance, Retirement and Other + Pupil Services + Other Teaching Services + Operations and Maintenance + Instructional Leadership + Administration + Other
+
+Using column IND_VALUE for YEAR = 2024 and each category:
+• Teachers: [actual value]
+• Insurance, Retirement and Other: [actual value]
+• Pupil Services: [actual value]
+• Other Teaching Services: [actual value]
+• Operations and Maintenance: [actual value]
+• Instructional Leadership: [actual value]
+• Administration: [actual value]
+• Other: [actual value]
+
+Total PPE (FY2024) = [sum of actual values] per pupil
+
+Step 4: Repeat for all years 2009-2024
+For each year from 2009 to 2024, extract IND_VALUE for each of the 8 categories and sum them to get total PPE for that year.
+
+This produces time series arrays:
+• Years: [2009, 2010, ..., 2024]
+• Total PPE: [PPE_2009, PPE_2010, ..., PPE_2024]
+• Teachers: [Teachers_2009, Teachers_2010, ..., Teachers_2024]
+• Insurance, Retirement and Other: [Insurance_2009, Insurance_2010, ..., Insurance_2024]
+• Pupil Services: [Pupil_Services_2009, Pupil_Services_2010, ..., Pupil_Services_2024]
+• Other Teaching Services: [Other_Teaching_2009, Other_Teaching_2010, ..., Other_Teaching_2024]
+• Operations and Maintenance: [Operations_2009, Operations_2010, ..., Operations_2024]
+• Instructional Leadership: [Instructional_Leadership_2009, Instructional_Leadership_2010, ..., Instructional_Leadership_2024]
+• Administration: [Administration_2009, Administration_2010, ..., Administration_2024]
+• Other: [Other_2009, Other_2010, ..., Other_2024]
+
+Step 5: Calculate CAGR for each category
+
+Formula: CAGR = ((Value_2024 / Value_2009)^(1/15) - 1) × 100%
+
+Example for Teachers:
+• Teachers_2009 = [actual value from data] per pupil
+• Teachers_2024 = [actual value from data] per pupil
+• CAGR_Teachers = ((Teachers_2024 / Teachers_2009)^(1/15) - 1) × 100%
+                = [calculated value] % per year
+
+Repeat this calculation for all 8 categories plus total PPE to get 9 CAGR values.
+
+--------------------------------------------------------------------------------
+3.4 CHAPTER 70 STATE AID CALCULATIONS
+--------------------------------------------------------------------------------
+
+Chapter 70 is the major state aid program for Massachusetts K-12 public schools.
+
+Step 1: Extract Chapter 70 data
+From Appendix A Data Tables, locate:
+• District: "Amherst-Pelham Regional"
+• Column: "Chapter 70 Aid"
+• Read values for all years from 2009 to 2024
+
+Step 2: Extract total district expenditures
+From Appendix A Data Tables, calculate total expenditure as:
+• District: "Amherst-Pelham Regional"
+• Sum of all expenditure categories for each year
+• Alternatively, use "Actual NSS" column if available
+
+Step 3: Calculate Chapter 70 as percentage of total expenditure (FY2024 example)
+• Chapter 70 Aid (FY2024) = [value from "Chapter 70 Aid" column in Appendix A for 2024]
+• Total Expenditure (FY2024) = [sum of expenditure categories from Appendix A for 2024]
+• Percentage = (Chapter 70 Aid / Total Expenditure) × 100%
+
+This percentage shows what portion of the district's total expenditure came from Chapter 70 state aid in FY2024.
+
+Step 4: Calculate Chapter 70 per-pupil (FY2024 example)
+• Chapter 70 Aid (FY2024) = [value from "Chapter 70 Aid" column in Appendix A]
+• Enrollment (FY2024) = 1,209.3 In-district FTE
+• Chapter 70 Per-Pupil = Chapter 70 Aid / 1,209.3 FTE = [calculated value] per FTE
+
+Step 5: Calculate Chapter 70 CAGR
+• Chapter 70 Aid (2009) = [value from "Chapter 70 Aid" column in Appendix A for 2009]
+• Chapter 70 Aid (2024) = [value from "Chapter 70 Aid" column in Appendix A for 2024]
+• CAGR = ((Ch70Aid_2024 / Ch70Aid_2009)^(1/15) - 1) × 100%
+       = [calculated value] % per year
+
+A negative CAGR indicates that Chapter 70 aid decreased, positive indicates growth.
+
+--------------------------------------------------------------------------------
+3.5 NET SCHOOL SPENDING (NSS) CALCULATIONS
+--------------------------------------------------------------------------------
+
+Net School Spending (NSS) is the total amount a school district spends on education from all sources, excluding certain items like transportation, debt service, and capital expenditures.
+
+Step 1: Extract NSS data
+From Appendix A Data Tables, locate:
+• District: "Amherst-Pelham Regional"
+• Columns: "Required NSS" and "Actual NSS"
+• Read values for all years from 2009 to 2024
+
+Step 2: Calculate NSS per-pupil (FY2024 example)
+• Total NSS (FY2024) = [value from "Actual NSS" column in Appendix A for 2024]
+• Enrollment (FY2024) = 1,209.3 In-district FTE
+• NSS Per-Pupil = Total NSS / 1,209.3 FTE = [calculated value] per FTE
+
+Step 3: Calculate NSS CAGR
+• NSS (2009) = [value from "Actual NSS" column in Appendix A for 2009]
+• NSS (2024) = [value from "Actual NSS" column in Appendix A for 2024]
+• CAGR = ((NSS_2024 / NSS_2009)^(1/15) - 1) × 100%
+       = [calculated value] % per year
+
+This indicates the average annual growth rate of NSS from 2009 to 2024.
+
+Step 4: Compare NSS per-pupil to cohort average
+Using the weighted average calculation method described in Part 2, the MEDIUM cohort average NSS per-pupil (FY2024) = [calculated weighted average] per FTE.
+
+Amherst-Pelham's NSS per-pupil ([actual value from calculation]) is [percentage difference]% [above/below] the MEDIUM cohort average.
+
+Calculation: ((Amherst-Pelham NSS per-pupil - MEDIUM cohort average) / MEDIUM cohort average) × 100%
+
+--------------------------------------------------------------------------------
+3.6 COMPARATIVE ANALYSIS
+--------------------------------------------------------------------------------
+
+All district-specific calculations can be compared to:
+
+1. Cohort averages (in this case, MEDIUM cohort weighted averages for Amherst-Pelham Regional)
+2. Regional averages (all Western MA traditional districts)
+3. Statewide averages (if available)
+
+For each metric (Total PPE, each of 8 category PPEs, Chapter 70 per-pupil, NSS per-pupil, enrollment growth), calculate:
+• District value
+• Cohort average
+• Difference = District value - Cohort average
+• Percentage difference = (Difference / Cohort average) × 100%
+
+These comparisons reveal whether a district is spending more or less than similar-sized districts, and where specific spending differences occur across the eight categories:
+1. Teachers
+2. Insurance, Retirement and Other
+3. Pupil Services
+4. Other Teaching Services
+5. Operations and Maintenance
+6. Instructional Leadership
+7. Administration
+8. Other
+

@@ -27,8 +27,7 @@ COHORT_COLORS = {
     "TINY": "#4575B4",      # Blue
     "SMALL": "#3C9DC4",     # Cyan
     "MEDIUM": "#FDB749",    # Amber
-    "LARGE": "#F46D43",     # Orange
-    "X-LARGE": "#D73027",   # Red
+    "LARGE": "#D73027",     # Red (now includes former X-Large)
     "SPRINGFIELD": "#A50026"  # Dark Red
 }
 

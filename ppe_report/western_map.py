@@ -15,12 +15,12 @@ District Type Classification (from data file):
 - "Regional Composite" -> Secondary regional that overlaps elementary districts (gets cohort letter + black border)
 
 Map Design:
-- 6 enrollment cohorts (Tiny, Small, Medium, Large, X-Large, Springfield) each with unique color
+- 5 enrollment cohorts (Tiny, Small, Medium, Large, Springfield) each with unique color
 - Non-regional districts: solid filled polygons (85% opacity)
 - Unified regional districts: solid filled polygons (85% opacity) with white "U" marker
-- Secondary regional districts: thick black border + cohort letter indicator (T, S, M, L, XL)
+- Secondary regional districts: thick black border + cohort letter indicator (T, S, M, L)
   * Letter indicates the cohort of the secondary regional district
-  * T = Tiny, S = Small, M = Medium, L = Large, XL = X-Large
+  * T = Tiny, S = Small, M = Medium, L = Large
   * Similar styling to "U" marker (black outline + white text)
 - Legend showing cohort definitions, district counts, and regional markers
 - Handles geographic overlap between elementary and secondary regional districts
@@ -68,8 +68,7 @@ COHORT_COLORS = {
     "TINY": "#4575B4",      # Blue (low enrollment)
     "SMALL": "#3C9DC4",     # Cyan (more saturated)
     "MEDIUM": "#FDB749",    # Amber (more saturated)
-    "LARGE": "#F46D43",     # Orange
-    "X-LARGE": "#D73027",   # Red
+    "LARGE": "#D73027",     # Red (now includes former X-Large)
     "SPRINGFIELD": "#A50026",  # Dark Red (outliers)
 }
 
@@ -356,7 +355,7 @@ def create_western_ma_map(
     - Elementary/Non-regional districts: solid filled polygons (85% opacity)
     - Unified regional districts (PK-12): solid filled polygons (85% opacity) with "U" marker
     - Secondary regional districts: thick black border + cohort letter indicator
-      * Letter indicates cohort: T (Tiny), S (Small), M (Medium), L (Large), XL (X-Large)
+      * Letter indicates cohort: T (Tiny), S (Small), M (Medium), L (Large)
       * Similar styling to "U" marker (black outline + white text on top)
       * Black border shows the boundary of the secondary regional district
 
@@ -435,8 +434,7 @@ def create_western_ma_map(
         "TINY": "T",
         "SMALL": "S",
         "MEDIUM": "M",
-        "LARGE": "L",
-        "X-LARGE": "XL"
+        "LARGE": "L"
     }
 
     for idx, regional_row in regional_secondary.iterrows():
@@ -478,7 +476,7 @@ def create_western_ma_map(
     legend_elements = []
 
     # Add cohort colors to legend with counts
-    for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
+    for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
         cohort_label = get_cohort_label(cohort_name)
         n_total = len(matched_gdf[matched_gdf["cohort"] == cohort_name])
         n_regional_secondary = len(regional_secondary[regional_secondary["cohort"] == cohort_name])
@@ -606,7 +604,7 @@ def main():
         print(f"  Non-regional (solid fill): {len(matched_gdf[~matched_gdf['is_regional']])}")
         print(f"  Regional (black border + cohort letter): {len(matched_gdf[matched_gdf['is_regional']])}")
         print("\nCohort breakdown:")
-        for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
+        for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
             n_total = len(matched_gdf[matched_gdf["cohort"] == cohort_name])
             n_regional = len(matched_gdf[(matched_gdf["cohort"] == cohort_name) & (matched_gdf["is_regional"])])
             n_non_regional = n_total - n_regional

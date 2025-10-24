@@ -170,7 +170,7 @@ def calculate_cohort_boundaries(df: pd.DataFrame, reg: pd.DataFrame, year: int =
     q1 = np.percentile(all_enrollments_array, 25)
     median = np.median(all_enrollments_array)
     q3 = np.percentile(all_enrollments_array, 75)
-    p90 = np.percentile(all_enrollments_array, 90)  # 90th percentile for X-Large cutoff
+    p90 = np.percentile(all_enrollments_array, 90)  # 90th percentile (no longer used)
     max_enrollment = np.max(all_enrollments_array)
 
     # Store fixed outlier threshold (10,000 FTE) for Springfield cutoff
@@ -213,25 +213,18 @@ def calculate_cohort_boundaries(df: pd.DataFrame, reg: pd.DataFrame, year: int =
             "name": "Cohort 3"
         },
         "LARGE": {
-            "range": (q3_rounded + 1, p90_rounded),
-            "label": f"Large ({q3_rounded + 1}-{p90_rounded} FTE)",
+            "range": (q3_rounded + 1, 10000),
+            "label": f"Large ({q3_rounded + 1}-10K FTE)",
             "short_label": "Large",
-            "ylim": p90_rounded,
-            "name": "Cohort 4"
-        },
-        "X-LARGE": {
-            "range": (p90_rounded + 1, 10000),
-            "label": f"X-Large ({p90_rounded + 1}-10K FTE)",
-            "short_label": "X-Large",
             "ylim": 10000,
-            "name": "Cohort 5"
+            "name": "Cohort 4"
         },
         "SPRINGFIELD": {
             "range": (10001, float('inf')),
             "label": "Outliers (Springfield >10K FTE)",
             "short_label": "Springfield",
             "ylim": None,
-            "name": "Cohort 6"
+            "name": "Cohort 5"
         }
     }
 
@@ -260,25 +253,18 @@ def _get_static_cohort_definitions():
             "name": "Cohort 3"
         },
         "LARGE": {
-            "range": (1801, 5000),
-            "label": "Large (1801-5000 FTE)",
+            "range": (1801, 10000),
+            "label": "Large (1801-10K FTE)",
             "short_label": "Large",
-            "ylim": 5000,
-            "name": "Cohort 4"
-        },
-        "X-LARGE": {
-            "range": (5001, 10000),
-            "label": "X-Large (5001-10K FTE)",
-            "short_label": "X-Large",
             "ylim": 10000,
-            "name": "Cohort 5"
+            "name": "Cohort 4"
         },
         "SPRINGFIELD": {
             "range": (10001, float('inf')),
             "label": "Outliers (Springfield >10K FTE)",
             "short_label": "Springfield",
             "ylim": None,
-            "name": "Cohort 6"
+            "name": "Cohort 5"
         }
     }
 
@@ -651,7 +637,7 @@ def _get_enrollment_group_for_boundaries(fte: float, enrollment_groups: Dict[str
         fte: Enrollment value
         enrollment_groups: Dict mapping cohort names to (min, max) tuples
 
-    Returns: "TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", or "SPRINGFIELD"
+    Returns: "TINY", "SMALL", "MEDIUM", "LARGE", or "SPRINGFIELD"
     """
     for group, (min_fte, max_fte) in enrollment_groups.items():
         if min_fte <= fte <= max_fte:
@@ -661,7 +647,7 @@ def _get_enrollment_group_for_boundaries(fte: float, enrollment_groups: Dict[str
 def get_enrollment_group(fte: float) -> str:
     """
     Determine enrollment cohort for a given FTE value using global boundaries.
-    Returns: "TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", or "SPRINGFIELD"
+    Returns: "TINY", "SMALL", "MEDIUM", "LARGE", or "SPRINGFIELD"
     """
     for group, (min_fte, max_fte) in ENROLLMENT_GROUPS.items():
         if min_fte <= fte <= max_fte:
@@ -706,7 +692,7 @@ def get_western_cohort_districts(df: pd.DataFrame, reg: pd.DataFrame) -> Dict[st
     Cohorts are determined by IN-DISTRICT FTE enrollment (not total FTE).
 
     Returns:
-        Dict with keys "TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD", each containing
+        Dict with keys "TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD", each containing
         a list of lowercase district names that have enrollment data and valid PPE.
     """
     mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
@@ -714,7 +700,7 @@ def get_western_cohort_districts(df: pd.DataFrame, reg: pd.DataFrame) -> Dict[st
     present = set(df["DIST_NAME"].str.lower())
     western_districts = [d for d in western_districts if d in present and d not in EXCLUDE_DISTRICTS]
 
-    cohorts = {"TINY": [], "SMALL": [], "MEDIUM": [], "LARGE": [], "X-LARGE": [], "SPRINGFIELD": []}
+    cohorts = {"TINY": [], "SMALL": [], "MEDIUM": [], "LARGE": [], "SPRINGFIELD": []}
     latest_year = int(df["YEAR"].max())
 
     for dist in western_districts:
@@ -749,7 +735,7 @@ def get_western_cohort_districts_for_year(df: pd.DataFrame, reg: pd.DataFrame, y
     Cohorts are determined by IN-DISTRICT FTE enrollment (not total FTE).
 
     Returns:
-        Dict with keys "TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD", each containing
+        Dict with keys "TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD", each containing
         a list of lowercase district names that have enrollment data and valid PPE for the year.
     """
     mask = (reg["EOHHS_REGION"].str.lower() == "western") & (reg["SCHOOL_TYPE"].str.lower() == "traditional")
@@ -761,7 +747,7 @@ def get_western_cohort_districts_for_year(df: pd.DataFrame, reg: pd.DataFrame, y
     year_cohort_defs = calculate_cohort_boundaries(df, reg, year)
     year_enrollment_groups = {k: v["range"] for k, v in year_cohort_defs.items()}
 
-    cohorts = {"TINY": [], "SMALL": [], "MEDIUM": [], "LARGE": [], "X-LARGE": [], "SPRINGFIELD": []}
+    cohorts = {"TINY": [], "SMALL": [], "MEDIUM": [], "LARGE": [], "SPRINGFIELD": []}
 
     for dist in western_districts:
         fte = get_indistrict_fte_for_year(df, dist, year)  # Use IN-DISTRICT FTE for cohort assignment
@@ -820,7 +806,7 @@ def get_omitted_western_districts(df: pd.DataFrame, reg: pd.DataFrame) -> List[s
     return omitted
 
 def context_for_district(df: pd.DataFrame, dist: str) -> str:
-    """Get enrollment group context for a district (TINY, SMALL, MEDIUM, LARGE, X-LARGE, or SPRINGFIELD).
+    """Get enrollment group context for a district (TINY, SMALL, MEDIUM, LARGE, or SPRINGFIELD).
     Uses IN-DISTRICT FTE for cohort assignment."""
     fte = latest_indistrict_fte(df, dist)
     return get_enrollment_group(fte)
@@ -833,7 +819,6 @@ def context_for_western(bucket: str) -> str:
         "small": "SMALL",
         "medium": "MEDIUM",
         "large": "LARGE",
-        "x-large": "X-LARGE",
         "springfield": "SPRINGFIELD"
     }
     return bucket_map.get(bucket.lower(), "TINY")
@@ -911,9 +896,6 @@ def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str, 
         elif bucket_lower == "large":
             min_fte, max_fte = ENROLLMENT_GROUPS["LARGE"]
             members = [n for n, v in totals.items() if min_fte <= v <= max_fte]
-        elif bucket_lower == "x-large":
-            min_fte, max_fte = ENROLLMENT_GROUPS["X-LARGE"]
-            members = [n for n, v in totals.items() if min_fte <= v <= max_fte]
         elif bucket_lower == "springfield":
             min_fte, max_fte = ENROLLMENT_GROUPS["SPRINGFIELD"]
             members = [n for n, v in totals.items() if min_fte <= v <= max_fte]
@@ -934,8 +916,6 @@ def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str, 
         suffix = get_cohort_label("MEDIUM")
     elif bucket_lower == "large":
         suffix = get_cohort_label("LARGE")
-    elif bucket_lower == "x-large":
-        suffix = get_cohort_label("X-LARGE")
     elif bucket_lower == "springfield":
         # Get latest IN-DISTRICT FTE for title - format as "Outliers (Springfield at X FTE in YYYY)"
         if members:

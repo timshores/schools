@@ -49,7 +49,7 @@ def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year:
     # This ensures consistent filtering (includes PPE validation)
     cohorts = get_western_cohort_districts_for_year(df, reg, latest_year)
     western_districts = []
-    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
+    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
         western_districts.extend(cohorts.get(cohort_key, []))
 
     # Get enrollment and PPE for each district
@@ -94,7 +94,7 @@ def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year:
     mean_enr = np.mean(enrollments)
     median_enr = np.median(enrollments)
     q1, q2, q3 = np.percentile(enrollments, [25, 50, 75])
-    p90 = np.percentile(enrollments, 90)  # 90th percentile for Large/X-Large boundary
+    # Note: P90 is no longer used as Large cohort now extends to 10K FTE
 
     # Find Springfield (>10,000 FTE outliers)
     # Use fixed 10,000 threshold instead of statistical outlier_threshold
@@ -116,7 +116,6 @@ def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year:
         'mean': mean_enr,
         'median': median_enr,
         'quartiles': [q1, q2, q3],
-        'p90': p90,  # 90th percentile for cohort boundary visualization
         'latest_year': latest_year,
         'x_max': x_max,
         'springfield_name': springfield_name[0] if springfield_name else None,
@@ -140,8 +139,7 @@ def plot_scatterplot(data: dict, out_path: Path):
         'TINY': '#4575B4',       # Blue (low enrollment)
         'SMALL': '#3C9DC4',      # Cyan (more saturated)
         'MEDIUM': '#FDB749',     # Amber (more saturated)
-        'LARGE': '#F46D43',      # Orange
-        'X-LARGE': '#D73027',    # Red
+        'LARGE': '#D73027',      # Red (now includes former X-Large)
         'SPRINGFIELD': '#A50026'  # Dark Red (outliers)
     }
 
@@ -155,7 +153,7 @@ def plot_scatterplot(data: dict, out_path: Path):
     cohorts_plot = [c for c, m in zip(cohorts, mask) if m]
 
     # Plot points by cohort
-    for cohort_key in ['TINY', 'SMALL', 'MEDIUM', 'LARGE', 'X-LARGE']:
+    for cohort_key in ['TINY', 'SMALL', 'MEDIUM', 'LARGE']:
         cohort_mask = np.array([c == cohort_key for c in cohorts_plot])
         if cohort_mask.any():
             # Use year-specific label if available, otherwise fall back to global
@@ -173,11 +171,7 @@ def plot_scatterplot(data: dict, out_path: Path):
     ax.axvline(q3, color='purple', linestyle=':', linewidth=2,
                label=f'Q3: {q3:.0f} FTE', zorder=2, alpha=0.7)
 
-    # Add 90th percentile line (boundary between Large and X-Large)
-    p90 = data.get('p90', None)
-    if p90:
-        ax.axvline(p90, color='darkred', linestyle='-.', linewidth=2,
-                   label=f'P90: {p90:.0f} FTE', zorder=2, alpha=0.7)
+    # Note: P90 line removed as Large cohort now extends to 10K FTE
 
     # Add K/M formatter to x-axis (enrollment)
     from matplotlib.ticker import FuncFormatter
@@ -325,11 +319,7 @@ def plot_histogram(data: dict, out_path: Path):
     ax.axvline(q3, color='purple', linestyle=':', linewidth=2,
                label=f'Q3: {q3:.0f}', zorder=4)
 
-    # Add 90th percentile line (boundary between Large and X-Large)
-    p90 = data.get('p90', None)
-    if p90:
-        ax.axvline(p90, color='darkred', linestyle='-.', linewidth=2,
-                   label=f'P90: {p90:.0f}', zorder=4)
+    # Note: P90 line removed as Large cohort now extends to 10K FTE
 
     # Add IQR shading
     ax.axvspan(q1, q3, alpha=0.15, color='purple', label=f'IQR: {q3-q1:.0f}')
@@ -381,24 +371,21 @@ def plot_grouping(data: dict, out_path: Path):
         small_range = year_cohort_defs['SMALL']['range']
         medium_range = year_cohort_defs['MEDIUM']['range']
         large_range = year_cohort_defs['LARGE']['range']
-        xlarge_range = year_cohort_defs['X-LARGE']['range']
     else:
         from school_shared import COHORT_DEFINITIONS
         tiny_range = COHORT_DEFINITIONS['TINY']['range']
         small_range = COHORT_DEFINITIONS['SMALL']['range']
         medium_range = COHORT_DEFINITIONS['MEDIUM']['range']
         large_range = COHORT_DEFINITIONS['LARGE']['range']
-        xlarge_range = COHORT_DEFINITIONS['X-LARGE']['range']
 
-    # Create 5 enrollment groups using dynamic boundaries
-    proposed_thresholds = [tiny_range[0], small_range[0], medium_range[0], large_range[0], xlarge_range[0], xlarge_range[1] + 1]
+    # Create 4 enrollment groups using dynamic boundaries (Springfield excluded as outlier)
+    proposed_thresholds = [tiny_range[0], small_range[0], medium_range[0], large_range[0], large_range[1] + 1]
     proposed_groups = []
     proposed_labels = [
         f"{tiny_range[0]}-{tiny_range[1]}\n(Tiny)",
         f"{small_range[0]}-{small_range[1]}\n(Small)",
         f"{medium_range[0]}-{medium_range[1]}\n(Medium)",
-        f"{large_range[0]}-{large_range[1]}\n(Large)",
-        f"{xlarge_range[0]}-{xlarge_range[1]:,}\n(X-Large)"
+        f"{large_range[0]}-{large_range[1]:,}\n(Large)"
     ]
 
     # Count districts in each group

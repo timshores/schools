@@ -75,7 +75,6 @@ def main():
     western_small = cohorts["SMALL"]
     western_medium = cohorts["MEDIUM"]
     western_large = cohorts["LARGE"]
-    western_xlarge = cohorts["X-LARGE"]
     western_springfield = cohorts["SPRINGFIELD"]
 
     # Generate NSS/Ch70 for each enrollment cohort using centralized definitions
@@ -84,7 +83,6 @@ def main():
         ("small", western_small, f"Western MA {get_cohort_2024_label('SMALL')}"),
         ("medium", western_medium, f"Western MA {get_cohort_2024_label('MEDIUM')}"),
         ("large", western_large, f"Western MA {get_cohort_2024_label('LARGE')}"),
-        ("x-large", western_xlarge, f"Western MA {get_cohort_2024_label('X-LARGE')}"),
         ("springfield", western_springfield, f"Western MA {get_cohort_2024_label('SPRINGFIELD')}"),
     ]
 
@@ -140,8 +138,6 @@ def main():
                 safe_name = "Western_MA_small"
             elif "Medium" in dist_name:
                 safe_name = "Western_MA_medium"
-            elif "X-Large" in dist_name:  # Check X-Large before Large to avoid false match
-                safe_name = "Western_MA_x-large"
             elif "Large" in dist_name:
                 safe_name = "Western_MA_large"
             elif "Springfield" in dist_name:
@@ -174,11 +170,6 @@ def main():
                 title = f"All Western MA Traditional Districts: {cohort_label}"
                 enrollment_label = "Weighted avg enrollment per district"
                 left_ylim = get_cohort_ylim("MEDIUM")
-            elif "X-Large" in dist_name:  # Check X-Large before Large to avoid false match
-                cohort_label = get_cohort_label("X-LARGE")
-                title = f"All Western MA Traditional Districts: {cohort_label}"
-                enrollment_label = "Weighted avg enrollment per district"
-                left_ylim = get_cohort_ylim("X-LARGE")
             elif "Large" in dist_name:
                 cohort_label = get_cohort_label("LARGE")
                 title = f"All Western MA Traditional Districts: {cohort_label}"

@@ -43,6 +43,7 @@ from school_shared import (
     make_safe_filename,
 )
 from nss_ch70_plots import build_nss_category_data, NSS_CH70_COLORS, NSS_CH70_STACK_ORDER
+from statistical_analysis import run_all_analyses, format_results_for_report
 
 # ===== code version =====
 CODE_VERSION = "v2025.09.29-REFACTORED"
@@ -83,6 +84,31 @@ def reset_counters():
     _TABLE_COUNTER = 0
     _PENDING_FIGURE_NUM = None
 
+# ===== Page Number Tracking for TOC =====
+_PAGE_MAP = {}  # Maps section_id -> page_number
+
+class PageMarker(Flowable):
+    """Invisible flowable that records the page number for a section_id."""
+    def __init__(self, section_id):
+        Flowable.__init__(self)
+        self.section_id = section_id
+        self.width = 0
+        self.height = 0
+
+    def draw(self):
+        """Called when flowable is rendered - captures current page number."""
+        if self.section_id:
+            _PAGE_MAP[self.section_id] = self.canv.getPageNumber()
+
+def get_page_number(section_id):
+    """Get the recorded page number for a section_id, or None if not found."""
+    return _PAGE_MAP.get(section_id)
+
+def clear_page_map():
+    """Clear the page number map (called before each PDF build pass)."""
+    global _PAGE_MAP
+    _PAGE_MAP = {}
+
 def build_combined_fig_table_label(fig_num, table_num, doc_width, style_fig, style_table):
     """Build a table with Figure # left-aligned and Table # right-aligned on same line."""
     fig_para = Paragraph(f"<i>Figure {fig_num}</i>", style_fig)
@@ -120,6 +146,7 @@ SHADE_BINS_DOLLAR = [0.05, 0.10, 0.15, 0.20]
 # Neutral comparison colors (not implying good/bad):
 ABOVE_SHADES = ["#FFF4E6", "#FFE8CC", "#FFD9A8", "#FFC97A", "#FFB84D"]  # above baseline: light amber/tan (lightest→darkest)
 BELOW_SHADES = ["#E0F7FA", "#B2EBF2", "#80DEEA", "#4DD0E1", "#26C6DA"]  # below baseline: light teal/cyan (lightest→darkest)
+BASELINE_YELLOW = "#FFFFD9"  # pale yellow for baseline row highlighting (RGB 1.0, 1.0, 0.85 in hex)
 
 # Optional $-gate; if >0, shading applies only when latest $/pupil >= this
 # Currently disabled (0.0) - all categories get shading regardless of magnitude
@@ -261,7 +288,7 @@ def compute_cagr_last(series: pd.Series, years: int) -> float:
 
 # ---------- Text Loading from External Files ----------
 
-def load_report_text_sections(text_file: Path = Path("report_text.txt")) -> dict:
+def load_report_text_sections(text_file: Path = None) -> dict:
     """
     Load text sections from external file for easy editing.
 
@@ -280,37 +307,42 @@ def load_report_text_sections(text_file: Path = Path("report_text.txt")) -> dict
         ================================================================================
         ...
     """
+    if text_file is None:
+        # Default to report_text.txt in the same directory as this script
+        text_file = Path(__file__).parent / "report_text.txt"
+
     if not text_file.exists():
         print(f"[WARN] Text file not found: {text_file}, using defaults")
         return {}
 
     sections = {}
     content = text_file.read_text(encoding='utf-8')
+    # Normalize line endings (Windows \r\n -> Unix \n)
+    content = content.replace('\r\n', '\n')
 
-    # Split by section markers (80 equals signs)
-    raw_sections = content.split('=' * 80)
+    # Parse sections using regex to handle the double-separator format:
+    # ========...========
+    # SECTION_NAME
+    # ========...========
+    # content...
+    import re
+    section_pattern = re.compile(r'={80,}\s*\n([A-Z_0-9]+)\s*\n={80,}\s*\n(.*?)(?=\n={80,}|$)', re.DOTALL)
 
-    current_section_name = None
-    for raw in raw_sections:
-        lines = raw.strip().split('\n')
-        if not lines:
-            continue
+    for match in section_pattern.finditer(content):
+        section_name = match.group(1).strip()
+        section_content = match.group(2).strip()
 
-        # First non-empty line is the section name
-        section_name = lines[0].strip()
-        if not section_name:
-            continue
-
-        # Rest is content - split into paragraphs (empty lines separate paragraphs)
+        # Split content into paragraphs (empty lines separate paragraphs)
         paragraphs = []
         current_para = []
-        for line in lines[1:]:
+
+        for line in section_content.split('\n'):
             line = line.rstrip()
             if line == "":
                 if current_para:
                     paragraphs.append(" ".join(current_para))
                     current_para = []
-                paragraphs.append("")  # Empty line becomes blank paragraph
+                # Don't add empty paragraphs - let the content control spacing
             else:
                 current_para.append(line)
 
@@ -368,7 +400,7 @@ def _build_western_ma_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.Data
 
     # Combine all cohorts
     western_present = []
-    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
+    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
         western_present.extend(cohorts.get(cohort_key, []))
 
     # Exclude Springfield if requested
@@ -445,7 +477,7 @@ def _build_western_ma_nss_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.
 
     # Combine all cohorts
     western_present = []
-    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
+    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
         western_present.extend(cohorts.get(cohort_key, []))
 
     # Exclude Springfield if requested
@@ -472,8 +504,7 @@ def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, s
         'TINY': HexColor('#4575B4'),      # Blue (low enrollment)
         'SMALL': HexColor('#3C9DC4'),     # Cyan (more saturated)
         'MEDIUM': HexColor('#FDB749'),    # Amber (more saturated)
-        'LARGE': HexColor('#F46D43'),     # Orange
-        'X-LARGE': HexColor('#D73027'),   # Red
+        'LARGE': HexColor('#D73027'),     # Red (now includes former X-Large)
         'SPRINGFIELD': HexColor('#A50026'),  # Dark Red (outliers)
     }
 
@@ -593,7 +624,7 @@ def _build_scatterplot_district_table(df: pd.DataFrame, reg: pd.DataFrame, lates
     # This ensures consistent filtering (includes PPE validation)
     cohorts = get_western_cohort_districts(df, reg)
     western_districts = []
-    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "SPRINGFIELD"]:
+    for cohort_key in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
         western_districts.extend(cohorts.get(cohort_key, []))
 
     district_data = []
@@ -613,8 +644,8 @@ def _build_scatterplot_district_table(df: pd.DataFrame, reg: pd.DataFrame, lates
             cohort_label = get_cohort_label(cohort)
             district_data.append((dist.title(), cohort, float(enrollment), float(total_ppe), cohort_label))
 
-    # Sort by cohort (TINY, SMALL, MEDIUM, LARGE, X-LARGE, SPRINGFIELD) then by PPE descending within each cohort
-    cohort_order = {"TINY": 0, "SMALL": 1, "MEDIUM": 2, "LARGE": 3, "X-LARGE": 4, "SPRINGFIELD": 5}
+    # Sort by cohort (TINY, SMALL, MEDIUM, LARGE, SPRINGFIELD) then by PPE descending within each cohort
+    cohort_order = {"TINY": 0, "SMALL": 1, "MEDIUM": 2, "LARGE": 3, "SPRINGFIELD": 4}
     district_data.sort(key=lambda x: (cohort_order.get(x[1], 999), -x[3]))
 
     return district_data
@@ -628,15 +659,13 @@ def _abbr_bucket_suffix(full: str) -> str:
     if "all western" in full_lower and "excluding springfield" in full_lower:
         return "MA (excl. Springfield)"
 
-    # Check for each cohort keyword (order matters - check "tiny" before "small", "x-large" before "large"!)
+    # Check for each cohort keyword (order matters - check "tiny" before "small"!)
     if "tiny" in full_lower:
         return f"({get_cohort_label('TINY')})"
     if "small" in full_lower:
         return f"({get_cohort_label('SMALL')})"
     if "medium" in full_lower:
         return f"({get_cohort_label('MEDIUM')})"
-    if "x-large" in full_lower:
-        return f"({get_cohort_label('X-LARGE')})"
     if "large" in full_lower:
         return f"({get_cohort_label('LARGE')})"
     if "springfield" in full_lower:
@@ -649,6 +678,34 @@ def _abbr_bucket_suffix(full: str) -> str:
         return "(>500)"
 
     return ""
+
+def _categorize_districts(district_list: list, reg: pd.DataFrame) -> dict:
+    """Categorize districts into regular districts, unified regions, and vocational/technical schools."""
+    categories = {"districts": [], "unified_regions": [], "vocational": []}
+
+    for district in district_list:
+        # Find district in reg dataframe (case-insensitive match)
+        mask = reg["DIST_NAME"].str.lower() == district.lower()
+        if not mask.any():
+            # If not found, categorize by name pattern
+            if "-" in district or "reg" in district.lower() or "regional" in district.lower():
+                categories["unified_regions"].append(district)
+            else:
+                categories["districts"].append(district)
+            continue
+
+        school_type = reg[mask]["SCHOOL_TYPE"].iloc[0]
+
+        if school_type.lower() == "vocational":
+            categories["vocational"].append(district)
+        elif "-" in district or "reg" in district.lower() or "regional" in district.lower():
+            # Traditional regional unified districts
+            categories["unified_regions"].append(district)
+        else:
+            # Regular traditional districts
+            categories["districts"].append(district)
+
+    return categories
 
 def _shade_for_cagr_delta(delta_pp: float):
     # delta_pp is a true fraction (e.g., 0.021 = 2.1pp)
@@ -876,10 +933,18 @@ def _build_fte_table(page: dict) -> Table:
         baseline_title = page.get("baseline_title", "")
         bucket_suffix = _abbr_bucket_suffix(baseline_title)
 
-        above_text = f"Above Western {bucket_suffix}".strip()
-        below_text = f"Below Western {bucket_suffix}".strip()
+        # Generate baseline-focused legend text
+        if bucket_suffix == "MA (excl. Springfield)":
+            above_text = "Above Western MA baseline"
+            below_text = "Below Western MA baseline"
+        else:
+            # Cohort baseline - remove " FTE" suffix for cleaner display
+            clean_suffix = bucket_suffix.replace(" FTE)", ")")
+            above_text = f"Above cohort baseline {clean_suffix}".strip()
+            below_text = f"Below cohort baseline {clean_suffix}".strip()
+
         shade_rule = (
-            f"Shading vs Western cohort: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}%, "
+            f"Shading vs baseline: |Δ$/pupil| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}%, "
             f"|ΔEnrollment| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}%, |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp"
         )
         cagr_def = "CAGR = (End/Start)^(1/years) − 1"
@@ -1454,7 +1519,7 @@ def _build_nss_ch70_data_table(nss_pivot: pd.DataFrame, title: str, doc_width: f
 
     return tbl
 
-def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = None, apply_shading: bool = True, skip_shading_rows: set = None) -> Table:
+def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = None, apply_shading: bool = True, skip_shading_rows: set = None, highlight_baseline_rows: set = None) -> Table:
     """
     Build cohort summary table showing Total PPE metrics across cohorts.
 
@@ -1463,11 +1528,13 @@ def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = 
         baseline_row: Optional baseline row data for shading comparisons
         apply_shading: Whether to apply shading (True for first table, False for comparison tables)
         skip_shading_rows: Set of row indices (0-based, excluding header) to skip shading for
+        highlight_baseline_rows: Set of row indices to highlight in pale yellow (baseline)
 
     Returns:
         ReportLab Table with formatted cohort data
     """
     skip_shading_rows = skip_shading_rows or set()
+    highlight_baseline_rows = highlight_baseline_rows or set()
 
     # Header
     summary_data = [[
@@ -1501,6 +1568,11 @@ def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = 
         ('TOPPADDING', (0,0), (-1,-1), 3),
         ('BOTTOMPADDING', (0,0), (-1,-1), 3),
     ])
+
+    # Apply pale yellow background to baseline rows
+    for baseline_idx in highlight_baseline_rows:
+        row_num = baseline_idx + 1  # +1 because header is row 0
+        ts.add("BACKGROUND", (0, row_num), (-1, row_num), HexColor(BASELINE_YELLOW))
 
     # Apply shading if requested and baseline is provided
     if apply_shading and baseline_row is not None:
@@ -1710,72 +1782,75 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     # Load external text sections for easy editing
     report_text = load_report_text_sections()
 
+    # Load Appendix A text sections from separate file
+    appendix_a_text = load_report_text_sections(Path(__file__).parent / "appendix_a_text.txt")
+    # Merge appendix_a_text into report_text
+    report_text.update(appendix_a_text)
+
     # Note: Threshold Analysis moved to Appendix A
 
     latest = int(df["YEAR"].max())
     t0 = latest - 5
 
-    # ===== SECTION 1: WESTERN MA =====
-    # Get omitted districts for note on first page
-    omitted_districts = get_omitted_western_districts(df, reg)
+    # ===== EXECUTIVE SUMMARY =====
+    # PAGE 0: Executive Summary - Introduction
+    exec_summary_intro_text = report_text.get("EXECUTIVE_SUMMARY_PAGE1", [
+        "<b>Per-pupil expenditure (PPE)</b> is a cloudy lens for understanding education funding."
+    ])
 
-    # PAGE 1: All Western MA Districts Overview (graph-only)
-    # Plot 1: PPE Overview (horizontal bar chart with district names, sorted by 2024 PPE)
-    western_explanation = "Each bar represents one district's per-pupil expenditures (PPE). Districts are sorted by 2024 PPE (lowest to highest)."
+    exec_summary_quick_start = report_text.get("EXECUTIVE_SUMMARY_QUICK_START", [
+        "<b>Quick-start guide:</b>"
+    ])
+
+    exec_summary_footer = report_text.get("EXECUTIVE_SUMMARY_FOOTER", [
+        "Refer to the appendices for information about data sources and calculations."
+    ])
+
+    # Combine all text blocks for the Executive Summary page
+    # Mark the quick-start guide with a special marker for boxed rendering
+    exec_summary_all_text = exec_summary_intro_text + ["__BOXED_START__"] + exec_summary_quick_start + ["__BOXED_END__"] + exec_summary_footer
+
+    pages.append(dict(
+        title="Executive Summary",
+        subtitle="",
+        text_blocks=exec_summary_all_text,
+        text_only_page=True,
+        section_id="executive_summary"
+    ))
+
+    # PAGE 0a: Executive Summary - PPE Overview (will be added after cohort tables - see CR5)
+    # Prepare this data early since we need it for Executive Summary
+    omitted_districts = get_omitted_western_districts(df, reg)
+    western_explanation = report_text.get("PPE_OVERVIEW_EXPLANATION", [
+        "Each bar represents a district's per-pupil expenditures (PPE) in 2024, with growth from 2019 shown by a darker color."
+    ])[0]  # Get first paragraph from list
 
     # Add omitted districts note if any
     if omitted_districts:
         omitted_note = "<i>Note: The following districts are omitted from this analysis: "
         omitted_list = ", ".join([f"{name} ({reason})" for name, reason in omitted_districts])
         omitted_note += omitted_list + ".</i>"
-        western_text_blocks = [western_explanation, omitted_note]
+        western_text_blocks_exec = [western_explanation, omitted_note]
     else:
-        western_text_blocks = [western_explanation]
+        western_text_blocks_exec = [western_explanation]
 
-    # PAGE 0: Executive Summary - YoY Separate Panes
-    exec_summary_explanation = (
-        "These plots show year-over-year (YoY) growth rates in per-pupil expenditure (PPE) "
-        "for districts of interest and their enrollment cohorts. The districts are organized into "
-        "enrollment cohorts based on student population size. The thicker lines represent cohort aggregates, "
-        "while thinner lines show individual districts within each cohort. "
-        "The determination of these cohorts is explained in detail in Appendix A. "
-        "While patterns can be observed in these plots, it is difficult to discern a clear, consistent signal "
-        "across all districts and cohorts over the 2009-2024 period."
-    )
-    pages.append(dict(
-        title="Executive Summary",
-        subtitle="Year-over-Year (YoY) growth rates by district and cohort",
-        chart_path=str(OUTPUT_DIR / "executive_summary_yoy_panes.png"),
-        text_blocks=[exec_summary_explanation],
-        graph_only=True,
-        section_id="executive_summary",
-        executive_summary=True  # Flag for special chart sizing
-    ))
-
-    # PAGE 0b: Executive Summary - CAGR Grouped Bars with explanation
-    cagr_explanation = (
-        "The Compound Annual Growth Rate (CAGR) provides a clearer picture of growth trends by smoothing out "
-        "year-to-year volatility. By comparing 5-year periods (2009-2014, 2014-2019, 2019-2024), we can observe "
-        "how growth rates have evolved over time. The visualization below uses color shading to group districts "
-        "by their enrollment cohorts, with diagonal white lines marking cohort aggregates for easy identification. "
-        "For a longer-term perspective, we can also examine the 15-year CAGR from 2009 to 2024, shown in the "
-        "second chart, which captures the overall growth trajectory across the entire period."
-    )
-    pages.append(dict(
+    # Store PPE Overview page dict to add after cohort tables (CR5)
+    ppe_overview_page = dict(
         title="Executive Summary (continued)",
-        subtitle="5-year CAGR by district and cohort",
-        chart_paths=[
-            str(OUTPUT_DIR / "executive_summary_cagr_legend.png"),
-            str(OUTPUT_DIR / "executive_summary_cagr_grouped.png"),
-            str(OUTPUT_DIR / "executive_summary_cagr_15year.png")
-        ],
-        text_blocks=[cagr_explanation],
-        graph_only=True,
-        executive_summary=True,  # Flag for special chart sizing
-        cagr_with_legend=True  # Special flag for legend + two charts layout
-    ))
+        subtitle=f"Per-pupil expenditure and recent growth overview: {t0} PPE (lighter) to {latest} PPE (darker segment)",
+        chart_path=str(OUTPUT_DIR / "ppe_overview_all_western.png"),
+        text_blocks=western_text_blocks_exec,
+        graph_only=True
+    )
 
-    # ===== NEW EXECUTIVE SUMMARY COHORT TABLES =====
+    # PAGE 0b: Executive Summary - Statistical Analysis (text from report_text.txt)
+    stat_text_blocks = report_text.get("STATISTICAL_ASSOCIATIONS", [])
+
+    # YoY and CAGR pages moved to Section 1 (text from report_text.txt)
+    exec_summary_explanation = "\n".join(report_text.get("SECTION1_YOY_EXPLANATION", []))
+    cagr_explanation = "\n".join(report_text.get("SECTION1_CAGR_EXPLANATION", []))
+
+    # ===== EXECUTIVE SUMMARY COHORT TABLES =====
     # Build cohort summary data using same functions as Western MA pages
     cohorts_exec = get_western_cohort_districts(df, reg)
     cmap_exec = create_or_load_color_map(df)
@@ -1796,7 +1871,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             return (0.0, 0.0, 0.0, 0.0, 0.0)
 
         try:
-            if bucket_key in ["tiny", "small", "medium", "large", "x-large", "springfield", "all_western"]:
+            if bucket_key in ["tiny", "small", "medium", "large", "springfield", "all_western"]:
                 # Cohort aggregate: use prepare_western_epp_lines
                 title, epp, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket_key, c70, districts=district_list)
                 if epp.empty:
@@ -1822,16 +1897,16 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             return (0.0, 0.0, 0.0, 0.0, 0.0)
 
     # Build all Western MA cohort districts (excluding Springfield)
-    western_all_excl_springfield = [d for group in ["TINY", "SMALL", "MEDIUM", "LARGE", "X-LARGE"] for d in cohorts_exec.get(group, [])]
+    # Note: Large cohort label will be dynamically determined based on actual cohort boundaries
+    western_all_excl_springfield = [d for group in ["TINY", "SMALL", "MEDIUM", "LARGE"] for d in cohorts_exec.get(group, [])]
+    large_label = get_cohort_label("LARGE")  # Will be "Large (1601-10K FTE)" or similar based on dynamic boundaries
 
-    # Build data for all cohorts and districts needed for summary tables
     cohort_summary_data = {
         "Western MA (all, excl. Springfield)": build_cohort_total_data("all_western", western_all_excl_springfield),
         "Western MA Tiny (0-200 FTE)": build_cohort_total_data("tiny", cohorts_exec.get("TINY", [])),
         "Western MA Small (201-800 FTE)": build_cohort_total_data("small", cohorts_exec.get("SMALL", [])),
         "Western MA Medium (801-1600 FTE)": build_cohort_total_data("medium", cohorts_exec.get("MEDIUM", [])),
-        "Western MA Large (1601-4000 FTE)": build_cohort_total_data("large", cohorts_exec.get("LARGE", [])),
-        "Western MA X-Large (4001-10K FTE)": build_cohort_total_data("x-large", cohorts_exec.get("X-LARGE", [])),
+        f"Western MA {large_label}": build_cohort_total_data("large", cohorts_exec.get("LARGE", [])),
         "Outliers (Springfield)": build_cohort_total_data("springfield", cohorts_exec.get("SPRINGFIELD", [])),
         "Amherst-Pelham Regional": build_cohort_total_data("district", ["Amherst-Pelham"]),  # Note: actual district name is "Amherst-Pelham"
         "Amherst": build_cohort_total_data("district", ["Amherst"]),
@@ -1851,8 +1926,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "Western MA Tiny (0-200 FTE)",
         "Western MA Small (201-800 FTE)",
         "Western MA Medium (801-1600 FTE)",
-        "Western MA Large (1601-4000 FTE)",
-        "Western MA X-Large (4001-10K FTE)",
+        f"Western MA {large_label}",
         "Outliers (Springfield)",
     ]
     cohort_table1_rows = make_table_rows(table1_names)
@@ -1860,14 +1934,15 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     cohort_table1 = _build_cohort_summary_table(
         cohort_table1_rows,
         baseline_row=("Western MA (all, excl. Springfield)", *baseline_western),
-        apply_shading=True
+        apply_shading=True,
+        highlight_baseline_rows={0}  # Highlight baseline row in yellow
     )
 
     pages.append(dict(
         title="Executive Summary (continued)",
-        subtitle="Cohort comparison: Western Massachusetts enrollment groups",
+        subtitle="Total PPE comparison: Western MA enrollment cohorts and selected districts",
         summary_table=cohort_table1,
-        explanation_blocks=["This table compares per-pupil expenditure growth across enrollment-based cohorts in Western Massachusetts. All cohorts are shaded relative to the overall Western MA average (excluding Springfield)."],
+        explanation_blocks=[],  # Removed - explanation moved to bottom after all tables
         first_cohort_table=True  # Flag to show legend at top
     ))
 
@@ -1879,14 +1954,15 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         cohort_table2_rows,
         baseline_row=("Western MA Medium (801-1600 FTE)", *baseline_medium),
         apply_shading=True,
-        skip_shading_rows={0}  # Don't shade the comparison baseline
+        skip_shading_rows={0},  # Don't shade the comparison baseline
+        highlight_baseline_rows={0}  # Highlight baseline row in yellow
     )
 
     pages.append(dict(
         title="Executive Summary (continued)",  # Won't be displayed due to omit_title flag
-        subtitle="District comparison: Medium enrollment cohort (801-1600 FTE)",
+        subtitle="",  # Removed subtitle per CR20
         summary_table=cohort_table2,
-        explanation_blocks=["This table compares Amherst-Pelham Regional and Amherst to the Western MA Medium cohort average. Districts are shaded relative to the cohort average."],
+        explanation_blocks=[],  # Removed - explanation moved to bottom after all tables
         omit_title=True  # Skip title since it's on the same page as Table 1
     ))
 
@@ -1898,134 +1974,170 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         cohort_table3_rows,
         baseline_row=("Western MA Tiny (0-200 FTE)", *baseline_tiny),
         apply_shading=True,
-        skip_shading_rows={0}  # Don't shade the comparison baseline
+        skip_shading_rows={0},  # Don't shade the comparison baseline
+        highlight_baseline_rows={0}  # Highlight baseline row in yellow
     )
 
-    # Load explanation text from external file
-    explanation_text = report_text.get("EXECUTIVE_SUMMARY_TINY_EXPLANATION", [
-        "This table compares Leverett, Pelham, and Shutesbury to the Western MA Tiny cohort average. Districts are shaded relative to the cohort average.",
-        "",
-        "<b>Calculation methodology:</b> All figures represent enrollment-weighted per-pupil expenditures. For cohort aggregates, we calculate weighted averages where each district's contribution is proportional to its enrollment. CAGR (Compound Annual Growth Rate) is computed as (End/Start)^(1/years) - 1. Shading indicates deviations from baseline: blue for below, orange for above. Intensity increases with deviation magnitude."
+    # Load explanation text from external file - this will appear at the bottom after all 3 tables
+    cohort_explanation_text = report_text.get("EXECUTIVE_SUMMARY_COHORT_EXPLANATION", [
+        "Table {N} compares PPE and cost growth of Western MA school districts organized into cohorts by enrollment size."
     ])
 
     pages.append(dict(
         title="Executive Summary (continued)",  # Won't be displayed due to omit_title flag
-        subtitle="District comparison: Tiny enrollment cohort (0-200 FTE)",
+        subtitle="",  # Removed subtitle per CR20
         summary_table=cohort_table3,
-        explanation_blocks=explanation_text,
-        omit_title=True  # Skip title since it's on the same page as Table 1
+        explanation_blocks=cohort_explanation_text,
+        omit_title=True,  # Skip title since it's on the same page as Table 1
+        needs_table_num_substitution=True  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
     ))
 
+    # Executive Summary - PPE Overview (add after cohort tables - CR5)
+    pages.append(ppe_overview_page)
+
+    # Executive Summary - Statistical Analysis (add after PPE overview)
+    if stat_text_blocks:
+        pages.append(dict(
+            title="Executive Summary (continued)",
+            subtitle="Statistical Associations",
+            text_blocks=stat_text_blocks,
+            text_only_page=True
+        ))
+
+    # ===== SECTION 1: WESTERN MA TRADITIONAL PUBLIC SCHOOL DISTRICT TRENDS =====
+    # Section 1 Summary Page
+    section1_summary_text = report_text.get("SECTION1_SUMMARY", [
+        "Section 1 examines per-pupil expenditure trends across Western Massachusetts."
+    ])
     pages.append(dict(
-        title="All Western MA Traditional Districts",
-        subtitle=f"Per-pupil expenditure overview: {t0} PPE (lighter) to {latest} PPE (darker segment)",
-        chart_path=str(OUTPUT_DIR / "ppe_overview_all_western.png"),
-        text_blocks=western_text_blocks,
+        title="Section 1 — Western MA traditional public school district trends",
+        subtitle="",
+        text_blocks=section1_summary_text,
+        text_only_page=True,
+        section_id="section1_summary"
+    ))
+
+    # PAGE 1: YoY Growth Rates (moved from Executive Summary)
+    pages.append(dict(
+        title="Section 1 — Western MA traditional public school district trends",
+        subtitle="Year-over-Year (YoY) growth rates by district and cohort",
+        chart_path=str(OUTPUT_DIR / "executive_summary_yoy_panes.png"),
+        text_blocks=[exec_summary_explanation],
         graph_only=True,
-        section_id="section1_western"
+        section_id="section1_yoy"
     ))
 
-    # Add enrollment distribution analysis pages (3 plots total)
-    # NEW ORDER: PPE Overview, Histogram, Grouping, Scatterplot
-    # Explanations updated per user requirements
-
-    # Combined explanation for histogram and grouping plots
-    enrollment_dist_explanation = (
-        "The histogram (top) shows right-skewed enrollment distribution using 250 FTE bins, "
-        "with a long right tail and sparse districts at higher enrollments. "
-        "Based on IQR analysis, districts are grouped into five enrollment-based cohorts (bottom): "
-        f"{get_cohort_label('TINY')}, {get_cohort_label('SMALL')}, {get_cohort_label('MEDIUM')}, "
-        f"{get_cohort_label('LARGE')}, {get_cohort_label('X-LARGE')}, "
-        "and Springfield (>10,000 FTE, statistical outlier). "
-        "These cohorts enable meaningful cost comparisons between districts facing similar scale-related "
-        "challenges in administration, staffing, facilities, and programming. This method supports "
-        "scale-based grouping across a large set of districts, not claims of sameness or normalized "
-        "expectations of cost and performance. Districts of similar size can differ significantly in "
-        "economy, demographics, geography, facilities, and governance, which shape both costs and "
-        "outcomes. Per-pupil figures can mask these differences and should be interpreted with caution. "
-        "This report reflects that caution by examining each district’s PPE through detailed revenue and "
-        "expenditure subcategories over time."
-    )
-
-    scatterplot_explanation = ("This scatterplot shows the relationship between district enrollment and per-pupil expenditures. "
-                              "Each point represents one district's 2024 in-district FTE enrollment (x-axis) and total PPE (y-axis). "
-                              "Points are colored by enrollment cohort. "
-                              "Springfield is omitted as a high-enrollment outlier. "
-                              "Horizontal lines show quartile boundaries: Q1=208 FTE, Q2 (Median)=798 FTE, Q3=1768 FTE.")
-
-    # Plot 2: Combined histogram + grouping on one page
+    # PAGE 2: 5-year CAGR (moved from Executive Summary)
     pages.append(dict(
-        title="All Western MA Traditional Districts",
-        subtitle="Enrollment distribution and proposed cohort grouping",
+        title="Section 1 — Western MA traditional public school district trends",
+        subtitle="5-year and 15-year CAGR by district and cohort",
+        chart_paths=[
+            str(OUTPUT_DIR / "executive_summary_cagr_legend.png"),
+            str(OUTPUT_DIR / "executive_summary_cagr_grouped.png"),
+            str(OUTPUT_DIR / "executive_summary_cagr_15year.png")
+        ],
+        text_blocks=[cagr_explanation],
+        graph_only=True,
+        cagr_with_legend=True,  # Special flag for legend + two charts layout
+        section_id="section1_cagr"
+    ))
+
+    # PAGE 3: Distribution of 2024 enrollment and proposed cohort grouping (text from report_text.txt)
+    enrollment_dist_explanation = "\n".join(report_text.get("SECTION1_DISTRIBUTION_EXPLANATION", []))
+
+    pages.append(dict(
+        title="Section 1 — Western MA traditional public school district trends",
+        subtitle="Distribution of 2024 enrollment and proposed cohort grouping",
         chart_paths=[
             str(OUTPUT_DIR / "enrollment_3_histogram.png"),
             str(OUTPUT_DIR / "enrollment_4_grouping.png")
         ],
         text_blocks=[enrollment_dist_explanation],
         graph_only=True,
-        two_charts_vertical=True  # Stack charts vertically
+        two_charts_vertical=True,
+        section_id="section1_distribution"
     ))
 
-    # Add scatterplot and choropleth map pages for multiple years (2024, 2019, 2014, 2009)
-    years_for_plots = [2024, 2019, 2014, 2009]
-
-    # Scatterplot explanation (common for all years)
-    scatterplot_explanation_common = (
+    # PAGE 4: 2024 Scatterplot with district table
+    scatterplot_explanation_2024 = (
         "This scatterplot shows the relationship between district enrollment (x-axis) and per-pupil "
-        "expenditure (y-axis) for Western Massachusetts traditional districts."
+        "expenditure (y-axis) for Western Massachusetts traditional districts in 2024. Each point represents "
+        "one district, colored by enrollment cohort. Horizontal lines show quartile boundaries used to define cohorts."
     )
 
-    # Choropleth explanation (common for all years)
-    choropleth_explanation_common = (
+    scatterplot_table_data = _build_scatterplot_district_table(df, reg, 2024)
+    pages.append(dict(
+        title="Section 1 — Western MA traditional public school district trends",
+        subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries (2024)",
+        chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_2024.png"),
+        text_blocks=[scatterplot_explanation_2024],
+        graph_only=False,  # Includes table
+        scatterplot_districts=scatterplot_table_data,
+        year=2024,
+        section_id="section1_scatterplot"
+    ))
+
+    # PAGE 5: Geographic map 2024
+    choropleth_explanation_2024 = report_text.get("SECTION1_CHOROPLETH_EXPLANATION", [
         "This map situates the districts within their geographic context in Western Massachusetts."
-        "<br/><br/>"
-        "Districts are shaded according to the enrollment cohort system: "
-        f"{get_cohort_short_label('TINY')} (blue), "
-        f"{get_cohort_short_label('SMALL')} (light blue), "
-        f"{get_cohort_short_label('MEDIUM')} (yellow), "
-        f"{get_cohort_short_label('LARGE')} (orange), "
-        f"{get_cohort_short_label('X-LARGE')} (red)."
-        "<br/><br/>"
-        "Elementary and PK-12 unified districts appear as solid filled areas. Unified regional districts (marked with 'U') "
-        "serve all grades PK-12 across multiple towns. Secondary regional districts are bounded by a thick black border "
-        "with a cohort letter indicator (T = Tiny, S = Small, M = Medium, L = Large, XL = X-Large) showing the enrollment cohort of the secondary regional district."
-    )
+    ])[0]  # Get first paragraph from list
 
-    for year in years_for_plots:
-        # Plot 4a: Scatterplot for this year with district table
-        scatterplot_table_data = _build_scatterplot_district_table(df, reg, year)
-        pages.append(dict(
-            title="All Western MA Traditional Districts",
-            subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({year})",
-            chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
-            text_blocks=[scatterplot_explanation_common],
-            graph_only=False,  # Includes table
-            scatterplot_districts=scatterplot_table_data,
-            year=year  # Store year for table header
-        ))
+    pages.append(dict(
+        title="Section 1 — Western MA traditional public school district trends",
+        subtitle=f"Geographic map showing district locations and enrollment cohorts (2024)",
+        chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_2024.png"),
+        text_blocks=[choropleth_explanation_2024],
+        graph_only=True,
+        section_id="section1_map"
+    ))
 
-        # Plot 4b: Choropleth map for this year
-        pages.append(dict(
-            title="All Western MA Traditional Districts",
-            subtitle=f"Geographic map showing district locations and enrollment cohorts ({year})",
-            chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{year}.png"),
-            text_blocks=[choropleth_explanation_common],
-            graph_only=True
-        ))
-
+    # Set up cohort data structures for Section 2
     cmap_all = create_or_load_color_map(df)
 
     # Get Western cohorts using centralized function
     cohorts = get_western_cohort_districts(df, reg)
-    cohort_map = {"tiny": "TINY", "small": "SMALL", "medium": "MEDIUM", "large": "LARGE", "x-large": "X-LARGE", "springfield": "SPRINGFIELD"}
+    cohort_map = {"tiny": "TINY", "small": "SMALL", "medium": "MEDIUM", "large": "LARGE", "springfield": "SPRINGFIELD"}
 
     # Calculate Western MA baseline (excluding Springfield) for cohort comparisons
     # This is used once and shared across all cohort pages
     western_baseline_map, western_fte_baseline_map = _build_western_ma_baseline(df, reg, c70, cmap_all, df["YEAR"].max(), exclude_springfield=True)
 
-    # Add Western MA aggregate pages to Section 1 (6 enrollment groups)
-    for bucket in ("tiny", "small", "medium", "large", "x-large", "springfield"):
-        district_list = cohorts[cohort_map[bucket]]
+    # ===== SECTION 2: WESTERN MA COHORT DETAILS =====
+    # Each cohort gets PPE and NSS/Ch70 aggregate pages (moved from Section 1)
+
+    for bucket in ("tiny", "small", "medium", "large", "springfield"):
+        cohort_name = cohort_map[bucket]
+        district_list = cohorts.get(cohort_name, [])
+
+        if not district_list:
+            continue
+
+        # Get cohort label for use in title
+        cohort_label = get_cohort_label(cohort_name)
+
+        # Prepare categorized district list text for NSS/Ch70 page
+        categories = _categorize_districts(district_list, reg)
+        total_count = len(district_list)
+
+        # Build categorized list text
+        district_list_text = [f"<b>{cohort_label}</b> includes {total_count} members:", ""]
+
+        if categories["districts"]:
+            count = len(categories["districts"])
+            district_list_text.append(f"<b>Districts ({count}):</b> {', '.join(sorted([d.title() for d in categories['districts']]))}.")
+            district_list_text.append("")  # Blank line
+
+        if categories["unified_regions"]:
+            count = len(categories["unified_regions"])
+            district_list_text.append(f"<b>Regions ({count}):</b> {', '.join(sorted([d.title() for d in categories['unified_regions']]))}.")
+            district_list_text.append("")  # Blank line
+
+        if categories["vocational"]:
+            count = len(categories["vocational"])
+            district_list_text.append(f"<b>Vocational/technical ({count}):</b> {', '.join(sorted([d.title() for d in categories['vocational']]))}.")
+            district_list_text.append("")  # Blank line
+
+        # PAGE 1 for this cohort: PPE aggregate page
         title, epp, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket, c70, districts=district_list)
         if epp.empty and not lines_sum:
             continue
@@ -2036,59 +2148,64 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         rows, total, start_map = _build_category_data(epp, latest_year, context, cmap_all)
         fte_rows, fte_map, latest_fte_year = _build_fte_data(lines_mean, latest_year)
 
-        pages.append(dict(title=title,
-                        subtitle="PPE vs Enrollment — Weighted average per district. Expense category table shaded by comparison to weighted average of all Western MA (excluding Springfield)",
-                        chart_path=str(regional_png(bucket)),
-                        latest_year=latest_year, latest_year_fte=latest_fte_year,
-                        cat_rows=rows, cat_total=total, cat_start_map=start_map, fte_rows=fte_rows,
-                        fte_series_map=fte_map, page_type="western",
-                        baseline_title="All Western MA (excluding Springfield)",
-                        baseline_map=western_baseline_map,
-                        fte_baseline_map=western_fte_baseline_map,
-                        raw_epp=epp, raw_lines=lines_mean, dist_name=title))
+        pages.append(dict(
+            title=f"Section 2 — Western MA cohort details",
+            subtitle=f"{cohort_label} — PPE vs Enrollment — Weighted average per district.",
+            chart_path=str(regional_png(bucket)),
+            latest_year=latest_year,
+            latest_year_fte=latest_fte_year,
+            cat_rows=rows,
+            cat_total=total,
+            cat_start_map=start_map,
+            fte_rows=fte_rows,
+            fte_series_map=fte_map,
+            page_type="western",
+            baseline_title="All Western MA (excluding Springfield)",
+            baseline_map=western_baseline_map,
+            fte_baseline_map=western_fte_baseline_map,
+            raw_epp=epp,
+            raw_lines=lines_mean,
+            dist_name=title,
+            section_id=f"section2_{bucket.replace('-', '_')}"
+        ))
 
-        # Add NSS/Ch70 page for this Western aggregate (weighted per-pupil)
+        # PAGE 2 for this cohort: NSS/Ch70 aggregate page (with district list text)
         if c70 is not None and not c70.empty:
-            # Get district list using centralized cohort function (same as nss_ch70_main.py)
-            # This ensures plots and tables use identical district lists (filtered by PPE data availability)
-            cohorts = get_western_cohort_districts(df, reg)
-            cohort_key = bucket.upper().replace("-", "-")  # Convert "tiny" to "TINY", "x-large" to "X-LARGE"
+            cohort_key = bucket.upper().replace("-", "-")  # Convert "tiny" to "TINY", etc.
             bucket_districts = cohorts.get(cohort_key, [])
 
-            if not bucket_districts:
-                continue  # Skip if no districts in this enrollment group
+            if bucket_districts:
+                nss_west, enroll_west, foundation_west = prepare_aggregate_nss_ch70_weighted(df, c70, bucket_districts)
+                if not nss_west.empty:
+                    latest_year_nss = int(nss_west.index.max())
+                    cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_west, latest_year_nss)
+                    fte_rows_nss, fte_map_nss, latest_fte_year_nss = _build_nss_fte_data(foundation_west, latest_year_nss)
 
-            nss_west, enroll_west, foundation_west = prepare_aggregate_nss_ch70_weighted(df, c70, bucket_districts)
-            if not nss_west.empty:
-                latest_year_nss = int(nss_west.index.max())
-                cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_west, latest_year_nss)
-                fte_rows_nss, fte_map_nss, latest_fte_year_nss = _build_nss_fte_data(foundation_west, latest_year_nss)
+                    # Build Western MA baseline for NSS/Ch70 (shared across all cohorts)
+                    western_nss_baseline = _build_western_ma_nss_baseline(df, reg, c70, latest_year_nss, exclude_springfield=True)
 
-                # Build Western MA baseline for NSS/Ch70 (shared across all cohorts)
-                # Calculate once and reuse - this will be the same for all cohort pages
-                western_nss_baseline = _build_western_ma_nss_baseline(df, reg, c70, latest_year_nss, exclude_springfield=True)
+                    safe_name = f"Western_MA_{bucket}"
+                    pages.append(dict(
+                        title=f"Section 2 — Western MA cohort details",
+                        subtitle=f"{cohort_label} — Chapter 70 Aid and Net School Spending (NSS).",
+                        chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
+                        latest_year=latest_year_nss,
+                        cat_rows=cat_rows_nss,
+                        cat_total=cat_total_nss,
+                        cat_start_map=cat_start_map_nss,
+                        fte_rows=fte_rows_nss,
+                        fte_series_map=fte_map_nss,
+                        latest_year_fte=latest_fte_year_nss,
+                        page_type="nss_ch70",
+                        baseline_title="All Western MA (excluding Springfield)",
+                        baseline_map=western_nss_baseline,
+                        fte_baseline_map=western_nss_baseline if "Foundation Enrollment" in western_nss_baseline else {},
+                        dist_name=title,
+                        raw_nss=nss_west,  # Store for Appendix C data tables
+                        district_list_text=district_list_text  # Add district list text below enrollment table
+                    ))
 
-                safe_name = f"Western_MA_{bucket}"
-                pages.append(dict(
-                    title=title,
-                    subtitle="Chapter 70 Aid and Net School Spending (NSS). Weighted avg funding per district: State aid (Ch70), Required local contribution, and Actual spending above requirement. Funding component table shaded by comparison to weighted average of all Western MA (excluding Springfield)",
-                    chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
-                    latest_year=latest_year_nss,
-                    cat_rows=cat_rows_nss,
-                    cat_total=cat_total_nss,
-                    cat_start_map=cat_start_map_nss,
-                    fte_rows=fte_rows_nss,
-                    fte_series_map=fte_map_nss,
-                    latest_year_fte=latest_fte_year_nss,
-                    page_type="nss_ch70",
-                    baseline_title="All Western MA (excluding Springfield)",
-                    baseline_map=western_nss_baseline,
-                    fte_baseline_map=western_nss_baseline if "Foundation Enrollment" in western_nss_baseline else {},
-                    dist_name=title,
-                    raw_nss=nss_west  # Store for Appendix A data tables
-                ))
-
-    # ===== SECTION 2: INDIVIDUAL DISTRICTS =====
+    # ===== SECTION 3: SPECIFIC DISTRICTS COMPARED TO COHORTS =====
 
     # Pre-compute Western district lists for NSS/Ch70 baseline computation (6 enrollment groups)
     # Use centralized cohort function to ensure consistency with plots (filters by PPE data availability)
@@ -2097,7 +2214,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     western_small = cohorts_for_baseline.get("SMALL", [])
     western_medium = cohorts_for_baseline.get("MEDIUM", [])
     western_large = cohorts_for_baseline.get("LARGE", [])
-    western_xlarge = cohorts_for_baseline.get("X-LARGE", [])
     western_springfield = cohorts_for_baseline.get("SPRINGFIELD", [])
 
     # DISTRICT PAGES - Three pages per district (simple + detailed vs Western + detailed vs Peers)
@@ -2110,16 +2226,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         # Create section_id from district name (lowercase, replace spaces with underscores)
         section_id = dist.lower().replace(" ", "_").replace("-", "_")
 
-        # Simple version (solid color, no tables)
-        pages.append(dict(
-            title=dist_title,
-            subtitle="PPE vs Enrollment",
-            chart_path=str(district_png_simple(dist)),
-            graph_only=True,
-            section_id=section_id
-        ))
-
-        # Detailed version with tables
+        # Detailed version with tables (CR1: removed simple version)
         latest_year = get_latest_year(df, epp)
         context = context_for_district(df, dist)
 
@@ -2132,7 +2239,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             "SMALL": ("small", get_cohort_2024_label("SMALL")),
             "MEDIUM": ("medium", get_cohort_2024_label("MEDIUM")),
             "LARGE": ("large", get_cohort_2024_label("LARGE")),
-            "X-LARGE": ("x-large", get_cohort_2024_label("X-LARGE")),
             "SPRINGFIELD": ("springfield", get_cohort_2024_label("SPRINGFIELD"))
         }
         bucket, bucket_label = bucket_map.get(context, ("tiny", get_cohort_2024_label("TINY")))
@@ -2178,15 +2284,16 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     }
 
         pages.append(dict(
-            title=dist_title,
-            subtitle=f"PPE vs Enrollment. Per-pupil expenditures stacked by expense category, expense category table shaded by comparison to weighted average of Western MA {bucket_label}",
+            title="Section 3 — Specific districts",
+            subtitle=f"{dist_title} — PPE vs Enrollment",
             chart_path=str(district_png_detail(dist)),
             latest_year=latest_year, latest_year_fte=latest_fte_year,
             cat_rows=rows, cat_total=total, cat_start_map=start_map, fte_rows=fte_rows,
             fte_series_map=fte_map,
             page_type="district", baseline_title=base_title, baseline_map=base_map,
             fte_baseline_map=fte_base_map,
-            raw_epp=epp, raw_lines=lines, dist_name=dist
+            raw_epp=epp, raw_lines=lines, dist_name=dist,
+            section_id=section_id
         ))
 
         # District NSS/Ch70 page (grouped with this district)
@@ -2207,7 +2314,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     "SMALL": (western_small, get_cohort_label("SMALL")),
                     "MEDIUM": (western_medium, get_cohort_label("MEDIUM")),
                     "LARGE": (western_large, get_cohort_label("LARGE")),
-                    "X-LARGE": (western_xlarge, get_cohort_label("X-LARGE")),
                     "SPRINGFIELD": (western_springfield, get_cohort_label("SPRINGFIELD"))
                 }
                 western_dists, group_label = group_map.get(group, (western_tiny, get_cohort_label("TINY")))
@@ -2226,8 +2332,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                 safe_name = make_safe_filename(dist)
 
                 pages.append(dict(
-                    title=dist_title,
-                    subtitle=f"Chapter 70 Aid, Net School Spending (NSS), and Foundation Enrollment. Funding component table shaded by comparison to weighted average of Western MA {group_label}",
+                    title="Section 3 — Specific districts",
+                    subtitle=f"{dist_title} — Chapter 70 Aid, Net School Spending (NSS), and Foundation Enrollment",
                     chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
                     latest_year=latest_year_nss,
                     cat_rows=cat_rows_nss,
@@ -2255,7 +2361,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     western_small = cohorts_for_methodology.get("SMALL", [])
     western_medium = cohorts_for_methodology.get("MEDIUM", [])
     western_large = cohorts_for_methodology.get("LARGE", [])
-    western_xlarge = cohorts_for_methodology.get("X-LARGE", [])
     western_springfield = cohorts_for_methodology.get("SPRINGFIELD", [])
 
     # Build cohort info placeholders for methodology text
@@ -2315,22 +2420,17 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
     methodology_page4 = report_text.get("METHODOLOGY_DATA_SOURCES", [])
 
-    # Add Threshold Analysis as first page of Appendix A
-    threshold_page = build_threshold_analysis_page()
-    threshold_page["title"] = "Appendix A. Data Sources & Calculation Methodology"
-    threshold_page["subtitle"] = "Threshold Analysis: Statistical Rationale for 5% / 1pp Shading Thresholds"
-    threshold_page["section_id"] = "appendix_a"
-    pages.append(threshold_page)
-
+    # Appendix A - Page 1: Data Sources
     pages.append(dict(
-        title="Appendix A. Data Sources & Calculation Methodology (continued)",
+        title="Appendix A. Data Sources & Calculation Methodology",
         subtitle="",
         chart_path=None,
         graph_only=True,
-        text_blocks=methodology_page4
+        text_blocks=methodology_page4,
+        section_id="appendix_a"
     ))
 
-    # Add second methodology page (formulas and district memberships, now #2-4)
+    # Appendix A - Page 2: PPE Definition, CAGR, YoY, Enrollment-Based Cohorts
     pages.append(dict(
         title="Appendix A. Data Sources & Calculation Methodology (continued)",
         subtitle="",
@@ -2339,7 +2439,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         text_blocks=methodology_page1
     ))
 
-    # Add third methodology page (continuation)
+    # Appendix A - Page 3: Orange/Blue Shading Logic
     pages.append(dict(
         title="Appendix A. Data Sources & Calculation Methodology (continued)",
         subtitle="",
@@ -2348,7 +2448,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         text_blocks=methodology_page2
     ))
 
-    # Add fourth methodology page (NSS/Ch70)
+    # Appendix A - Page 4: Chapter 70 Aid and Net School Spending (NSS)
     pages.append(dict(
         title="Appendix A. Data Sources & Calculation Methodology (continued)",
         subtitle="",
@@ -2357,12 +2457,18 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         text_blocks=methodology_page3
     ))
 
+    # Appendix A - Page 5: Threshold Analysis (moved to end)
+    threshold_page = build_threshold_analysis_page()
+    threshold_page["title"] = "Appendix A. Data Sources & Calculation Methodology (continued)"
+    threshold_page["subtitle"] = "Rationale for 5% / 1pp Shading Thresholds"
+    pages.append(threshold_page)
+
     # ===== APPENDIX B: CALCULATIONS AND EXAMPLES (Combined B & C) =====
     # This appendix combines "Complete Calculations" (ordered by figures/tables)
     # with "Detailed Examples" for specific cases
 
     appendix_b_examples_content = []  # Will hold detailed examples from file
-    appendix_b_path = Path("appendix_c_text.txt")  # File still called appendix_c_text.txt
+    appendix_b_path = Path("appendix_b_text.txt")
     if appendix_b_path.exists():
         # Read and parse detailed examples content - split by "====" section markers
         appendix_b_full = appendix_b_path.read_text(encoding='utf-8')
@@ -2534,8 +2640,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "- TINY: 0 - Q1 (25th percentile)",
         "- SMALL: Q1 - Q2 (median)",
         "- MEDIUM: Q2 - Q3 (75th percentile)",
-        "- LARGE: Q3 - P90 (90th percentile)",
-        "- X-LARGE: P90 - 10,000 FTE",
+        "- LARGE: Q3 - 10,000 FTE",
         "- SPRINGFIELD: > 10,000 FTE (outlier district)",
         "",
         "<b>Calculation Steps (FY2024):</b>",
@@ -2561,8 +2666,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "   - TINY: 0-200 FTE (13 districts)",
         "   - SMALL: 201-500 FTE (16 districts)",
         "   - MEDIUM: 501-1,600 FTE (15 districts)",
-        "   - LARGE: 1,601-4,000 FTE (9 districts)",
-        "   - X-LARGE: 4,001-10,000 FTE (5 districts)",
+        "   - LARGE: 1,601-10,000 FTE (14 districts)",
         "   - SPRINGFIELD: >10,000 FTE (1 district: 24,567.8 FTE)",
         "",
         "<b>Note:</b> For historical data, cohorts are calculated year-by-year using that year's enrollment distribution.",
@@ -2832,22 +2936,96 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
         pages.append(page_dict)
 
+    # ===== APPENDIX D: ADDITIONAL VISUALIZATIONS =====
+    # Multi-year scatterplots and choropleth maps (2019, 2014, 2009)
+
+    # Generic explanations for multi-year visualizations
+    scatterplot_generic = (
+        "This scatterplot shows the relationship between district enrollment (x-axis) and per-pupil "
+        "expenditure (y-axis) for Western Massachusetts traditional districts in {year}. Each point represents "
+        "one district, colored by enrollment cohort. Horizontal lines show quartile boundaries used to define cohorts."
+    )
+
+    choropleth_generic = report_text.get("SECTION1_CHOROPLETH_EXPLANATION", [
+        "This map situates the districts within their geographic context in Western Massachusetts."
+    ])[0]  # Get first paragraph from list
+
+    appendix_d_intro = [
+        "This appendix contains historical scatterplots and geographic maps showing the evolution of district "
+        "enrollment and per-pupil expenditures over time. These visualizations provide context for understanding "
+        "how enrollment patterns and spending levels have shifted across Western Massachusetts districts from 2009 to 2024."
+    ]
+
+    # Add Appendix D pages for years 2019, 2014, 2009
+    for idx, year in enumerate([2019, 2014, 2009]):
+        # First page of Appendix D gets the intro text
+        if idx == 0:
+            pages.append(dict(
+                title="Appendix D. Additional Visualizations",
+                subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({year})",
+                chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
+                text_blocks=appendix_d_intro + [scatterplot_generic.format(year=year)],
+                graph_only=True,
+                section_id="appendix_d"
+            ))
+        else:
+            pages.append(dict(
+                title="Appendix D. Additional Visualizations (continued)",
+                subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({year})",
+                chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
+                text_blocks=[scatterplot_generic.format(year=year)],
+                graph_only=True
+            ))
+
+        # Add choropleth map for this year
+        pages.append(dict(
+            title="Appendix D. Additional Visualizations (continued)",
+            subtitle=f"Geographic map showing district locations and enrollment cohorts ({year})",
+            chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{year}.png"),
+            text_blocks=[choropleth_generic],
+            graph_only=True
+        ))
+
     return pages
 
 # ---- Table of Contents ----
 def build_toc_page():
-    """Build table of contents page dict."""
+    """Build table of contents page dict with hierarchical structure."""
+    # Hierarchical TOC entries: (title, section_id, indent_level)
+    # indent_level: 0=main section, 1=sub-section, 2=sub-sub-section
     toc_entries = [
-        ("Executive Summary", "executive_summary"),
-        ("Section 1: Western MA", "section1_western"),
-        ("Section 2: Amherst-Pelham Regional", "amherst_pelham"),
-        ("Section 2: Amherst", "amherst"),
-        ("Section 2: Leverett", "leverett"),
-        ("Section 2: Pelham", "pelham"),
-        ("Section 2: Shutesbury", "shutesbury"),
-        ("Appendix A. Data Sources & Calculation Methodology", "appendix_a"),
-        ("Appendix B. Calculations and Examples", "appendix_b"),
-        ("Appendix C. Data Tables", "appendix_c"),
+        ("Executive Summary", "executive_summary", 0),
+        ("    Total PPE comparison: Western MA enrollment cohorts and selected districts", "exec_summary_cohort_comparison", 1),
+        ("    Per-pupil expenditure and recent growth overview: 2019 PPE to 2024 PPE", "exec_summary_scatter", 1),
+        ("    Statistical Associations", "exec_summary_statistical", 1),
+
+        ("Section 1: Western MA Traditional District Trends", "section1_summary", 0),
+        ("    Year-over-Year (YoY) growth rates by district and cohort", "section1_yoy", 1),
+        ("    5-year and 15-year CAGR by district and cohort", "section1_cagr", 1),
+        ("    Distribution of 2024 enrollment and proposed cohort grouping", "section1_distribution", 1),
+        ("    Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries (2024)", "section1_scatter", 1),
+        ("    Geographic map showing district locations and enrollment cohorts (2024)", "section1_map", 1),
+
+        ("Section 2: Western MA Cohort Details", "section2_tiny", 0),
+        ("    Tiny Cohort (0-200 FTE)", "section2_tiny", 1),
+        ("    Small Cohort (201-800 FTE)", "section2_small", 1),
+        ("    Medium Cohort (801-1600 FTE)", "section2_medium", 1),
+        ("    Large Cohort (1601-10000 FTE)", "section2_large", 1),
+        ("    Springfield Cohort (>10000 FTE)", "section2_springfield", 1),
+        ("", None, -1),  # Extra spacing before Section 3
+
+        ("Section 3: Selected Districts Compared to Cohorts", "amherst_pelham", 0),
+        ("    Amherst-Pelham Regional", "amherst_pelham", 1),
+        ("    Amherst", "amherst", 1),
+        ("    Leverett", "leverett", 1),
+        ("    Pelham", "pelham", 1),
+        ("    Shutesbury", "shutesbury", 1),
+
+        ("Appendices", None, 0),
+        ("    Appendix A: Data Sources & Calculation Methodology", "appendix_a", 1),
+        ("    Appendix B: Calculations and Examples", "appendix_b", 1),
+        ("    Appendix C: Data Tables", "appendix_c", 1),
+        ("    Appendix D: Additional Visualizations", "appendix_d", 1),
     ]
 
     return dict(
@@ -2855,7 +3033,9 @@ def build_toc_page():
         subtitle="",
         chart_path=None,
         page_type="toc",
-        toc_entries=toc_entries
+        toc_entries=toc_entries,
+        report_title="Western MA Per Pupil Spending Report",
+        report_subtitle="With selected districts for comparison"
     )
 
 # ---- Build PDF ----
@@ -2867,9 +3047,13 @@ def build_pdf(pages: List[dict], out_path: Path):
         leftMargin=0.5*inch, rightMargin=0.5*inch, topMargin=0.5*inch, bottomMargin=0.5*inch)
 
     story: List = []
+    first_cohort_table_num = None  # Track first cohort table number for substitution
     for idx, p in enumerate(pages):
         # Handle threshold analysis page
         if p.get("threshold_analysis"):
+            # Add page marker for TOC page numbering
+            if p.get("section_id"):
+                story.append(PageMarker(p["section_id"]))
             # Add anchor if section_id is present (for TOC linking)
             title = p["title"]
             if p.get("section_id"):
@@ -2903,16 +3087,138 @@ def build_pdf(pages: List[dict], out_path: Path):
 
         # Handle TOC page
         if p.get("page_type") == "toc":
+            # Add report title and subtitle if present
+            if p.get("report_title"):
+                # Create centered style for report title
+                report_title_style = ParagraphStyle(
+                    'ReportTitle',
+                    parent=style_title_main,
+                    fontSize=18,
+                    alignment=TA_CENTER,
+                    spaceAfter=6
+                )
+                story.append(Paragraph(f"<b>{p['report_title']}</b>", report_title_style))
+
+            if p.get("report_subtitle"):
+                # Create centered style for report subtitle
+                report_subtitle_style = ParagraphStyle(
+                    'ReportSubtitle',
+                    parent=style_title_sub,
+                    fontSize=12,
+                    alignment=TA_CENTER,
+                    spaceAfter=18
+                )
+                story.append(Paragraph(p["report_subtitle"], report_subtitle_style))
+
             story.append(Paragraph(p["title"], style_title_main))
             story.append(Spacer(0, 12))
 
-            # Build TOC entries as clickable links
+            # Build hierarchical TOC entries with indentation (CR3: improved spacing and indentation)
             toc_entries = p.get("toc_entries", [])
-            for entry_title, entry_id in toc_entries:
-                # Create clickable link to section
-                link_text = f'<a href="#{entry_id}" color="blue">{entry_title}</a>'
-                story.append(Paragraph(link_text, style_body))
-                story.append(Spacer(0, 8))
+            for idx_entry, entry in enumerate(toc_entries):
+                # Handle both old format (title, section_id) and new format (title, section_id, indent_level)
+                if len(entry) == 2:
+                    entry_title, entry_id = entry
+                    indent_level = 0
+                else:
+                    entry_title, entry_id, indent_level = entry
+
+                # Add extra spacing before "Appendices" section (CR3)
+                if entry_title == "Appendices":
+                    story.append(Spacer(0, 18))
+
+                # Apply indentation based on level
+                if indent_level == 0:
+                    # Main section - bold, add spacing between main sections (CR3)
+                    page_num = get_page_number(entry_id) if entry_id else None
+                    if entry_id:
+                        if page_num:
+                            link_text = f'<b><a href="#{entry_id}" color="blue">{entry_title}</a> ........ {page_num}</b>'
+                        else:
+                            link_text = f'<b><a href="#{entry_id}" color="blue">{entry_title}</a></b>'
+                    else:
+                        link_text = f'<b>{entry_title}</b>'
+                    story.append(Paragraph(link_text, style_body))
+                    story.append(Spacer(0, 14))  # Increased from 10
+                elif indent_level == 1:
+                    # Sub-section - indented with visual indent (CR3)
+                    page_num = get_page_number(entry_id) if entry_id else None
+                    if entry_id:
+                        if page_num:
+                            link_text = f'<a href="#{entry_id}" color="blue">{entry_title}</a> ........ {page_num}'
+                        else:
+                            link_text = f'<a href="#{entry_id}" color="blue">{entry_title}</a>'
+                    else:
+                        link_text = entry_title
+                    # Create indented paragraph style
+                    from reportlab.lib.styles import ParagraphStyle
+                    indented_style = ParagraphStyle('indented', parent=style_body, leftIndent=20)
+                    story.append(Paragraph(link_text, indented_style))
+                    story.append(Spacer(0, 6))
+                else:
+                    # Sub-sub-section - more indented, smaller font
+                    if entry_id:
+                        link_text = f'<font size="9"><a href="#{entry_id}" color="blue">{entry_title}</a></font>'
+                    else:
+                        link_text = f'<font size="9">{entry_title}</font>'
+                    from reportlab.lib.styles import ParagraphStyle
+                    more_indented_style = ParagraphStyle('more_indented', parent=style_body, leftIndent=40)
+                    story.append(Paragraph(link_text, more_indented_style))
+                    story.append(Spacer(0, 4))
+
+            if idx < len(pages)-1:
+                story.append(PageBreak())
+            continue
+
+        # Handle text-only pages (e.g., executive summary introduction)
+        if p.get("text_only_page"):
+            # Add page marker for TOC page numbering
+            if p.get("section_id"):
+                story.append(PageMarker(p["section_id"]))
+            title = p["title"]
+            if p.get("section_id"):
+                title = f'<a name="{p["section_id"]}"/>{title}'
+            story.append(Paragraph(title, style_title_main))
+            if p.get("subtitle"):
+                story.append(Paragraph(p["subtitle"], style_title_sub))
+            story.append(Spacer(0, 12))
+
+            # Add text blocks (CR4: handle boxed text sections)
+            text_blocks = p.get("text_blocks", [])
+            in_box = False
+            boxed_content = []
+
+            for block in text_blocks:
+                if block == "__BOXED_START__":
+                    in_box = True
+                    continue
+                elif block == "__BOXED_END__":
+                    # Render accumulated boxed content in a table with a border
+                    if boxed_content:
+                        # Create paragraphs for each boxed text block
+                        boxed_paragraphs = [Paragraph(b, style_body) for b in boxed_content]
+                        # Create a table with a single cell containing all paragraphs
+                        boxed_table_data = [[boxed_paragraphs]]
+                        boxed_table = Table(boxed_table_data, colWidths=[doc.width])
+                        boxed_table.setStyle(TableStyle([
+                            ('BOX', (0, 0), (-1, -1), 1, colors.grey),
+                            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+                            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+                            ('TOPPADDING', (0, 0), (-1, -1), 12),
+                            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ]))
+                        story.append(boxed_table)
+                        story.append(Spacer(0, 12))
+                        boxed_content = []
+                    in_box = False
+                    continue
+
+                if in_box:
+                    boxed_content.append(block)
+                else:
+                    story.append(Paragraph(block, style_body))
+                    story.append(Spacer(0, 6))
 
             if idx < len(pages)-1:
                 story.append(PageBreak())
@@ -2920,6 +3226,9 @@ def build_pdf(pages: List[dict], out_path: Path):
 
         # Handle executive summary cohort table pages (summary_table without threshold_analysis)
         if p.get("summary_table") and not p.get("threshold_analysis"):
+            # Add page marker for TOC page numbering
+            if p.get("section_id"):
+                story.append(PageMarker(p["section_id"]))
             # Add title (unless omit_title flag is set) and subtitle
             if not p.get("omit_title"):
                 title = p["title"]
@@ -2940,16 +3249,20 @@ def build_pdf(pages: List[dict], out_path: Path):
                 cagr_def = "CAGR = (End/Start)^(1/years) − 1"
                 legend_data = [
                     [Paragraph(shade_rule, style_legend_right), "", "", "", Paragraph("Above baseline", style_legend_center), ""],
+                    ["", "", "", "", Paragraph("Baseline", style_legend_center), ""],
                     [Paragraph(cagr_def, style_legend_right), "", "", "", Paragraph("Below baseline", style_legend_center), ""],
                 ]
                 legend_table = Table(legend_data, colWidths=[2.4*inch, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch])
                 legend_style = TableStyle([
                     ('SPAN', (0, 0), (3, 0)),  # Merge first 4 columns for shade rule text
-                    ('SPAN', (0, 1), (3, 1)),  # Merge first 4 columns for CAGR def text
+                    ('SPAN', (0, 1), (3, 1)),  # Merge first 4 columns for row 2 (empty)
+                    ('SPAN', (0, 2), (3, 2)),  # Merge first 4 columns for CAGR def text
                     ('SPAN', (4, 0), (5, 0)),  # Merge last 2 columns for "Above baseline"
-                    ('SPAN', (4, 1), (5, 1)),  # Merge last 2 columns for "Below baseline"
+                    ('SPAN', (4, 1), (5, 1)),  # Merge last 2 columns for "Baseline"
+                    ('SPAN', (4, 2), (5, 2)),  # Merge last 2 columns for "Below baseline"
                     ('BACKGROUND', (4, 0), (5, 0), HexColor(ABOVE_SHADES[2])),  # Orange swatch
-                    ('BACKGROUND', (4, 1), (5, 1), HexColor(BELOW_SHADES[2])),  # Blue swatch
+                    ('BACKGROUND', (4, 1), (5, 1), HexColor(BASELINE_YELLOW)),  # Yellow swatch
+                    ('BACKGROUND', (4, 2), (5, 2), HexColor(BELOW_SHADES[2])),  # Blue swatch
                     ('LEFTPADDING', (0,0), (-1,-1), 4),
                     ('RIGHTPADDING', (0,0), (-1,-1), 4),
                     ('TOPPADDING', (0,0), (-1,-1), 2),
@@ -2961,6 +3274,11 @@ def build_pdf(pages: List[dict], out_path: Path):
 
             # Add table with Table number
             table_num = next_table_number()
+
+            # Track first table number for cohort tables (for later substitution)
+            if p.get("first_cohort_table"):
+                first_cohort_table_num = table_num
+
             story.append(Paragraph(f"<i>Table {table_num}</i>", style_table_num))
             story.append(Spacer(0, 3))
             story.append(p["summary_table"])
@@ -2968,6 +3286,20 @@ def build_pdf(pages: List[dict], out_path: Path):
 
             # Add explanation blocks
             explanation_blocks = p.get("explanation_blocks", [])
+
+            # Handle table number substitution if needed
+            if p.get("needs_table_num_substitution") and explanation_blocks:
+                # Replace {N}, {N+1}, {N+2} with actual table numbers
+                # Use the first_cohort_table_num we tracked earlier
+                substituted_blocks = []
+                for block in explanation_blocks:
+                    # Replace placeholders with actual table numbers
+                    block = block.replace("{N}", str(first_cohort_table_num))
+                    block = block.replace("{N+1}", str(first_cohort_table_num + 1))
+                    block = block.replace("{N+2}", str(first_cohort_table_num + 2))
+                    substituted_blocks.append(block)
+                explanation_blocks = substituted_blocks
+
             for block in explanation_blocks:
                 story.append(Paragraph(block, style_body))
                 story.append(Spacer(0, 6))
@@ -2984,6 +3316,7 @@ def build_pdf(pages: List[dict], out_path: Path):
             appendix_title = p["appendix_title"]
             # Add anchor if this page has a section_id
             if p.get("section_id"):
+                story.append(PageMarker(p["section_id"]))
                 appendix_title = f'<a name="{p["section_id"]}"/>{appendix_title}'
             story.append(Paragraph(appendix_title, style_title_main))
             if p.get("appendix_subtitle"):
@@ -2996,10 +3329,15 @@ def build_pdf(pages: List[dict], out_path: Path):
         # Add section anchor to title if present
         title_text = p["title"]
         if p.get("section_id"):
+            story.append(PageMarker(p["section_id"]))
             title_text = f'<a name="{p["section_id"]}"/>{title_text}'
         story.append(Paragraph(title_text, style_title_main))
+
+        # Only add subtitle if it's not empty
         default_sub = "PPE vs Enrollment"
-        story.append(Paragraph(p.get("subtitle", (default_sub if not p.get("graph_only") else "")), style_title_sub))
+        subtitle = p.get("subtitle", (default_sub if not p.get("graph_only") else ""))
+        if subtitle:
+            story.append(Paragraph(subtitle, style_title_sub))
 
         # Handle single chart or multiple charts
         chart_path = p.get("chart_path")
@@ -3127,8 +3465,8 @@ def build_pdf(pages: List[dict], out_path: Path):
             if text_blocks:
                 story.append(Spacer(0, 12))
 
-                # Use 12pt font for Appendix B (detailed examples), 9pt for others
-                text_style = style_body_12pt if p.get("appendix_b") else style_body
+                # Use 9pt font for all appendices (consistent sizing)
+                text_style = style_body
 
                 # Build paragraphs for text content
                 text_content = []
@@ -3242,6 +3580,14 @@ def build_pdf(pages: List[dict], out_path: Path):
             story.append(_build_fte_table(p))
             story.append(Spacer(0, 6))
 
+            # Add district list text if provided (for Section 2 cohort pages)
+            if p.get("district_list_text"):
+                for text_block in p["district_list_text"]:
+                    if text_block.strip():  # Skip empty lines
+                        story.append(Paragraph(text_block, style_body))
+                    else:
+                        story.append(Spacer(0, 6))
+
             if idx < len(pages)-1:
                 story.append(PageBreak())
             continue
@@ -3283,7 +3629,28 @@ def main():
     toc_page = build_toc_page()
     pages.insert(0, toc_page)
 
-    build_pdf(pages, OUTPUT_DIR / "expenditures_series.pdf")
+    # Two-pass PDF generation to populate TOC with page numbers
+    # Pass 1: Build PDF to capture page numbers in _PAGE_MAP
+    print("[INFO] Pass 1: Building PDF to capture page numbers...")
+    clear_page_map()
+    temp_pdf = OUTPUT_DIR / "expenditures_series_temp.pdf"
+    build_pdf(pages, temp_pdf)
+
+    # Pass 2: Rebuild PDF with populated page numbers in TOC
+    print(f"[INFO] Pass 2: Rebuilding PDF with page numbers ({len(_PAGE_MAP)} sections tracked)...")
+    final_pdf = OUTPUT_DIR / "expenditures_series.pdf"
+
+    try:
+        build_pdf(pages, final_pdf)
+        # Clean up temporary file on success
+        if temp_pdf.exists():
+            temp_pdf.unlink()
+        print(f"[SUCCESS] PDF generated: {final_pdf}")
+    except PermissionError as e:
+        print(f"[ERROR] Cannot write to {final_pdf}: file is locked (probably open in PDF viewer)")
+        print(f"[INFO] Temporary PDF with page numbers is available at: {temp_pdf}")
+        print("[INFO] Please close the PDF viewer and run the script again, or manually rename the temp file.")
+        raise
 
 if __name__ == "__main__":
     main()
