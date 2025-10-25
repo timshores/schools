@@ -370,6 +370,27 @@
 
 ---
 
+## 2025-10-25 - HTML Tag Fix
+
+### Bug Fixes
+
+**Malformed HTML tags in report_text.txt:**
+- **Issue:** PDF composition failed with multiple reportlab HTML parser errors:
+  1. `ValueError: Parse error: saw </i> instead of expected </para>` (line 141)
+  2. `ValueError: Parse error: saw </b> instead of expected </para>` (line 378)
+  3. Mismatched bold tag on line 381
+- **Root Causes:**
+  1. Line 141 had a closing `</i>` tag at the beginning without a matching opening `<i>` tag
+  2. Line 378 had an extra `</b>` tag after the `##H1` heading (heading syntax already adds bold)
+  3. Line 381 had `<b>` at the end instead of `</b>`
+- **Fixes:**
+  - `report_text.txt` line 141: Changed `</i>Note: ...` to `<i>Note: ...`
+  - `report_text.txt` line 378: Removed extra `</b>` tag from H1 heading
+  - `report_text.txt` line 381: Changed closing `<b>` to `</b>`
+- **Result:** All HTML tags are now properly formed and reportlab can parse them correctly
+
+---
+
 ## 2025-10-24 - Report Navigation Improvements (CR 1004)
 
 ### Completed Change Requests
@@ -461,3 +482,168 @@
 - Generate full PDF and verify cohort distribution tables appear in STATISTICAL_ASSOCIATIONS section
 - Verify mini boxplots use correct cohort colors and display five-number summaries accurately
 - Verify table formatting (currency for PPE, percentage for CAGR)
+
+---
+
+## 2025-10-25 - Multiple Report Improvements and Comment Syntax
+
+### Completed Changes
+
+**Text File Comment and Heading Syntax (New Features)**
+- Added support for commenting out content in report_text.txt and appendix_a_text.txt without deleting it
+- Two comment syntaxes available:
+  - **Single-line comments**: `##COMMENT This line is hidden`
+  - **Multi-line block comments**:
+    ```
+    ##BEGIN_COMMENT
+    Multiple lines
+    can be hidden
+    ##END_COMMENT
+    ```
+- Added support for custom heading syntax:
+  - **H1 (large heading)**: `##H1 Heading Text` (13pt bold, 12pt space before, 6pt after)
+  - **H2 (medium heading)**: `##H2 Heading Text` (11pt bold, 10pt space before, 4pt after)
+  - **H3 (small heading)**: `##H3 Heading Text` (10pt bold, 8pt space before, 3pt after)
+- Comment and heading markers must be on their own line (leading/trailing whitespace OK)
+- Headings work both inside and outside boxed sections
+- **Files Modified:**
+  - `compose_pdf.py` lines 336-393: Added comment filtering and heading parsing logic to `load_report_text_sections()`
+  - `compose_pdf.py` lines 395-423: Updated paragraph building to handle heading tuples
+  - `compose_pdf.py` lines 188-191: Added heading paragraph styles (style_h1, style_h2, style_h3)
+  - `compose_pdf.py` lines 3843-3852: Added heading rendering in main text flow
+  - `compose_pdf.py` lines 3802-3816: Added heading rendering in boxed sections
+  - `compose_pdf.py` lines 434-460: Updated `fill_text_placeholders()` to handle heading tuples
+  - `compose_pdf.py` lines 311-325: Updated docstring with comment and heading syntax documentation
+
+**Executive Summary Improvements**
+- Split EXECUTIVE_SUMMARY_QUICK_START section properly
+- Created new EXECUTIVE_SUMMARY_CONTEXT section for content after quick-start guide
+- Added space before Report Navigation box
+- **Files Modified:**
+  - `report_text.txt` lines 28-30: Added EXECUTIVE_SUMMARY_CONTEXT section delimiter
+  - `compose_pdf.py` lines 2052, 2081-2083: Load and render new context section with spacing
+
+**Statistical Associations Page**
+- Removed unnecessary page break between distribution tables and detailed results
+- All content now flows naturally on one page
+- **Files Modified:**
+  - `compose_pdf.py` lines 2298-2315: Simplified to single page with all content
+
+**Choropleth Map Improvements**
+- Changed secondary regional districts to transparent (no fill) with black borders only
+- Underlying elementary district colors now show through secondary regional boundaries
+- Secondary regional +/- indicators remain visible with black text
+- More muted colors for comparison maps (blue/orange less saturated)
+- Gray boundaries added to all districts for better visibility
+- **Files Modified:**
+  - `western_map.py` lines 602, 761: Changed to muted colors `#B3E0E6` and `#FFE6CC`
+  - `western_map.py` lines 613-648: Modified PPE comparison to filter out secondary regionals from color fills
+  - `western_map.py` lines 640-665: Added transparent secondary regional districts with black borders
+  - `western_map.py` lines 772-824: Same changes for CAGR comparison maps
+
+**Chapter 70/NSS Improvements**
+- Updated table headers to show "$/pupil" explicitly (2009 $/pupil and 2024 $/pupil)
+- Restored shading legend below NSS tables (was accidentally removed)
+- Changed NSS plot y-axis to 0-$30K to match PPE plot range
+- **Files Modified:**
+  - `compose_pdf.py` line 1301, 1305: Updated NSS table headers
+  - `compose_pdf.py` lines 1330-1467: Restored legend rows with shading rules and color swatches
+  - `nss_ch70_main.py` line 204: Changed `right_ylim=None` to `right_ylim=30000`
+
+**Appendix A Page Layout**
+- Combined METHODOLOGY_DATA_SOURCES and METHODOLOGY_PPE_DEFINITION onto one page
+- Removed unnecessary page break between "Regional Classifications" and "PPE Definition"
+- **Files Modified:**
+  - `compose_pdf.py` lines 2849-2857: Combined both sections into single page
+
+**Dynamic Date Variable**
+- Added {TODAY_DATE} placeholder that automatically displays current date when report is generated
+- Format: "October 25, 2025" (Month Day, Year)
+- Replaces hardcoded date in draft status line
+- Updates automatically with each report generation
+- **Files Modified:**
+  - `compose_pdf.py` line 20: Added `from datetime import datetime` import
+  - `compose_pdf.py` lines 2901-2904: Created today_date variable and added to placeholders dictionary
+  - `report_text.txt` line 110: Changed hardcoded date to {TODAY_DATE} placeholder
+- **Usage:** Any text file can now use {TODAY_DATE} to display current date in long format
+
+**CAGR Threshold Change (1.0pp → 0.5pp)**
+- Changed CAGR (growth rate) threshold from 1.0 percentage point to 0.5 percentage points
+- More sensitive threshold reflects compound growth impact over time
+- 0.5pp difference in annual growth = 11.5% more total growth over 15 years ($2,299/pupil)
+- **Files Modified:**
+  - `compose_pdf.py` line 137: Changed `MATERIAL_DELTA_PCTPTS = 0.01` to `0.005`
+  - `compose_pdf.py` line 144: Updated comment "0.5pp base"
+  - `compose_pdf.py` line 145: Changed `SHADE_BINS_CAGR = [0.01, 0.02, 0.03, 0.04]` to `[0.005, 0.01, 0.015, 0.02]`
+  - `compose_pdf.py` lines 2016-2150: Updated threshold analysis page function
+    - Function docstring: "5% / 0.5pp thresholds"
+    - Selected scenario: `("Selected (5%/0.5pp)", 0.05, 0.5, 0.22, 0.15, 0.70, ...)`
+    - All explanation text blocks updated to reflect 0.5pp
+    - Shading bins: "0.5pp (lightest), 1pp, 1.5pp, 2pp+ (darkest)"
+  - `compose_pdf.py` line 2969: Subtitle "5% / 0.5pp Shading Thresholds"
+  - `compose_pdf.py` lines 3223-3250: Updated Appendix B threshold calculation examples
+  - `western_map.py` line 757: Comment updated to "0.5pp threshold"
+  - `western_map.py` line 759: Changed `bins = [-100, -1, 1, 100]` to `[-100, -0.5, 0.5, 100]`
+  - `western_map.py` line 761: Comment "Within ±0.5pp"
+  - `western_map.py` line 762: Labels `[">0.5pp slower", "Within ±0.5pp", ">0.5pp faster"]`
+  - `western_map.py` line 864: Title "(±0.5pp threshold)"
+- **Result:** More granular CAGR shading in tables and choropleths, better captures long-term trajectory differences
+
+**New Appendix Section: Threshold Calibration**
+- Added METHODOLOGY_THRESHOLD_CALIBRATION section to Appendix A explaining threshold rationale
+- Content provided by user from Claude Chat collaboration
+- **Files Modified:**
+  - `appendix_a_text.txt` lines 129-158: New section between METHODOLOGY_SHADING_LOGIC and METHODOLOGY_NSS_CH70
+- **Content:**
+  - Explains why different metrics use different sensitivities (PPE 5%, Enrollment 5%, CAGR 0.5pp)
+  - Shows compound growth impact with concrete example ($20K PPE at 4.0% vs 4.5% over 15 years)
+  - Demonstrates policy significance ($689,700 additional spending for 300-student district)
+  - Provides statistical rationale (CV = 54% for CAGR vs 22.5% for PPE)
+- **Result:** Clear explanation of threshold calibration methodology accessible to non-technical readers
+
+**New Callout Box: CAGR Sensitivity Explanation**
+- Added boxed sidebar to Section 1 CAGR comparison map explanation
+- Simplified version of threshold calibration content for in-context reference
+- **Files Modified:**
+  - `report_text.txt` lines 361-371: Added __BOXED_START__/__BOXED_END__ section with ##H3 heading
+- **Content:**
+  - Shows compound growth example (4.0% vs 4.5% over 15 years)
+  - Calculates total impact ($2,299/pupil gap, $689,700 for 300-student district)
+  - Explains why 0.5pp threshold identifies meaningfully different trajectories
+- **Result:** Users see the rationale for sensitive CAGR threshold right where they encounter it
+
+**Documentation Updates**
+- Updated all references from "5%/1pp" to "5%/0.5pp" throughout codebase
+- **Files Modified:**
+  - `appendix_a_text.txt` line 127: Statistical rationale "5%/0.5pp thresholds"
+  - `appendix_a_text.txt` line 206: NSS/Ch70 shading "0.5pp CAGR threshold"
+  - `report_text.txt` line 242: Statistical rationale "5%/0.5pp thresholds"
+  - `report_text.txt` line 291: NSS/Ch70 shading "0.5pp CAGR threshold"
+  - `report_text.txt` lines 357-359: CAGR comparison color coding updated to reflect 0.5pp bins
+
+### Summary
+
+**Files Modified:**
+- `compose_pdf.py` (comment syntax, heading syntax, executive summary, statistical associations, NSS legend, appendix A layout, dynamic date variable, CAGR threshold changes throughout)
+- `report_text.txt` (split executive summary sections, added TODAY_DATE placeholder, updated CAGR references, added CAGR sensitivity callout box)
+- `appendix_a_text.txt` (added METHODOLOGY_THRESHOLD_CALIBRATION section, updated CAGR threshold references)
+- `western_map.py` (choropleth transparency and colors, CAGR threshold from 1pp to 0.5pp)
+- `nss_ch70_main.py` (plot y-axis range)
+
+**New Features:**
+- Comment syntax for text files allows temporarily hiding content without deletion (##COMMENT and ##BEGIN_COMMENT...##END_COMMENT)
+- Custom heading syntax (##H1, ##H2, ##H3) provides proper hierarchical heading styles in text files
+- Dynamic date variable ({TODAY_DATE}) automatically displays current date when report is generated
+- New METHODOLOGY_THRESHOLD_CALIBRATION appendix section explaining threshold sensitivity rationale
+- New callout box in Section 1 explaining why CAGR threshold is more sensitive (compound growth impact)
+
+**Impact:**
+- Better text file maintenance with comment and heading capabilities
+- Improved page layouts and flow throughout the document
+- Choropleth maps now properly show secondary regionals as transparent overlays
+- NSS tables and plots more consistent with PPE displays
+- Text content can now have proper hierarchical structure with styled headings
+- Report draft status date updates automatically with each generation
+- **More sensitive CAGR threshold (0.5pp vs 1pp) better captures long-term compound growth differences**
+- Enhanced documentation explaining threshold calibration for both technical and non-technical readers
+- Readers can understand why small growth rate differences matter when viewing CAGR comparison maps

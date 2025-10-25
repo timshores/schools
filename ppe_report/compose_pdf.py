@@ -17,6 +17,7 @@ Key Design Patterns:
 from __future__ import annotations
 
 import bisect, re
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 import numpy as np
@@ -133,15 +134,15 @@ def build_combined_fig_table_label(fig_num, table_num, doc_width, style_fig, sty
 # NOTE: Two independent tests determine cell shading in district comparison tables:
 # 1. CAGR Test: Compares district CAGR to baseline using ABSOLUTE percentage point difference
 #    Example: District 5.0% vs Baseline 3.0% = 2.0pp difference → shade if >= threshold
-MATERIAL_DELTA_PCTPTS = 0.01  # 1.0pp threshold for CAGR shading
+MATERIAL_DELTA_PCTPTS = 0.005  # 0.5pp threshold for CAGR shading
 
 # 2. Dollar Test: Compares district $/pupil to baseline using RELATIVE percent difference
 #    Example: District $20,000 vs Baseline $19,000 = +5.3% relative → shade if >= threshold
 DOLLAR_THRESHOLD_REL  = 0.05  # 5.0% threshold for dollar shading
 
 # Bins for shading intensity - separate bins for CAGR and dollar to match different thresholds
-# CAGR bins: 1pp base, increments of 1pp → [1pp, 2pp, 3pp, 4pp+]
-SHADE_BINS_CAGR = [0.01, 0.02, 0.03, 0.04]
+# CAGR bins: 0.5pp base, increments of 0.5pp → [0.5pp, 1pp, 1.5pp, 2pp+]
+SHADE_BINS_CAGR = [0.005, 0.01, 0.015, 0.02]
 # Dollar bins: 5% base, increments of 5% → [5%, 10%, 15%, 20%+]
 SHADE_BINS_DOLLAR = [0.05, 0.10, 0.15, 0.20]
 # Neutral comparison colors (not implying good/bad):
@@ -184,6 +185,11 @@ style_data_label = ParagraphStyle("data_label",  parent=styles["Normal"],  fontS
 style_figure_num = ParagraphStyle("figure_num",  parent=styles["Normal"],  fontSize=8,  leading=10, alignment=0, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Small, italic, left-aligned, light gray background
 style_table_num  = ParagraphStyle("table_num",   parent=styles["Normal"],  fontSize=8,  leading=10, alignment=2, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Small, italic, right-aligned, light gray background
 style_fig_table_num = ParagraphStyle("fig_table_num", parent=styles["Normal"], fontSize=8, leading=10, alignment=2, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Combined figure and table numbers
+
+# Heading styles for custom ##H1, ##H2, ##H3 syntax
+style_h1 = ParagraphStyle("h1", parent=styles["Normal"], fontSize=13, leading=16, fontName='Helvetica-Bold', spaceBefore=12, spaceAfter=6)
+style_h2 = ParagraphStyle("h2", parent=styles["Normal"], fontSize=11, leading=14, fontName='Helvetica-Bold', spaceBefore=10, spaceAfter=4)
+style_h3 = ParagraphStyle("h3", parent=styles["Normal"], fontSize=10, leading=13, fontName='Helvetica-Bold', spaceBefore=8, spaceAfter=3)
 
 NEG_COLOR        = HexColor("#3F51B5")
 style_num_neg    = ParagraphStyle("num_neg", parent=style_num, textColor=NEG_COLOR)
@@ -307,6 +313,22 @@ def load_report_text_sections(text_file: Path = None) -> dict:
         NEXT_SECTION
         ================================================================================
         ...
+
+    Comment Syntax (content will be omitted from PDF):
+        ##COMMENT Single line comment - this entire line is ignored
+
+        ##BEGIN_COMMENT
+        Multiple lines of content
+        can be commented out this way
+        without adding ##COMMENT to each line
+        ##END_COMMENT
+
+    Heading Syntax (will be rendered with appropriate styles):
+        ##H1 Large Heading Text
+        ##H2 Medium Heading Text
+        ##H3 Small Heading Text
+
+    Note: Comment and heading markers must be on their own line (leading/trailing whitespace OK)
     """
     if text_file is None:
         # Default to report_text.txt in the same directory as this script
@@ -333,19 +355,73 @@ def load_report_text_sections(text_file: Path = None) -> dict:
         section_name = match.group(1).strip()
         section_content = match.group(2).strip()
 
+        # Filter out comments and process headings
+        # Option 2: Single-line comments with ##COMMENT
+        # Option 3: Multi-line comments with ##BEGIN_COMMENT ... ##END_COMMENT
+        # Heading syntax: ##H1, ##H2, ##H3
+        filtered_lines = []
+        in_comment_block = False
+
+        for line in section_content.split('\n'):
+            line_stripped = line.strip()
+
+            # Check for multi-line comment markers
+            if line_stripped == "##BEGIN_COMMENT":
+                in_comment_block = True
+                continue
+            elif line_stripped == "##END_COMMENT":
+                in_comment_block = False
+                continue
+
+            # Skip lines inside comment blocks
+            if in_comment_block:
+                continue
+
+            # Skip single-line comments
+            if line_stripped.startswith("##COMMENT"):
+                continue
+
+            # Process heading markers - convert to tuple format
+            if line_stripped.startswith("##H1 "):
+                heading_text = line_stripped[5:].strip()
+                filtered_lines.append(("H1", heading_text))
+                continue
+            elif line_stripped.startswith("##H2 "):
+                heading_text = line_stripped[5:].strip()
+                filtered_lines.append(("H2", heading_text))
+                continue
+            elif line_stripped.startswith("##H3 "):
+                heading_text = line_stripped[5:].strip()
+                filtered_lines.append(("H3", heading_text))
+                continue
+
+            # Keep all other lines
+            filtered_lines.append(line)
+
         # Split content into paragraphs (empty lines separate paragraphs)
+        # Headings (tuples) are kept separate and not combined with surrounding text
         paragraphs = []
         current_para = []
 
-        for line in section_content.split('\n'):
-            line = line.rstrip()
-            if line == "":
+        for item in filtered_lines:
+            # Check if this is a heading tuple
+            if isinstance(item, tuple):
+                # Flush any accumulated paragraph text
                 if current_para:
                     paragraphs.append(" ".join(current_para))
                     current_para = []
-                # Don't add empty paragraphs - let the content control spacing
+                # Add heading as-is (tuple)
+                paragraphs.append(item)
             else:
-                current_para.append(line)
+                # Regular line - process as before
+                line = item.rstrip()
+                if line == "":
+                    if current_para:
+                        paragraphs.append(" ".join(current_para))
+                        current_para = []
+                    # Don't add empty paragraphs - let the content control spacing
+                else:
+                    current_para.append(line)
 
         # Add final paragraph if exists
         if current_para:
@@ -361,7 +437,7 @@ def fill_text_placeholders(paragraphs: list, replacements: dict) -> list:
     Replace placeholders in text with actual values.
 
     Args:
-        paragraphs: List of paragraph strings (may contain {PLACEHOLDER} markers)
+        paragraphs: List of paragraph strings or heading tuples (may contain {PLACEHOLDER} markers)
         replacements: Dict mapping placeholder names to replacement strings
 
     Returns:
@@ -369,10 +445,19 @@ def fill_text_placeholders(paragraphs: list, replacements: dict) -> list:
     """
     result = []
     for para in paragraphs:
-        filled = para
-        for placeholder, value in replacements.items():
-            filled = filled.replace(f"{{{placeholder}}}", str(value))
-        result.append(filled)
+        # Handle heading tuples
+        if isinstance(para, tuple) and len(para) == 2:
+            heading_level, heading_text = para
+            filled_text = heading_text
+            for placeholder, value in replacements.items():
+                filled_text = filled_text.replace(f"{{{placeholder}}}", str(value))
+            result.append((heading_level, filled_text))
+        else:
+            # Handle regular strings
+            filled = para
+            for placeholder, value in replacements.items():
+                filled = filled.replace(f"{{{placeholder}}}", str(value))
+            result.append(filled)
     return result
 
 
@@ -1928,7 +2013,7 @@ def _extract_total_from_cat_total(cat_total: tuple) -> tuple:
 # ---- Page dicts ----
 def build_threshold_analysis_page() -> dict:
     """
-    Build threshold analysis page documenting the rationale for 5% / 1pp thresholds.
+    Build threshold analysis page documenting the rationale for 5% / 0.5pp thresholds.
 
     This page shows the statistical analysis that led to selecting balanced thresholds
     for red/green shading in district comparison tables.
@@ -1954,7 +2039,7 @@ def build_threshold_analysis_page() -> dict:
     scenarios = [
         ("Previous (2%/2pp)", 0.02, 2.0, 0.09, 0.62, 6.97, "Unbalanced"),
         ("Equal SD (5%/0.72pp)", 0.05, 0.72, 0.22, 0.22, 1.00, "Too tight for CAGR"),
-        ("Selected (5%/1pp)", 0.05, 1.0, 0.22, 0.31, 1.41, "Well-balanced"),
+        ("Selected (5%/0.5pp)", 0.05, 0.5, 0.22, 0.15, 0.70, "Well-balanced"),
         ("Proportional (5%/5pp)", 0.05, 5.0, 0.22, 1.55, 6.97, "CAGR too loose"),
     ]
 
@@ -1987,7 +2072,7 @@ def build_threshold_analysis_page() -> dict:
 
     # Explanatory text
     explanation_blocks = [
-        "<b>Rationale for 5% / 1pp Shading Thresholds</b>",
+        "<b>Rationale for 5% / 0.5pp Shading Thresholds</b>",
         "",
         "<b>Problem Statement:</b> Different metrics have different natural variation. Using a uniform threshold " +
         "(e.g., 2% for everything) creates unbalanced sensitivity where some comparisons over-flag minor differences " +
@@ -2007,21 +2092,21 @@ def build_threshold_analysis_page() -> dict:
         "<b>Scenario Comparison:</b>",
         "• <b>Previous (2% / 2pp):</b> PPE=0.09 SD, CAGR=0.62 SD → CAGR 7x more sensitive (unbalanced)",
         "• <b>Equal SD (5% / 0.72pp):</b> Both=0.22 SD → Perfect balance but 0.72pp too precise to communicate",
-        "• <b>Selected (5% / 1pp):</b> PPE=0.22 SD, CAGR=0.31 SD → 1.4x ratio (well-balanced, simple numbers)",
+        "• <b>Selected (5% / 0.5pp):</b> PPE=0.22 SD, CAGR=0.15 SD → 0.7x ratio (well-balanced, simple numbers)",
         "• <b>Proportional (5% / 5pp):</b> PPE=0.22 SD, CAGR=1.55 SD → CAGR 7x looser (under-flags growth differences)",
         "",
-        "<b>Selected Thresholds (5% / 1pp):</b>",
+        "<b>Selected Thresholds (5% / 0.5pp):</b>",
         "• <b>5% for PPE and enrollment:</b> Flags differences >= $1,212 (at mean), or ~1/5 of typical variation",
-        "• <b>1pp for CAGR:</b> Flags growth rate differences >= 1pp, or ~1/3 of typical variation",
-        "• <b>Balance ratio:</b> 1.4x (CAGR slightly more sensitive, recognizing higher natural variation)",
-        "• <b>Flagging rates:</b> ~82% for PPE, ~76% for CAGR (similar selectivity)",
+        "• <b>0.5pp for CAGR:</b> Flags growth rate differences >= 0.5pp, or ~1/6 of typical variation",
+        "• <b>Balance ratio:</b> 0.7x (CAGR more sensitive, reflecting compound growth impact)",
+        "• <b>Flagging rates:</b> ~82% for PPE, ~88% for CAGR (higher sensitivity for growth rates)",
         "",
         "<b>Design Philosophy: Why ~80% Flagging Rates Work with Gradient Shading</b>",
         "",
         "With <b>gradient shading</b> (not binary on/off), having ~80% of comparisons show some level of shading is actually ideal. " +
         "The threshold acts as a <b>noise floor</b> that filters trivial differences while the graduated intensity creates three distinct levels of information:",
         "",
-        "• <b>No shading (white background):</b> Districts are statistically similar to their cohort (differences <5% / <1pp)",
+        "• <b>No shading (white background):</b> Districts are statistically similar to their cohort (differences <5% / <0.5pp)",
         "• <b>Light shading (subtle color):</b> Notable differences worth attention but not alarming",
         "• <b>Intense shading (saturated color):</b> Exceptional outliers that immediately grab the eye",
         "",
@@ -2029,17 +2114,17 @@ def build_threshold_analysis_page() -> dict:
         "being able to see the full pattern of variation across the lighter-shaded cells. The threshold filters out noise while the " +
         "gradient intensity tells you <i>how much</i> a district differs from its peers.",
         "",
-        "<b>The Goldilocks Solution (5% / 1pp):</b>",
+        "<b>The Goldilocks Solution (5% / 0.5pp):</b>",
         "",
         "This threshold pair hits the sweet spot across multiple dimensions:",
         "",
         "<b>Statistical balance:</b>",
-        "• Similar flagging rates (~82% vs ~76%) despite very different natural variation (CV = 22.5% vs 54%)",
-        "• Proportional to underlying variation - neither metric dominates the visual attention",
+        "• High flagging rates (~82% vs ~88%) despite very different natural variation (CV = 22.5% vs 54%)",
+        "• CAGR more sensitive to reflect compound growth impact - small differences become large over time",
         "",
         "<b>Practical communication:</b>",
-        "• Round, memorable numbers (5% and 1pp)",
-        "• Easy to explain: \"We flag 5% differences in dollars/enrollment, 1 percentage point differences in growth rates\"",
+        "• Round, memorable numbers (5% and 0.5pp)",
+        "• Easy to explain: \"We flag 5% differences in dollars/enrollment, half a percentage point differences in growth rates\"",
         "• Contrast with alternatives: 0.72pp would be statistically perfect but impractically precise to communicate",
         "",
         "<b>Appropriate sensitivity:</b>",
@@ -2049,7 +2134,7 @@ def build_threshold_analysis_page() -> dict:
         "",
         "<b>Shading Intensity:</b> Both metrics use graduated shading with darker colors for larger differences:",
         "• PPE/Enrollment: 5% (lightest), 10%, 15%, 20%+ (darkest)",
-        "• CAGR: 1pp (lightest), 2pp, 3pp, 4pp+ (darkest)",
+        "• CAGR: 0.5pp (lightest), 1pp, 1.5pp, 2pp+ (darkest)",
         "",
         "<b>Note:</b> These thresholds apply to all comparison tables throughout this report. They represent " +
         "a balance between highlighting meaningful differences and avoiding excessive flagging of normal variation.",
@@ -2057,7 +2142,7 @@ def build_threshold_analysis_page() -> dict:
 
     return dict(
         title="Threshold Analysis",
-        subtitle="Statistical Rationale for 5% / 1pp Shading Thresholds",
+        subtitle="Statistical Rationale for 5% / 0.5pp Shading Thresholds",
         chart_path=None,
         threshold_analysis=True,
         summary_table=summary_table,
@@ -2812,7 +2897,11 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         return f"<b>{label}:</b> {count} district{'s' if count != 1 else ''} ({desc})\n<b>Member districts:</b> {members}"
 
     # Build placeholder dictionary
+    # Get today's date in format "October 25, 2025"
+    today_date = datetime.now().strftime("%B %d, %Y")
+
     placeholders = {
+        "TODAY_DATE": today_date,
         "COHORT_TINY_INFO": format_cohort_info("TINY", western_tiny),
         "COHORT_SMALL_INFO": format_cohort_info("SMALL", western_small),
         "COHORT_MEDIUM_INFO": format_cohort_info("MEDIUM", western_medium),
@@ -2877,7 +2966,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     # Appendix A - Page 5: Threshold Analysis (moved to end)
     threshold_page = build_threshold_analysis_page()
     threshold_page["title"] = "Appendix A. Data Sources & Calculation Methodology (continued)"
-    threshold_page["subtitle"] = "Rationale for 5% / 1pp Shading Thresholds"
+    threshold_page["subtitle"] = "Rationale for 5% / 0.5pp Shading Thresholds"
     pages.append(threshold_page)
 
     # ===== APPENDIX B: CALCULATIONS AND EXAMPLES (Combined B & C) =====
@@ -3131,7 +3220,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "",
         "<b>4. SHADING THRESHOLD CALCULATIONS</b>",
         "",
-        "<b>Purpose:</b> Determine 5% / 1pp thresholds for gradient shading in comparison tables",
+        "<b>Purpose:</b> Determine 5% / 0.5pp thresholds for gradient shading in comparison tables",
         "<i>Source:</i> Appendix A (Threshold Analysis), compose_pdf.py lines 1212-1349",
         "",
         "<b>Statistical Analysis (All 59 Western MA Districts):</b>",
@@ -3149,16 +3238,16 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "3. Key insight: CAGR varies 2.4× more than PPE relative to means (54.0% / 22.5% = 2.4)",
         "",
         "4. Evaluate threshold scenarios:",
-        "   Scenario: 5% PPE / 1pp CAGR (SELECTED)",
+        "   Scenario: 5% PPE / 0.5pp CAGR (SELECTED)",
         "   - PPE: 5% = 0.05 × 24,237 = $1,212",
         "   - PPE Standard Deviations: 1,212 / 5,462 = 0.22 SD",
-        "   - CAGR Standard Deviations: 1.00 / 3.24 = 0.31 SD",
-        "   - Balance ratio: 0.31 / 0.22 = 1.4× (well-balanced)",
+        "   - CAGR Standard Deviations: 0.50 / 3.24 = 0.15 SD",
+        "   - Balance ratio: 0.15 / 0.22 = 0.7× (CAGR more sensitive for compound growth)",
         "   - PPE flagging rate: ~82% of comparisons",
-        "   - CAGR flagging rate: ~76% of comparisons",
+        "   - CAGR flagging rate: ~88% of comparisons",
         "",
         "<b>Gradient Shading Bins:</b>",
-        "- CAGR bins (absolute percentage points): [1pp, 2pp, 3pp, 4pp+]",
+        "- CAGR bins (absolute percentage points): [0.5pp, 1pp, 1.5pp, 2pp+]",
         "- Dollar bins (relative percent): [5%, 10%, 15%, 20%+]",
         "- Intensity increases with bin: lightest shade → darkest shade",
         "",
@@ -3206,7 +3295,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         "CAGR calculations:",
         "- Amherst CAGR = [(12,456 / 10,234)^0.2 - 1] × 100 = 4.01%",
         "- Medium CAGR = [(11,234 / 9,876)^0.2 - 1] × 100 = 2.60%",
-        "- CAGR_diff = |4.01 - 2.60| = 1.41pp → Light amber shade",
+        "- CAGR_diff = |4.01 - 2.60| = 1.41pp → Medium-dark amber shade (in [1pp, 1.5pp) bin)",
         "",
         "Dollar calculations:",
         "- Dollar_diff = |12,456 - 11,234| / 11,234 = 10.88%",
@@ -3724,8 +3813,21 @@ def build_pdf(pages: List[dict], out_path: Path):
                 elif isinstance(block, str) and block == "__BOXED_END__":
                     # Render accumulated boxed content in a table with a border
                     if boxed_content:
-                        # Create paragraphs for each boxed text block
-                        boxed_paragraphs = [Paragraph(b, style_body) for b in boxed_content]
+                        # Create paragraphs for each boxed text block (handle both strings and heading tuples)
+                        boxed_paragraphs = []
+                        for b in boxed_content:
+                            if isinstance(b, tuple) and len(b) == 2:
+                                # Heading tuple
+                                heading_level, heading_text = b
+                                if heading_level == "H1":
+                                    boxed_paragraphs.append(Paragraph(heading_text, style_h1))
+                                elif heading_level == "H2":
+                                    boxed_paragraphs.append(Paragraph(heading_text, style_h2))
+                                elif heading_level == "H3":
+                                    boxed_paragraphs.append(Paragraph(heading_text, style_h3))
+                            else:
+                                # Regular string
+                                boxed_paragraphs.append(Paragraph(b, style_body))
                         # Create a table with a single cell containing all paragraphs
                         boxed_table_data = [[boxed_paragraphs]]
                         # Account for padding in column width to avoid overflow
@@ -3755,14 +3857,27 @@ def build_pdf(pages: List[dict], out_path: Path):
                     # Boxed content should only contain strings
                     if isinstance(block, str):
                         boxed_content.append(block)
+                    elif isinstance(block, tuple) and len(block) == 2:
+                        # Headings in boxes - add as strings (will be styled when rendering boxed content)
+                        boxed_content.append(block)
                     else:
                         # Non-string objects (like Tables) should not be in boxes
                         # Add them to story directly
                         story.append(block)
                         story.append(Spacer(0, 6))
                 else:
-                    # Check if block is a string or already a flowable object (like Table)
-                    if isinstance(block, str):
+                    # Check if block is a heading tuple, string, or already a flowable object (like Table)
+                    if isinstance(block, tuple) and len(block) == 2:
+                        # Heading tuple: (level, text) where level is "H1", "H2", or "H3"
+                        heading_level, heading_text = block
+                        if heading_level == "H1":
+                            story.append(Paragraph(heading_text, style_h1))
+                        elif heading_level == "H2":
+                            story.append(Paragraph(heading_text, style_h2))
+                        elif heading_level == "H3":
+                            story.append(Paragraph(heading_text, style_h3))
+                        # Note: Headings have built-in spaceBefore/spaceAfter, no manual Spacer needed
+                    elif isinstance(block, str):
                         story.append(Paragraph(block, style_body))
                         story.append(Spacer(0, 6))
                     else:

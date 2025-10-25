@@ -124,7 +124,37 @@ Compares the district's CAGR to the baseline's CAGR using absolute percentage po
 • The district has been growing at roughly the same rate as peers
 • Therefore it remains higher in absolute dollars but isn't growing faster
 
-<b>Statistical Rationale:</b> The 5%/1pp thresholds were selected through analysis of variation across all Western MA districts. See the Threshold Analysis page for detailed methodology and alternative scenarios considered.
+<b>Statistical Rationale:</b> The 5%/0.5pp thresholds were selected through analysis of variation across all Western MA districts. See the Threshold Analysis page for detailed methodology and alternative scenarios considered.
+
+================================================================================
+METHODOLOGY_THRESHOLD_CALIBRATION
+================================================================================
+
+<b>Threshold Calibration: Why Different Metrics Use Different Sensitivities</b>
+
+This analysis uses different thresholds for flagging noteworthy differences:
+
+• <b>Per-pupil expenditure (PPE):</b> 5% difference from cohort baseline
+• <b>Enrollment:</b> 5% difference from cohort baseline
+• <b>CAGR:</b> 0.5 percentage point (pp) difference from cohort baseline
+
+These thresholds reflect the different ways these metrics behave. PPE and enrollment are dollar amounts and headcounts—a 5% difference is substantial and visible in annual budgets. But CAGR measures rates of change, and small differences in growth rates compound dramatically over time.
+
+<b>The Compound Growth Impact</b>
+
+Consider a district with $20,000 PPE:
+
+• Growing at 4.0% annually reaches $36,019 after 15 years
+• Growing at 4.5% annually reaches $38,318 after 15 years
+• That 0.5pp difference produces a $2,299 gap (11.5% more total growth)
+
+For a 300-student district, that's $689,700 in additional annual spending by year 15. For policymakers managing long-term budgets and multi-year labor contracts, these trajectories matter—even when year-to-year changes seem modest.
+
+<b>Statistical Rationale</b>
+
+The tighter CAGR threshold (0.5pp vs. 5%) also reflects statistical reality: growth rates vary more widely across districts (CV = 54%) than PPE levels do (CV = 22.5%). A 0.5pp threshold flags districts with growth trajectories meaningfully different from their cohort without overcounting normal variation.
+
+By using a more sensitive threshold for CAGR, the analysis captures the real-world policy significance of compound growth differences while maintaining appropriate sensitivity for dollar and enrollment comparisons.
 
 ================================================================================
 METHODOLOGY_NSS_CH70
@@ -173,4 +203,4 @@ This methodology produces per-pupil values that are weighted by enrollment size,
 <b>Important:</b> Only districts with valid PPE (per-pupil expenditure) data are included in NSS/Ch70 aggregates to ensure data quality and consistency across all analyses.
 
 <b>Shading:</b>
-NSS/Ch70 comparison tables use the same orange/blue shading logic as PPE tables (5% dollar threshold, 1pp CAGR threshold).
+NSS/Ch70 comparison tables use the same orange/blue shading logic as PPE tables (5% dollar threshold, 0.5pp CAGR threshold).

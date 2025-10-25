@@ -11,7 +11,9 @@
       "Bash(..venvScriptspython.exe -m pip install geopandas)",
       "Bash(echo \"Exit code: $?\")",
       "Bash(awk:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(....venvScriptspython.exe -m pip:*)",
+      "Bash(move appendix_c_text.txt appendix_b_text.txt)"
     ],
     "deny": [],
     "ask": []

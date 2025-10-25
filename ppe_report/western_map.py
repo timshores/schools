@@ -754,12 +754,12 @@ def create_cagr_comparison_map(
     cagr_comparisons_lower = {k.lower(): v for k, v in cagr_comparisons.items()}
     matched_gdf["cagr_deviation"] = matched_gdf["district_name"].str.lower().map(cagr_comparisons_lower)
 
-    # Define color bins based on percentage point deviation (CR 1003: 1.0pp threshold)
+    # Define color bins based on percentage point deviation (CR 1003: 0.5pp threshold)
     # Blue = below baseline, White = within threshold, Orange = above baseline
-    bins = [-100, -1, 1, 100]  # Extended range to handle outliers
+    bins = [-100, -0.5, 0.5, 100]  # Extended range to handle outliers
     # More muted colors per user request
-    colors = ["#B3E0E6", "#FFFFFF", "#FFE6CC"]  # Muted blue (below), White (within ±1pp), Muted orange (above)
-    labels = [">1.0pp slower", "Within ±1.0pp", ">1.0pp faster"]
+    colors = ["#B3E0E6", "#FFFFFF", "#FFE6CC"]  # Muted blue (below), White (within ±0.5pp), Muted orange (above)
+    labels = [">0.5pp slower", "Within ±0.5pp", ">0.5pp faster"]
 
     # Categorize districts by deviation
     matched_gdf["color_category"] = pd.cut(
@@ -861,7 +861,7 @@ def create_cagr_comparison_map(
         frameon=True,
         fancybox=True,
         shadow=True,
-        title=f"Total PPE CAGR vs Cohort Baseline - {start_year} to {end_year} (±1pp threshold)",
+        title=f"Total PPE CAGR vs Cohort Baseline - {start_year} to {end_year} (±0.5pp threshold)",
         title_fontsize=16,
         ncol=2
     )
