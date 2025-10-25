@@ -94,6 +94,15 @@ def main():
                 all_pivots.append(nss_group)
                 print(f"    {label}: {len(districts)} districts")
 
+    # Western MA (all, excl. Springfield) aggregate (CR 12,002)
+    western_all_excl_springfield = [d for group in ["TINY", "SMALL", "MEDIUM", "LARGE"] for d in cohorts.get(group, [])]
+    if western_all_excl_springfield:
+        nss_all, enroll_all, foundation_all = prepare_aggregate_nss_ch70_weighted(df, c70, western_all_excl_springfield)
+        if not nss_all.empty:
+            district_data["Western MA (all, excl. Springfield)"] = (nss_all, enroll_all, foundation_all)
+            all_pivots.append(nss_all)
+            print(f"    Western MA (all, excl. Springfield): {len(western_all_excl_springfield)} districts")
+
     # Individual districts
     for dist in DISTRICTS_OF_INTEREST:
         print(f"  Processing {dist}...")
@@ -142,6 +151,8 @@ def main():
                 safe_name = "Western_MA_large"
             elif "Springfield" in dist_name:
                 safe_name = "Western_MA_springfield"
+            elif "all, excl. Springfield" in dist_name:  # CR 12,002
+                safe_name = "Western_MA_all_western"
             else:
                 safe_name = make_safe_filename(dist_name)
         else:
@@ -180,6 +191,10 @@ def main():
                 title = f"All Western MA Traditional Districts: {cohort_label}"
                 enrollment_label = "Weighted avg enrollment per district"
                 left_ylim = get_cohort_ylim("SPRINGFIELD")
+            elif "all, excl. Springfield" in dist_name:  # CR 12,002
+                title = f"All Western MA Traditional Districts (excl. Springfield)"
+                enrollment_label = "Weighted avg enrollment per district"
+                left_ylim = get_cohort_ylim("MEDIUM")  # Use medium as baseline for all western
             else:
                 title = f"{dist_name}: Chapter 70 Aid and Net School Spending"
                 enrollment_label = "Foundation Enrollment (FTE)"

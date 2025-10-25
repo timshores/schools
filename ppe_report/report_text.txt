@@ -7,7 +7,7 @@ EXECUTIVE_SUMMARY_PAGE1
 <b>How to use this report:</b>
 <br />
 The report is organized from broad regional patterns down to district-level details. As a descriptive report, it makes no forecasts and offers no recommendations. Since most of this report is descriptive statistical reference material, one way to use it would be as a companion to discussions that depend on meaningful cost comparisons. You could read straight through to build understanding from high-level trends to selected district details. Or you could use this <b>quick-start guide</b> to answer two specific questions: 
-<br />
+<br /><br />
 • How do my school district finances compare to Western MA baselines? <br />
 • How does the growth rate of my district finances compare?
 <br /><br />
@@ -26,11 +26,11 @@ EXECUTIVE_SUMMARY_QUICK_START
 <br /><br />
 1.    Review the <b>Cohort comparison: Western MA enrollment cohorts and districts of interest</b> on the next page.
 
-<br /><br />
+<br />
 
 2.    Refer to <b>Section 1: Western MA traditional district trends—Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries (2024)</b> to see how all districts are grouped into cohorts using 2024 enrollment numbers.
 
-<br /><br />
+<br />
 
 3.    Locate your district in <b>Section 3: Specific districts compared to cohorts</b> to see details of district expense categories, enrollment, Chapter 70 aid, and required net school spending (NSS) and actual NSS compared to cohort benchmarks.
 
@@ -43,9 +43,9 @@ EXECUTIVE_SUMMARY_CONTEXT
 <b>Per-pupil expenditure (PPE)</b> provides an imperfect lens for understanding school budgets. While this single metric obscures the complexity of school systems — shaped by student needs, facility requirements, governance structures, and historical commitments — it remains an accessible standard for state reporting and public discussion. We might as well try to understand it in full. This report examines PPE patterns across Western Massachusetts districts, organizing them into enrollment-based cohorts to identify trends and provide context for budget deliberations.
 
 ##H1 The Challenge of Interpretation
-In February 2025, an Amherst Town Councilor asked why regional school spending was "increasing faster than the town's revenue, especially given the significant long-term reduction in the number of students we teach."¹ This question reflects a common assumption that school budgets should track with municipal revenue and scale proportionally with enrollment. However, evidence of school budget trends suggests different dynamics at work.
+In February 2025, an Amherst Town Councilor asked why regional school spending was "increasing faster than the town's revenue, especially given the significant long-term reduction in the number of students we teach."<sup>1</sup> This question reflects a common assumption or hope that school budgets should track with municipal revenue and scale proportionally with enrollment. However, evidence of school budget trends suggests different dynamics at work.
 
-As a social service, education is fundamentally labor-intensive. Roughly four-fifths of costs are tied to personnel — salaries, health insurance, and retirement contributions.² National data shows school districts dedicate nearly 90% of instructional budgets to staff and benefits, more than double the 35-40% typical in other organizations.³ These costs respond to regional and sectoral labor markets rather than local tax revenues, with the cost of education service historically rising faster than general inflation.⁴ Eligible students have a legal right to special education services regardless of overall enrollment changes. Fixed and semi-fixed costs — debt service, insurance, transportation contracts, utilities, minimum staffing requirements, and facility operations — cannot be reduced proportionally with enrollment. Charter school transfers result in a net loss of state aid to tuition payments and often concentrate higher-need student populations in the traditional schools.
+As a social service, education is fundamentally labor-intensive. Roughly four-fifths of costs are tied to personnel — salaries, health insurance, and retirement contributions.<sup>2</sup> National data shows school districts dedicate nearly 90% of instructional budgets to staff and benefits, more than double the 35-40% typical in other organizations.<sup>3</sup> These costs respond to regional and sectoral labor markets rather than local tax revenues, with the cost of education service historically rising faster than general inflation.<sup>4</sup> Eligible students have a legal right to special education services regardless of overall enrollment changes. Fixed and semi-fixed costs — debt service, insurance, transportation contracts, utilities, minimum staffing requirements, and facility operations — cannot be reduced proportionally with enrollment. Charter school transfers result in a net loss of state aid to tuition payments and often concentrate higher-need student populations in the traditional schools.
 
 These factors are essential for understanding school budgets, but they can distract us from two key questions: What are our actual growth rates over time, and what was our starting point?
 
@@ -71,7 +71,7 @@ https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&amp;id=C8SLXU58B56B
 3. <a href="https://www.aasa.org/docs/default-source/resources/reports/school-budgets-101.pdf" color="blue">American Association of School Administrators, "School Budgets 101"</a>
 https://www.aasa.org/docs/default-source/resources/reports/school-budgets-101.pdf
 
-4. <a href="https://www.epi.org/publication/books_wheremoneygone/" color="blue">Where’s the Money Gone? Changes in the Level and Composition of Education Spending (1995)</a> and <a href="https://nces.ed.gov/pubs97/97535/97535jx1.asp" color="blue">Inflation and the Measurement of School Spending (1996)</a>
+4. <a href="https://www.epi.org/publication/books_wheremoneygone/" color="blue">Where’s the Money Gone? Changes in the Level and Composition of Education Spending (1995)</a> and <a href="https://nces.ed.gov/pubs97/97535/97535jx1.asp" color="blue">Inflation and the Measurement of School Spending (1996)</a><br />
 https://www.epi.org/publication/books_wheremoneygone/ <br />
 https://nces.ed.gov/pubs97/97535/97535jx1.asp 
 
@@ -81,7 +81,6 @@ https://nces.ed.gov/pubs97/97535/97535jx1.asp
 EXECUTIVE_SUMMARY_FOOTER
 ================================================================================
 
-<br /><br />
 All data in this report comes from the Massachusetts Department of Elementary and Secondary Education (DESE). See Appendix A for detailed source information.
 
 DESE's comparison tools (DART, RADAR) use multi-factor matching weighted toward demographics for performance analysis. This report takes a complementary approach focused on enrollment for cost pattern analysis, while acknowledging that districts within cohorts still differ substantially in wealth, demographics, geography, and governance.
@@ -329,7 +328,7 @@ Source: DESE district profiles and regional service mappings
 PPE_OVERVIEW_EXPLANATION
 ================================================================================
 
-Each bar represents a district's per-pupil expenditures (PPE) in 2024, with growth from 2019 shown by a darker color. Districts are sorted by 2024 spending. While the spread is visible, this alone is nearly meaningless: we don't know if the difference between $15K and $30K per student reflects education quality, cost-of-living adjustments, special education demand, economies of scale, administrative decisions, ballot box decisions, or legacy cost structures.
+Each bar represents a district's per-pupil expenditures (PPE) in 2024, with growth from 2009 shown by a darker color. Districts are sorted by 2024 spending. While the spread is visible, this alone is nearly meaningless: we don't know to what degree the difference between $15K and $30K per student reflects demographic change, education quality, cost-of-living adjustments, special education demand, economies of scale, administrative decisions, ballot box decisions, or legacy cost structures. The next page zeroes in on rates of change in selected districts.
 
 ================================================================================
 SECTION1_CHOROPLETH_EXPLANATION
@@ -375,8 +374,6 @@ __BOXED_END__
 STATISTICAL_ASSOCIATIONS
 ================================================================================
 
-##H1 Statistical Associations between Enrollment and Per-Pupil Expenditures
-
 ##H2 Key Finding
 <b>District size and enrollment trends explain very little about spending patterns.</b> Analysis of Western Massachusetts traditional districts (2009-2024) reveals that enrollment cohort (district size) explains only 22% of variation in current spending levels and has no association with spending growth rates. Enrollment growth rates show even weaker associations. This is evidence that knowing a district's size or enrollment trajectory tells us little about its per-pupil expenditure.
 
@@ -385,69 +382,71 @@ The five-number summaries and box plots below show two critical dimensions: wher
 
 ##H3 2024 PPE by Cohort
 Box plots show the spread of current spending within each size cohort. Wide boxes indicate greater spending variation; narrow boxes suggest similar spending patterns. The median line shows typical spending for each cohort.
+<br />
 
 __COHORT_PPE_TABLE__
-
+<br />
 ##H3 2009-2024 PPE Growth Rates by Cohort
 These box plots reveal whether districts of similar size grew at similar rates (narrow boxes) or diverged over time (wide boxes). Comparing medians shows which cohorts experienced faster or slower growth.
+<br />
 
 __COHORT_CAGR_TABLE__
 
-<b>Pattern Recognition:</b> A cohort with high 2024 PPE but typical growth rates suggests historically elevated spending maintained over time — exactly what we see in our selected districts.
-
+<br /><b>Pattern Recognition:</b> A cohort with high 2024 PPE but typical growth rates suggests historically elevated spending maintained over time — exactly what we see in our selected districts.
+<br />
 ##H2 Statistical Test Results
 ##H3 What Associates with Current Spending (2024 PPE)?
 
 District size (cohort) — WEAK ASSOCIATION
 
-   • ANOVA: F(3,36) = 3.85, p = 0.014, η² = 0.216
-   • Enrollment cohort explains ~22% of PPE variation
+   • ANOVA: F(3,36) = 3.85, p = 0.014, η² = 0.216<br />
+   • Enrollment cohort explains ~22% of PPE variation<br />
    • Effect size: small to medium (substantial variation within cohorts)
 
 Enrollment growth rate — NO ASSOCIATION
 
-   • Linear regression: r = 0.226, R² = 0.051, p = 0.160
-   • Explains only 5% of PPE variation
+   • Linear regression: r = 0.226, R² = 0.051, p = 0.160<br />
+   • Explains only 5% of PPE variation<br />
    • Not statistically significant at α = 0.05
 
 Combined model — MODEST PREDICTIVE POWER
 
-   • ANCOVA: R² = 0.232, Adjusted R² = 0.155, F(4,35) = 3.02, p = 0.023
-   • Size + growth together explain 23% of variation
+   • ANCOVA: R² = 0.232, Adjusted R² = 0.155, F(4,35) = 3.02, p = 0.023<br />
+   • Size + growth together explain 23% of variation<br />
    • Enrollment growth adds minimal predictive value once cohort is accounted for
 
 ##H3 What Associates with Spending Growth (2009-2024 CAGR)?
 
 District size (cohort) — NO ASSOCIATION
 
-   • ANOVA: F(3,36) = 0.61, p = 0.611, η² = 0.036
-   • Effect size: negligible
+   • ANOVA: F(3,36) = 0.61, p = 0.611, η² = 0.036<br />
+   • Effect size: negligible<br />
    • All cohorts show similar growth rate distributions
 
 Enrollment growth rate — NO ASSOCIATION
 
-   • Linear regression: r = -0.175, R² = 0.031, p = 0.283
-   • Weak negative correlation (not significant)
+   • Linear regression: r = -0.175, R² = 0.031, p = 0.283<br />
+   • Weak negative correlation (not significant)<br />
    • Declining enrollment doesn't predict higher PPE growth
 
 Combined model — NO PREDICTIVE POWER
 
-   • ANCOVA: R² = 0.069, Adjusted R² = -0.027, F(4,35) = 0.74, p = 0.569
-   • Negative adjusted R² indicates model performs worse than sample mean
+   • ANCOVA: R² = 0.069, Adjusted R² = -0.027, F(4,35) = 0.74, p = 0.569<br />
+   • Negative adjusted R² indicates model performs worse than sample mean<br />
    • Enrollment characteristics don't predict spending trajectories
 
 ##H3 Interpretation
 These analyses examine statistical associations, not causal relationships. The weak associations demonstrate that:
 
-   • Districts of similar size have widely varying spending levels
-   • Enrollment change doesn't systematically drive PPE change
+   • Districts of similar size have widely varying spending levels<br />
+   • Enrollment change doesn't systematically drive PPE change<br />
    • Other factors — wealth, demographics, facility age, governance, historical commitments — matter more than enrollment characteristics
 
 ================================================================================
 SECTION1_YOY_EXPLANATION
 ================================================================================
 
-These plots show year-over-year (YoY) growth rates in per-pupil expenditure (PPE) for districts of interest and their enrollment cohorts. Thicker lines represent cohort aggregates, thinner lines show individual districts. Cohort determination is detailed in Appendix A. While patterns emerge, no clear, consistent signal appears across all districts and cohorts over the 2009-2024 period.
+These plots show year-over-year (YoY) growth rates in per-pupil expenditure (PPE) for districts of interest and their enrollment cohorts. Thicker lines represent cohort aggregates, thinner lines show individual districts. Cohort determination is detailed in Appendix A. While patterns emerge, no clear, actionable signal appears across all districts and cohorts over the 2009-2024 period. On the next page, we'll see how a compound growth calculation makes it easier to see similarities and differences between districts.
 
 ================================================================================
 SECTION1_CAGR_EXPLANATION

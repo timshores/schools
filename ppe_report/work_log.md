@@ -391,6 +391,75 @@
 
 ---
 
+## 2025-10-25 - Major Report Restructuring (CR01-CR12,002)
+
+### Completed Change Requests
+
+**CR01: Fix {TODAY_DATE} placeholder**
+- **Issue:** Placeholder not being replaced with actual date
+- **Fix:** Added date replacement logic in build_pdf() function (compose_pdf.py:3803-3807)
+- **Result:** Date now displays correctly in footer
+
+**CR02: Change ToC title for Statistical Associations**
+- Updated from "Statistical Associations" to "Statistical Associations between Enrollment and Per-Pupil Expenditures"
+- compose_pdf.py:3543
+
+**CR03: Move Statistical Associations to end of Section 1**
+- Removed from Executive Summary
+- Added as final page of Section 1 with new section_id="section1_statistical"
+- compose_pdf.py:2523-2564
+- Updated ToC accordingly
+
+**CR04: Add Western MA aggregate pages at end of Section 2**
+- Added PPE and NSS/Ch70 pages for "Western MA (all, excl. Springfield)"
+- No baseline shading (this IS the baseline)
+- compose_pdf.py:2702-2779
+
+**CR05: Add 5 blank lines above Report Navigation boxes**
+- Added to Executive Summary, Section 1, Section 2, and Section 3 intro pages
+- compose_pdf.py:2210, 2410, 2595, 2800
+
+**CR06: Move PPE overview to second page of Section 1**
+- Moved from Executive Summary to Section 1
+- Now section_id="section1_ppe_overview"
+- compose_pdf.py:2238-2246, 2419-2420
+
+**CR07: Change PPE overview from 2019-2024 to 2009-2024**
+- Changed t0 from `latest - 5` to `latest - 15`
+- compose_pdf.py:2167
+- district_expend_pp_stack.py:779 (changed year_lag from 5 to 15)
+- Removed "2024 decrease from 2019" legend item
+- district_expend_pp_stack.py:512-518
+
+**CR 12,001: Remove "Page" prefix from page numbers**
+- Changed footer from "Page {n}" to "{n}"
+- compose_pdf.py:207
+
+**CR 12,002: Fix missing Western MA aggregate chart images**
+- Added plot generation for "all_western" aggregate in district_expend_pp_stack.py:776-786
+- Added NSS/Ch70 plot generation in nss_ch70_main.py:97-104, 154-197
+- **Files Modified:**
+  - district_expend_pp_stack.py (added all_western PPE plot generation)
+  - nss_ch70_main.py (added all_western NSS/Ch70 data preparation and plot generation)
+
+### Summary
+
+**Files Modified:**
+- compose_pdf.py (major restructuring)
+- district_expend_pp_stack.py (PPE overview timeframe, all_western plot)
+- nss_ch70_main.py (all_western NSS/Ch70 plot)
+- work_log.md (this file)
+
+**Impact:**
+- Report structure significantly reorganized
+- Statistical Associations moved from Executive Summary to Section 1
+- PPE overview moved from Executive Summary to Section 1 with 15-year timeframe
+- Western MA aggregate pages added to Section 2
+- Page numbers simplified
+- All navigation boxes now have proper spacing
+
+---
+
 ## 2025-10-24 - Report Navigation Improvements (CR 1004)
 
 ### Completed Change Requests

@@ -204,7 +204,7 @@ def draw_footer(canvas, doc):
     y1 = 0.6 * inch
     # Source lines removed from footer, now in appendix
     x_right = doc.pagesize[0] - doc.rightMargin
-    canvas.drawRightString(x_right, y1, f"Page {canvas.getPageNumber()}")
+    canvas.drawRightString(x_right, y1, f"{canvas.getPageNumber()}")  # Removed "Page" prefix (CR 12,001)
     canvas.restoreState()
 
 # ---- Flowables ----
@@ -2164,7 +2164,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     # Note: Threshold Analysis moved to Appendix A
 
     latest = int(df["YEAR"].max())
-    t0 = latest - 5
+    t0 = latest - 15  # Changed from 5 to 15 for cr07 (2009-2024 instead of 2019-2024)
 
     # ===== EXECUTIVE SUMMARY =====
     # PAGE 0: Executive Summary - Introduction
@@ -2207,7 +2207,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         ["__BOXED_START__"] + exec_summary_quick_start + ["__BOXED_END__"] +
         exec_summary_context +  # Add context section (not boxed)
         exec_summary_footer +
-        ["<br />"] +  # Add space before Report Navigation box
+        ["<br />", "<br />", "<br />", "<br />", "<br />"] +  # Add 5 blank lines before Report Navigation box (cr05)
         ["__BOXED_START__"] + mini_toc_text + ["__BOXED_END__"]  # Add mini ToC in box
     )
 
@@ -2235,14 +2235,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     else:
         western_text_blocks_exec = [western_explanation]
 
-    # Store PPE Overview page dict to add after cohort tables (CR5)
+    # Store PPE Overview page dict to add as second page of Section 1 (cr06)
     ppe_overview_page = dict(
-        title="Executive Summary (continued)",
-        subtitle=f"Per-pupil expenditure and recent growth overview: {t0} PPE (lighter) to {latest} PPE (darker segment)",
+        title="Section 1 — Western MA traditional public school district trends",
+        subtitle=f"Per-pupil expenditure and growth: {t0} PPE (lighter) to {latest} PPE (darker segment)",
         chart_path=str(OUTPUT_DIR / "ppe_overview_all_western.png"),
         text_blocks=western_text_blocks_exec,
         graph_only=True,
-        section_id="exec_summary_scatter"
+        section_id="section1_ppe_overview"
     )
 
     # PAGE 0b: Executive Summary - Statistical Analysis (text from report_text.txt)
@@ -2395,52 +2395,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         needs_table_num_substitution=True  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
     ))
 
-    # Executive Summary - PPE Overview (add after cohort tables - CR5)
-    pages.append(ppe_overview_page)
-
-    # Executive Summary - Statistical Analysis (add after PPE overview)
-    if stat_text_blocks:
-        # CR 1005: Calculate cohort distributions and build tables
-        # Define cohort colors (from western_map.py)
-        cohort_colors = {
-            "TINY": "#4575B4",
-            "SMALL": "#3C9DC4",
-            "MEDIUM": "#FDB749",
-            "LARGE": "#D73027",
-            "SPRINGFIELD": "#984EA3"
-        }
-
-        # Calculate page width (A4 width minus margins)
-        # A4 is 8.27 inches, with 0.5 inch margins on each side = 7.27 inches usable width
-        page_width = A4[0] / inch - 1.0*inch  # A4[0] is in points, convert to inches and subtract 1" for margins
-
-        # Calculate distributions
-        ppe_dist_df = calculate_cohort_ppe_distribution(df, reg, year=2024)
-        cagr_dist_df = calculate_cohort_cagr_distribution(df, reg, start_year=2009, end_year=2024)
-
-        # Build tables
-        ppe_table = build_cohort_distribution_table(ppe_dist_df, "PPE", cohort_colors, page_width)
-        cagr_table = build_cohort_distribution_table(cagr_dist_df, "CAGR", cohort_colors, page_width)
-
-        # Keep all content on one page but replace placeholders with tables
-        stat_text_blocks_with_tables = []
-        for block in stat_text_blocks:
-            if isinstance(block, str) and "__COHORT_PPE_TABLE__" in block:
-                stat_text_blocks_with_tables.append(ppe_table)
-            elif isinstance(block, str) and "__COHORT_CAGR_TABLE__" in block:
-                stat_text_blocks_with_tables.append(cagr_table)
-            else:
-                stat_text_blocks_with_tables.append(block)
-
-        # Page: Statistical Associations (all content on one page with wrapping)
-        pages.append(dict(
-            title="Executive Summary (continued)",
-            subtitle="Statistical Associations",
-            text_blocks=stat_text_blocks_with_tables,
-            text_only_page=True,
-            section_id="exec_summary_statistical"
-        ))
-
     # ===== SECTION 1: WESTERN MA TRADITIONAL PUBLIC SCHOOL DISTRICT TRENDS =====
     # Section 1 Summary Page
     section1_summary_text = report_text.get("SECTION1_SUMMARY", [
@@ -2450,6 +2404,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     # Add mini ToC navigation box to Section 1 intro (CR 1004)
     section1_all_text = (
         section1_summary_text +
+        ["<br />", "<br />", "<br />", "<br />", "<br />"] +  # Add 5 blank lines before Report Navigation box (cr05)
         ["__BOXED_START__"] + mini_toc_text + ["__BOXED_END__"]
     )
 
@@ -2461,7 +2416,10 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         section_id="section1_summary"
     ))
 
-    # PAGE 1: YoY Growth Rates (moved from Executive Summary)
+    # PAGE 1: PPE Overview (moved from Executive Summary - cr06)
+    pages.append(ppe_overview_page)
+
+    # PAGE 2: YoY Growth Rates (moved from Executive Summary)
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
         subtitle="Year-over-Year (YoY) growth rates by district and cohort",
@@ -2563,6 +2521,49 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         section_id="section1_cagr_comparison"
     ))
 
+    # PAGE 8: Statistical Associations (moved from Executive Summary - cr03)
+    if stat_text_blocks:
+        # CR 1005: Calculate cohort distributions and build tables
+        # Define cohort colors (from western_map.py)
+        cohort_colors = {
+            "TINY": "#4575B4",
+            "SMALL": "#3C9DC4",
+            "MEDIUM": "#FDB749",
+            "LARGE": "#D73027",
+            "SPRINGFIELD": "#984EA3"
+        }
+
+        # Calculate page width (A4 width minus margins)
+        # A4 is 8.27 inches, with 0.5 inch margins on each side = 7.27 inches usable width
+        page_width = A4[0] / inch - 1.0*inch  # A4[0] is in points, convert to inches and subtract 1" for margins
+
+        # Calculate distributions
+        ppe_dist_df = calculate_cohort_ppe_distribution(df, reg, year=2024)
+        cagr_dist_df = calculate_cohort_cagr_distribution(df, reg, start_year=2009, end_year=2024)
+
+        # Build tables
+        ppe_table = build_cohort_distribution_table(ppe_dist_df, "PPE", cohort_colors, page_width)
+        cagr_table = build_cohort_distribution_table(cagr_dist_df, "CAGR", cohort_colors, page_width)
+
+        # Keep all content on one page but replace placeholders with tables
+        stat_text_blocks_with_tables = []
+        for block in stat_text_blocks:
+            if isinstance(block, str) and "__COHORT_PPE_TABLE__" in block:
+                stat_text_blocks_with_tables.append(ppe_table)
+            elif isinstance(block, str) and "__COHORT_CAGR_TABLE__" in block:
+                stat_text_blocks_with_tables.append(cagr_table)
+            else:
+                stat_text_blocks_with_tables.append(block)
+
+        # Page: Statistical Associations (all content on one page with wrapping)
+        pages.append(dict(
+            title="Section 1 — Western MA traditional public school district trends (continued)",
+            subtitle="Statistical Associations between Enrollment and Per-Pupil Expenditures",
+            text_blocks=stat_text_blocks_with_tables,
+            text_only_page=True,
+            section_id="section1_statistical"
+        ))
+
     # Set up cohort data structures for Section 2
     cmap_all = create_or_load_color_map(df)
 
@@ -2591,6 +2592,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     # Add mini ToC navigation box to Section 2 intro (CR 1004)
     section2_all_text = (
         section2_text_formatted +
+        ["<br />", "<br />", "<br />", "<br />", "<br />"] +  # Add 5 blank lines before Report Navigation box (cr05)
         ["__BOXED_START__"] + mini_toc_text + ["__BOXED_END__"]
     )
 
@@ -2699,6 +2701,85 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                         district_list_text=district_list_text  # Add district list text below NSS table
                     ))
 
+    # Add Western MA (all, excl. Springfield) aggregate pages at end of Section 2 (cr04)
+    # This is the baseline of baselines, so no shading is applied
+    western_all_excl_springfield = [d for group in ["TINY", "SMALL", "MEDIUM", "LARGE"] for d in cohorts.get(group, [])]
+
+    if western_all_excl_springfield:
+        # Prepare categorized district list text
+        categories = _categorize_districts(western_all_excl_springfield, reg)
+        total_count = len(western_all_excl_springfield)
+
+        district_list_text = [f"<b>Western MA (all, excl. Springfield)</b> includes {total_count} members:", ""]
+
+        if categories["districts"]:
+            count = len(categories["districts"])
+            district_list_text.append(f"<b>Districts ({count}):</b> {', '.join(sorted([d.title() for d in categories['districts']]))}.")
+            district_list_text.append("")
+
+        if categories["unified_regions"]:
+            count = len(categories["unified_regions"])
+            district_list_text.append(f"<b>Regions ({count}):</b> {', '.join(sorted([d.title() for d in categories['unified_regions']]))}.")
+            district_list_text.append("")
+
+        if categories["vocational"]:
+            count = len(categories["vocational"])
+            district_list_text.append(f"<b>Vocational/technical ({count}):</b> {', '.join(sorted([d.title() for d in categories['vocational']]))}.")
+            district_list_text.append("")
+
+        # PAGE 1: PPE aggregate page for all Western MA (no shading)
+        title, epp, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, "all_western", c70, districts=western_all_excl_springfield)
+        if not epp.empty:
+            latest_year = get_latest_year(df, epp)
+            context = context_for_western("all_western")
+
+            rows, total, start_map = _build_category_data(epp, latest_year, context, cmap_all)
+            fte_rows, fte_map, latest_fte_year = _build_fte_data(lines_mean, latest_year)
+
+            pages.append(dict(
+                title=f"Section 2 — Western MA cohort details",
+                subtitle=f"Western MA (all, excl. Springfield) — PPE vs Enrollment — Weighted average per district.",
+                chart_path=str(regional_png("all_western")),
+                latest_year=latest_year,
+                latest_year_fte=latest_fte_year,
+                cat_rows=rows,
+                cat_total=total,
+                cat_start_map=start_map,
+                fte_rows=fte_rows,
+                fte_series_map=fte_map,
+                page_type="western",
+                baseline_title=None,  # No baseline comparison (this IS the baseline)
+                baseline_map=None,  # No shading
+                fte_baseline_map=None,  # No shading
+                raw_epp=epp,
+                raw_lines=lines_mean,
+                dist_name=title,
+                section_id="section2_all_western"
+            ))
+
+        # PAGE 2: NSS/Ch70 aggregate page for all Western MA (no shading)
+        if c70 is not None and not c70.empty:
+            nss_west, enroll_west, foundation_west = prepare_aggregate_nss_ch70_weighted(df, c70, western_all_excl_springfield)
+            if not nss_west.empty:
+                latest_year_nss = int(nss_west.index.max())
+                cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_west, latest_year_nss)
+
+                pages.append(dict(
+                    title=f"Section 2 — Western MA cohort details",
+                    subtitle=f"Western MA (all, excl. Springfield) — Chapter 70 Aid and Net School Spending (NSS).",
+                    chart_path=str(OUTPUT_DIR / f"nss_ch70_Western_MA_all_western.png"),
+                    latest_year=latest_year_nss,
+                    cat_rows=cat_rows_nss,
+                    cat_total=cat_total_nss,
+                    cat_start_map=cat_start_map_nss,
+                    page_type="nss_ch70",
+                    baseline_title=None,  # No baseline comparison (this IS the baseline)
+                    baseline_map=None,  # No shading
+                    dist_name=title,
+                    raw_nss=nss_west,
+                    district_list_text=district_list_text
+                ))
+
     # ===== SECTION 3: SPECIFIC DISTRICTS COMPARED TO COHORTS =====
     # Add intro page for Section 3
     section3_intro_text = report_text.get("SECTION3_SUMMARY", [
@@ -2716,6 +2797,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     # Add mini ToC navigation box to Section 3 intro (CR 1004)
     section3_all_text = (
         section3_text_formatted +
+        ["<br />", "<br />", "<br />", "<br />", "<br />"] +  # Add 5 blank lines before Report Navigation box (cr05)
         ["__BOXED_START__"] + mini_toc_text + ["__BOXED_END__"]
     )
 
@@ -3539,10 +3621,9 @@ def build_toc_page():
     toc_entries = [
         ("Executive Summary", "executive_summary", 0),
         ("    Total PPE comparison: Western MA enrollment cohorts and selected districts", "exec_summary_cohort_comparison", 1),
-        ("    Per-pupil expenditure and recent growth overview: 2019 PPE to 2024 PPE", "exec_summary_scatter", 1),
-        ("    Statistical Associations", "exec_summary_statistical", 1),
 
         ("Section 1: Western MA Traditional District Trends", "section1_summary", 0),
+        ("    Per-pupil expenditure and growth: 2009 PPE to 2024 PPE", "section1_ppe_overview", 1),
         ("    Year-over-Year (YoY) growth rates by district and cohort", "section1_yoy", 1),
         ("    5-year and 15-year CAGR by district and cohort", "section1_cagr", 1),
         ("    Distribution of 2024 enrollment and proposed cohort grouping", "section1_distribution", 1),
@@ -3550,6 +3631,7 @@ def build_toc_page():
         ("    Geographic map showing district locations and enrollment cohorts (2024)", "section1_map", 1),
         ("    Geographic map showing 2024 PPE vs enrollment cohort baseline", "section1_ppe_comparison", 1),
         ("    Geographic map showing 15-year PPE growth (2009-2024) vs enrollment cohort baseline", "section1_cagr_comparison", 1),
+        ("    Statistical Associations between Enrollment and Per-Pupil Expenditures", "section1_statistical", 1),
 
         ("Section 2: Western MA Cohort Details", "section2_tiny", 0),
         ("    Tiny Cohort (0-200 FTE)", "section2_tiny", 1),
@@ -3799,6 +3881,12 @@ def build_pdf(pages: List[dict], out_path: Path):
                         section_id = placeholder.lower()
                         page_num = get_page_number(section_id)
                         block = block.replace(f"{{PAGE_{placeholder}}}", str(page_num) if page_num else "TBD")
+
+                    # Replace {TODAY_DATE} placeholder with current date
+                    if "{TODAY_DATE}" in block:
+                        from datetime import datetime
+                        today_date = datetime.now().strftime("%B %d, %Y")
+                        block = block.replace("{TODAY_DATE}", today_date)
 
                 text_blocks_resolved.append(block)
 

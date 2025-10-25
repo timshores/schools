@@ -509,14 +509,13 @@ def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFram
     # Set district labels on y-axis
     ax_main.set_yticks(y_pos, dist_labels)
 
-    # Legend above plot - 3 items in single row
+    # Legend above plot - 2 items in single row (removed decrease legend per cr07)
     handles = [
         Patch(facecolor=BLUE_BASE,  edgecolor=edge, label=f"{t0} PPE"),
         Patch(facecolor=BLUE_DELTA, edgecolor=edge, label=f"{latest} increase from {t0}"),
-        Patch(facecolor=PURP_DECL,  edgecolor=edge, label=f"{latest} decrease from {t0}"),
     ]
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.99),
-               ncol=3, frameon=False, fontsize=28)  # Increased 20% more: 23 * 1.2 ≈ 28
+               ncol=2, frameon=False, fontsize=28)  # Changed ncol from 3 to 2 (cr07)
     plt.subplots_adjust(top=0.96, bottom=0.06, left=0.28, right=0.95)  # More left margin for labels
 
     _stamp(fig)
@@ -774,8 +773,21 @@ if __name__ == "__main__":
 
         plot_one(out, piv, lines_mean, context, right_ylim, left_ylim_agg, FTE_LINE_COLORS, cmap_all, enrollment_label)
 
+    # Western MA (all, excl. Springfield) aggregate plot (CR 12,002)
+    western_all_excl_springfield = [d for group in ["TINY", "SMALL", "MEDIUM", "LARGE"] for d in cohorts.get(group, [])]
+    if western_all_excl_springfield:
+        title_all, piv_all, lines_sum_all, lines_mean_all = prepare_western_epp_lines(df, reg, "all_western", c70, districts=western_all_excl_springfield)
+        if not piv_all.empty:
+            context_all = context_for_western("all_western")
+            out_all = OUTPUT_DIR / f"regional_expenditures_per_pupil_Western_Traditional_all_western.png"
+            enrollment_label_all = "Weighted avg enrollment per district"
+            # Use a reasonable y-limit for the aggregate (similar to MEDIUM cohort)
+            left_ylim_all = get_cohort_ylim("MEDIUM")
+            plot_one(out_all, piv_all, lines_mean_all, context_all, right_ylim, left_ylim_all, FTE_LINE_COLORS, cmap_all, enrollment_label_all)
+
     # Western MA overview plot (all districts as horizontal bars)
-    plot_all_western_overview(OUTPUT_DIR / "ppe_overview_all_western.png", df, reg, c70, year_lag=5)
+    # Changed year_lag from 5 to 15 for cr07 (2009-2024 instead of 2019-2024)
+    plot_all_western_overview(OUTPUT_DIR / "ppe_overview_all_western.png", df, reg, c70, year_lag=15)
 
     # Generate choropleth maps for multiple years (2024, 2019, 2014, 2009)
     print("\n[MAPS] Generating Western MA choropleth maps for multiple years...")
