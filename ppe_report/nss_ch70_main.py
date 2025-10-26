@@ -149,10 +149,10 @@ def main():
                 safe_name = "Western_MA_medium"
             elif "Large" in dist_name:
                 safe_name = "Western_MA_large"
+            elif "all, excl. Springfield" in dist_name:  # CR 12,002 - Must check BEFORE "Springfield"
+                safe_name = "Western_MA_all_western"
             elif "Springfield" in dist_name:
                 safe_name = "Western_MA_springfield"
-            elif "all, excl. Springfield" in dist_name:  # CR 12,002
-                safe_name = "Western_MA_all_western"
             else:
                 safe_name = make_safe_filename(dist_name)
         else:
@@ -169,40 +169,40 @@ def main():
             if "Tiny" in dist_name:
                 cohort_label = get_cohort_label("TINY")
                 title = f"All Western MA Traditional Districts: {cohort_label}"
-                enrollment_label = "Weighted avg enrollment per district"
+                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
                 left_ylim = get_cohort_ylim("TINY")
             elif "Small" in dist_name:
                 cohort_label = get_cohort_label("SMALL")
                 title = f"All Western MA Traditional Districts: {cohort_label}"
-                enrollment_label = "Weighted avg enrollment per district"
+                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
                 left_ylim = get_cohort_ylim("SMALL")
             elif "Medium" in dist_name:
                 cohort_label = get_cohort_label("MEDIUM")
                 title = f"All Western MA Traditional Districts: {cohort_label}"
-                enrollment_label = "Weighted avg enrollment per district"
+                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
                 left_ylim = get_cohort_ylim("MEDIUM")
             elif "Large" in dist_name:
                 cohort_label = get_cohort_label("LARGE")
                 title = f"All Western MA Traditional Districts: {cohort_label}"
-                enrollment_label = "Weighted avg enrollment per district"
+                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
                 left_ylim = get_cohort_ylim("LARGE")
+            elif "all, excl. Springfield" in dist_name:  # CR 12,002 - Must check BEFORE "Springfield"
+                title = f"All Western MA Traditional Districts (excl. Springfield)"
+                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
+                left_ylim = get_cohort_ylim("MEDIUM")  # Use medium as baseline for all western
             elif "Springfield" in dist_name:
                 cohort_label = get_cohort_label("SPRINGFIELD")
                 title = f"All Western MA Traditional Districts: {cohort_label}"
-                enrollment_label = "Weighted avg enrollment per district"
+                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
                 left_ylim = get_cohort_ylim("SPRINGFIELD")
-            elif "all, excl. Springfield" in dist_name:  # CR 12,002
-                title = f"All Western MA Traditional Districts (excl. Springfield)"
-                enrollment_label = "Weighted avg enrollment per district"
-                left_ylim = get_cohort_ylim("MEDIUM")  # Use medium as baseline for all western
             else:
                 title = f"{dist_name}: Chapter 70 Aid and Net School Spending"
-                enrollment_label = "Foundation Enrollment (FTE)"
+                enrollment_label = "Foundation Enrollment"  # CR08
                 left_ylim = compute_districts_fte_ylim([{"Foundation Enrollment": foundation}], pad=1.06, step=50) if foundation is not None and not foundation.empty else None
         else:
             # Individual districts
             title = f"{dist_name}: Chapter 70 Aid and Net School Spending"
-            enrollment_label = "Enrollment"
+            enrollment_label = "Foundation Enrollment"  # CR08
 
             # Use cohort-based y-axis limit automatically
             # This ensures each district's enrollment axis matches its cohort range
@@ -218,8 +218,8 @@ def main():
             title=title,
             right_ylim=30000,  # Match PPE plot y-axis range (0-$30K)
             per_pupil=is_aggregate,
-            foundation_enrollment=None,  # Foundation enrollment line removed per CR16
-            left_ylim=None,  # Left y-axis removed since no enrollment line
+            foundation_enrollment=foundation,  # CR08: Restored foundation enrollment line
+            left_ylim=left_ylim,  # CR08: Restored left y-axis for enrollment
             enrollment_label=enrollment_label,
         )
 

@@ -819,7 +819,8 @@ def context_for_western(bucket: str) -> str:
         "small": "SMALL",
         "medium": "MEDIUM",
         "large": "LARGE",
-        "springfield": "SPRINGFIELD"
+        "springfield": "SPRINGFIELD",
+        "all_western": "MEDIUM"  # Use MEDIUM as baseline for all-western aggregate (CR 12,002)
     }
     return bucket_map.get(bucket.lower(), "TINY")
 
@@ -855,7 +856,7 @@ def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str, 
     Args:
         df: Main data DataFrame
         reg: Regions DataFrame
-        bucket: One of "small", "medium", "large", or "springfield"
+        bucket: One of "tiny", "small", "medium", "large", "springfield", or "all_western"
         c70: Chapter 70 data DataFrame (optional, for foundation enrollment)
         districts: Optional pre-filtered list of district names. If provided, uses this list
                   instead of filtering internally. This ensures consistency with NSS analysis.
@@ -931,6 +932,8 @@ def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str, 
                 suffix = "Outliers (Springfield)"
         else:
             suffix = "Outliers (Springfield)"
+    elif bucket_lower == "all_western":  # CR 12,002
+        suffix = "All Western MA (excl. Springfield)"
     else:
         # Legacy fallback (should not be used with new 6-tier system)
         suffix = "≤500 Students" if bucket == "le_500" else ">500 Students"

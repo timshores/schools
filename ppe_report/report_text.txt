@@ -115,15 +115,15 @@ Section 1 examines per-pupil expenditure (PPE) trends across all Western Massach
 
 This section provides a regional overview before diving into cohort-specific details (Section 2) and individual district comparisons (Section 3).
 
-<b>Contents:</b>
+##H2 Contents
 
-<b>Year-over-Year (YoY) growth rates:</b> Shows the rate of PPE change from 2009-2024 for Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury, and their cohorts.
-
-<b>5-year and 15-year CAGR by district and cohort:</b> Shows how compound annual growth rate (CAGR) smooths out the volatility of YoY rates of change, making it easier to understand and compare change in PPE over time.
-
-<b>Distribution of 2024 enrollment and proposed cohort grouping:</b> Shows a histogram of Western MA districts by enrollment with cohorts determined by statistics visualized by the histogram.
-
-<b>Scatterplot analysis:</b> Shows the relationship between district enrollment and PPE for 2024, with a table of cohort members. 
+• <b>Per-pupil expenditure and growth 2009-2024</b> compares 2009 to 2024 PPE for Western MA districts.
+• <b>Year-over-Year (YoY) growth rates</b> shows the rate of PPE change from 2009-2024 for Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury, and their cohorts.
+• <b>5-year and 15-year CAGR by district and cohort</b> shows how compound annual growth rate (CAGR) smooths out the volatility of YoY rates of change, making it easier to understand and compare change in PPE over time.
+• <b>Distribution of 2024 enrollment and proposed cohort grouping</b> shows a histogram of Western MA districts by enrollment with cohorts determined by statistics visualized by the histogram.
+• <b>Scatterplot analysis</b> shows the relationship between district enrollment and PPE for 2024, with a table of cohort members. 
+• <b>Maps</b> of district locations and 2024 enrollment cohorts, 2024 PPE vs enrollment cohort baseline, and PPE growth (2009-2024) vs enrollment cohort baseline.
+• <b>Statistical associations</b> between enrollment and PPE.
 
 All districts are grouped into enrollment cohorts based on 2024 in-district FTE using IQR (Interquartile Range) analysis. This grouping enables meaningful peer comparisons while acknowledging that enrollment size is just one factor influencing costs. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance—all of which shape costs and outcomes.
 
@@ -392,8 +392,8 @@ These box plots reveal whether districts of similar size grew at similar rates (
 
 __COHORT_CAGR_TABLE__
 
-<br /><b>Pattern Recognition:</b> A cohort with high 2024 PPE but typical growth rates suggests historically elevated spending maintained over time — exactly what we see in our selected districts.
-<br />
+<br /><br /><b>Pattern Recognition:</b> A cohort with high 2024 PPE but typical growth rates suggests historically elevated spending maintained over time — exactly what we see in our selected districts.
+<br /><br />
 ##H2 Statistical Test Results
 ##H3 What Associates with Current Spending (2024 PPE)?
 

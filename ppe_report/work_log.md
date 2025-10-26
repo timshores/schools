@@ -716,3 +716,44 @@
 - **More sensitive CAGR threshold (0.5pp vs 1pp) better captures long-term compound growth differences**
 - Enhanced documentation explaining threshold calibration for both technical and non-technical readers
 - Readers can understand why small growth rate differences matter when viewing CAGR comparison maps
+
+## 2025-10-25 - Foundation Enrollment Restoration and NSS/Ch70 Executive Summary Tables
+
+### Completed Change Requests (CR08-CR11, CR 12,001-12,002)
+
+**CR08: Restore Foundation Enrollment to NSS/Ch70 Pages**
+- Reversed previous CR16 which had removed Foundation Enrollment from NSS/Ch70 pages
+- Added Foundation Enrollment tables to all NSS/Ch70 pages (cohort aggregates, Western MA aggregate, and individual districts)
+- Restored Foundation Enrollment line and left y-axis to all NSS/Ch70 plots in nss_ch70_main.py
+- Updated all NSS/Ch70 enrollment labels to explicitly specify "Foundation Enrollment" vs "In-district FTE" for PPE
+- Impact: Clear distinction between Foundation Enrollment (state aid denominator) and In-district FTE (actual expenditure denominator)
+
+**CR09: Add Ch70 Aid Comparison Page to Executive Summary**
+- Created build_ch70_aid_data() helper function to extract Ch70 Aid per pupil data
+- Added Ch70 Aid comparison table to Executive Summary with red/green shading
+- Impact: Executive Summary now shows Ch70 Aid funding patterns across enrollment cohorts
+
+**CR10: Add Actual NSS Comparison Page to Executive Summary**
+- Created build_actual_nss_data() helper function to calculate Actual NSS minus Required NSS
+- Added Actual NSS comparison table to Executive Summary showing spending above/below requirement
+- Impact: Shows local funding effort patterns (spending beyond state requirements)
+
+**CR11: Add Statistical Analysis for Ch70 and NSS**
+- Created calculate_cohort_ch70_distribution() and calculate_cohort_nss_distribution() functions
+- Added statistical analysis page to Section 2 with distribution tables
+- Impact: Section 2 now includes statistical analysis of Ch70 and NSS patterns across cohorts
+
+**CR 12,001: Remove "Page" Prefix from Page Numbers**
+- Changed footer from "Page 1" to just "1"
+- Impact: Cleaner page number display
+
+**CR 12,002: Fix Missing Western MA Aggregate Chart Images**
+- Fixed condition ordering bug ("Springfield" was matching before "all, excl. Springfield")
+- Added support for all_western bucket in school_shared.py
+- Impact: All Western MA aggregate pages now display correctly
+
+### Files Modified
+- compose_pdf.py (FE table restoration, new helper functions, Executive Summary tables, statistical analysis)
+- nss_ch70_main.py (restored FE line, updated labels, fixed condition ordering)
+- district_expend_pp_stack.py (updated enrollment labels to "In-district FTE")
+- school_shared.py (added all_western support)

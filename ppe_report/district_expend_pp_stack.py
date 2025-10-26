@@ -148,7 +148,7 @@ def _weighted_total_series_for_list(df: pd.DataFrame, districts: List[str]) -> t
 # ---------- Simplified district plot (solid color, no categories) ----------
 def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series],
                    context: str, right_ylim: float, left_ylim: float | None,
-                   line_colors: Dict[str, str], enrollment_label: str = "Pupils (FTE)"):
+                   line_colors: Dict[str, str], enrollment_label: str = "In-district FTE"):
     """Plot district with solid color for total PPE, no category breakdown."""
 
     # Calculate total PPE series
@@ -294,7 +294,7 @@ def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd
 # ---------- Main district page plot ----------
 def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series],
              context: str, right_ylim: float, left_ylim: float | None,
-             line_colors: Dict[str, str], cmap_all: Dict[str, Dict[str, str]], enrollment_label: str = "Pupils (FTE)"):
+             line_colors: Dict[str, str], cmap_all: Dict[str, Dict[str, str]], enrollment_label: str = "In-district FTE"):
 
     cols = list(epp_pivot.columns) if (epp_pivot is not None and not epp_pivot.empty) else []
     sub_order_bottom_top = canonical_order_bottom_to_top(cols)
@@ -677,8 +677,8 @@ def plot_ppe_change_bars(out_path: Path, df: pd.DataFrame, reg: pd.DataFrame, c7
                     bbox=dict(boxstyle='round,pad=0.4', facecolor='white',
                              edgecolor=text_color, linewidth=1.2, alpha=0.9))
 
-    # Add enrollment explainer text at top
-    fig.text(0.5, 0.98, f"Enrollment change {t0}→{latest} shown to right of bars (FTE count and %)",
+    # Add enrollment explainer text at top (CR08)
+    fig.text(0.5, 0.98, f"In-district FTE change {t0}→{latest} shown to right of bars (count and %)",
              ha="center", va="top", fontsize=14, style='italic', color='#B91C1C')
 
     # Legend at top
@@ -765,10 +765,10 @@ if __name__ == "__main__":
         # Use centralized cohort definitions
         cohort_key = bucket.upper()
         if bucket == "springfield":
-            enrollment_label = "Enrollment"
+            enrollment_label = "In-district FTE"  # CR08
             left_ylim_agg = compute_districts_fte_ylim([lines_mean], pad=1.06, step=1000)
         else:
-            enrollment_label = "Weighted avg enrollment per district"
+            enrollment_label = "Weighted avg in-district FTE per district"  # CR08
             left_ylim_agg = get_cohort_ylim(cohort_key)
 
         plot_one(out, piv, lines_mean, context, right_ylim, left_ylim_agg, FTE_LINE_COLORS, cmap_all, enrollment_label)
@@ -780,7 +780,7 @@ if __name__ == "__main__":
         if not piv_all.empty:
             context_all = context_for_western("all_western")
             out_all = OUTPUT_DIR / f"regional_expenditures_per_pupil_Western_Traditional_all_western.png"
-            enrollment_label_all = "Weighted avg enrollment per district"
+            enrollment_label_all = "Weighted avg in-district FTE per district"  # CR08
             # Use a reasonable y-limit for the aggregate (similar to MEDIUM cohort)
             left_ylim_all = get_cohort_ylim("MEDIUM")
             plot_one(out_all, piv_all, lines_mean_all, context_all, right_ylim, left_ylim_all, FTE_LINE_COLORS, cmap_all, enrollment_label_all)
@@ -818,8 +818,8 @@ if __name__ == "__main__":
         if left_ylim_dist is None:  # Springfield has no fixed ylim
             left_ylim_dist = left_ylim_districts
 
-        # Individual districts use "Enrollment" label
-        enrollment_label = "Enrollment"
+        # Individual districts use "In-district FTE" label (CR08)
+        enrollment_label = "In-district FTE"
 
         # Simple version (solid color, no categories)
         safe_dist_name = make_safe_filename(dist)

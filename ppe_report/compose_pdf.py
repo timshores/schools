@@ -901,6 +901,102 @@ def calculate_cohort_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, star
 
     return pd.DataFrame(results)
 
+def calculate_cohort_ch70_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, year: int = 2024) -> pd.DataFrame:
+    """
+    Calculate five-number summary of Ch70 Aid (per pupil) distribution for each cohort (CR11).
+
+    Args:
+        df: Main expenditure data
+        reg: District regions/metadata
+        c70: Chapter 70 data
+        year: Year to analyze (default 2024)
+
+    Returns:
+        DataFrame with columns: cohort, n, min, q1, median, q3, max
+    """
+    if c70 is None or c70.empty:
+        return pd.DataFrame()
+
+    cohorts = get_western_cohort_districts(df, reg)
+    results = []
+
+    for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
+        districts = cohorts.get(cohort_name, [])
+        if not districts:
+            continue
+
+        # Collect Ch70 Aid per pupil values for this cohort
+        ch70_values = []
+        for dist in districts:
+            nss_piv, _, _ = prepare_district_nss_ch70(df, c70, dist)
+            if not nss_piv.empty and "Ch70 Aid" in nss_piv.columns and year in nss_piv.index:
+                ch70_aid = nss_piv.loc[year, "Ch70 Aid"]
+                if ch70_aid > 0:
+                    ch70_values.append(ch70_aid)
+
+        if ch70_values:
+            ch70_series = pd.Series(ch70_values)
+            results.append({
+                "cohort": get_cohort_label(cohort_name),
+                "cohort_name": cohort_name,
+                "n": len(ch70_values),
+                "min": ch70_series.min(),
+                "q1": ch70_series.quantile(0.25),
+                "median": ch70_series.median(),
+                "q3": ch70_series.quantile(0.75),
+                "max": ch70_series.max()
+            })
+
+    return pd.DataFrame(results)
+
+def calculate_cohort_nss_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, year: int = 2024) -> pd.DataFrame:
+    """
+    Calculate five-number summary of Actual NSS (minus Req NSS, per pupil) distribution for each cohort (CR11).
+
+    Args:
+        df: Main expenditure data
+        reg: District regions/metadata
+        c70: Chapter 70 data
+        year: Year to analyze (default 2024)
+
+    Returns:
+        DataFrame with columns: cohort, n, min, q1, median, q3, max
+    """
+    if c70 is None or c70.empty:
+        return pd.DataFrame()
+
+    cohorts = get_western_cohort_districts(df, reg)
+    results = []
+
+    for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
+        districts = cohorts.get(cohort_name, [])
+        if not districts:
+            continue
+
+        # Collect Actual NSS (minus Req NSS) per pupil values for this cohort
+        nss_values = []
+        for dist in districts:
+            nss_piv, _, _ = prepare_district_nss_ch70(df, c70, dist)
+            if not nss_piv.empty and year in nss_piv.index:
+                if "Actual NSS (adj)" in nss_piv.columns and "Req NSS (adj)" in nss_piv.columns:
+                    actual_minus_req = nss_piv.loc[year, "Actual NSS (adj)"] - nss_piv.loc[year, "Req NSS (adj)"]
+                    nss_values.append(actual_minus_req)
+
+        if nss_values:
+            nss_series = pd.Series(nss_values)
+            results.append({
+                "cohort": get_cohort_label(cohort_name),
+                "cohort_name": cohort_name,
+                "n": len(nss_values),
+                "min": nss_series.min(),
+                "q1": nss_series.quantile(0.25),
+                "median": nss_series.median(),
+                "q3": nss_series.quantile(0.75),
+                "max": nss_series.max()
+            })
+
+    return pd.DataFrame(results)
+
 def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohort_colors: dict) -> None:
     """
     Create a horizontal mini box-and-whisker plot for a cohort.
@@ -1227,10 +1323,17 @@ def _build_fte_table(page: dict) -> Table:
     t0_year_fte = latest_year_fte - 15 if isinstance(latest_year_fte, int) else 2009
     fte_base = page.get("fte_baseline_map", {}) or {}
 
+    # Determine enrollment label based on page type (CR08)
+    page_type = page.get("page_type", "district")
+    if page_type == "nss_ch70":
+        enrollment_header = "Foundation Enrollment"
+    else:
+        enrollment_header = "In-district FTE"
+
     # Header cells - reordered chronologically
     header = [
         Paragraph("", style_hdr_left),  # Swatch column, no header text
-        Paragraph("Enrollment", style_hdr_left),
+        Paragraph(enrollment_header, style_hdr_left),
         Paragraph(f"{t0_year_fte}", style_hdr_right),
         Paragraph("CAGR 15y", style_hdr_right),
         Paragraph("CAGR 10y", style_hdr_right),
@@ -2298,6 +2401,104 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             print(f"Warning: Failed to build data for {bucket_key} ({district_list}): {e}")
             return (0.0, 0.0, 0.0, 0.0, 0.0)
 
+    # Helper function to build Ch70 Aid data for Executive Summary (CR09)
+    def build_ch70_aid_data(bucket_key: str, district_list: List[str]) -> tuple:
+        """
+        Build Ch70 Aid data for a cohort or district.
+
+        Args:
+            bucket_key: Cohort identifier (tiny, small, etc.) or "district" for individual districts
+            district_list: List of district names
+
+        Returns:
+            Tuple of (start_dollar, cagr15, cagr10, cagr5, latest_dollar) for Ch70 Aid per pupil
+        """
+        if not district_list or c70 is None or c70.empty:
+            return (0.0, 0.0, 0.0, 0.0, 0.0)
+
+        try:
+            if bucket_key in ["tiny", "small", "medium", "large", "springfield", "all_western"]:
+                # Cohort aggregate: use prepare_aggregate_nss_ch70_weighted
+                nss_piv, _, _ = prepare_aggregate_nss_ch70_weighted(df, c70, district_list)
+            else:
+                # Individual district: use prepare_district_nss_ch70
+                dist_name = district_list[0]
+                nss_piv, _, _ = prepare_district_nss_ch70(df, c70, dist_name)
+
+            if nss_piv.empty or "Ch70 Aid" not in nss_piv.columns:
+                return (0.0, 0.0, 0.0, 0.0, 0.0)
+
+            # Extract Ch70 Aid series
+            ch70_series = nss_piv["Ch70 Aid"]
+            latest_year_local = int(ch70_series.index.max())
+            start_year = latest_year_local - 15
+
+            if start_year not in ch70_series.index or latest_year_local not in ch70_series.index:
+                return (0.0, 0.0, 0.0, 0.0, 0.0)
+
+            start_val = float(ch70_series.loc[start_year])
+            latest_val = float(ch70_series.loc[latest_year_local])
+            cagr5 = compute_cagr_last(ch70_series, 5) if len(ch70_series) >= 5 else 0.0
+            cagr10 = compute_cagr_last(ch70_series, 10) if len(ch70_series) >= 10 else 0.0
+            cagr15 = compute_cagr_last(ch70_series, 15) if len(ch70_series) >= 15 else 0.0
+
+            return (start_val, cagr15, cagr10, cagr5, latest_val)
+
+        except Exception as e:
+            print(f"Warning: Failed to build Ch70 Aid data for {bucket_key} ({district_list}): {e}")
+            return (0.0, 0.0, 0.0, 0.0, 0.0)
+
+    # Helper function to build Actual NSS (minus Req NSS) data for Executive Summary (CR10)
+    def build_actual_nss_data(bucket_key: str, district_list: List[str]) -> tuple:
+        """
+        Build Actual NSS (minus Req NSS) data for a cohort or district.
+
+        Args:
+            bucket_key: Cohort identifier (tiny, small, etc.) or "district" for individual districts
+            district_list: List of district names
+
+        Returns:
+            Tuple of (start_dollar, cagr15, cagr10, cagr5, latest_dollar) for Actual NSS minus Req NSS per pupil
+        """
+        if not district_list or c70 is None or c70.empty:
+            return (0.0, 0.0, 0.0, 0.0, 0.0)
+
+        try:
+            if bucket_key in ["tiny", "small", "medium", "large", "springfield", "all_western"]:
+                # Cohort aggregate: use prepare_aggregate_nss_ch70_weighted
+                nss_piv, _, _ = prepare_aggregate_nss_ch70_weighted(df, c70, district_list)
+            else:
+                # Individual district: use prepare_district_nss_ch70
+                dist_name = district_list[0]
+                nss_piv, _, _ = prepare_district_nss_ch70(df, c70, dist_name)
+
+            if nss_piv.empty:
+                return (0.0, 0.0, 0.0, 0.0, 0.0)
+
+            # Calculate Actual NSS (minus Req NSS) series
+            # Actual NSS (minus Req NSS) = Actual NSS (adj) - Req NSS (adj)
+            if "Actual NSS (adj)" not in nss_piv.columns or "Req NSS (adj)" not in nss_piv.columns:
+                return (0.0, 0.0, 0.0, 0.0, 0.0)
+
+            actual_minus_req_series = nss_piv["Actual NSS (adj)"] - nss_piv["Req NSS (adj)"]
+            latest_year_local = int(actual_minus_req_series.index.max())
+            start_year = latest_year_local - 15
+
+            if start_year not in actual_minus_req_series.index or latest_year_local not in actual_minus_req_series.index:
+                return (0.0, 0.0, 0.0, 0.0, 0.0)
+
+            start_val = float(actual_minus_req_series.loc[start_year])
+            latest_val = float(actual_minus_req_series.loc[latest_year_local])
+            cagr5 = compute_cagr_last(actual_minus_req_series, 5) if len(actual_minus_req_series) >= 5 else 0.0
+            cagr10 = compute_cagr_last(actual_minus_req_series, 10) if len(actual_minus_req_series) >= 10 else 0.0
+            cagr15 = compute_cagr_last(actual_minus_req_series, 15) if len(actual_minus_req_series) >= 15 else 0.0
+
+            return (start_val, cagr15, cagr10, cagr5, latest_val)
+
+        except Exception as e:
+            print(f"Warning: Failed to build Actual NSS data for {bucket_key} ({district_list}): {e}")
+            return (0.0, 0.0, 0.0, 0.0, 0.0)
+
     # Build all Western MA cohort districts (excluding Springfield)
     # Note: Large cohort label will be dynamically determined based on actual cohort boundaries
     western_all_excl_springfield = [d for group in ["TINY", "SMALL", "MEDIUM", "LARGE"] for d in cohorts_exec.get(group, [])]
@@ -2394,6 +2595,84 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         omit_title=True,  # Skip title since it's on the same page as Table 1
         needs_table_num_substitution=True  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
     ))
+
+    # ===== CR09: Ch70 Aid Comparison Table =====
+    if c70 is not None and not c70.empty:
+        # Build Ch70 Aid summary data for cohorts and districts
+        ch70_aid_summary_data = {
+            "Western MA (all, excl. Springfield)": build_ch70_aid_data("all_western", western_all_excl_springfield),
+            "Western MA Tiny (0-200 FTE)": build_ch70_aid_data("tiny", cohorts_exec.get("TINY", [])),
+            "Western MA Small (201-800 FTE)": build_ch70_aid_data("small", cohorts_exec.get("SMALL", [])),
+            "Western MA Medium (801-1600 FTE)": build_ch70_aid_data("medium", cohorts_exec.get("MEDIUM", [])),
+            f"Western MA {large_label}": build_ch70_aid_data("large", cohorts_exec.get("LARGE", [])),
+            "Outliers (Springfield)": build_ch70_aid_data("springfield", cohorts_exec.get("SPRINGFIELD", [])),
+            "Amherst-Pelham Regional": build_ch70_aid_data("district", ["Amherst-Pelham"]),
+            "Amherst": build_ch70_aid_data("district", ["Amherst"]),
+            "Leverett": build_ch70_aid_data("district", ["Leverett"]),
+            "Pelham": build_ch70_aid_data("district", ["Pelham"]),
+            "Shutesbury": build_ch70_aid_data("district", ["Shutesbury"]),
+        }
+
+        def make_ch70_table_rows(cohort_names: List[str]) -> List[tuple]:
+            """Build Ch70 Aid table rows from cohort/district names."""
+            return [(name, *ch70_aid_summary_data.get(name, (0, 0, 0, 0, 0))) for name in cohort_names]
+
+        # Ch70 Aid Table: All Western MA cohorts
+        ch70_table1_rows = make_ch70_table_rows(table1_names)
+        baseline_western_ch70 = ch70_table1_rows[0][1:]
+        ch70_table1 = _build_cohort_summary_table(
+            ch70_table1_rows,
+            baseline_row=("Western MA (all, excl. Springfield)", *baseline_western_ch70),
+            apply_shading=True,
+            highlight_baseline_rows={0}
+        )
+
+        pages.append(dict(
+            title="Executive Summary (continued)",
+            subtitle="Chapter 70 Aid (per foundation pupil): Western MA enrollment cohorts and selected districts",
+            summary_table=ch70_table1,
+            explanation_blocks=[],
+            section_id="exec_summary_ch70_comparison"
+        ))
+
+    # ===== CR10: Actual NSS (minus Req NSS) Comparison Table =====
+    if c70 is not None and not c70.empty:
+        # Build Actual NSS summary data for cohorts and districts
+        actual_nss_summary_data = {
+            "Western MA (all, excl. Springfield)": build_actual_nss_data("all_western", western_all_excl_springfield),
+            "Western MA Tiny (0-200 FTE)": build_actual_nss_data("tiny", cohorts_exec.get("TINY", [])),
+            "Western MA Small (201-800 FTE)": build_actual_nss_data("small", cohorts_exec.get("SMALL", [])),
+            "Western MA Medium (801-1600 FTE)": build_actual_nss_data("medium", cohorts_exec.get("MEDIUM", [])),
+            f"Western MA {large_label}": build_actual_nss_data("large", cohorts_exec.get("LARGE", [])),
+            "Outliers (Springfield)": build_actual_nss_data("springfield", cohorts_exec.get("SPRINGFIELD", [])),
+            "Amherst-Pelham Regional": build_actual_nss_data("district", ["Amherst-Pelham"]),
+            "Amherst": build_actual_nss_data("district", ["Amherst"]),
+            "Leverett": build_actual_nss_data("district", ["Leverett"]),
+            "Pelham": build_actual_nss_data("district", ["Pelham"]),
+            "Shutesbury": build_actual_nss_data("district", ["Shutesbury"]),
+        }
+
+        def make_nss_table_rows(cohort_names: List[str]) -> List[tuple]:
+            """Build Actual NSS table rows from cohort/district names."""
+            return [(name, *actual_nss_summary_data.get(name, (0, 0, 0, 0, 0))) for name in cohort_names]
+
+        # Actual NSS Table: All Western MA cohorts
+        nss_table1_rows = make_nss_table_rows(table1_names)
+        baseline_western_nss = nss_table1_rows[0][1:]
+        nss_table1 = _build_cohort_summary_table(
+            nss_table1_rows,
+            baseline_row=("Western MA (all, excl. Springfield)", *baseline_western_nss),
+            apply_shading=True,
+            highlight_baseline_rows={0}
+        )
+
+        pages.append(dict(
+            title="Executive Summary (continued)",
+            subtitle="Actual NSS minus Required NSS (per foundation pupil): Western MA enrollment cohorts and selected districts",
+            summary_table=nss_table1,
+            explanation_blocks=[],
+            section_id="exec_summary_nss_comparison"
+        ))
 
     # ===== SECTION 1: WESTERN MA TRADITIONAL PUBLIC SCHOOL DISTRICT TRENDS =====
     # Section 1 Summary Page
@@ -2651,7 +2930,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
         pages.append(dict(
             title=f"Section 2 — Western MA cohort details",
-            subtitle=f"{cohort_label} — PPE vs Enrollment — Weighted average per district.",
+            subtitle=f"{cohort_label} — PPE vs In-district FTE — Weighted average per district.",
             chart_path=str(regional_png(bucket)),
             latest_year=latest_year,
             latest_year_fte=latest_fte_year,
@@ -2681,6 +2960,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     latest_year_nss = int(nss_west.index.max())
                     cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_west, latest_year_nss)
 
+                    # Build Foundation Enrollment table (CR08)
+                    fte_rows_nss, fte_map_nss, latest_fte_year_nss = _build_nss_fte_data(foundation_west, latest_year_nss)
+
                     # Build Western MA baseline for NSS/Ch70 (shared across all cohorts)
                     western_nss_baseline = _build_western_ma_nss_baseline(df, reg, c70, latest_year_nss, exclude_springfield=True)
 
@@ -2690,14 +2972,19 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                         subtitle=f"{cohort_label} — Chapter 70 Aid and Net School Spending (NSS).",
                         chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
                         latest_year=latest_year_nss,
+                        latest_year_fte=latest_fte_year_nss,  # CR08
                         cat_rows=cat_rows_nss,
                         cat_total=cat_total_nss,
                         cat_start_map=cat_start_map_nss,
+                        fte_rows=fte_rows_nss,  # CR08
+                        fte_series_map=fte_map_nss,  # CR08
                         page_type="nss_ch70",
                         baseline_title="All Western MA (excluding Springfield)",
                         baseline_map=western_nss_baseline,
+                        fte_baseline_map=western_nss_baseline,  # CR08 - same baseline includes FE
                         dist_name=title,
                         raw_nss=nss_west,  # Store for Appendix C data tables
+                        raw_foundation=foundation_west,  # CR08 - Store for plots
                         district_list_text=district_list_text  # Add district list text below NSS table
                     ))
 
@@ -2738,7 +3025,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
             pages.append(dict(
                 title=f"Section 2 — Western MA cohort details",
-                subtitle=f"Western MA (all, excl. Springfield) — PPE vs Enrollment — Weighted average per district.",
+                subtitle=f"Western MA (all, excl. Springfield) — PPE vs In-district FTE",
                 chart_path=str(regional_png("all_western")),
                 latest_year=latest_year,
                 latest_year_fte=latest_fte_year,
@@ -2764,21 +3051,82 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                 latest_year_nss = int(nss_west.index.max())
                 cat_rows_nss, cat_total_nss, cat_start_map_nss = build_nss_category_data(nss_west, latest_year_nss)
 
+                # Build Foundation Enrollment table (CR08)
+                fte_rows_nss, fte_map_nss, latest_fte_year_nss = _build_nss_fte_data(foundation_west, latest_year_nss)
+
                 pages.append(dict(
                     title=f"Section 2 — Western MA cohort details",
-                    subtitle=f"Western MA (all, excl. Springfield) — Chapter 70 Aid and Net School Spending (NSS).",
+                    subtitle=f"Western MA (all, excl. Springfield) — Chapter 70 Aid and Net School Spending (NSS)",
                     chart_path=str(OUTPUT_DIR / f"nss_ch70_Western_MA_all_western.png"),
                     latest_year=latest_year_nss,
+                    latest_year_fte=latest_fte_year_nss,  # CR08
                     cat_rows=cat_rows_nss,
                     cat_total=cat_total_nss,
                     cat_start_map=cat_start_map_nss,
+                    fte_rows=fte_rows_nss,  # CR08
+                    fte_series_map=fte_map_nss,  # CR08
                     page_type="nss_ch70",
                     baseline_title=None,  # No baseline comparison (this IS the baseline)
                     baseline_map=None,  # No shading
+                    fte_baseline_map=None,  # CR08 - No shading for FE either
                     dist_name=title,
                     raw_nss=nss_west,
+                    raw_foundation=foundation_west,  # CR08 - Store for plots
                     district_list_text=district_list_text
                 ))
+
+    # ===== CR11: Statistical Analysis for Ch70 Aid and NSS =====
+    if c70 is not None and not c70.empty:
+        # Define cohort colors (matching western_map.py and existing statistical analysis)
+        cohort_colors = {
+            "TINY": "#4575B4",
+            "SMALL": "#3C9DC4",
+            "MEDIUM": "#FDB749",
+            "LARGE": "#D73027",
+            "SPRINGFIELD": "#984EA3"
+        }
+
+        # Calculate page width (A4 width minus margins)
+        page_width = A4[0] / inch - 1.0*inch
+
+        # Calculate Ch70 Aid and Actual NSS distributions
+        ch70_dist_df = calculate_cohort_ch70_distribution(df, reg, c70, year=2024)
+        nss_dist_df = calculate_cohort_nss_distribution(df, reg, c70, year=2024)
+
+        # Build tables
+        ch70_table = build_cohort_distribution_table(ch70_dist_df, "Ch70 Aid", cohort_colors, page_width)
+        nss_table = build_cohort_distribution_table(nss_dist_df, "Actual NSS (minus Req NSS)", cohort_colors, page_width)
+
+        # Get text blocks from report_text (if available, otherwise use placeholder)
+        nss_stat_text_blocks = report_text.get("NSS_CH70_STATISTICAL_ASSOCIATIONS", [
+            "This section examines statistical patterns in Chapter 70 Aid and Net School Spending across enrollment cohorts.",
+            "Tables below show five-number summaries (minimum, Q1, median, Q3, maximum) for each cohort."
+        ])
+
+        # Replace placeholders with tables
+        nss_stat_text_blocks_with_tables = []
+        for block in nss_stat_text_blocks:
+            if isinstance(block, str) and "__COHORT_CH70_TABLE__" in block:
+                nss_stat_text_blocks_with_tables.append(ch70_table)
+            elif isinstance(block, str) and "__COHORT_NSS_TABLE__" in block:
+                nss_stat_text_blocks_with_tables.append(nss_table)
+            else:
+                nss_stat_text_blocks_with_tables.append(block)
+
+        # If no placeholders found, append tables at the end
+        if "__COHORT_CH70_TABLE__" not in str(nss_stat_text_blocks):
+            nss_stat_text_blocks_with_tables.append(ch70_table)
+        if "__COHORT_NSS_TABLE__" not in str(nss_stat_text_blocks):
+            nss_stat_text_blocks_with_tables.append(nss_table)
+
+        # Add statistical analysis page
+        pages.append(dict(
+            title="Section 2 — Western MA NSS/Ch70 cohort details (continued)",
+            subtitle="Statistical Associations: Chapter 70 Aid and Net School Spending",
+            text_blocks=nss_stat_text_blocks_with_tables,
+            text_only_page=True,
+            section_id="section2_nss_statistical"
+        ))
 
     # ===== SECTION 3: SPECIFIC DISTRICTS COMPARED TO COHORTS =====
     # Add intro page for Section 3
@@ -2887,7 +3235,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
         pages.append(dict(
             title="Section 3 — Specific districts",
-            subtitle=f"{dist_title} — PPE vs Enrollment",
+            subtitle=f"{dist_title} — PPE vs In-district FTE",
             chart_path=str(district_png_detail(dist)),
             latest_year=latest_year, latest_year_fte=latest_fte_year,
             cat_rows=rows, cat_total=total, cat_start_map=start_map, fte_rows=fte_rows,
@@ -2926,6 +3274,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     if not nss_west.empty:
                         nss_west_baseline = _build_nss_ch70_baseline_map(nss_west, latest_year_nss, foundation_west)
 
+                # Build Foundation Enrollment table (CR08)
+                fte_rows_nss, fte_map_nss, latest_fte_year_nss = _build_nss_fte_data(foundation_dist, latest_year_nss)
+
                 safe_name = make_safe_filename(dist)
 
                 pages.append(dict(
@@ -2933,14 +3284,19 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     subtitle=f"{dist_title} — Chapter 70 Aid and Net School Spending (NSS)",
                     chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
                     latest_year=latest_year_nss,
+                    latest_year_fte=latest_fte_year_nss,  # CR08
                     cat_rows=cat_rows_nss,
                     cat_total=cat_total_nss,
                     cat_start_map=cat_start_map_nss,
+                    fte_rows=fte_rows_nss,  # CR08
+                    fte_series_map=fte_map_nss,  # CR08
                     page_type="nss_ch70",
                     baseline_title=f"Western Traditional ({group_label})",
                     baseline_map=nss_west_baseline,
+                    fte_baseline_map=nss_west_baseline,  # CR08 - Already includes FE data
                     dist_name=dist,
-                    raw_nss=nss_dist  # Store raw data for Appendix A
+                    raw_nss=nss_dist,  # Store raw data for Appendix A
+                    raw_foundation=foundation_dist  # CR08
                 ))
 
     # Note: Section 3 (ALPS PK-12 & Peers) removed. Districts now compared to enrollment-based peer groups.
@@ -3639,6 +3995,7 @@ def build_toc_page():
         ("    Medium Cohort (801-1600 FTE)", "section2_medium", 1),
         ("    Large Cohort (1601-10000 FTE)", "section2_large", 1),
         ("    Springfield Cohort (>10000 FTE)", "section2_springfield", 1),
+        ("    Western MA (all, excl. Springfield)", "section2_all_western", 1),
         ("", None, -1),  # Extra spacing before Section 3
 
         ("Section 3: Selected Districts Compared to Cohorts", "amherst_pelham", 0),
@@ -4086,8 +4443,8 @@ def build_pdf(pages: List[dict], out_path: Path):
             title_text = f'<a name="{p["section_id"]}"/>{title_text}'
         story.append(Paragraph(title_text, style_title_main))
 
-        # Only add subtitle if it's not empty
-        default_sub = "PPE vs Enrollment"
+        # Only add subtitle if it's not empty (CR08)
+        default_sub = "PPE vs In-district FTE"
         subtitle = p.get("subtitle", (default_sub if not p.get("graph_only") else ""))
         if subtitle:
             story.append(Paragraph(subtitle, style_title_sub))
