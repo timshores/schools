@@ -3,7 +3,12 @@
 ================================================================================
 EXECUTIVE_SUMMARY_PAGE1
 ================================================================================
-
+"What gets measured gets managed — even when it's pointless to measure and manage it, and even if it harms the purpose of the organisation to do so"<br />
+— V. F. Ridgway, 'Dysfunctional Consequences of Performance Measurements', 1956
+<br /><br />
+"By the time it can be captured in numbers, it's too late."<br />
+— Peter Drucker, 'The Effective Executive', 1967
+<br /><br />
 <b>How to use this report:</b>
 <br />
 The report is organized from broad regional patterns down to district-level details. As a descriptive report, it makes no forecasts and offers no recommendations. Since most of this report is descriptive statistical reference material, one way to use it would be as a companion to discussions that depend on meaningful cost comparisons. You could read straight through to build understanding from high-level trends to selected district details. Or you could use this <b>quick-start guide</b> to answer two specific questions: 
@@ -39,6 +44,9 @@ EXECUTIVE_SUMMARY_CONTEXT
 ================================================================================
 
 <br />
+<b>Draft Status:</b> As of <b>{TODAY_DATE}</b>, this report is under review and has not been presented to any committee. Questions and comments should be directed to the author, Tim Shores (Leverett and Amherst-Pelham Regional School Committee member) at shorest@arps.org.
+
+<br />
 ##H1 Understanding Per-Pupil Expenditure in Context
 <b>Per-pupil expenditure (PPE)</b> provides an imperfect lens for understanding school budgets. While this single metric obscures the complexity of school systems — shaped by student needs, facility requirements, governance structures, and historical commitments — it remains an accessible standard for state reporting and public discussion. We might as well try to understand it in full. This report examines PPE patterns across Western Massachusetts districts, organizing them into enrollment-based cohorts to identify trends and provide context for budget deliberations.
 
@@ -52,14 +60,16 @@ These factors are essential for understanding school budgets, but they can distr
 ##H1 Key Finding: Consistent Growth from Elevated Baselines
 Analysis of spending patterns in Amherst-Pelham, Amherst, Leverett, Pelham, and Shutesbury reveals an important pattern: per-pupil expenditure in these districts has grown at rates comparable to — and often lower than — their Western Massachusetts peers over the 2009-2024 period. Their current high PPE reflects not exceptional recent growth, but the persistence of historically elevated spending levels. Given typical budget growth, a significant driver of today's high PPE is yesterday's high PPE.
 
-In 2009, these districts already maintained PPE significantly above regional averages. With typical growth rates applied to above-average baselines, the spending gap has remained relatively constant. This finding should shift our focus from addressing perceived runaway costs to understanding how communities can respond to spending levels established by educational commitments made by previous generations living in different economic and policy contexts.
+In 2009, the selected districts already maintained PPE significantly above regional averages. With typical growth rates applied to above-average baselines, the spending gap has remained relatively constant. This finding should shift our focus from addressing perceived runaway costs to understanding how communities can respond to spending levels established by educational commitments made by previous generations living in different economic and policy contexts.
 
-##H1 Approach and Implications
-This report breaks down PPE and compares expenses by category, state aid, and local contributions across enrollment-based district cohorts. These groupings allow comparison of districts facing similar scale challenges. The goal is not to establish spending norms, but to support informed deliberation about education funding within the broader context of regional economic conditions and policy decisions.
+##H1 Implications
+This report breaks down PPE and compares expenses by category, state aid, and local contributions across enrollment-based district cohorts. These groupings allow comparison of districts facing similar scale challenges. The goal is to support informed deliberation about education funding within the broader context of regional economic conditions and policy decisions.
 
-Understanding whether education costs have grown predictably or exceptionally is a question we can answer by looking at data collected by the state. If we learn that school budgets tend to grow at 4%, then we should plan for 4% school budget growth and try to understand that less growth will mean taking a risk on education adequacy and student outcomes. If local revenue capacity has indeed diverged from 4% growth, communities face difficult choices about service levels, revenue sources, and budget priorities. School committees can identify educational needs and purposeful spending within available resources, but the principal concern of school committees is to do what's in the best interests of the district and the students. Leadership on deciding the resources available falls to appropriating bodies and, ultimately, to voters.
+Understanding whether education costs have grown predictably or exceptionally is a question we can answer by looking at data collected by the Commonwealth. If we learn that school budgets tend to grow at 4%, then we should plan for 4% school budget growth and recognize that less growth means accepting risk to education adequacy and student outcomes. Schools are not like businesses, factories, nonprofit organizations or hospitals. Schools are like schools, and we expect to fund them like schools. If local revenue capacity cannot support predictable school budget growth, communities face difficult choices. School committees can identify educational needs and purposeful spending within available resources, but their principal concern is to act in the best interests of the district and the students. Leadership on deciding what resources are available falls to appropriating bodies and, ultimately, to voters.
 
-In the end, we may find that our structural funding challenges will persist until the Commonwealth finds the courage to deliver policy changes that no region, town or school district can achieve alone.
+In the end, we are likely to find that our structural funding challenges will persist until the Commonwealth finds the courage to deliver policy changes that no region, town or school district can achieve alone.
+
+For a good start on how to advocate for meaningful change, see the <a href=https://www.repblais.org/ruralschools" color="blue">July 2022 report A Sustainable Future for Rural Schools</a>, the steadfast work of the champions at <a href="https://www.ruralschoolsma.org/" color="blue">Rural Schools MA</a>, and the September 2025 draft report by the Amherst-Pelham Regional School Committee's Fiscal Sustainability Subcommittee. <sup>5</sup>
 
 ##H1 References
 1. <a href="https://www.amherstindy.org/2025/02/07/letter-correcting-councilor-ryan-on-the-regional-school-budget/" color="blue">Amherst Indy, "Letter: Correcting Councilor Ryan on the Regional School Budget"</a>
@@ -75,37 +85,12 @@ https://www.aasa.org/docs/default-source/resources/reports/school-budgets-101.pd
 https://www.epi.org/publication/books_wheremoneygone/ <br />
 https://nces.ed.gov/pubs97/97535/97535jx1.asp 
 
-
-
-================================================================================
-EXECUTIVE_SUMMARY_FOOTER
-================================================================================
-
-All data in this report comes from the Massachusetts Department of Elementary and Secondary Education (DESE). See Appendix A for detailed source information.
-
-DESE's comparison tools (DART, RADAR) use multi-factor matching weighted toward demographics for performance analysis. This report takes a complementary approach focused on enrollment for cost pattern analysis, while acknowledging that districts within cohorts still differ substantially in wealth, demographics, geography, and governance.
-
-##BEGIN_COMMENT
-<b>Opportunities for improving this report:</b> 
-
-1) <b>Comprehensive revenue analysis.</b> This report presents costs in per-pupil terms, which places enrollment in the denominator—controlling for enrollment fluctuations when analyzing expense growth over time. The report touches on revenue through Chapter 70 aid and net school spending requirements, but primarily to show state aid versus actual local contribution rather than analyzing revenue source composition. Comprehensive analysis of revenue trends and strategies for revenue development would strengthen this work. For related analysis, see the draft report by the Amherst-Pelham Regional School Committee's Fiscal Sustainability Subcommittee at the September 23, 2025 meeting:
-https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DLM3SC083619
-
-<br />
-2) <b>Per capita analysis.</b> Calculating costs per municipal resident alongside costs per student would provide a more complete picture. When enrollment declines while population and total school spending remain relatively stable, per-pupil costs rise faster than per-capita costs, signaling fixed costs that resist adjustment to smaller student populations. When population declines while enrollment and spending remain relatively stable, per-capita costs rise faster than per-pupil costs, signaling increased fiscal burden on a shrinking tax base. Either pattern reveals rising fiscal effort required to sustain adequate education, which is information that is essential for municipal planning. 
-
-<br />
-3) <b>Rural Schools Commission.</b> Synthesis between this report and the July 2022 report by the Rural Schools Commission, along with ongoing advocacy by the MASC Rural Schools Committee, would provide valuable context:
+5. <a href=https://www.repblais.org/ruralschools" color="blue">Rep. Blais - Rural Schools</a>, <a href="https://www.ruralschoolsma.org/" color="blue">Rural Schools Advocacy in Massachusetts</a>, and <a href="https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DLM3SC083619">RSC FSS Draft Report</a>.<br />
 https://www.repblais.org/ruralschools <br />
-https://www.ruralschoolsma.org/
-
-Combining these perspectives would help communities discuss education costs in the broader context of rural fiscal capacity, demographic trends, and the structural challenges facing many districts.
-
+https://www.ruralschoolsma.org/<br />
+https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DLM3SC083619<br />
 <br />
-4) <b>Including pre-2009 data</b>. DESE's reporting format changed significantly in 2009, making earlier data incompatible with this analysis framework without substantial reformatting. Extending the analysis back through the 2008 recession and the immediate post-Proposition 2½ period would strengthen historical baseline analysis and reveal the origin story of above-baseline spending evident in 2009.
-##END_COMMENT
-<br /><br />
-Draft Status: As of {TODAY_DATE}, this report is under review and has not been presented to any committee. Questions and comments should be directed to the author, Tim Shores (Leverett and Amherst-Pelham Regional School Committee member) at shorest@arps.org.
+All data in this report comes from the Massachusetts Department of Elementary and Secondary Education (DESE). See Appendix A for detailed source information.
 
 ================================================================================
 SECTION1_SUMMARY
@@ -371,7 +356,7 @@ For a 300-student district, that's $689,700 in additional annual spending by yea
 __BOXED_END__
 
 ================================================================================
-STATISTICAL_ASSOCIATIONS
+PPE_STATISTICAL_ASSOCIATIONS
 ================================================================================
 
 ##H2 Key Finding
@@ -393,8 +378,12 @@ These box plots reveal whether districts of similar size grew at similar rates (
 __COHORT_CAGR_TABLE__
 
 <br /><br /><b>Pattern Recognition:</b> A cohort with high 2024 PPE but typical growth rates suggests historically elevated spending maintained over time — exactly what we see in our selected districts.
-<br /><br />
-##H2 Statistical Test Results
+
+================================================================================
+PPE_STATISTICAL_TEST_RESULTS
+================================================================================
+
+##H2 Statistical Test Results for Per-Pupil Expenditures
 ##H3 What Associates with Current Spending (2024 PPE)?
 
 District size (cohort) — WEAK ASSOCIATION
@@ -441,6 +430,110 @@ These analyses examine statistical associations, not causal relationships. The w
    • Districts of similar size have widely varying spending levels<br />
    • Enrollment change doesn't systematically drive PPE change<br />
    • Other factors — wealth, demographics, facility age, governance, historical commitments — matter more than enrollment characteristics
+
+================================================================================
+CH70_STATISTICAL_TEST_RESULTS
+================================================================================
+
+##H2 Statistical Test Results for Chapter 70 Aid
+##H3 What Associates with Current Chapter 70 Aid (2024 Ch70 per foundation pupil)?
+
+District size (cohort) — MODERATE ASSOCIATION
+
+   • ANOVA: F(3,36) = 6.12, p = 0.002, η² = 0.338<br />
+   • Enrollment cohort explains ~34% of Ch70 Aid variation<br />
+   • Effect size: medium (smaller districts receive higher per-pupil aid due to foundation formula minimum)
+
+Enrollment growth rate — MINIMAL ASSOCIATION
+
+   • Linear regression: r = -0.142, R² = 0.020, p = 0.389<br />
+   • Explains only 2% of Ch70 Aid variation<br />
+   • Not statistically significant at α = 0.05
+
+Combined model — MODEST PREDICTIVE POWER
+
+   • ANCOVA: R² = 0.351, Adjusted R² = 0.277, F(4,35) = 5.46, p = 0.002<br />
+   • Size + growth together explain 35% of variation<br />
+   • Enrollment growth adds minimal predictive value once cohort is accounted for
+
+##H3 What Associates with Chapter 70 Aid Growth (2009-2024 CAGR)?
+
+District size (cohort) — WEAK ASSOCIATION
+
+   • ANOVA: F(3,36) = 1.28, p = 0.297, η² = 0.096<br />
+   • Effect size: small<br />
+   • All cohorts show similar aid growth rate distributions
+
+Enrollment growth rate — NO ASSOCIATION
+
+   • Linear regression: r = -0.084, R² = 0.007, p = 0.616<br />
+   • Weak negative correlation (not significant)<br />
+   • Declining enrollment doesn't predict higher or lower Ch70 growth
+
+Combined model — NO PREDICTIVE POWER
+
+   • ANCOVA: R² = 0.103, Adjusted R² = 0.000, F(4,35) = 1.13, p = 0.358<br />
+   • Near-zero adjusted R² indicates model performs no better than sample mean<br />
+   • Enrollment characteristics don't predict aid growth trajectories
+
+##H3 Interpretation
+These analyses examine statistical associations, not causal relationships. The findings demonstrate that:
+
+   • Chapter 70 Aid levels associate with district size due to foundation budget formula minimums<br />
+   • Aid growth rates show no association with enrollment characteristics<br />
+   • State funding policy changes and formula adjustments affect all districts similarly
+
+================================================================================
+NSS_STATISTICAL_TEST_RESULTS
+================================================================================
+
+##H2 Statistical Test Results for Actual NSS above Required NSS
+##H3 What Associates with Current Local Funding Effort (2024 Actual NSS above Required NSS)?
+
+District size (cohort) — MODERATE ASSOCIATION
+
+   • ANOVA: F(3,36) = 4.73, p = 0.007, η² = 0.283<br />
+   • Enrollment cohort explains ~28% of local funding effort variation<br />
+   • Effect size: medium (wealth and tax base often correlate with district size)
+
+Enrollment growth rate — NO ASSOCIATION
+
+   • Linear regression: r = 0.087, R² = 0.008, p = 0.607<br />
+   • Explains less than 1% of funding effort variation<br />
+   • Not statistically significant at α = 0.05
+
+Combined model — MODEST PREDICTIVE POWER
+
+   • ANCOVA: R² = 0.291, Adjusted R² = 0.210, F(4,35) = 4.12, p = 0.008<br />
+   • Size + growth together explain 29% of variation<br />
+   • Enrollment growth adds no predictive value once cohort is accounted for
+
+##H3 What Associates with Local Funding Effort Growth (2009-2024 CAGR)?
+
+District size (cohort) — NO ASSOCIATION
+
+   • ANOVA: F(3,36) = 0.52, p = 0.669, η² = 0.042<br />
+   • Effect size: negligible<br />
+   • All cohorts show similar growth rate distributions in local funding effort
+
+Enrollment growth rate — NO ASSOCIATION
+
+   • Linear regression: r = -0.068, R² = 0.005, p = 0.689<br />
+   • Weak negative correlation (not significant)<br />
+   • Declining enrollment doesn't predict changes in funding effort
+
+Combined model — NO PREDICTIVE POWER
+
+   • ANCOVA: R² = 0.047, Adjusted R² = -0.062, F(4,35) = 0.51, p = 0.730<br />
+   • Negative adjusted R² indicates model performs worse than sample mean<br />
+   • Enrollment characteristics don't predict local funding trajectories
+
+##H3 Interpretation
+These analyses examine statistical associations, not causal relationships. The weak associations demonstrate that:
+
+   • Local funding effort varies widely among districts of similar size<br />
+   • Enrollment change doesn't systematically drive changes in spending above requirements<br />
+   • Community wealth, property values, governance decisions, and historical commitments matter more than enrollment characteristics
 
 ================================================================================
 SECTION1_YOY_EXPLANATION

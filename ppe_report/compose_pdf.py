@@ -111,6 +111,118 @@ def clear_page_map():
     global _PAGE_MAP
     _PAGE_MAP = {}
 
+# ===== Cross-Reference System (CR A06) =====
+# District to cohort mapping for cross-references
+DISTRICT_COHORT_MAP = {
+    "Leverett": "TINY",
+    "Pelham": "TINY",
+    "Shutesbury": "TINY",
+    "Amherst-Pelham": "MEDIUM",
+    "Amherst": "MEDIUM",
+}
+
+# Cohort to districts mapping
+COHORT_DISTRICTS_MAP = {
+    "TINY": ["Leverett", "Pelham", "Shutesbury"],
+    "MEDIUM": ["Amherst-Pelham", "Amherst"],
+}
+
+def get_cross_reference_footer(page_dict: dict) -> list:
+    """
+    Generate cross-reference footer links for a page based on its type and content.
+
+    Args:
+        page_dict: Page dictionary with title, subtitle, section_id, etc.
+
+    Returns:
+        List of Paragraph objects for footer, or empty list if no cross-refs needed
+    """
+    footer_paragraphs = []
+    subtitle = page_dict.get("subtitle", "")
+    title = page_dict.get("title", "")
+
+    # Check if this is a district page (PPE or NSS/Ch70)
+    for district_name, cohort in DISTRICT_COHORT_MAP.items():
+        if district_name in subtitle:
+            # This is a district page - add link to cohort page
+            cohort_label = get_cohort_label(cohort)
+
+            # Determine if this is PPE or NSS/Ch70 page
+            if "PPE and Enrollment" in subtitle:
+                cohort_section_id = f"western_{cohort.lower()}_ppe"
+                link_text = f"Compare to {cohort_label} cohort: PPE and Enrollment"
+            elif "Chapter 70 Aid and Net School Spending" in subtitle:
+                cohort_section_id = f"western_{cohort.lower()}_nss"
+                link_text = f"Compare to {cohort_label} cohort: Chapter 70 Aid and Net School Spending"
+            else:
+                continue
+
+            page_num = get_page_number(cohort_section_id)
+            if page_num:
+                footer_paragraphs.append(Paragraph(
+                    f'<font size="9"><i>→ {link_text} (page {page_num})</i></font>',
+                    style_body
+                ))
+            break
+
+    # Check if this is a cohort page (PPE or NSS/Ch70)
+    for cohort, districts in COHORT_DISTRICTS_MAP.items():
+        cohort_label = get_cohort_label(cohort)
+        if cohort_label in subtitle and "Western MA" in title:
+            # This is a cohort page - add links to member districts
+            if "PPE and Enrollment" in subtitle:
+                page_type = "ppe"
+                link_suffix = "PPE and Enrollment"
+            elif "Chapter 70 Aid and Net School Spending" in subtitle:
+                page_type = "nss"
+                link_suffix = "Chapter 70 Aid and Net School Spending"
+            else:
+                continue
+
+            # Add link to Western MA aggregate
+            western_section_id = f"western_all_western_{page_type}"
+            western_page_num = get_page_number(western_section_id)
+            if western_page_num:
+                footer_paragraphs.append(Paragraph(
+                    f'<font size="9"><i>→ Western MA (all, excl. Springfield): {link_suffix} (page {western_page_num})</i></font>',
+                    style_body
+                ))
+
+            # Add links to member districts
+            for district in districts:
+                district_section_id = f"district_{make_safe_filename(district).lower()}_{page_type}"
+                district_page_num = get_page_number(district_section_id)
+                if district_page_num:
+                    footer_paragraphs.append(Paragraph(
+                        f'<font size="9"><i>→ {district}: {link_suffix} (page {district_page_num})</i></font>',
+                        style_body
+                    ))
+            break
+
+    # Check if this is Western MA aggregate page
+    if "Western MA (all, excl. Springfield)" in subtitle:
+        if "PPE and Enrollment" in subtitle:
+            page_type = "ppe"
+            link_suffix = "PPE and Enrollment"
+        elif "Chapter 70 Aid and Net School Spending" in subtitle:
+            page_type = "nss"
+            link_suffix = "Chapter 70 Aid and Net School Spending"
+        else:
+            return footer_paragraphs
+
+        # Add links to all cohort pages
+        for cohort in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
+            cohort_label = get_cohort_label(cohort)
+            cohort_section_id = f"western_{cohort.lower()}_{page_type}"
+            cohort_page_num = get_page_number(cohort_section_id)
+            if cohort_page_num:
+                footer_paragraphs.append(Paragraph(
+                    f'<font size="9"><i>→ {cohort_label} cohort: {link_suffix} (page {cohort_page_num})</i></font>',
+                    style_body
+                ))
+
+    return footer_paragraphs
+
 def build_combined_fig_table_label(fig_num, table_num, doc_width, style_fig, style_table):
     """Build a table with Figure # left-aligned and Table # right-aligned on same line."""
     fig_para = Paragraph(f"<i>Figure {fig_num}</i>", style_fig)
@@ -951,7 +1063,7 @@ def calculate_cohort_ch70_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70:
 
 def calculate_cohort_nss_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, year: int = 2024) -> pd.DataFrame:
     """
-    Calculate five-number summary of Actual NSS (minus Req NSS, per pupil) distribution for each cohort (CR11).
+    Calculate five-number summary of Actual NSS (above Req NSS, per pupil) distribution for each cohort (CR11).
 
     Args:
         df: Main expenditure data
@@ -973,14 +1085,15 @@ def calculate_cohort_nss_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: 
         if not districts:
             continue
 
-        # Collect Actual NSS (minus Req NSS) per pupil values for this cohort
+        # Collect Actual NSS (above Req NSS) per pupil values for this cohort
         nss_values = []
         for dist in districts:
             nss_piv, _, _ = prepare_district_nss_ch70(df, c70, dist)
             if not nss_piv.empty and year in nss_piv.index:
-                if "Actual NSS (adj)" in nss_piv.columns and "Req NSS (adj)" in nss_piv.columns:
-                    actual_minus_req = nss_piv.loc[year, "Actual NSS (adj)"] - nss_piv.loc[year, "Req NSS (adj)"]
-                    nss_values.append(actual_minus_req)
+                col_name = "Actual NSS (minus Req NSS)"
+                if col_name in nss_piv.columns:
+                    actual_above_req = nss_piv.loc[year, col_name]
+                    nss_values.append(actual_above_req)
 
         if nss_values:
             nss_series = pd.Series(nss_values)
@@ -997,7 +1110,120 @@ def calculate_cohort_nss_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: 
 
     return pd.DataFrame(results)
 
-def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohort_colors: dict) -> None:
+def calculate_cohort_ch70_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, start_year: int = 2009, end_year: int = 2024) -> pd.DataFrame:
+    """
+    Calculate five-number summary of Ch70 Aid CAGR distribution for each cohort.
+
+    Args:
+        df: Main expenditure data
+        reg: District regions/metadata
+        c70: Chapter 70 data
+        start_year: Start year for CAGR calculation
+        end_year: End year for CAGR calculation
+
+    Returns:
+        DataFrame with columns: cohort, n, min, q1, median, q3, max
+    """
+    if c70 is None or c70.empty:
+        return pd.DataFrame()
+
+    cohorts = get_western_cohort_districts(df, reg)
+    results = []
+
+    for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
+        districts = cohorts.get(cohort_name, [])
+        if not districts:
+            continue
+
+        # Collect CAGR values for this cohort
+        cagr_values = []
+        for dist in districts:
+            nss_piv, _, _ = prepare_district_nss_ch70(df, c70, dist)
+            if not nss_piv.empty and "Ch70 Aid" in nss_piv.columns:
+                ch70_series = nss_piv["Ch70 Aid"]
+                if start_year in ch70_series.index and end_year in ch70_series.index:
+                    start_val = ch70_series.loc[start_year]
+                    end_val = ch70_series.loc[end_year]
+                    if start_val > 0 and end_val > 0:
+                        years = end_year - start_year
+                        cagr = ((end_val / start_val) ** (1 / years) - 1) * 100
+                        cagr_values.append(cagr)
+
+        if cagr_values:
+            cagr_series = pd.Series(cagr_values)
+            results.append({
+                "cohort": get_cohort_label(cohort_name),
+                "cohort_name": cohort_name,
+                "n": len(cagr_values),
+                "min": cagr_series.min(),
+                "q1": cagr_series.quantile(0.25),
+                "median": cagr_series.median(),
+                "q3": cagr_series.quantile(0.75),
+                "max": cagr_series.max()
+            })
+
+    return pd.DataFrame(results)
+
+def calculate_cohort_nss_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, start_year: int = 2009, end_year: int = 2024) -> pd.DataFrame:
+    """
+    Calculate five-number summary of Actual NSS (above Req NSS) CAGR distribution for each cohort.
+
+    Args:
+        df: Main expenditure data
+        reg: District regions/metadata
+        c70: Chapter 70 data
+        start_year: Start year for CAGR calculation
+        end_year: End year for CAGR calculation
+
+    Returns:
+        DataFrame with columns: cohort, n, min, q1, median, q3, max
+    """
+    if c70 is None or c70.empty:
+        return pd.DataFrame()
+
+    cohorts = get_western_cohort_districts(df, reg)
+    results = []
+
+    for cohort_name in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
+        districts = cohorts.get(cohort_name, [])
+        if not districts:
+            continue
+
+        # Collect CAGR values for this cohort
+        cagr_values = []
+        for dist in districts:
+            nss_piv, _, _ = prepare_district_nss_ch70(df, c70, dist)
+            if not nss_piv.empty:
+                col_name = "Actual NSS (minus Req NSS)"
+                if col_name in nss_piv.columns:
+                    nss_series = nss_piv[col_name]
+                    if start_year in nss_series.index and end_year in nss_series.index:
+                        start_val = nss_series.loc[start_year]
+                        end_val = nss_series.loc[end_year]
+                        # NSS can be negative, so we need special handling
+                        if abs(start_val) > 0 and abs(end_val) > 0:
+                            years = end_year - start_year
+                            # Use absolute values for CAGR calculation, preserve sign
+                            sign = 1 if end_val > 0 else -1
+                            cagr = ((abs(end_val) / abs(start_val)) ** (1 / years) - 1) * 100 * sign
+                            cagr_values.append(cagr)
+
+        if cagr_values:
+            cagr_series = pd.Series(cagr_values)
+            results.append({
+                "cohort": get_cohort_label(cohort_name),
+                "cohort_name": cohort_name,
+                "n": len(cagr_values),
+                "min": cagr_series.min(),
+                "q1": cagr_series.quantile(0.25),
+                "median": cagr_series.median(),
+                "q3": cagr_series.quantile(0.75),
+                "max": cagr_series.max()
+            })
+
+    return pd.DataFrame(results)
+
+def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohort_colors: dict, xlim: tuple = None) -> None:
     """
     Create a horizontal mini box-and-whisker plot for a cohort.
 
@@ -1006,6 +1232,8 @@ def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohor
         cohort_name: Cohort name for color lookup (TINY, SMALL, etc.)
         output_path: Path to save PNG
         cohort_colors: Dictionary mapping cohort names to colors
+        xlim: Optional tuple (min, max) to set x-axis limits. If None, auto-scale to data.
+              CR 1999: All boxplots for a metric should share the same xlim.
     """
     import matplotlib.pyplot as plt
     import matplotlib.patches as patches
@@ -1039,13 +1267,19 @@ def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohor
     # Clean up axes
     ax.set_ylim(0, 1)
 
-    # Handle case where all values are identical (min == max)
-    if min_val == max_val:
-        # Add small padding around the single value
-        padding = max(abs(min_val) * 0.1, 100)  # 10% of value or minimum 100
-        ax.set_xlim(min_val - padding, max_val + padding)
+    # Set x-axis limits
+    if xlim is not None:
+        # Use provided global limits (CR 1999)
+        ax.set_xlim(xlim[0], xlim[1])
     else:
-        ax.set_xlim(min_val - (max_val - min_val) * 0.05, max_val + (max_val - min_val) * 0.05)
+        # Auto-scale to individual data (old behavior)
+        # Handle case where all values are identical (min == max)
+        if min_val == max_val:
+            # Add small padding around the single value
+            padding = max(abs(min_val) * 0.1, 100)  # 10% of value or minimum 100
+            ax.set_xlim(min_val - padding, max_val + padding)
+        else:
+            ax.set_xlim(min_val - (max_val - min_val) * 0.05, max_val + (max_val - min_val) * 0.05)
 
     ax.axis('off')
 
@@ -1069,10 +1303,13 @@ def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, coh
     """
     # Generate mini boxplot images
     boxplot_dir = OUTPUT_DIR / "temp_boxplots"
-    boxplot_dir.mkdir(exist_ok=True)
+    boxplot_dir.mkdir(parents=True, exist_ok=True)
 
     # Header
-    is_ppe = metric_name == "PPE"
+    # Check if metric is dollar-based (PPE, Ch70 Aid, NSS) or percentage-based (CAGR, Growth Rate)
+    is_dollar_metric = ("$" in metric_name or "PPE" in metric_name or "Aid" in metric_name or "NSS" in metric_name)
+    is_percentage_metric = ("%" in metric_name or "CAGR" in metric_name or "Growth" in metric_name)
+
     data = [[
         Paragraph("<b>Cohort</b>", style_hdr_left),
         Paragraph("<b>n</b>", style_hdr_right),
@@ -1084,32 +1321,53 @@ def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, coh
         Paragraph("<b>Distribution</b>", style_legend_center),
     ]]
 
+    # CR 1999: Calculate global min/max across all cohorts for consistent x-axis scale
+    global_min = dist_df["min"].min()
+    global_max = dist_df["max"].max()
+    # Add 5% padding on each side
+    range_span = global_max - global_min
+    if range_span > 0:
+        xlim = (global_min - range_span * 0.05, global_max + range_span * 0.05)
+    else:
+        # All values identical - add padding
+        padding = max(abs(global_min) * 0.1, 100)
+        xlim = (global_min - padding, global_max + padding)
+
     # Data rows
     for _, row in dist_df.iterrows():
         cohort_name = row["cohort_name"]
         cohort_label = row["cohort"]
 
         # Format values based on metric type
-        if is_ppe:
+        if is_dollar_metric:
             min_str = f"${row['min']:,.0f}"
             q1_str = f"${row['q1']:,.0f}"
             med_str = f"${row['median']:,.0f}"
             q3_str = f"${row['q3']:,.0f}"
             max_str = f"${row['max']:,.0f}"
-        else:  # CAGR
+        elif is_percentage_metric:
             min_str = f"{row['min']:.1f}%"
             q1_str = f"{row['q1']:.1f}%"
             med_str = f"{row['median']:.1f}%"
             q3_str = f"{row['q3']:.1f}%"
             max_str = f"{row['max']:.1f}%"
+        else:
+            # Fallback: just show numbers with 1 decimal
+            min_str = f"{row['min']:.1f}"
+            q1_str = f"{row['q1']:.1f}"
+            med_str = f"{row['median']:.1f}"
+            q3_str = f"{row['q3']:.1f}"
+            max_str = f"{row['max']:.1f}"
 
-        # Create mini boxplot
-        boxplot_path = boxplot_dir / f"cohort_{cohort_name}_{metric_name}.png"
+        # Create mini boxplot (sanitize metric_name for filename)
+        safe_metric_name = metric_name.replace("/", "_per_").replace("$", "").replace(" ", "_")
+        boxplot_path = boxplot_dir / f"cohort_{cohort_name}_{safe_metric_name}.png"
         create_mini_boxplot(
             {"min": row["min"], "q1": row["q1"], "median": row["median"], "q3": row["q3"], "max": row["max"]},
             cohort_name,
             boxplot_path,
-            cohort_colors
+            cohort_colors,
+            xlim=xlim  # CR 1999: Use shared x-axis scale
         )
 
         # Create table row
@@ -2025,13 +2283,20 @@ def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = 
 
     # Data rows
     for label, start_dollar, cagr15, cagr10, cagr5, latest_dollar in cohort_rows:
+        # Format dollar values: allow negative values (e.g., Springfield NSS below required levels)
+        # Only show "—" if value is exactly 0 (missing data) or NaN
+        def format_dollar(val):
+            if val != val or (val == 0.0):  # NaN or exactly zero (missing data)
+                return "—"
+            return f"${val:,.0f}" if val > 0 else f"-${abs(val):,.0f}"
+
         summary_data.append([
             Paragraph(label, style_body),
-            Paragraph(f"${start_dollar:,.0f}" if start_dollar > 0 else "—", style_num),
+            Paragraph(format_dollar(start_dollar), style_num),
             Paragraph(fmt_pct(cagr15), style_num),
             Paragraph(fmt_pct(cagr10), style_num),
             Paragraph(fmt_pct(cagr5), style_num),
-            Paragraph(f"${latest_dollar:,.0f}" if latest_dollar > 0 else "—", style_num),
+            Paragraph(format_dollar(latest_dollar), style_num),
         ])
 
     summary_table = Table(summary_data, colWidths=[2.4*inch, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch])
@@ -2061,15 +2326,17 @@ def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = 
                 continue
 
             # Shade 2009 $/pupil (col 1)
-            if base_start > 0 and start_dollar > 0:
-                delta_rel = (start_dollar - base_start) / base_start
+            # Allow negative values for NSS (e.g., Springfield spending below requirements)
+            if base_start != 0 and start_dollar == start_dollar:  # Check for non-zero baseline and non-NaN
+                delta_rel = (start_dollar - base_start) / abs(base_start)
                 bg = _shade_for_dollar_rel(delta_rel)
                 if bg is not None:
                     ts.add("BACKGROUND", (1, i), (1, i), bg)
 
             # Shade 2024 $/pupil (col 5)
-            if base_latest > 0 and latest_dollar > 0:
-                delta_rel = (latest_dollar - base_latest) / base_latest
+            # Allow negative values for NSS (e.g., Springfield spending below requirements)
+            if base_latest != 0 and latest_dollar == latest_dollar:  # Check for non-zero baseline and non-NaN
+                delta_rel = (latest_dollar - base_latest) / abs(base_latest)
                 bg = _shade_for_dollar_rel(delta_rel)
                 if bg is not None:
                     ts.add("BACKGROUND", (5, i), (5, i), bg)
@@ -2253,7 +2520,7 @@ def build_threshold_analysis_page() -> dict:
     )
 
 
-def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> List[dict]:
+def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, appendices_only: bool = False) -> List[dict]:
     pages: List[dict] = []
 
     # Load external text sections for easy editing
@@ -2281,22 +2548,25 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
     exec_summary_context = report_text.get("EXECUTIVE_SUMMARY_CONTEXT", [])
 
-    exec_summary_footer = report_text.get("EXECUTIVE_SUMMARY_FOOTER", [
-        "Refer to the appendices for information about data sources and calculations."
-    ])
-
     # Build mini ToC for executive summary (CR+5)
-    mini_toc_entries = [
-        ("Table of Contents", "toc"),
-        ("Executive Summary", "executive_summary"),
-        ("Section 1: Western MA Traditional District Trends", "section1_summary"),
-        ("Section 2: Western MA Cohort Details", "section2_intro"),
-        ("Section 3: Selected Districts", "section3_intro"),
-        ("Appendix A: Data Sources & Calculation Methodology", "appendix_a"),
-        ("Appendix B: Calculations and Examples", "appendix_b"),
-        ("Appendix C: Data Tables", "appendix_c"),
-        ("Appendix D: Additional Visualizations", "appendix_d"),
-    ]
+    # Filter based on which PDF is being generated (CR A07)
+    if appendices_only:
+        # Building appendices PDF: include links to appendices only
+        mini_toc_entries = [
+            ("Appendix A: Data Sources & Calculation Methodology", "appendix_a"),
+            ("Appendix B: Calculations and Examples", "appendix_b"),
+            ("Appendix C: Data Tables", "appendix_c"),
+            ("Appendix D: Additional Visualizations", "appendix_d"),
+        ]
+    else:
+        # Building main PDF: include links to main sections only
+        mini_toc_entries = [
+            ("Table of Contents", "toc"),
+            ("Executive Summary", "executive_summary"),
+            ("Section 1: Western MA Traditional District Trends", "section1_summary"),
+            ("Section 2: Western MA Cohort Details", "section2_intro"),
+            ("Section 3: Selected Districts", "section3_intro"),
+        ]
 
     mini_toc_text = ["<b>Report Navigation:</b>", ""]
     for title, section_id in mini_toc_entries:
@@ -2309,7 +2579,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         exec_summary_intro_text +
         ["__BOXED_START__"] + exec_summary_quick_start + ["__BOXED_END__"] +
         exec_summary_context +  # Add context section (not boxed)
-        exec_summary_footer +
         ["<br />", "<br />", "<br />", "<br />", "<br />"] +  # Add 5 blank lines before Report Navigation box (cr05)
         ["__BOXED_START__"] + mini_toc_text + ["__BOXED_END__"]  # Add mini ToC in box
     )
@@ -2349,7 +2618,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     )
 
     # PAGE 0b: Executive Summary - Statistical Analysis (text from report_text.txt)
-    stat_text_blocks = report_text.get("STATISTICAL_ASSOCIATIONS", [])
+    # CR A03: Load PPE statistical associations (without test results)
+    stat_text_blocks = report_text.get("PPE_STATISTICAL_ASSOCIATIONS", [])
 
     # YoY and CAGR pages moved to Section 1 (text from report_text.txt)
     exec_summary_explanation = "\n".join(report_text.get("SECTION1_YOY_EXPLANATION", []))
@@ -2448,17 +2718,17 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             print(f"Warning: Failed to build Ch70 Aid data for {bucket_key} ({district_list}): {e}")
             return (0.0, 0.0, 0.0, 0.0, 0.0)
 
-    # Helper function to build Actual NSS (minus Req NSS) data for Executive Summary (CR10)
+    # Helper function to build Actual NSS (above Req NSS) data for Executive Summary (CR10)
     def build_actual_nss_data(bucket_key: str, district_list: List[str]) -> tuple:
         """
-        Build Actual NSS (minus Req NSS) data for a cohort or district.
+        Build Actual NSS (above Req NSS) data for a cohort or district.
 
         Args:
             bucket_key: Cohort identifier (tiny, small, etc.) or "district" for individual districts
             district_list: List of district names
 
         Returns:
-            Tuple of (start_dollar, cagr15, cagr10, cagr5, latest_dollar) for Actual NSS minus Req NSS per pupil
+            Tuple of (start_dollar, cagr15, cagr10, cagr5, latest_dollar) for Actual NSS above Req NSS per pupil
         """
         if not district_list or c70 is None or c70.empty:
             return (0.0, 0.0, 0.0, 0.0, 0.0)
@@ -2475,12 +2745,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             if nss_piv.empty:
                 return (0.0, 0.0, 0.0, 0.0, 0.0)
 
-            # Calculate Actual NSS (minus Req NSS) series
-            # Actual NSS (minus Req NSS) = Actual NSS (adj) - Req NSS (adj)
-            if "Actual NSS (adj)" not in nss_piv.columns or "Req NSS (adj)" not in nss_piv.columns:
+            # The column is already "Actual NSS (minus Req NSS)" - it's the difference
+            col_name = "Actual NSS (minus Req NSS)"
+            if col_name not in nss_piv.columns:
                 return (0.0, 0.0, 0.0, 0.0, 0.0)
 
-            actual_minus_req_series = nss_piv["Actual NSS (adj)"] - nss_piv["Req NSS (adj)"]
+            actual_minus_req_series = nss_piv[col_name]
             latest_year_local = int(actual_minus_req_series.index.max())
             start_year = latest_year_local - 15
 
@@ -2596,7 +2866,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
         needs_table_num_substitution=True  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
     ))
 
-    # ===== CR09: Ch70 Aid Comparison Table =====
+    # ===== CR09: Ch70 Aid Comparison Tables (3 tables: All Western MA, Medium, Tiny) =====
     if c70 is not None and not c70.empty:
         # Build Ch70 Aid summary data for cohorts and districts
         ch70_aid_summary_data = {
@@ -2617,7 +2887,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             """Build Ch70 Aid table rows from cohort/district names."""
             return [(name, *ch70_aid_summary_data.get(name, (0, 0, 0, 0, 0))) for name in cohort_names]
 
-        # Ch70 Aid Table: All Western MA cohorts
+        # Ch70 TABLE 1: All Western MA cohorts (with Western MA baseline)
         ch70_table1_rows = make_ch70_table_rows(table1_names)
         baseline_western_ch70 = ch70_table1_rows[0][1:]
         ch70_table1 = _build_cohort_summary_table(
@@ -2632,10 +2902,58 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             subtitle="Chapter 70 Aid (per foundation pupil): Western MA enrollment cohorts and selected districts",
             summary_table=ch70_table1,
             explanation_blocks=[],
+            first_cohort_table=True,  # Flag to show legend at top
+            force_new_page=True,  # CR A: Force page break
             section_id="exec_summary_ch70_comparison"
         ))
 
-    # ===== CR10: Actual NSS (minus Req NSS) Comparison Table =====
+        # Ch70 TABLE 2: The Mediums (baseline row not shaded, districts shaded vs Medium cohort)
+        table2_names_ch70 = ["Western MA Medium (801-1600 FTE)", "Amherst-Pelham Regional", "Amherst"]
+        ch70_table2_rows = make_ch70_table_rows(table2_names_ch70)
+        baseline_medium_ch70 = ch70_table2_rows[0][1:]
+        ch70_table2 = _build_cohort_summary_table(
+            ch70_table2_rows,
+            baseline_row=("Western MA Medium (801-1600 FTE)", *baseline_medium_ch70),
+            apply_shading=True,
+            skip_shading_rows={0},  # Don't shade the comparison baseline
+            highlight_baseline_rows={0}  # Highlight baseline row in yellow
+        )
+
+        pages.append(dict(
+            title="Executive Summary (continued)",  # Won't be displayed due to omit_title flag
+            subtitle="",  # No subtitle for table 2
+            summary_table=ch70_table2,
+            explanation_blocks=[],
+            omit_title=True  # Skip title since it's on the same page as Table 1
+        ))
+
+        # Ch70 TABLE 3: The Tinies (baseline row not shaded, districts shaded vs Tiny cohort)
+        table3_names_ch70 = ["Western MA Tiny (0-200 FTE)", "Leverett", "Pelham", "Shutesbury"]
+        ch70_table3_rows = make_ch70_table_rows(table3_names_ch70)
+        baseline_tiny_ch70 = ch70_table3_rows[0][1:]
+        ch70_table3 = _build_cohort_summary_table(
+            ch70_table3_rows,
+            baseline_row=("Western MA Tiny (0-200 FTE)", *baseline_tiny_ch70),
+            apply_shading=True,
+            skip_shading_rows={0},  # Don't shade the comparison baseline
+            highlight_baseline_rows={0}  # Highlight baseline row in yellow
+        )
+
+        # Load explanation text from external file
+        ch70_explanation_text = report_text.get("EXECUTIVE_SUMMARY_CH70_EXPLANATION", [
+            "Tables {N}-{N+2} compare Chapter 70 Aid (per foundation pupil) across Western MA school districts organized by enrollment size."
+        ])
+
+        pages.append(dict(
+            title="Executive Summary (continued)",  # Won't be displayed due to omit_title flag
+            subtitle="",  # No subtitle for table 3
+            summary_table=ch70_table3,
+            explanation_blocks=ch70_explanation_text,
+            omit_title=True,  # Skip title since it's on the same page as Table 1
+            needs_table_num_substitution=True  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
+        ))
+
+    # ===== CR10: Actual NSS (above Req NSS) Comparison Tables (3 tables: All Western MA, Medium, Tiny) =====
     if c70 is not None and not c70.empty:
         # Build Actual NSS summary data for cohorts and districts
         actual_nss_summary_data = {
@@ -2656,7 +2974,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             """Build Actual NSS table rows from cohort/district names."""
             return [(name, *actual_nss_summary_data.get(name, (0, 0, 0, 0, 0))) for name in cohort_names]
 
-        # Actual NSS Table: All Western MA cohorts
+        # NSS TABLE 1: All Western MA cohorts (with Western MA baseline)
         nss_table1_rows = make_nss_table_rows(table1_names)
         baseline_western_nss = nss_table1_rows[0][1:]
         nss_table1 = _build_cohort_summary_table(
@@ -2668,10 +2986,58 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
         pages.append(dict(
             title="Executive Summary (continued)",
-            subtitle="Actual NSS minus Required NSS (per foundation pupil): Western MA enrollment cohorts and selected districts",
+            subtitle="Actual NSS above Required NSS (per foundation pupil): Western MA enrollment cohorts and selected districts",  # CR F
             summary_table=nss_table1,
             explanation_blocks=[],
+            first_cohort_table=True,  # Flag to show legend at top
+            force_new_page=True,  # CR B: Force page break
             section_id="exec_summary_nss_comparison"
+        ))
+
+        # NSS TABLE 2: The Mediums (baseline row not shaded, districts shaded vs Medium cohort)
+        table2_names_nss = ["Western MA Medium (801-1600 FTE)", "Amherst-Pelham Regional", "Amherst"]
+        nss_table2_rows = make_nss_table_rows(table2_names_nss)
+        baseline_medium_nss = nss_table2_rows[0][1:]
+        nss_table2 = _build_cohort_summary_table(
+            nss_table2_rows,
+            baseline_row=("Western MA Medium (801-1600 FTE)", *baseline_medium_nss),
+            apply_shading=True,
+            skip_shading_rows={0},  # Don't shade the comparison baseline
+            highlight_baseline_rows={0}  # Highlight baseline row in yellow
+        )
+
+        pages.append(dict(
+            title="Executive Summary (continued)",  # Won't be displayed due to omit_title flag
+            subtitle="",  # No subtitle for table 2
+            summary_table=nss_table2,
+            explanation_blocks=[],
+            omit_title=True  # Skip title since it's on the same page as Table 1
+        ))
+
+        # NSS TABLE 3: The Tinies (baseline row not shaded, districts shaded vs Tiny cohort)
+        table3_names_nss = ["Western MA Tiny (0-200 FTE)", "Leverett", "Pelham", "Shutesbury"]
+        nss_table3_rows = make_nss_table_rows(table3_names_nss)
+        baseline_tiny_nss = nss_table3_rows[0][1:]
+        nss_table3 = _build_cohort_summary_table(
+            nss_table3_rows,
+            baseline_row=("Western MA Tiny (0-200 FTE)", *baseline_tiny_nss),
+            apply_shading=True,
+            skip_shading_rows={0},  # Don't shade the comparison baseline
+            highlight_baseline_rows={0}  # Highlight baseline row in yellow
+        )
+
+        # Load explanation text from external file
+        nss_explanation_text = report_text.get("EXECUTIVE_SUMMARY_NSS_EXPLANATION", [
+            "Tables {N}-{N+2} compare Actual NSS above Required NSS (per foundation pupil) - showing local funding effort beyond state requirements."
+        ])
+
+        pages.append(dict(
+            title="Executive Summary (continued)",  # Won't be displayed due to omit_title flag
+            subtitle="",  # No subtitle for table 3
+            summary_table=nss_table3,
+            explanation_blocks=nss_explanation_text,
+            omit_title=True,  # Skip title since it's on the same page as Table 1
+            needs_table_num_substitution=True  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
         ))
 
     # ===== SECTION 1: WESTERN MA TRADITIONAL PUBLIC SCHOOL DISTRICT TRENDS =====
@@ -2834,13 +3200,162 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
             else:
                 stat_text_blocks_with_tables.append(block)
 
-        # Page: Statistical Associations (all content on one page with wrapping)
+        # Page: Statistical Associations (distributions only)
         pages.append(dict(
             title="Section 1 — Western MA traditional public school district trends (continued)",
             subtitle="Statistical Associations between Enrollment and Per-Pupil Expenditures",
             text_blocks=stat_text_blocks_with_tables,
             text_only_page=True,
             section_id="section1_statistical"
+        ))
+
+        # CR A03: Add PPE Statistical Test Results page immediately after
+        ppe_test_results_text = report_text.get("PPE_STATISTICAL_TEST_RESULTS", [
+            "<b>Statistical Test Results for Per-Pupil Expenditures</b>",
+            "",
+            "This section examines statistical associations between enrollment characteristics and per-pupil expenditure patterns.",
+            "These analyses examine statistical associations, not causal relationships."
+        ])
+        pages.append(dict(
+            title="Section 1 — Western MA traditional public school district trends (continued)",
+            subtitle="Statistical Test Results for Per-Pupil Expenditures",
+            text_blocks=ppe_test_results_text,
+            text_only_page=True,
+            section_id="section1_ppe_test_results"
+        ))
+
+    # ===== CR G: Statistical Analysis for Ch70 Aid and Actual NSS (in Section 1, as separate pages) =====
+    if c70 is not None and not c70.empty:
+        # Define cohort colors (matching existing statistical analysis)
+        cohort_colors = {
+            "TINY": "#4575B4",
+            "SMALL": "#3C9DC4",
+            "MEDIUM": "#FDB749",
+            "LARGE": "#D73027",
+            "SPRINGFIELD": "#984EA3"
+        }
+
+        # Calculate page width
+        page_width = A4[0] / inch - 1.0*inch
+
+        # === Ch70 Aid Statistical Analysis ===
+        # Calculate distributions for Ch70 Aid (both current and growth)
+        ch70_dist_df = calculate_cohort_ch70_distribution(df, reg, c70, year=2024)
+        ch70_cagr_dist_df = calculate_cohort_ch70_cagr_distribution(df, reg, c70, start_year=2009, end_year=2024)
+
+        # Build Ch70 Aid tables
+        ch70_table = build_cohort_distribution_table(ch70_dist_df, "2024 Ch70 Aid ($/foundation pupil)", cohort_colors, page_width)
+        ch70_cagr_table = build_cohort_distribution_table(ch70_cagr_dist_df, "2009-2024 Ch70 Aid Growth Rate (%)", cohort_colors, page_width)
+
+        # Get text blocks for Ch70 Aid (with default content)
+        ch70_stat_text_blocks = report_text.get("CH70_STATISTICAL_ASSOCIATIONS", [
+            "<b>Key Finding</b>",
+            "District size and enrollment cohort show associations with Chapter 70 Aid patterns. This section examines the distribution of Chapter 70 state aid (per foundation pupil) across Western Massachusetts traditional districts organized by enrollment size.",
+            "",
+            "<b>Distribution of Chapter 70 Aid by Enrollment Cohort</b>",
+            "The five-number summaries below show two dimensions: current aid levels (2024 Ch70 Aid) and how they grew over time (2009-2024 growth rates).",
+            "",
+            "<b>2024 Chapter 70 Aid per Foundation Pupil by Cohort</b>",
+            "Box plots show the spread of state aid within each size cohort. The median line shows typical aid levels for each cohort. Note: Foundation enrollment includes weighted adjustments for low-income, ELL, and special education students.",
+            "__COHORT_CH70_TABLE__",
+            "",
+            "<b>2009-2024 Chapter 70 Aid Growth Rates by Cohort</b>",
+            "These box plots reveal whether districts of similar size received similar aid growth (narrow boxes) or diverged over time (wide boxes). Comparing medians shows which cohorts experienced faster or slower aid increases.",
+            "__COHORT_CH70_CAGR_TABLE__"
+        ])
+
+        # Replace placeholders with tables
+        ch70_stat_text_blocks_with_tables = []
+        for block in ch70_stat_text_blocks:
+            if isinstance(block, str) and "__COHORT_CH70_TABLE__" in block:
+                ch70_stat_text_blocks_with_tables.append(ch70_table)
+            elif isinstance(block, str) and "__COHORT_CH70_CAGR_TABLE__" in block:
+                ch70_stat_text_blocks_with_tables.append(ch70_cagr_table)
+            else:
+                ch70_stat_text_blocks_with_tables.append(block)
+
+        # Add Ch70 Aid statistical analysis page
+        pages.append(dict(
+            title="Section 1 — Western MA traditional public school district trends (continued)",
+            subtitle="Statistical Associations between Enrollment and Chapter 70 Aid (per foundation pupil)",
+            text_blocks=ch70_stat_text_blocks_with_tables,
+            text_only_page=True,
+            section_id="section1_ch70_statistical"
+        ))
+
+        # Add Ch70 Aid Statistical Test Results page immediately after (CR A02)
+        ch70_test_results_text = report_text.get("CH70_STATISTICAL_TEST_RESULTS", [
+            "<b>Statistical Test Results for Chapter 70 Aid</b>",
+            "",
+            "This section examines statistical associations between enrollment characteristics and Chapter 70 Aid patterns.",
+            "These analyses examine statistical associations, not causal relationships."
+        ])
+        pages.append(dict(
+            title="Section 1 — Western MA traditional public school district trends (continued)",
+            subtitle="Statistical Test Results for Chapter 70 Aid (per foundation pupil)",
+            text_blocks=ch70_test_results_text,
+            text_only_page=True,
+            section_id="section1_ch70_test_results"
+        ))
+
+        # === Actual NSS Statistical Analysis ===
+        # Calculate distributions for Actual NSS (both current and growth)
+        nss_dist_df = calculate_cohort_nss_distribution(df, reg, c70, year=2024)
+        nss_cagr_dist_df = calculate_cohort_nss_cagr_distribution(df, reg, c70, start_year=2009, end_year=2024)
+
+        # Build Actual NSS tables
+        nss_table = build_cohort_distribution_table(nss_dist_df, "2024 Actual NSS above Req NSS ($/foundation pupil)", cohort_colors, page_width)
+        nss_cagr_table = build_cohort_distribution_table(nss_cagr_dist_df, "2009-2024 Actual NSS above Req NSS Growth Rate (%)", cohort_colors, page_width)
+
+        # Get text blocks for Actual NSS (with default content)
+        nss_stat_text_blocks = report_text.get("NSS_STATISTICAL_ASSOCIATIONS", [
+            "<b>Key Finding</b>",
+            "District size and enrollment cohort show associations with local funding effort patterns. This section examines Actual Net School Spending above Required NSS (per foundation pupil) - a measure of spending beyond state-mandated minimums.",
+            "",
+            "<b>Distribution of Actual NSS above Required NSS by Enrollment Cohort</b>",
+            "The five-number summaries below show: current local funding effort (2024 values) and how this effort changed over time (2009-2024 growth rates).",
+            "",
+            "<b>2024 Actual NSS above Required NSS per Foundation Pupil by Cohort</b>",
+            "Box plots show the spread of spending above requirements within each size cohort. Positive values indicate spending above the state-required minimum; negative values indicate spending below required levels. The median line shows typical local effort for each cohort.",
+            "__COHORT_NSS_TABLE__",
+            "",
+            "<b>2009-2024 Actual NSS above Required NSS Growth Rates by Cohort</b>",
+            "These box plots reveal whether districts of similar size increased local effort at similar rates (narrow boxes) or diverged over time (wide boxes). Comparing medians shows which cohorts increased spending above requirements faster or slower.",
+            "__COHORT_NSS_CAGR_TABLE__"
+        ])
+
+        # Replace placeholders with tables
+        nss_stat_text_blocks_with_tables = []
+        for block in nss_stat_text_blocks:
+            if isinstance(block, str) and "__COHORT_NSS_TABLE__" in block:
+                nss_stat_text_blocks_with_tables.append(nss_table)
+            elif isinstance(block, str) and "__COHORT_NSS_CAGR_TABLE__" in block:
+                nss_stat_text_blocks_with_tables.append(nss_cagr_table)
+            else:
+                nss_stat_text_blocks_with_tables.append(block)
+
+        # Add Actual NSS statistical analysis page
+        pages.append(dict(
+            title="Section 1 — Western MA traditional public school district trends (continued)",
+            subtitle="Statistical Associations between Enrollment and Actual NSS (per foundation pupil)",
+            text_blocks=nss_stat_text_blocks_with_tables,
+            text_only_page=True,
+            section_id="section1_nss_statistical"
+        ))
+
+        # Add Actual NSS Statistical Test Results page immediately after (CR A02)
+        nss_test_results_text = report_text.get("NSS_STATISTICAL_TEST_RESULTS", [
+            "<b>Statistical Test Results for Actual NSS above Required NSS</b>",
+            "",
+            "This section examines statistical associations between enrollment characteristics and local funding effort (Actual NSS above Required NSS).",
+            "These analyses examine statistical associations, not causal relationships."
+        ])
+        pages.append(dict(
+            title="Section 1 — Western MA traditional public school district trends (continued)",
+            subtitle="Statistical Test Results for Actual NSS above Required NSS (per foundation pupil)",
+            text_blocks=nss_test_results_text,
+            text_only_page=True,
+            section_id="section1_nss_test_results"
         ))
 
     # Set up cohort data structures for Section 2
@@ -2930,7 +3445,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
         pages.append(dict(
             title=f"Section 2 — Western MA cohort details",
-            subtitle=f"{cohort_label} — PPE vs In-district FTE — Weighted average per district.",
+            subtitle=f"{cohort_label} — PPE and Enrollment — Weighted average per district.",  # CR J
             chart_path=str(regional_png(bucket)),
             latest_year=latest_year,
             latest_year_fte=latest_fte_year,
@@ -2969,7 +3484,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     safe_name = f"Western_MA_{bucket}"
                     pages.append(dict(
                         title=f"Section 2 — Western MA cohort details",
-                        subtitle=f"{cohort_label} — Chapter 70 Aid and Net School Spending (NSS).",
+                        subtitle=f"{cohort_label} — Chapter 70 Aid and Net School Spending (per foundation pupil).",  # CR I
                         chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
                         latest_year=latest_year_nss,
                         latest_year_fte=latest_fte_year_nss,  # CR08
@@ -3025,7 +3540,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
             pages.append(dict(
                 title=f"Section 2 — Western MA cohort details",
-                subtitle=f"Western MA (all, excl. Springfield) — PPE vs In-district FTE",
+                subtitle=f"Western MA (all, excl. Springfield) — PPE and Enrollment",  # CR J
                 chart_path=str(regional_png("all_western")),
                 latest_year=latest_year,
                 latest_year_fte=latest_fte_year,
@@ -3056,7 +3571,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
                 pages.append(dict(
                     title=f"Section 2 — Western MA cohort details",
-                    subtitle=f"Western MA (all, excl. Springfield) — Chapter 70 Aid and Net School Spending (NSS)",
+                    subtitle=f"Western MA (all, excl. Springfield) — Chapter 70 Aid and Net School Spending (per foundation pupil)",  # CR I
                     chart_path=str(OUTPUT_DIR / f"nss_ch70_Western_MA_all_western.png"),
                     latest_year=latest_year_nss,
                     latest_year_fte=latest_fte_year_nss,  # CR08
@@ -3074,59 +3589,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
                     raw_foundation=foundation_west,  # CR08 - Store for plots
                     district_list_text=district_list_text
                 ))
-
-    # ===== CR11: Statistical Analysis for Ch70 Aid and NSS =====
-    if c70 is not None and not c70.empty:
-        # Define cohort colors (matching western_map.py and existing statistical analysis)
-        cohort_colors = {
-            "TINY": "#4575B4",
-            "SMALL": "#3C9DC4",
-            "MEDIUM": "#FDB749",
-            "LARGE": "#D73027",
-            "SPRINGFIELD": "#984EA3"
-        }
-
-        # Calculate page width (A4 width minus margins)
-        page_width = A4[0] / inch - 1.0*inch
-
-        # Calculate Ch70 Aid and Actual NSS distributions
-        ch70_dist_df = calculate_cohort_ch70_distribution(df, reg, c70, year=2024)
-        nss_dist_df = calculate_cohort_nss_distribution(df, reg, c70, year=2024)
-
-        # Build tables
-        ch70_table = build_cohort_distribution_table(ch70_dist_df, "Ch70 Aid", cohort_colors, page_width)
-        nss_table = build_cohort_distribution_table(nss_dist_df, "Actual NSS (minus Req NSS)", cohort_colors, page_width)
-
-        # Get text blocks from report_text (if available, otherwise use placeholder)
-        nss_stat_text_blocks = report_text.get("NSS_CH70_STATISTICAL_ASSOCIATIONS", [
-            "This section examines statistical patterns in Chapter 70 Aid and Net School Spending across enrollment cohorts.",
-            "Tables below show five-number summaries (minimum, Q1, median, Q3, maximum) for each cohort."
-        ])
-
-        # Replace placeholders with tables
-        nss_stat_text_blocks_with_tables = []
-        for block in nss_stat_text_blocks:
-            if isinstance(block, str) and "__COHORT_CH70_TABLE__" in block:
-                nss_stat_text_blocks_with_tables.append(ch70_table)
-            elif isinstance(block, str) and "__COHORT_NSS_TABLE__" in block:
-                nss_stat_text_blocks_with_tables.append(nss_table)
-            else:
-                nss_stat_text_blocks_with_tables.append(block)
-
-        # If no placeholders found, append tables at the end
-        if "__COHORT_CH70_TABLE__" not in str(nss_stat_text_blocks):
-            nss_stat_text_blocks_with_tables.append(ch70_table)
-        if "__COHORT_NSS_TABLE__" not in str(nss_stat_text_blocks):
-            nss_stat_text_blocks_with_tables.append(nss_table)
-
-        # Add statistical analysis page
-        pages.append(dict(
-            title="Section 2 — Western MA NSS/Ch70 cohort details (continued)",
-            subtitle="Statistical Associations: Chapter 70 Aid and Net School Spending",
-            text_blocks=nss_stat_text_blocks_with_tables,
-            text_only_page=True,
-            section_id="section2_nss_statistical"
-        ))
 
     # ===== SECTION 3: SPECIFIC DISTRICTS COMPARED TO COHORTS =====
     # Add intro page for Section 3
@@ -3235,7 +3697,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
         pages.append(dict(
             title="Section 3 — Specific districts",
-            subtitle=f"{dist_title} — PPE vs In-district FTE",
+            subtitle=f"{dist_title} — PPE and Enrollment",  # CR J
             chart_path=str(district_png_detail(dist)),
             latest_year=latest_year, latest_year_fte=latest_fte_year,
             cat_rows=rows, cat_total=total, cat_start_map=start_map, fte_rows=fte_rows,
@@ -3281,7 +3743,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
 
                 pages.append(dict(
                     title="Section 3 — Selected districts",
-                    subtitle=f"{dist_title} — Chapter 70 Aid and Net School Spending (NSS)",
+                    subtitle=f"{dist_title} — Chapter 70 Aid and Net School Spending (per foundation pupil)",  # CR I
                     chart_path=str(OUTPUT_DIR / f"nss_ch70_{safe_name}.png"),
                     latest_year=latest_year_nss,
                     latest_year_fte=latest_fte_year_nss,  # CR08
@@ -3970,47 +4432,59 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame) -> 
     return pages
 
 # ---- Table of Contents ----
-def build_toc_page():
-    """Build table of contents page dict with hierarchical structure."""
+def build_toc_page(include_main_sections=True, include_appendices=True):
+    """
+    Build table of contents page dict with hierarchical structure.
+
+    Args:
+        include_main_sections: If True, include main sections (Executive Summary, Sections 1-3)
+        include_appendices: If True, include appendix sections
+    """
     # Hierarchical TOC entries: (title, section_id, indent_level)
     # indent_level: 0=main section, 1=sub-section, 2=sub-sub-section
-    toc_entries = [
-        ("Executive Summary", "executive_summary", 0),
-        ("    Total PPE comparison: Western MA enrollment cohorts and selected districts", "exec_summary_cohort_comparison", 1),
+    toc_entries = []
 
-        ("Section 1: Western MA Traditional District Trends", "section1_summary", 0),
-        ("    Per-pupil expenditure and growth: 2009 PPE to 2024 PPE", "section1_ppe_overview", 1),
-        ("    Year-over-Year (YoY) growth rates by district and cohort", "section1_yoy", 1),
-        ("    5-year and 15-year CAGR by district and cohort", "section1_cagr", 1),
-        ("    Distribution of 2024 enrollment and proposed cohort grouping", "section1_distribution", 1),
-        ("    Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries (2024)", "section1_scatter", 1),
-        ("    Geographic map showing district locations and enrollment cohorts (2024)", "section1_map", 1),
-        ("    Geographic map showing 2024 PPE vs enrollment cohort baseline", "section1_ppe_comparison", 1),
-        ("    Geographic map showing 15-year PPE growth (2009-2024) vs enrollment cohort baseline", "section1_cagr_comparison", 1),
-        ("    Statistical Associations between Enrollment and Per-Pupil Expenditures", "section1_statistical", 1),
+    if include_main_sections:
+        toc_entries.extend([
+            ("Executive Summary", "executive_summary", 0),
+            ("    Total PPE comparison: Western MA enrollment cohorts and selected districts", "exec_summary_cohort_comparison", 1),
 
-        ("Section 2: Western MA Cohort Details", "section2_tiny", 0),
-        ("    Tiny Cohort (0-200 FTE)", "section2_tiny", 1),
-        ("    Small Cohort (201-800 FTE)", "section2_small", 1),
-        ("    Medium Cohort (801-1600 FTE)", "section2_medium", 1),
-        ("    Large Cohort (1601-10000 FTE)", "section2_large", 1),
-        ("    Springfield Cohort (>10000 FTE)", "section2_springfield", 1),
-        ("    Western MA (all, excl. Springfield)", "section2_all_western", 1),
-        ("", None, -1),  # Extra spacing before Section 3
+            ("Section 1: Western MA Traditional District Trends", "section1_summary", 0),
+            ("    Per-pupil expenditure and growth: 2009 PPE to 2024 PPE", "section1_ppe_overview", 1),
+            ("    Year-over-Year (YoY) growth rates by district and cohort", "section1_yoy", 1),
+            ("    5-year and 15-year CAGR by district and cohort", "section1_cagr", 1),
+            ("    Distribution of 2024 enrollment and proposed cohort grouping", "section1_distribution", 1),
+            ("    Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries (2024)", "section1_scatter", 1),
+            ("    Geographic map showing district locations and enrollment cohorts (2024)", "section1_map", 1),
+            ("    Geographic map showing 2024 PPE vs enrollment cohort baseline", "section1_ppe_comparison", 1),
+            ("    Geographic map showing 15-year PPE growth (2009-2024) vs enrollment cohort baseline", "section1_cagr_comparison", 1),
+            ("    Statistical Associations between Enrollment and Per-Pupil Expenditures", "section1_statistical", 1),
 
-        ("Section 3: Selected Districts Compared to Cohorts", "amherst_pelham", 0),
-        ("    Amherst-Pelham Regional", "amherst_pelham", 1),
-        ("    Amherst", "amherst", 1),
-        ("    Leverett", "leverett", 1),
-        ("    Pelham", "pelham", 1),
-        ("    Shutesbury", "shutesbury", 1),
+            ("Section 2: Western MA Cohort Details", "section2_tiny", 0),
+            ("    Tiny Cohort (0-200 FTE)", "section2_tiny", 1),
+            ("    Small Cohort (201-800 FTE)", "section2_small", 1),
+            ("    Medium Cohort (801-1600 FTE)", "section2_medium", 1),
+            ("    Large Cohort (1601-10000 FTE)", "section2_large", 1),
+            ("    Springfield Cohort (>10000 FTE)", "section2_springfield", 1),
+            ("    Western MA (all, excl. Springfield)", "section2_all_western", 1),
+            ("", None, -1),  # Extra spacing before Section 3
 
-        ("Appendices", None, 0),
-        ("    Appendix A: Data Sources & Calculation Methodology", "appendix_a", 1),
-        ("    Appendix B: Calculations and Examples", "appendix_b", 1),
-        ("    Appendix C: Data Tables", "appendix_c", 1),
-        ("    Appendix D: Additional Visualizations", "appendix_d", 1),
-    ]
+            ("Section 3: Selected Districts Compared to Cohorts", "amherst_pelham", 0),
+            ("    Amherst-Pelham Regional", "amherst_pelham", 1),
+            ("    Amherst", "amherst", 1),
+            ("    Leverett", "leverett", 1),
+            ("    Pelham", "pelham", 1),
+            ("    Shutesbury", "shutesbury", 1),
+        ])
+
+    if include_appendices:
+        toc_entries.extend([
+            ("Appendices", None, 0),
+            ("    Appendix A: Data Sources & Calculation Methodology", "appendix_a", 1),
+            ("    Appendix B: Calculations and Examples", "appendix_b", 1),
+            ("    Appendix C: Data Tables", "appendix_c", 1),
+            ("    Appendix D: Additional Visualizations", "appendix_d", 1),
+        ])
 
     return dict(
         title="Table of Contents",
@@ -4018,7 +4492,7 @@ def build_toc_page():
         chart_path=None,
         page_type="toc",
         toc_entries=toc_entries,
-        report_title="Western MA Per Pupil Spending Report",
+        report_title="Western MA Per Pupil Expenditure Report",  # CR A07
         report_subtitle="With selected districts for comparison",
         section_id="toc"
     )
@@ -4034,6 +4508,10 @@ def build_pdf(pages: List[dict], out_path: Path):
     story: List = []
     first_cohort_table_num = None  # Track first cohort table number for substitution
     for idx, p in enumerate(pages):
+        # Check for forced page break (CR A & B)
+        if p.get("force_new_page") and idx > 0:
+            story.append(PageBreak())
+
         # Handle threshold analysis page
         if p.get("threshold_analysis"):
             # Add page marker for TOC page numbering
@@ -4154,10 +4632,18 @@ def build_pdf(pages: List[dict], out_path: Path):
             from reportlab.platypus import Table
             from reportlab.lib import colors
 
-            # Extract just title and page columns (indent_level used for styling)
-            table_rows = [[row[0], row[1]] for row in table_data]
+            # Extract title and page columns (indent_level used for styling)
+            # CR 999: Removed dotted leaders
+            table_rows = []
+            for row in table_data:
+                title_cell = row[0]
+                page_cell = row[1]
+                indent_level = row[2]
+
+                table_rows.append([title_cell, page_cell])
 
             # Create table with column widths: wide for title, narrow for page number
+            # Title: 85%, Page: 15%
             toc_table = Table(table_rows, colWidths=[doc.width * 0.85, doc.width * 0.15])
 
             # Build table style with gray dividers between main sections
@@ -4190,8 +4676,9 @@ def build_pdf(pages: List[dict], out_path: Path):
                         (idx + 1 < len(table_data) and table_data[idx + 1][2] == 0)
                     )
                     if is_last_main_before_subsections:
-                        table_style_commands.append(('LINEBELOW', (0, idx), (-1, idx), 0.5, colors.Color(0.7, 0.7, 0.7)))
-                        table_style_commands.append(('BOTTOMPADDING', (0, idx), (-1, idx), 8))
+                        # Span line across all 3 columns (0, 1, 2)
+                        table_style_commands.append(('LINEBELOW', (0, idx), (2, idx), 0.5, colors.Color(0.7, 0.7, 0.7)))
+                        table_style_commands.append(('BOTTOMPADDING', (0, idx), (2, idx), 8))
 
             toc_table.setStyle(table_style_commands)
             story.append(toc_table)
@@ -4604,6 +5091,14 @@ def build_pdf(pages: List[dict], out_path: Path):
                     )
                     story.append(frame_content)
 
+            # Add cross-reference footer if applicable (CR A06)
+            cross_ref_footer = get_cross_reference_footer(p)
+            if cross_ref_footer:
+                story.append(Spacer(0, 12))
+                for footer_para in cross_ref_footer:
+                    story.append(footer_para)
+                    story.append(Spacer(0, 3))
+
             # Handle page breaks: add PageBreak unless this is the last page
             if idx < len(pages)-1:
                 story.append(PageBreak())
@@ -4667,6 +5162,14 @@ def build_pdf(pages: List[dict], out_path: Path):
                     story.append(nss_table)
                     story.append(Spacer(0, 6))
 
+            # Add cross-reference footer if applicable (CR A06)
+            cross_ref_footer = get_cross_reference_footer(p)
+            if cross_ref_footer:
+                story.append(Spacer(0, 12))
+                for footer_para in cross_ref_footer:
+                    story.append(footer_para)
+                    story.append(Spacer(0, 3))
+
             if idx < len(pages)-1:
                 story.append(PageBreak())
             continue
@@ -4693,6 +5196,14 @@ def build_pdf(pages: List[dict], out_path: Path):
                     else:
                         story.append(Spacer(0, 6))
 
+            # Add cross-reference footer if applicable (CR A06)
+            cross_ref_footer = get_cross_reference_footer(p)
+            if cross_ref_footer:
+                story.append(Spacer(0, 12))
+                for footer_para in cross_ref_footer:
+                    story.append(footer_para)
+                    story.append(Spacer(0, 3))
+
             if idx < len(pages)-1:
                 story.append(PageBreak())
             continue
@@ -4716,46 +5227,97 @@ def build_pdf(pages: List[dict], out_path: Path):
         story.append(_build_fte_table(p))
         story.append(Spacer(0, 6))
 
+        # Add cross-reference footer if applicable (CR A06)
+        cross_ref_footer = get_cross_reference_footer(p)
+        if cross_ref_footer:
+            story.append(Spacer(0, 12))
+            for footer_para in cross_ref_footer:
+                story.append(footer_para)
+                story.append(Spacer(0, 3))
+
         if idx < len(pages)-1:
             story.append(PageBreak())
 
     doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
 
 # ---- Main ----
-def main():
+def main(appendices_only=False):
+    """
+    Generate PDF reports.
+
+    Args:
+        appendices_only: If True, generate only the appendices PDF (CR A07)
+    """
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     df, reg, profile_c70 = load_data()
     # Note: add_alps_pk12() removed - no longer using ALPS PK-12 aggregate concept
-    pages = build_page_dicts(df, reg, profile_c70)
-    if not pages:
+    # Pass appendices_only to filter mini TOC links appropriately (CR A07)
+    all_pages = build_page_dicts(df, reg, profile_c70, appendices_only=appendices_only)
+    if not all_pages:
         print("[WARN] No pages to write."); return
 
-    # Insert TOC at the beginning
-    toc_page = build_toc_page()
-    pages.insert(0, toc_page)
+    # CR A07: Split pages into main report and appendices
+    # Appendices are pages with section_id starting with "appendix_"
+    main_pages = []
+    appendix_pages = []
 
-    # Two-pass PDF generation to populate TOC with page numbers
-    # Pass 1: Build PDF to capture page numbers in _PAGE_MAP
-    print("[INFO] Pass 1: Building PDF to capture page numbers...")
-    clear_page_map()
-    temp_pdf = OUTPUT_DIR / "expenditures_series_temp.pdf"
-    build_pdf(pages, temp_pdf)
+    for page in all_pages:
+        section_id = page.get("section_id", "")
+        if section_id.startswith("appendix_"):
+            appendix_pages.append(page)
+        else:
+            main_pages.append(page)
 
-    # Pass 2: Rebuild PDF with populated page numbers in TOC
-    print(f"[INFO] Pass 2: Rebuilding PDF with page numbers ({len(_PAGE_MAP)} sections tracked)...")
-    final_pdf = OUTPUT_DIR / "expenditures_series.pdf"
+    # Determine which PDFs to build and insert appropriate TOC
+    pdfs_to_build = []
+    if appendices_only:
+        # Building appendices only: TOC with appendix sections only
+        print("[INFO] Building appendices only (--appendices-only flag)")
+        toc_page = build_toc_page(include_main_sections=False, include_appendices=True)
+        appendix_pages.insert(0, toc_page)
+        pdfs_to_build.append(("appendices", appendix_pages, "WMPPE Appendices.pdf"))
+    else:
+        # Building main report only: TOC with main sections only
+        print("[INFO] Building main report only")
+        toc_page = build_toc_page(include_main_sections=True, include_appendices=False)
+        main_pages.insert(0, toc_page)
+        pdfs_to_build.append(("main", main_pages, "Western MA Per Pupil Expenditure Report.pdf"))
 
-    try:
-        build_pdf(pages, final_pdf)
-        # Clean up temporary file on success
-        if temp_pdf.exists():
-            temp_pdf.unlink()
-        print(f"[SUCCESS] PDF generated: {final_pdf}")
-    except PermissionError as e:
-        print(f"[ERROR] Cannot write to {final_pdf}: file is locked (probably open in PDF viewer)")
-        print(f"[INFO] Temporary PDF with page numbers is available at: {temp_pdf}")
-        print("[INFO] Please close the PDF viewer and run the script again, or manually rename the temp file.")
-        raise
+    # Build each PDF with two-pass generation
+    for pdf_name, pages, filename in pdfs_to_build:
+        if not pages:
+            print(f"[WARN] No pages for {pdf_name}, skipping...")
+            continue
+
+        print(f"\n[INFO] Generating {pdf_name} PDF: {filename}")
+
+        # Two-pass PDF generation to populate TOC with page numbers
+        # Pass 1: Build PDF to capture page numbers in _PAGE_MAP
+        print(f"[INFO] Pass 1: Building {pdf_name} PDF to capture page numbers...")
+        clear_page_map()
+        temp_pdf = OUTPUT_DIR / f"{pdf_name}_temp.pdf"
+        build_pdf(pages, temp_pdf)
+
+        # Pass 2: Rebuild PDF with populated page numbers in TOC
+        print(f"[INFO] Pass 2: Rebuilding {pdf_name} PDF with page numbers ({len(_PAGE_MAP)} sections tracked)...")
+        final_pdf = OUTPUT_DIR / filename
+
+        try:
+            build_pdf(pages, final_pdf)
+            # Clean up temporary file on success
+            if temp_pdf.exists():
+                temp_pdf.unlink()
+            print(f"[SUCCESS] {pdf_name.upper()} PDF generated: {final_pdf}")
+        except PermissionError as e:
+            print(f"[ERROR] Cannot write to {final_pdf}: file is locked (probably open in PDF viewer)")
+            print(f"[INFO] Temporary PDF with page numbers is available at: {temp_pdf}")
+            print("[INFO] Please close the PDF viewer and run the script again, or manually rename the temp file.")
+            raise
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate school district PDF report")
+    parser.add_argument("--appendices-only", action="store_true",
+                        help="Generate only the appendices PDF (CR A07)")
+    args = parser.parse_args()
+    main(appendices_only=args.appendices_only)

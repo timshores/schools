@@ -69,7 +69,7 @@ def plot_nss_ch70(
     per_pupil: bool = False,
     foundation_enrollment: pd.Series | None = None,
     left_ylim: float | None = None,
-    enrollment_label: str = "Foundation Enrollment (FTE)",
+    enrollment_label: str = "Enrollment",  # CR H: simplified label
 ):
     """
     Plot Chapter 70 and Net School Spending stacked bars with optional foundation enrollment line.
@@ -80,12 +80,12 @@ def plot_nss_ch70(
         enrollment: Series with in-district FTE enrollment by year (not plotted, kept for compatibility)
         title: Plot title
         right_ylim: Optional y-axis limit for dollars
-        per_pupil: If True, label y-axis as "Weighted avg $ per pupil"; if False, label as "$ per pupil"
+        per_pupil: If True, label y-axis as "Weighted avg $ per foundation pupil"; if False, label as "$ per foundation pupil"
         foundation_enrollment: Optional Series with foundation enrollment by year (plotted as blue line)
 
     Notes:
         - Stacks are plotted bottom-to-top: Ch70 Aid, Req NSS (adj), Actual NSS (adj)
-        - All values are in dollars per pupil (weighted average for aggregates, direct per-pupil for individual districts)
+        - All values are in dollars per foundation pupil (weighted average for aggregates, direct per-pupil for individual districts)
         - Foundation enrollment shown as blue line on left axis when provided
     """
     if nss_pivot is None or nss_pivot.empty:
@@ -124,7 +124,8 @@ def plot_nss_ch70(
 
     # Labels and formatting (match font sizes from district_expend_pp_stack.py)
     axL.set_xlabel("School Year", fontsize=20)
-    ylabel = "Weighted avg $ per pupil" if per_pupil else "$ per pupil"
+    # CR H: specify "per foundation pupil" on right y-axis
+    ylabel = "Weighted avg $ per foundation pupil" if per_pupil else "$ per foundation pupil"
     axR.set_ylabel(ylabel, fontsize=20)
     axR.yaxis.set_major_formatter(smart_dollar_formatter())
     axL.tick_params(axis='both', labelsize=14)

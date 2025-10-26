@@ -644,7 +644,7 @@ def create_ppe_comparison_map(
             ax=ax,
             facecolor="none",  # Transparent - shows underlying elementary district colors
             edgecolor="black",
-            linewidth=1.5,
+            linewidth=3.0,  # Match enrollment cohort map border thickness
             zorder=2
         )
 
@@ -659,7 +659,7 @@ def create_ppe_comparison_map(
         # Use black text (more readable on muted colors)
         ax.text(
             centroid.x, centroid.y, label_text,
-            fontsize=11, ha='center', va='center',
+            fontsize=20, ha='center', va='center',  # Match enrollment cohort map font size
             color='black', weight='bold',
             zorder=10
         )
@@ -803,7 +803,7 @@ def create_cagr_comparison_map(
             ax=ax,
             facecolor="none",  # Transparent - shows underlying elementary district colors
             edgecolor="black",
-            linewidth=1.5,
+            linewidth=3.0,  # Match enrollment cohort map border thickness
             zorder=2
         )
 
@@ -818,7 +818,7 @@ def create_cagr_comparison_map(
         # Use black text (more readable on muted colors)
         ax.text(
             centroid.x, centroid.y, label_text,
-            fontsize=11, ha='center', va='center',
+            fontsize=20, ha='center', va='center',  # Match enrollment cohort map font size
             color='black', weight='bold',
             zorder=10
         )

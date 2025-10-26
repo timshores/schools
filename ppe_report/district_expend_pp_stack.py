@@ -148,7 +148,7 @@ def _weighted_total_series_for_list(df: pd.DataFrame, districts: List[str]) -> t
 # ---------- Simplified district plot (solid color, no categories) ----------
 def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series],
                    context: str, right_ylim: float, left_ylim: float | None,
-                   line_colors: Dict[str, str], enrollment_label: str = "In-district FTE"):
+                   line_colors: Dict[str, str], enrollment_label: str = "Enrollment"):  # CR H: simplified label
     """Plot district with solid color for total PPE, no category breakdown."""
 
     # Calculate total PPE series
@@ -182,8 +182,8 @@ def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd
 
     axL.set_xlabel("School Year")
     axL.set_ylabel(enrollment_label, labelpad=15)  # Add padding to prevent overlap
-    # Use weighted avg label if enrollment_label indicates weighted average
-    ylabel = "Weighted avg $ per pupil" if "weighted avg" in enrollment_label.lower() else "$ per pupil"
+    # CR H: Use weighted avg label if enrollment_label indicates weighted average, specify "per in-district FTE"
+    ylabel = "Weighted avg $ per in-district FTE" if "weighted avg" in enrollment_label.lower() else "$ per in-district FTE"
     axR.set_ylabel(ylabel)
     # Custom formatter that hides "0" and abbreviates with K/M on enrollment axis
     from matplotlib.ticker import FuncFormatter
@@ -294,7 +294,7 @@ def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd
 # ---------- Main district page plot ----------
 def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series],
              context: str, right_ylim: float, left_ylim: float | None,
-             line_colors: Dict[str, str], cmap_all: Dict[str, Dict[str, str]], enrollment_label: str = "In-district FTE"):
+             line_colors: Dict[str, str], cmap_all: Dict[str, Dict[str, str]], enrollment_label: str = "Enrollment"):  # CR H: simplified label
 
     cols = list(epp_pivot.columns) if (epp_pivot is not None and not epp_pivot.empty) else []
     sub_order_bottom_top = canonical_order_bottom_to_top(cols)
@@ -329,8 +329,8 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
 
     axL.set_xlabel("School Year")
     axL.set_ylabel(enrollment_label, labelpad=15)  # Add padding to prevent overlap
-    # Use weighted avg label if enrollment_label indicates weighted average
-    ylabel = "Weighted avg $ per pupil" if "weighted avg" in enrollment_label.lower() else "$ per pupil"
+    # CR H: Use weighted avg label if enrollment_label indicates weighted average, specify "per in-district FTE"
+    ylabel = "Weighted avg $ per in-district FTE" if "weighted avg" in enrollment_label.lower() else "$ per in-district FTE"
     axR.set_ylabel(ylabel)
     # Custom formatter that hides "0" and abbreviates with K/M on enrollment axis
     from matplotlib.ticker import FuncFormatter
@@ -765,10 +765,10 @@ if __name__ == "__main__":
         # Use centralized cohort definitions
         cohort_key = bucket.upper()
         if bucket == "springfield":
-            enrollment_label = "In-district FTE"  # CR08
+            enrollment_label = "Enrollment"  # CR 2999 (5th request!)
             left_ylim_agg = compute_districts_fte_ylim([lines_mean], pad=1.06, step=1000)
         else:
-            enrollment_label = "Weighted avg in-district FTE per district"  # CR08
+            enrollment_label = "Enrollment"  # CR 2999 (5th request!)
             left_ylim_agg = get_cohort_ylim(cohort_key)
 
         plot_one(out, piv, lines_mean, context, right_ylim, left_ylim_agg, FTE_LINE_COLORS, cmap_all, enrollment_label)
@@ -818,8 +818,8 @@ if __name__ == "__main__":
         if left_ylim_dist is None:  # Springfield has no fixed ylim
             left_ylim_dist = left_ylim_districts
 
-        # Individual districts use "In-district FTE" label (CR08)
-        enrollment_label = "In-district FTE"
+        # Individual districts use "Enrollment" label (CR 2999 - 5th request!)
+        enrollment_label = "Enrollment"
 
         # Simple version (solid color, no categories)
         safe_dist_name = make_safe_filename(dist)

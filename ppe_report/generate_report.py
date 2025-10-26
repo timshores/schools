@@ -9,8 +9,18 @@ This script orchestrates the execution of all analysis components:
 5. PDF composition
 
 Usage:
-    python generate_report.py
+    python generate_report.py                    # Generate main PDF only (default)
     python generate_report.py --force-recompute  # Bypass cache and recompute from source
+    python generate_report.py --appendices-only  # Generate appendices PDF only
+
+The report is split into two separate PDFs:
+- Main PDF: "Western MA Per Pupil Expenditure Report.pdf"
+  Contains: Table of Contents, Executive Summary, Sections 1-3
+- Appendices PDF: "WMPPE Appendices.pdf"
+  Contains: Appendices A-D (methodology, calculations, data tables, additional visualizations)
+
+By default, only the main PDF is generated. Use --appendices-only to regenerate the appendices
+PDF independently (useful for updating methodology documentation without regenerating all plots).
 """
 
 import argparse
@@ -31,7 +41,7 @@ PIPELINE = [
 ]
 
 
-def run_script(script_path: str, description: str, force_recompute: bool = False) -> bool:
+def run_script(script_path: str, description: str, force_recompute: bool = False, appendices_only: bool = False) -> bool:
     """
     Run a Python script and return success status.
 
@@ -39,6 +49,7 @@ def run_script(script_path: str, description: str, force_recompute: bool = False
         script_path: Path to the script to execute
         description: Human-readable description for logging
         force_recompute: If True, pass --force-recompute flag to script
+        appendices_only: If True, pass --appendices-only flag to compose_pdf.py (CR A07)
 
     Returns:
         True if script succeeded, False otherwise
@@ -52,6 +63,8 @@ def run_script(script_path: str, description: str, force_recompute: bool = False
         cmd = [sys.executable, script_path]
         if force_recompute:
             cmd.append("--force-recompute")
+        if appendices_only and script_path == "compose_pdf.py":
+            cmd.append("--appendices-only")
 
         result = subprocess.run(
             cmd,
@@ -79,6 +92,8 @@ def main():
     parser = argparse.ArgumentParser(description="Generate school district analysis report")
     parser.add_argument("--force-recompute", action="store_true",
                         help="Bypass cache and recompute all data from source")
+    parser.add_argument("--appendices-only", action="store_true",
+                        help="Generate only the appendices PDF (CR A07)")
     args = parser.parse_args()
 
     print("\n" + "=" * 70)
@@ -86,7 +101,15 @@ def main():
     print("=" * 70)
     print(f"Working directory: {Path.cwd()}")
     print(f"Python executable: {sys.executable}")
-    print(f"Pipeline steps: {len(PIPELINE)}")
+
+    # CR A07: If appendices_only, only run compose_pdf.py
+    if args.appendices_only:
+        print(f"Mode: Appendices only")
+        pipeline_to_run = [("compose_pdf.py", "PDF composition (appendices only)")]
+    else:
+        print(f"Pipeline steps: {len(PIPELINE)}")
+        pipeline_to_run = PIPELINE
+
     if args.force_recompute:
         print(f"Mode: Force recompute (bypassing cache)")
     else:
@@ -94,7 +117,7 @@ def main():
 
     # Verify all scripts exist before starting
     missing_scripts = []
-    for script_path, _ in PIPELINE:
+    for script_path, _ in pipeline_to_run:
         if not Path(script_path).exists():
             missing_scripts.append(script_path)
 
@@ -109,9 +132,9 @@ def main():
     start_time = __import__('time').time()
     failed_steps: List[str] = []
 
-    for i, (script_path, description) in enumerate(PIPELINE, 1):
-        print(f"\n[Step {i}/7]")  # Updated to 7 steps
-        success = run_script(script_path, description, force_recompute=args.force_recompute)
+    for i, (script_path, description) in enumerate(pipeline_to_run, 1):
+        print(f"\n[Step {i}/{len(pipeline_to_run)}]")
+        success = run_script(script_path, description, force_recompute=args.force_recompute, appendices_only=args.appendices_only)
 
         if not success:
             failed_steps.append(description)
@@ -133,8 +156,11 @@ def main():
     else:
         print("Status: SUCCESS")
         print("\nGenerated files:")
-        print("  - PNG plots in output/ directory")
-        print("  - Final PDF: output/expenditures_series.pdf")
+        if args.appendices_only:
+            print("  - Appendices PDF: output/WMPPE Appendices.pdf")
+        else:
+            print("  - PNG plots in output/ directory")
+            print("  - Main PDF: output/Western MA Per Pupil Expenditure Report.pdf")
         print("\n[OK] Report generation complete!")
 
 

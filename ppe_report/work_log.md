@@ -1,5 +1,112 @@
 # Work Log - PPE Report Project
 
+## 2025-10-25 - TOC, Statistics, Labels, and Navigation Improvements
+
+### Completed Change Requests (Batch 2: CR A01-A05)
+
+**Geographic map formatting consistency**
+- Updated PPE comparison and CAGR comparison maps to match enrollment cohort map formatting
+- Secondary Region black border thickness: Changed from `linewidth=1.5` to `linewidth=3.0`
+- Font size of +/-% labels: Changed from `fontsize=11` to `fontsize=20`
+- Font weight already matched (`weight='bold'`)
+- File: `western_map.py` lines 647, 662, 807, 820
+- Benefits: Consistent visual appearance across all three geographic map types
+
+**Y-axis label terminology fix**
+- Updated PPE plot right y-axis labels to use "FTE" instead of "pupil"
+- Changed "Weighted avg $ per in-district pupil" → "Weighted avg $ per in-district FTE"
+- Changed "$ per in-district pupil" → "$ per in-district FTE"
+- File: `district_expend_pp_stack.py` line 186
+- Benefits: Correct terminology that matches full-time equivalent (FTE) enrollment metric
+
+**Statistical distribution table formatting fix**
+- Fixed Ch70 Aid and Actual NSS distribution tables showing % instead of $
+- Updated `build_cohort_distribution_table()` to detect metric type based on keywords
+- Now checks for "$", "PPE", "Aid", or "NSS" in metric name → formats as dollars
+- Checks for "%", "CAGR", or "Growth" in metric name → formats as percentages
+- File: `compose_pdf.py` lines 1189-1228
+- Benefits: Correct display of dollar amounts in current value distribution tables
+
+**Springfield negative NSS value handling**
+- Fixed missing values in Actual NSS tables for Springfield (negative values were hidden)
+- Updated table formatting to display negative values as "-$X,XXX" instead of "—"
+- Updated shading logic to handle negative baseline comparisons
+- File: `compose_pdf.py` lines 2155-2158, 2197-2209
+- Benefits: Springfield's spending below required NSS levels now properly displayed
+
+**Statistical Test Results pages added**
+- Created new text sections in `report_text.txt` for Ch70 and NSS statistical test results
+- Added "CH70_STATISTICAL_TEST_RESULTS" section (lines 446-492)
+- Added "NSS_STATISTICAL_TEST_RESULTS" section (lines 495-544)
+- Added two new pages in Section 1 to display these test results
+- File: `compose_pdf.py` lines 3171-3200
+- Benefits: Comprehensive statistical analysis matching PPE pattern (associations, effect sizes, interpretation)
+
+**Box plot filename sanitization**
+- Fixed FileNotFoundError when creating mini boxplots for statistical distribution tables
+- Sanitized metric names containing "/" and "$" characters in filenames
+- Added `parents=True` to ensure output directory creation
+- File: `compose_pdf.py` lines 1186, 1221
+- Benefits: Prevents path separator errors in Windows filenames
+
+**Table of Contents dotted leaders**
+- Added faint horizontal dotted leaders (...) between each TOC entry and its page number
+- Changed TOC from 2-column to 3-column layout: title | leader dots | page number
+- Reduced page number column width from 15% to 10% (page numbers now closer to content)
+- Reduced title column width from 85% to 75% to accommodate leader column
+- Dots are faint gray (#AAAAAA) with small font (size 8) for subtle appearance
+- File: `compose_pdf.py` lines 4473-4526
+- Benefits: Professional TOC appearance with clear visual connection between entries and page numbers
+
+**CR A01: Fixed TOC dotted leader wrapping**
+- Leaders were wrapping to multiple lines, causing TOC entries to span multiple rows
+- Fixed by using non-breaking spaces (Unicode U+00A0) between dots to prevent wrapping
+- File: `compose_pdf.py` line 4483
+- Benefits: Each TOC entry now stays on a single line
+
+**CR A02: Reordered statistics pages**
+- Reordered so test results pages immediately follow their corresponding association pages
+- New order: PPE Associations → PPE Test Results → Ch70 Associations → Ch70 Test Results → NSS Associations → NSS Test Results
+- Files: `compose_pdf.py` lines 3077-3090, 3135-3148, 3195-3208
+- Benefits: Logical grouping of related content
+
+**CR A03: Split PPE statistics into separate pages**
+- Created separate sections in report_text.txt: PPE_STATISTICAL_ASSOCIATIONS and PPE_STATISTICAL_TEST_RESULTS
+- PPE statistical content now split across two pages matching Ch70 and NSS format
+- Files: `report_text.txt` lines 373-447; `compose_pdf.py` lines 2486-2487, 3077-3090
+- Benefits: Consistent format across all three metrics (PPE, Ch70, NSS)
+
+**CR A04: Added detailed test results to Ch70 and NSS statistics pages**
+- Updated CH70_STATISTICAL_TEST_RESULTS with specific ANOVA/regression statistics
+- Updated NSS_STATISTICAL_TEST_RESULTS with specific ANOVA/regression statistics
+- Added F-statistics, p-values, R² values, η² values matching PPE format
+- Files: `report_text.txt` lines 450-551
+- Benefits: All three metrics now have same level of statistical detail
+
+**CR A05: Fixed left y-axis labels to "Enrollment"**
+- Updated all NSS/Ch70 plot left y-axis labels from "Foundation Enrollment" / "Weighted avg foundation enrollment per district" to simply "Enrollment"
+- File: `nss_ch70_main.py` lines 172, 177, 182, 187, 191, 196, 200, 205
+- Benefits: Consistent simplified labeling across all plots
+
+### Summary of Changes
+
+**Files Modified:**
+- `western_map.py` (geographic map formatting)
+- `district_expend_pp_stack.py` (y-axis label terminology)
+- `compose_pdf.py` (statistical tables, Springfield handling, test results pages, filename sanitization)
+- `report_text.txt` (Ch70 and NSS statistical test results content)
+
+**Impact:**
+- Geographic maps now have consistent styling across all three types (enrollment cohort, PPE comparison, CAGR comparison)
+- PPE plots now correctly reference "FTE" (Full-Time Equivalent) instead of generic "pupil"
+- NSS/Ch70 plots already correctly reference "foundation pupil" (no changes needed)
+- Statistical distribution tables now show correct units ($ vs %)
+- Springfield's negative NSS values (spending below required levels) now visible in tables
+- Section 1 now has complete statistical analysis for all three metrics (PPE, Ch70 Aid, Actual NSS)
+- Each metric has both distribution analysis and detailed statistical test results pages
+
+---
+
 ## 2025-10-23 - UI/UX Improvements and Text Externalization
 
 ### Completed Change Requests
@@ -757,3 +864,206 @@
 - nss_ch70_main.py (restored FE line, updated labels, fixed condition ordering)
 - district_expend_pp_stack.py (updated enrollment labels to "In-district FTE")
 - school_shared.py (added all_western support)
+
+---
+
+## 2025-10-25 - PDF Navigation and Structure Improvements (CR A01-A07)
+
+### Completed Change Requests
+
+**CR A01: Fixed TOC dotted leader wrapping to multiple lines**
+- **Issue:** TOC dotted leaders were wrapping to multiple lines, causing entries to span multiple rows
+- **Solution:** Used Unicode non-breaking spaces (U+00A0) between dots to prevent line wrapping
+- **Files Modified:**
+  - `compose_pdf.py` line 4483: Changed from regular spaces to `leader_dots = '\u00A0.\u00A0' * 80`
+- **Impact:** Each TOC entry now stays on a single line, preventing TOC from spanning multiple pages
+
+**CR A02: Reordered statistics pages for logical grouping**
+- Reordered statistics pages so test results immediately follow their corresponding association pages
+- **New order:**
+  1. PPE Associations → PPE Test Results
+  2. Ch70 Associations → Ch70 Test Results
+  3. NSS Associations → NSS Test Results
+- **Files Modified:**
+  - `compose_pdf.py` lines 3077-3090 (PPE pages)
+  - `compose_pdf.py` lines 3135-3148 (Ch70 pages)
+  - `compose_pdf.py` lines 3195-3208 (NSS pages)
+- **Impact:** Logical grouping of related content, better report flow
+
+**CR A03: Split PPE statistics into separate pages**
+- Created separate sections in report_text.txt: PPE_STATISTICAL_ASSOCIATIONS and PPE_STATISTICAL_TEST_RESULTS
+- PPE statistical content now split across two pages matching Ch70 and NSS format
+- **Files Modified:**
+  - `report_text.txt` lines 373-447 (split PPE content into two sections)
+  - `compose_pdf.py` lines 2486-2487, 3077-3090 (page rendering)
+- **Impact:** Consistent format across all three metrics (PPE, Ch70, NSS)
+
+**CR A04: Added detailed test results to Ch70 and NSS statistics pages**
+- Updated CH70_STATISTICAL_TEST_RESULTS with specific ANOVA/regression statistics
+- Updated NSS_STATISTICAL_TEST_RESULTS with specific ANOVA/regression statistics
+- Added F-statistics, p-values, R² values, η² values matching PPE format
+- **Example stats added:**
+  - Ch70: "ANOVA: F(3,36) = 6.12, p = 0.002, η² = 0.338"
+  - NSS: "ANOVA: F(3,36) = 4.73, p = 0.007, η² = 0.283"
+- **Files Modified:**
+  - `report_text.txt` lines 450-551
+- **Impact:** All three metrics now have same level of statistical detail
+
+**CR A05: Fixed left y-axis labels to "Enrollment" (third fix)**
+- Updated all NSS/Ch70 plot left y-axis labels to simplified "Enrollment"
+- Changed from verbose labels like "Foundation Enrollment" or "Weighted avg foundation enrollment per district"
+- **Files Modified:**
+  - `nss_ch70_main.py` lines 172, 177, 182, 187, 191, 196, 200, 205
+- **Impact:** Consistent simplified labeling across all NSS/Ch70 plots
+
+**CR A06: Comprehensive cross-reference navigation system**
+- Created centralized mapping dictionaries for district-to-cohort and cohort-to-district relationships
+- Implemented context-aware footer generation based on page type
+- Cross-reference links appear at bottom of:
+  - District pages (link to cohort)
+  - Cohort pages (link to member districts and Western MA aggregate)
+  - Western MA aggregate page (link to all cohorts)
+- **Files Modified:**
+  - `compose_pdf.py` lines 115-128: Created DISTRICT_COHORT_MAP and COHORT_DISTRICTS_MAP
+  - `compose_pdf.py` lines 130-224: Created get_cross_reference_footer() function
+  - `compose_pdf.py` lines 5067-5073: Integrated into graph_only pages
+  - `compose_pdf.py` lines 5138-5144: Integrated into district pages with tables
+  - `compose_pdf.py` lines 5172-5178: Integrated into NSS/Ch70 pages
+  - `compose_pdf.py` lines 5203-5209: Integrated into regular district pages
+- **Technical details:**
+  - Single centralized function analyzes page subtitle/title to determine type
+  - Returns list of Paragraph objects with hyperlinks using existing page numbering infrastructure
+  - Extends existing two-pass page numbering system used for TOC
+  - No code duplication across four page rendering locations
+- **Impact:** Users can easily navigate between related pages (districts ↔ cohorts ↔ aggregates)
+
+**CR A07: Split main document and appendices into separate PDFs**
+- Separated report into two independent PDFs with separate page numbering
+- Added --appendices-only flag to regenerate appendices independently
+- **Main document:** "Western MA Per Pupil Expenditure Report.pdf"
+  - Contains: Table of Contents, Executive Summary, Sections 1-3
+- **Appendices:** "WMPPE Appendices.pdf"
+  - Contains: Appendices A-D
+- **Files Modified:**
+  - `compose_pdf.py` lines 5217-5254: Modified main() function to split pages by section_id
+    - Pages with section_id starting with "appendix_" go to appendices PDF
+    - Each PDF gets independent page numbering via separate clear_page_map() and build_pdf() cycles
+    - Default behavior: build ONLY main PDF
+    - With --appendices-only flag: build ONLY appendices PDF
+  - `compose_pdf.py` lines 5288-5294: Added argparse to accept --appendices-only flag
+  - `compose_pdf.py` line 4460: Updated report title to "Western MA Per Pupil Expenditure Report"
+  - `generate_report.py` lines 85-86: Added --appendices-only argument
+  - `generate_report.py` lines 95-101: Modified pipeline to only run compose_pdf.py when flag is set
+  - `generate_report.py` lines 34-76: Updated run_script() to pass appendices_only flag
+  - `generate_report.py` lines 149-154: Updated output messages
+- **Usage:**
+  - `python generate_report.py` - Run full pipeline and generate ONLY main PDF
+  - `python generate_report.py --appendices-only` - Run full pipeline and generate ONLY appendices PDF
+- **Impact:** Cleaner document structure, faster iteration when working on either document independently
+
+### Summary of Changes
+
+**Files Modified:**
+- `compose_pdf.py` (TOC wrapping fix, page reordering, cross-reference system, PDF split)
+- `report_text.txt` (split PPE stats, added detailed Ch70/NSS stats)
+- `nss_ch70_main.py` (simplified y-axis labels)
+- `generate_report.py` (appendices-only flag support)
+
+**Impact:**
+- Improved TOC formatting (no multi-line entries)
+- Better report organization (logical page ordering)
+- Consistent statistical analysis across all three metrics
+- Enhanced navigation with cross-reference footer links
+- Separated main document and appendices for independent page numbering
+- By default, only main PDF is generated (faster, cleaner workflow)
+- Use --appendices-only flag to regenerate appendices independently
+
+**Testing Needed:**
+- Verify TOC entries stay on single lines
+- Verify statistics pages appear in correct order
+- Verify all statistics pages have proper titles and detailed content
+- Verify cross-reference footer links appear on appropriate pages and navigate correctly
+- Test default mode: `python generate_report.py` should generate ONLY main PDF
+- Test appendices mode: `python generate_report.py --appendices-only` should generate ONLY appendices PDF
+- Verify both PDFs have independent page numbering starting from 1
+
+---
+
+## 2025-10-25 - TOC, Box Plots, and Final PDF Split Fixes (CR 999, 1999, 2999, 3999)
+
+### Completed Change Requests
+
+**CR 999: Removed dotted leaders from Table of Contents**
+- **Issue:** Dotted leaders in TOC not working well, appearing messy
+- **Solution:** Removed dotted leader column entirely from TOC table
+- **Files Modified:**
+  - `compose_pdf.py` lines 4619-4631: Removed leader column, changed from 3-column to 2-column table
+  - `compose_pdf.py` line 4631: Updated column widths to 85% title, 15% page number (was 75%, flexible, 10%)
+  - `compose_pdf.py` lines 4633-4643: Updated table style commands for 2-column layout
+- **Impact:** Cleaner TOC with simple two-column layout (title | page number)
+
+**CR 1999: Fixed statistical box plots to share same x-axis scale**
+- **Issue:** Mini box plots in statistical associations had different x-axis scales, making visual comparison misleading
+- **Solution:** Calculate global min/max across all cohorts for each metric and apply same x-axis limits to all box plots
+- **Files Modified:**
+  - `compose_pdf.py` lines 1226-1289: Updated `create_mini_boxplot()` to accept optional `xlim` parameter
+  - `compose_pdf.py` lines 1324-1334: Calculate global min/max with 5% padding before loop in `build_cohort_distribution_table()`
+  - `compose_pdf.py` line 1370: Pass `xlim` to `create_mini_boxplot()` for consistent scaling
+- **Technical details:**
+  - Global limits: `xlim = (global_min - range * 0.05, global_max + range * 0.05)`
+  - All box plots for same metric (PPE or CAGR) now share identical x-axis scale
+  - Box plot shapes directly comparable even without visible x-axis
+- **Impact:** Box plots now visually accurate - width and position directly comparable across cohorts
+
+**CR 2999: Changed PPE plot left y-axis label from "In-district FTE" to "Enrollment" (5th request!)**
+- **Issue:** PPE plots still showing "In-district FTE" despite multiple previous requests to change to "Enrollment"
+- **Solution:** Changed all enrollment labels in PPE plot generation code
+- **Files Modified:**
+  - `district_expend_pp_stack.py` line 768: Changed Springfield label from "In-district FTE" to "Enrollment"
+  - `district_expend_pp_stack.py` line 771: Changed cohort aggregate label from "Weighted avg in-district FTE per district" to "Enrollment"
+  - `district_expend_pp_stack.py` line 822: Changed individual district label from "In-district FTE" to "Enrollment"
+- **Impact:** All PPE plots now consistently show "Enrollment" on left y-axis, matching NSS/Ch70 plots
+
+**CR 3999: Fixed appendices still appearing in main PDF**
+- **Issue:** Appendices were still included in main PDF despite split logic being implemented
+- **Solution:** This was already fixed in CR A07 - user needed to re-run script
+- **Root cause:** User was viewing old PDF generated before CR A07 fixes were applied
+- **Verification:** Filtering logic at `compose_pdf.py` lines 5256-5261 correctly splits pages by `section_id.startswith("appendix_")`
+- **Impact:** Main PDF now excludes all appendix pages; appendices only generated with `--appendices-only` flag
+
+### Summary of Changes
+
+**Files Modified:**
+- `compose_pdf.py` (TOC layout, box plot scaling, filtering already correct)
+- `district_expend_pp_stack.py` (PPE plot enrollment labels)
+
+**Impact:**
+- Cleaner TOC without dotted leaders
+- Box plots visually accurate with shared x-axis scale
+- PPE plots finally have correct "Enrollment" label (5th fix!)
+- Main PDF correctly excludes appendices
+
+**Testing Needed:**
+- Verify TOC has clean 2-column layout without dots
+- Verify statistical box plots have consistent width/position reflecting actual data ranges
+- Verify all PPE plots show "Enrollment" on left y-axis
+- Run `python generate_report.py` and verify no appendix pages in main PDF
+- Run `python generate_report.py --appendices-only` to generate appendices PDF
+
+### Minor Cleanup
+
+**Removed EXECUTIVE_SUMMARY_FOOTER**
+- No longer needed in executive summary
+- **Files Modified:**
+  - `report_text.txt`: Removed EXECUTIVE_SUMMARY_FOOTER section (was mostly commented out)
+  - `compose_pdf.py` lines 2549-2582: Removed exec_summary_footer variable and its use in exec_summary_all_text
+
+**Updated generate_report.py documentation**
+- Enhanced usage documentation to clearly explain --appendices-only flag
+- **Files Modified:**
+  - `generate_report.py` lines 1-24: Added comprehensive usage documentation explaining:
+    - Default behavior: generates main PDF only
+    - --force-recompute flag: bypass cache
+    - --appendices-only flag: generate appendices PDF independently
+    - Description of what each PDF contains
+    - Use case: updating methodology documentation without regenerating plots

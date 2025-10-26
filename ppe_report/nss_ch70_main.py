@@ -169,40 +169,40 @@ def main():
             if "Tiny" in dist_name:
                 cohort_label = get_cohort_label("TINY")
                 title = f"All Western MA Traditional Districts: {cohort_label}"
-                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
+                enrollment_label = "Enrollment"  # CR A05: Simplified to just "Enrollment"
                 left_ylim = get_cohort_ylim("TINY")
             elif "Small" in dist_name:
                 cohort_label = get_cohort_label("SMALL")
                 title = f"All Western MA Traditional Districts: {cohort_label}"
-                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
+                enrollment_label = "Enrollment"  # CR A05: Simplified to just "Enrollment"
                 left_ylim = get_cohort_ylim("SMALL")
             elif "Medium" in dist_name:
                 cohort_label = get_cohort_label("MEDIUM")
                 title = f"All Western MA Traditional Districts: {cohort_label}"
-                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
+                enrollment_label = "Enrollment"  # CR A05: Simplified to just "Enrollment"
                 left_ylim = get_cohort_ylim("MEDIUM")
             elif "Large" in dist_name:
                 cohort_label = get_cohort_label("LARGE")
                 title = f"All Western MA Traditional Districts: {cohort_label}"
-                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
+                enrollment_label = "Enrollment"  # CR A05: Simplified to just "Enrollment"
                 left_ylim = get_cohort_ylim("LARGE")
             elif "all, excl. Springfield" in dist_name:  # CR 12,002 - Must check BEFORE "Springfield"
                 title = f"All Western MA Traditional Districts (excl. Springfield)"
-                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
+                enrollment_label = "Enrollment"  # CR A05: Simplified to just "Enrollment"
                 left_ylim = get_cohort_ylim("MEDIUM")  # Use medium as baseline for all western
             elif "Springfield" in dist_name:
                 cohort_label = get_cohort_label("SPRINGFIELD")
                 title = f"All Western MA Traditional Districts: {cohort_label}"
-                enrollment_label = "Weighted avg foundation enrollment per district"  # CR08
+                enrollment_label = "Enrollment"  # CR A05: Simplified to just "Enrollment"
                 left_ylim = get_cohort_ylim("SPRINGFIELD")
             else:
                 title = f"{dist_name}: Chapter 70 Aid and Net School Spending"
-                enrollment_label = "Foundation Enrollment"  # CR08
+                enrollment_label = "Enrollment"  # CR A05: Simplified to just "Enrollment"
                 left_ylim = compute_districts_fte_ylim([{"Foundation Enrollment": foundation}], pad=1.06, step=50) if foundation is not None and not foundation.empty else None
         else:
             # Individual districts
             title = f"{dist_name}: Chapter 70 Aid and Net School Spending"
-            enrollment_label = "Foundation Enrollment"  # CR08
+            enrollment_label = "Enrollment"  # CR A05: Simplified to just "Enrollment"
 
             # Use cohort-based y-axis limit automatically
             # This ensures each district's enrollment axis matches its cohort range
