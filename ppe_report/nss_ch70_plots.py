@@ -30,7 +30,7 @@ CODE_VERSION = "v2025.10.02-NSS-CH70"
 # Color palette for NSS/Ch70 stacks (distinct from expenditure categories)
 # Using a green-to-purple gradient to represent funding sources
 NSS_CH70_COLORS = {
-    "Ch70 Aid": "#86efac",                   # Lighter green - state aid (bottom)
+    "Ch70 Aid": "#4ade80",                   # Medium green (less bright) - state aid (bottom)
     "Req NSS (minus Ch70)": "#fef08a",       # Lighter golden yellow - required local contribution (middle)
     "Actual NSS (minus Req NSS)": "#c4b5fd", # Lighter purple - spending above requirement (top)
 }

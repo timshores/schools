@@ -1067,3 +1067,322 @@
     - --appendices-only flag: generate appendices PDF independently
     - Description of what each PDF contains
     - Use case: updating methodology documentation without regenerating plots
+
+**Fixed Ch70 Aid and NSS Growth Rate table formatting**
+- **Issue:** Tables "2009-2024 Chapter 70 Aid Growth Rates by Cohort" and "2009-2024 Actual NSS above Required NSS Growth Rates by Cohort" were showing dollar values ($) instead of percentages (%)
+- **Root cause:** Metric names contain both "Aid"/"NSS" (triggers dollar formatting) and "%"/"Growth" (triggers percentage formatting). Dollar check came first, so it incorrectly formatted as dollars.
+- **Solution:** Reordered logic to check for percentage indicators first, then dollar indicators
+- **Files Modified:**
+  - `compose_pdf.py` lines 1341-1354: Moved `if is_percentage_metric:` before `elif is_dollar_metric:`
+- **Impact:** Ch70 Aid and NSS growth rate tables now correctly display percentages (e.g., "3.2%") instead of dollar amounts
+
+---
+
+## 2025-10-26 - Cross-Reference Footer Fixes and Ch70 Color Standardization
+
+### Completed Changes
+
+**Cross-reference footer navigation fixes**
+- **Issue:** Cross-reference footers not appearing on district and cohort pages
+- **Root cause:** Missing section_id fields and section_id format mismatches between page definitions and cross-reference lookup function
+- **Solution:** Added missing section_id fields and fixed lookup patterns to match actual section_ids
+- **Files Modified:**
+  - `compose_pdf.py` line 3762: Added `section_id=f"{section_id}_nss"` to district NSS/Ch70 pages
+  - `compose_pdf.py` lines 216-219: Fixed Western MA aggregate cross-reference lookup to use correct section_id patterns:
+    - PPE pages: `section2_{cohort.lower()}`
+    - NSS pages: `section2_{cohort.lower()}_nss`
+- **Impact:** Cross-reference footer links now appear correctly on all district and cohort pages, enabling easy navigation between related pages
+
+**Ch70 Aid plot color standardization**
+- **Issue:** User preferred less bright green color seen on one Ch70 plot
+- **Solution:** Changed Ch70 Aid color from "#86efac" (light green) to "#4ade80" (medium green, less bright)
+- **Files Modified:**
+  - `nss_ch70_plots.py` line 33: Updated NSS_CH70_COLORS["Ch70 Aid"] color value
+- **Impact:** All Ch70 Aid plots now use consistent, less bright green color for better visual appearance
+
+### Summary of Changes
+
+**Files Modified:**
+- `compose_pdf.py` (cross-reference footer fixes)
+- `nss_ch70_plots.py` (Ch70 color standardization)
+
+**Impact:**
+- Cross-reference navigation system now fully functional
+- Consistent Ch70 Aid plot coloring across all pages
+
+**Testing Needed:**
+- Regenerate all NSS/Ch70 plots to apply new green color
+- Verify cross-reference footer links appear and navigate correctly
+- Verify all Ch70 plots use the new medium green color
+
+**Bug Fix: Multiple cross-reference section_id mismatches**
+- **Issue:** PDF generation failed with "undefined destination target for 'amherst_pelham'"
+- **Root causes:**
+  1. Cross-reference footer was creating district section_ids with `district_` prefix
+  2. Western MA aggregate NSS page was missing section_id
+  3. Western MA aggregate cross-reference lookup used wrong section_id pattern
+  4. TOC entries for Section 3 districts used section_ids without _ppe suffix
+- **Solutions:**
+  1. Removed `district_` prefix from cross-reference lookup (line 193)
+  2. Added `section_id="section2_all_western_nss"` to Western MA NSS page (line 3593)
+  3. Fixed Western MA aggregate lookup to use correct section_ids (lines 183-187)
+  4. Updated TOC district entries to use _ppe suffix (lines 4482-4487)
+- **Files Modified:**
+  - `compose_pdf.py` line 193: Changed district cross-reference lookup
+  - `compose_pdf.py` lines 183-187: Fixed Western MA aggregate section_id lookup
+  - `compose_pdf.py` line 3593: Added missing section_id to Western MA aggregate NSS page
+  - `compose_pdf.py` lines 4482-4487: Updated TOC entries to use correct section_ids (e.g., "amherst_pelham_ppe" instead of "amherst_pelham")
+- **Impact:** All cross-reference links and TOC links now use correct section_id format to match page definitions
+
+**Cross-reference footer enhancements**
+- **Changes:**
+  1. Added hyperlinks to all cross-reference footer links using `<a href="#section_id">` format
+  2. Standardized all cross-references to start with "Compare to" for consistency
+  3. Consolidated multiple links into single line to save space (e.g., "Compare to PPE and Enrollment for Western MA (page 34), Leverett (page 41), Pelham (page 43)")
+- **Files Modified:**
+  - `compose_pdf.py` lines 130-236: Rewrote `get_cross_reference_footer()` function
+- **Impact:**
+  - Cross-reference links are now clickable hyperlinks
+  - Consistent "Compare to" prefix makes purpose clear
+  - Single-line format for multiple links saves vertical space and prevents page overflow
+
+**Fixed appendices appearing in main PDF**
+- **Issue:** Appendix pages were still appearing in main PDF despite filtering logic
+- **Root cause:** Only the first page of each appendix had section_id set; subsequent pages had no section_id
+- **Solution:** Added `section_id` to ALL appendix pages:
+  - Appendix A (Methodology): All 5 pages now have `section_id="appendix_a"` (lines 3871, 3881, 3888)
+  - Appendix C (Data Tables): All pages now have `section_id="appendix_c"` (line 4349)
+  - Appendix D (Additional Visualizations): All pages now have `section_id="appendix_d"` (lines 4400, 4410, 4423, 4449)
+- **Files Modified:**
+  - `compose_pdf.py` lines 3871, 3881, 3888: Added section_id to Appendix A continuation pages
+  - `compose_pdf.py` line 4349: Moved section_id from conditional to always-set field
+  - `compose_pdf.py` lines 4400, 4410, 4423, 4449: Added section_id to all Appendix D pages
+- **Impact:** Main PDF now correctly excludes ALL appendix pages, not just the first page of each appendix
+
+**Moved hardcoded text to external file (report_text.txt)**
+- **Issue:** Ch70 and NSS statistical associations text was hardcoded in Python with default fallback values
+- **Solution:** Added proper text sections to report_text.txt:
+  - Added `CH70_STATISTICAL_ASSOCIATIONS` section (lines 428-450)
+  - Added `NSS_STATISTICAL_ASSOCIATIONS` section (lines 504-526)
+- **Files Modified:**
+  - `report_text.txt`: Added two new statistical association sections
+- **Impact:** All report content now externalized in text files for easier editing without code changes
+
+**Removed Report Navigation box from Executive Summary**
+- **Change:** Removed the mini TOC navigation box from the end of the Executive Summary page
+- **Rationale:** Box kept in other sections but removed from exec summary per user request
+- **Files Modified:**
+  - `compose_pdf.py` lines 2591-2595: Removed mini_toc_text from exec_summary_all_text
+- **Impact:** Executive Summary page is now shorter and cleaner
+
+**Added omitted districts note to Western MA NSS page**
+- **Change:** Added omitted districts note to Western MA (all, excl. Springfield) NSS/Ch70 page
+- **Implementation:** Reused existing omitted_districts logic from executive summary
+- **Files Modified:**
+  - `compose_pdf.py` lines 3544-3550: Added omitted districts note to district_list_text
+- **Impact:** Both PPE and NSS/Ch70 Western MA aggregate pages now show consistent omitted districts information
+
+**Fixed gradient intensity on comparison choropleth maps**
+- **Issue:** PPE and CAGR comparison maps showed only two colors (blue/orange) with no gradient intensity
+- **Root cause:** Maps used only 3 discrete bins instead of graduated bins matching table shading thresholds
+- **Solution:** Implemented graduated color intensity matching report methodology:
+  - **PPE maps**: 9 graduated bins (5%, 10%, 15%, 20%+) with darker colors = further from baseline
+  - **CAGR maps**: 9 graduated bins (0.5pp, 1pp, 1.5pp, 2pp+) with darker colors = further from baseline
+  - Color progression: light blue → white → light orange (near baseline) to dark blue/dark orange (far from baseline)
+- **Files Modified:**
+  - `western_map.py` lines 598-618: Updated PPE comparison map bins and colors (3 bins → 9 bins)
+  - `western_map.py` lines 772-792: Updated CAGR comparison map bins and colors (3 bins → 9 bins)
+- **Impact:** Comparison maps now visually match the graduated shading used in comparison tables throughout the report, making it easy to see which districts are slightly vs. significantly different from their cohort baseline
+
+---
+
+## 2025-10-27 - Scatterplot Table District Type Labels
+
+### Completed Changes
+
+**Added district type labels to scatterplot table**
+- **Change:** Added "(Unified Region)" and "(Secondary Region)" labels after appropriate district names in the scatterplot enrollment vs. PPE table
+- **Implementation:**
+  - Modified `_build_scatterplot_district_table()` function (lines 826-884) to:
+    - Load district types from Excel profiles file (`Ch 70 District Profiles Actual NSS Over Required.xlsx`)
+    - Map DistType values to display labels:
+      - "Unified Regional" → "(Unified Region)"
+      - "Regional Composite" → "(Secondary Region)"
+      - Other types → "" (no label)
+    - Return 6-tuple: (district_name, cohort, enrollment, ppe, cohort_label, district_type)
+  - Modified `_build_scatterplot_table()` function (lines 707-794) to:
+    - Accept 6-tuple instead of 5-tuple
+    - Append district type label to district name: `f"{dist_name} {dist_type}"` when dist_type is not empty
+    - Applied to both left and right columns of the table
+- **Files Modified:**
+  - `compose_pdf.py` lines 826-884: Updated `_build_scatterplot_district_table()` to load and map district types
+  - `compose_pdf.py` lines 707-794: Updated `_build_scatterplot_table()` to display district type labels
+- **Impact:** Scatterplot table now clearly identifies which districts are unified regions (PK-12) and which are secondary regions (overlapping with elementary districts)
+- **Example output:**
+  - Regular districts: "Amherst"
+  - Unified regions: "Farmington River Reg (Unified Region)"
+  - Secondary regions: "Amherst-Pelham (Secondary Region)"
+
+### Summary
+
+**Files Modified:**
+- `compose_pdf.py` (scatterplot table functions)
+
+**Impact:**
+- Enhanced scatterplot table with district type labels for better context
+- Readers can now distinguish regional districts from elementary districts at a glance
+
+**Testing Needed:**
+- Regenerate PDF to verify district type labels appear correctly in scatterplot table
+- Verify labels only appear for regional districts (not regular elementary districts)
+- Check for any layout issues (text wrapping, column width)
+
+---
+
+## 2025-10-27 - Choropleth Boundary Fix and District List Categorization
+
+### Completed Changes
+
+**Fixed missing Worthington boundary on CAGR comparison map**
+- **Issue:** Worthington boundary was not appearing on the "Geographic map showing 15-year PPE growth (2009-2024) vs enrollment cohort baseline" (CAGR comparison map)
+- **Root cause:** Districts with missing CAGR data (NaN values) were not being plotted, causing their boundaries to disappear
+- **Solution:** Plot ALL non-secondary districts with gray fill and gray boundaries first (as a base layer), then overlay colored districts with data on top
+- **Implementation:**
+  - Modified `create_cagr_comparison_map()` function (lines 815-827)
+  - Modified `create_ppe_comparison_map()` function (lines 638-650) with same fix for consistency
+  - Changed base layer color from white to gray (#E0E0E0) to clearly indicate missing data
+  - Changed zorder: base layer (gray fill) at zorder=1, colored overlay at zorder=2
+  - Added legend entry showing "Missing data: N district(s)" with gray swatch
+- **Files Modified:**
+  - `western_map.py` lines 638-650: Added base layer plot with gray fill for PPE comparison map
+  - `western_map.py` lines 712-723: Added missing data legend entry for PPE comparison map
+  - `western_map.py` lines 815-827: Added base layer plot with gray fill for CAGR comparison map
+  - `western_map.py` lines 910-921: Added missing data legend entry for CAGR comparison map
+- **Impact:** Districts with missing data now show up with gray fill and gray boundaries, making all district boundaries visible on comparison maps with clear legend indication
+
+**Adjusted Hampshire Unified District label position**
+- **Issue:** Hampshire Unified District has an odd shape, and the centered +/- label crosses boundaries making it hard to read
+- **Solution:** Detect "Hampshire" in district name and offset label upward by 15% of district height
+- **Files Modified:**
+  - `western_map.py` lines 681-687: Added y-offset calculation for Hampshire in PPE comparison map
+  - `western_map.py` lines 887-893: Added y-offset calculation for Hampshire in CAGR comparison map
+- **Impact:** Hampshire Unified District label now positioned above centroid for better readability
+
+**Confirmed choropleth explanatory text location**
+- **User question:** User could not find where explanatory text is stored for choropleth pages
+- **Answer:** Explanatory text IS already in report_text.txt under these sections:
+  - `SECTION1_CHOROPLETH_EXPLANATION` (line 312)
+  - `SECTION1_PPE_COMPARISON_EXPLANATION` (line 320)
+  - `SECTION1_CAGR_COMPARISON_EXPLANATION` (line 330)
+- **No changes needed** - text is already externalized in report_text.txt as requested
+
+**Separated district lists on NSS/Ch70 pages into three categories**
+- **Change:** Broke up cohort member lists on Chapter 70 Aid and Net School Spending pages into three distinct categories:
+  1. Districts (elementary districts)
+  2. Unified regions (PK-12 regional districts)
+  3. Secondary regions (overlapping secondary regional districts)
+- **Implementation:**
+  - Modified `_categorize_districts()` function (lines 919-964) to:
+    - Load district types from Excel profiles file (`Ch 70 District Profiles Actual NSS Over Required.xlsx`)
+    - Map DistType values to categories:
+      - "Unified Regional" → unified_regions
+      - "Regional Composite" → secondary_regions
+      - Other/District → districts
+    - Return 4 categories: districts, unified_regions, secondary_regions, vocational
+  - Updated district list building for cohort NSS pages (lines 3475-3495):
+    - Changed "Regions" to "Unified regions"
+    - Added "Secondary regions" section
+  - Updated district list building for Western MA aggregate NSS page (lines 3578-3598):
+    - Changed "Regions" to "Unified regions"
+    - Added "Secondary regions" section
+- **Files Modified:**
+  - `compose_pdf.py` lines 919-964: Updated `_categorize_districts()` function
+  - `compose_pdf.py` lines 3482-3490: Updated cohort NSS district list building
+  - `compose_pdf.py` lines 3585-3593: Updated Western MA aggregate NSS district list building
+- **Impact:** NSS/Ch70 pages now clearly distinguish between three types of districts, making it easier to understand district composition
+- **Example output:**
+  - **Districts (45):** Amherst, Ashfield, Bernardston, ...
+  - **Unified regions (10):** Farmington River Reg, Hawlemont Reg, ...
+  - **Secondary regions (4):** Amherst-Pelham, Frontier Reg, ...
+
+### Summary
+
+**Files Modified:**
+- `western_map.py` (choropleth boundary fix, missing data legend, Hampshire label adjustment)
+- `compose_pdf.py` (district categorization and list building)
+
+**Impact:**
+- All district boundaries now visible on comparison choropleth maps, even for districts with missing data
+- Missing data districts clearly indicated with gray fill and legend entry
+- Hampshire Unified District label repositioned for better readability
+- User confirmed where to find/edit choropleth explanatory text (report_text.txt)
+- NSS/Ch70 pages now have clearer district type categorization with three separate sections
+- Readers can now see at a glance which districts are elementary, which are unified regions, and which are secondary regions
+
+**Testing Needed:**
+- Regenerate choropleth maps to verify:
+  - Worthington boundary appears on CAGR comparison map with gray fill
+  - All districts with missing data show gray fill with legend entry
+  - Hampshire Unified District label is positioned upward and readable
+- Regenerate PDF to verify district lists on NSS/Ch70 pages show three categories
+- Verify district type assignments are correct (elementary vs unified vs secondary)
+
+---
+
+## 2025-10-27 - Terminology Update: Unified Region → Regional K-12
+
+### Completed Changes
+
+**Changed "Unified Region" terminology to "Regional K-12" throughout codebase**
+- **Rationale:** More descriptive terminology that clearly indicates these are K-12 regional districts
+- **Scope:** Updated all references in code, documentation, map labels, and report text
+
+**Updated map marker from "U" to "K12"**
+- **Change:** Enrollment cohort choropleth map now displays "K12" instead of "U" for unified regional districts
+- **Implementation:**
+  - Changed text label in western_map.py line 422 from 'U' to 'K12'
+  - Reduced font size from 20 to 16 to accommodate longer label
+- **Files Modified:**
+  - `western_map.py` line 422: Changed marker text and font size
+
+**Updated scatterplot table labels**
+- **Change:** District type labels in scatterplot table now show "(Regional K-12)" instead of "(Unified Region)"
+- **Files Modified:**
+  - `compose_pdf.py` line 834: Updated function docstring
+  - `compose_pdf.py` line 850: Updated district type mapping
+
+**Updated NSS/Ch70 district list headers**
+- **Change:** Cohort member lists now show "Regional K-12" instead of "Unified regions"
+- **Files Modified:**
+  - `compose_pdf.py` line 3484: Updated cohort NSS page district list header
+  - `compose_pdf.py` line 3587: Updated Western MA aggregate NSS page district list header
+
+**Updated report explanatory text**
+- **Change:** Choropleth explanation now references "Regional K-12 districts (marked 'K12')" instead of "Unified regional districts (marked 'U')"
+- **Files Modified:**
+  - `report_text.txt` line 317: Updated SECTION1_CHOROPLETH_EXPLANATION
+
+**Updated code documentation**
+- **Files Modified:**
+  - `western_map.py` line 14: Updated comment to reflect "K12" marker
+
+### Summary
+
+**Files Modified:**
+- `western_map.py` (map marker, documentation)
+- `compose_pdf.py` (scatterplot labels, district list headers)
+- `report_text.txt` (choropleth explanation)
+
+**Impact:**
+- Consistent "Regional K-12" terminology throughout entire report and codebase
+- Map marker "K12" is more descriptive than "U"
+- Clearer indication that these districts serve all grades PK-12
+- No functional changes, only terminology updates
+
+**Testing Needed:**
+- Regenerate choropleth maps to verify "K12" markers appear correctly
+- Verify font size is readable for "K12" markers
+- Regenerate PDF to verify:
+  - Scatterplot table shows "(Regional K-12)" labels
+  - NSS/Ch70 pages show "Regional K-12" headers
+  - Choropleth explanation references "K12" markers

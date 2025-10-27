@@ -9,12 +9,13 @@ EXECUTIVE_SUMMARY_PAGE1
 "By the time it can be captured in numbers, it's too late."<br />
 — Peter Drucker, 'The Effective Executive', 1967
 <br /><br />
-<b>How to use this report:</b>
-<br />
-The report is organized from broad regional patterns down to district-level details. As a descriptive report, it makes no forecasts and offers no recommendations. Since most of this report is descriptive statistical reference material, one way to use it would be as a companion to discussions that depend on meaningful cost comparisons. You could read straight through to build understanding from high-level trends to selected district details. Or you could use this <b>quick-start guide</b> to answer two specific questions: 
+##H1 How to use this report
+The report is organized from broad regional patterns down to district-level details. As a descriptive report, it makes no forecasts and offers no recommendations. One way to use it would be as a companion to discussions that depend on meaningful cost comparisons. You could read straight through to build understanding from high-level trends to selected district details. Or you could use this <b>quick-start guide</b> to answer specific questions: 
 <br /><br />
-• How do my school district finances compare to Western MA baselines? <br />
-• How does the growth rate of my district finances compare?
+• How does my school district spending compare to Western MA baselines? <br />
+• How does Chapter 70 aid compare? <br />
+• How does required and actual net school spending compare? <br />
+• How have these categories of spending and aid grown over time in comparison with Western MA baselines?
 <br /><br />
 ##COMMENT This entire line will not appear in the PDF
 ##BEGIN_COMMENT
@@ -29,15 +30,15 @@ EXECUTIVE_SUMMARY_QUICK_START
 
 <b>Quick-start guide:</b>
 <br /><br />
-1.    Review the <b>Cohort comparison: Western MA enrollment cohorts and districts of interest</b> on the next page.
+1.    Review the cohort comparison tables at the end of the Executive Summary.
 
 <br />
 
-2.    Refer to <b>Section 1: Western MA traditional district trends—Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries (2024)</b> to see how all districts are grouped into cohorts using 2024 enrollment numbers.
+2.    Review the <b>Scatterplot of enrollment vs. per-pupil expenditure</b> in Section 1 to see how all districts are grouped.
 
 <br />
 
-3.    Locate your district in <b>Section 3: Specific districts compared to cohorts</b> to see details of district expense categories, enrollment, Chapter 70 aid, and required net school spending (NSS) and actual NSS compared to cohort benchmarks.
+3.    Locate your district in <b>Section 3</b> for detailed comparison of expenses, enrollment, Chapter 70 aid, and net school spending compared to the cohort.
 
 ================================================================================
 EXECUTIVE_SUMMARY_CONTEXT
@@ -46,51 +47,48 @@ EXECUTIVE_SUMMARY_CONTEXT
 <br />
 <b>Draft Status:</b> As of <b>{TODAY_DATE}</b>, this report is under review and has not been presented to any committee. Questions and comments should be directed to the author, Tim Shores (Leverett and Amherst-Pelham Regional School Committee member) at shorest@arps.org.
 
-<br />
 ##H1 Understanding Per-Pupil Expenditure in Context
-<b>Per-pupil expenditure (PPE)</b> provides an imperfect lens for understanding school budgets. While this single metric obscures the complexity of school systems — shaped by student needs, facility requirements, governance structures, and historical commitments — it remains an accessible standard for state reporting and public discussion. We might as well try to understand it in full. This report examines PPE patterns across Western Massachusetts districts, organizing them into enrollment-based cohorts to identify trends and provide context for budget deliberations.
+<b>Per-pupil expenditure (PPE)</b> provides a flawed lens for understanding school budgets. While this single metric obscures the complexity of school systems — shaped by student needs, facility requirements, governance structures, and historical commitments — it remains an accessible standard for state reporting and public discussion. We might as well try to understand it in full. This report examines PPE patterns across Western Massachusetts districts, organizing them into enrollment-based cohorts to identify trends and provide context for budget deliberations.
 
 ##H1 The Challenge of Interpretation
 In February 2025, an Amherst Town Councilor asked why regional school spending was "increasing faster than the town's revenue, especially given the significant long-term reduction in the number of students we teach."<sup>1</sup> This question reflects a common assumption or hope that school budgets should track with municipal revenue and scale proportionally with enrollment. However, evidence of school budget trends suggests different dynamics at work.
 
-As a social service, education is fundamentally labor-intensive. Roughly four-fifths of costs are tied to personnel — salaries, health insurance, and retirement contributions.<sup>2</sup> National data shows school districts dedicate nearly 90% of instructional budgets to staff and benefits, more than double the 35-40% typical in other organizations.<sup>3</sup> These costs respond to regional and sectoral labor markets rather than local tax revenues, with the cost of education service historically rising faster than general inflation.<sup>4</sup> Eligible students have a legal right to special education services regardless of overall enrollment changes. Fixed and semi-fixed costs — debt service, insurance, transportation contracts, utilities, minimum staffing requirements, and facility operations — cannot be reduced proportionally with enrollment. Charter school transfers result in a net loss of state aid to tuition payments and often concentrate higher-need student populations in the traditional schools.
+Schools are not like factories, nonprofit organizations or hospitals. Schools are like schools, and we expect to fund and operate them like schools. As a social service, education is fundamentally labor-intensive. National data shows school districts dedicate 80% of budgets to staff and benefits — salaries, health insurance, and retirement contributions — double the 35-40% typical in other organizations.<sup>2</sup> These costs respond to regional and sectoral labor markets rather than local tax revenues, with the cost of education service historically rising faster than general inflation.<sup>3</sup> Fixed and semi-fixed costs — staffing minimums, transportation contracts, facility operations, utilities, debt service, insurance, legal — cannot be reduced proportionally with enrollment. Students eligible for special education have a right to services regardless of overall enrollment, with costs driven by individual needs rather than district size. Charter school transfers result in a net loss of state aid to tuition payments and often concentrate higher-need student populations in the traditional schools. 
 
-These factors are essential for understanding school budgets, but they can distract us from two key questions: What are our actual growth rates over time, and what was our starting point?
+##H1 Approach
+This report takes the position that before we set out to understand why we spend so much on schools, we should ask two key questions: What has our budget growth rate been, and what was our starting point? Understanding whether education costs have grown predictably or exceptionally is a question we can answer by looking at data collected by the Commonwealth. This report breaks down PPE and compares expenses by category, state aid, and local contributions across enrollment-based district cohorts. These groupings allow comparison of districts facing similar scale challenges. The goal is to support informed deliberation about education funding within the broader context of regional economic conditions and policy decisions.
 
 ##H1 Key Finding: Consistent Growth from Elevated Baselines
-Analysis of spending patterns in Amherst-Pelham, Amherst, Leverett, Pelham, and Shutesbury reveals an important pattern: per-pupil expenditure in these districts has grown at rates comparable to — and often lower than — their Western Massachusetts peers over the 2009-2024 period. Their current high PPE reflects not exceptional recent growth, but the persistence of historically elevated spending levels. Given typical budget growth, a significant driver of today's high PPE is yesterday's high PPE.
+Analysis of spending patterns in Amherst-Pelham, Amherst, Leverett, Pelham, and Shutesbury reveals an important pattern: per-pupil expenditure in these districts has grown at rates comparable to — and often lower than — their Western Massachusetts peers over the 2009-2024 period. Their current high PPE reflects normal growth from a high starting point. In 2009, the selected districts already maintained PPE significantly above regional averages. With normal growth rates applied to above-average baselines, spending will remain above average.
 
-In 2009, the selected districts already maintained PPE significantly above regional averages. With typical growth rates applied to above-average baselines, the spending gap has remained relatively constant. This finding should shift our focus from addressing perceived runaway costs to understanding how communities can respond to spending levels established by educational commitments made by previous generations living in different economic and policy contexts.
+If we learn that school budgets grow consistently at 4-6%, then we should plan for 4-6% school budget growth. Less than normal growth risks the adequacy of our schools.
 
 ##H1 Implications
-This report breaks down PPE and compares expenses by category, state aid, and local contributions across enrollment-based district cohorts. These groupings allow comparison of districts facing similar scale challenges. The goal is to support informed deliberation about education funding within the broader context of regional economic conditions and policy decisions.
+This finding should shift our focus from addressing perceived runaway costs to addressing the change in local fiscal effort to fund our schools. Fiscal effort measures a community's local tax burden for schools relative to its capacity to pay. The Commonwealth calculates this as each district's required local contribution divided by its combined property values and resident income — a community spending 5% of its wealth shows lower effort than one spending 10%, regardless of absolute dollar amounts.
 
-Understanding whether education costs have grown predictably or exceptionally is a question we can answer by looking at data collected by the Commonwealth. If we learn that school budgets tend to grow at 4%, then we should plan for 4% school budget growth and recognize that less growth means accepting risk to education adequacy and student outcomes. Schools are not like businesses, factories, nonprofit organizations or hospitals. Schools are like schools, and we expect to fund them like schools. If local revenue capacity cannot support predictable school budget growth, communities face difficult choices. School committees can identify educational needs and purposeful spending within available resources, but their principal concern is to act in the best interests of the district and the students. Leadership on deciding what resources are available falls to appropriating bodies and, ultimately, to voters.
+Two districts with identical PPE amounts and growth may differ significantly in their tax bases. This difference will show up in fiscal effort calculations. This is an objective measure of property value and income used to calculate state aid, but effort is also subjective. If fiscal effort becomes too much for local taxpayers, communities face a hard choice. In this scenario, school committees must identify educational needs and purposeful spending within available resources, but their principal concern will remain with the best interests of the district and the students. Leadership on deciding available resources falls to appropriating bodies and, ultimately, to voters. 
 
 In the end, we are likely to find that our structural funding challenges will persist until the Commonwealth finds the courage to deliver policy changes that no region, town or school district can achieve alone.
 
-For a good start on how to advocate for meaningful change, see the <a href=https://www.repblais.org/ruralschools" color="blue">July 2022 report A Sustainable Future for Rural Schools</a>, the steadfast work of the champions at <a href="https://www.ruralschoolsma.org/" color="blue">Rural Schools MA</a>, and the September 2025 draft report by the Amherst-Pelham Regional School Committee's Fiscal Sustainability Subcommittee. <sup>5</sup>
+For a good start on how to advocate for meaningful change, see the <a href="https://www.repblais.org/ruralschools" color="blue">July 2022 report A Sustainable Future for Rural Schools</a>, the steadfast work of the champions at <a href="https://www.ruralschoolsma.org/" color="blue">Rural Schools MA</a>, and the <a href="https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DLM3SC083619">September 2025 draft report</a> by the Amherst-Pelham Regional School Committee's Fiscal Sustainability Subcommittee.<sup>4</sup>
 
 ##H1 References
 1. <a href="https://www.amherstindy.org/2025/02/07/letter-correcting-councilor-ryan-on-the-regional-school-budget/" color="blue">Amherst Indy, "Letter: Correcting Councilor Ryan on the Regional School Budget"</a>
 https://www.amherstindy.org/2025/02/07/letter-correcting-councilor-ryan-on-the-regional-school-budget/
 
-2. <a href="https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&amp;id=C8SLXU58B56B" color="blue">4 Towns Meeting &amp; Special Meeting of the Regional School Committee, "School Budgeting Basics and FAQ", November 2021</a>
-https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&amp;id=C8SLXU58B56B
-
-3. <a href="https://www.aasa.org/docs/default-source/resources/reports/school-budgets-101.pdf" color="blue">American Association of School Administrators, "School Budgets 101"</a>
+2. <a href="https://www.aasa.org/docs/default-source/resources/reports/school-budgets-101.pdf" color="blue">American Association of School Administrators, "School Budgets 101"</a>
 https://www.aasa.org/docs/default-source/resources/reports/school-budgets-101.pdf
 
-4. <a href="https://www.epi.org/publication/books_wheremoneygone/" color="blue">Where’s the Money Gone? Changes in the Level and Composition of Education Spending (1995)</a> and <a href="https://nces.ed.gov/pubs97/97535/97535jx1.asp" color="blue">Inflation and the Measurement of School Spending (1996)</a><br />
+3. <a href="https://www.epi.org/publication/books_wheremoneygone/" color="blue">Where’s the Money Gone? Changes in the Level and Composition of Education Spending (1995)</a> and <a href="https://nces.ed.gov/pubs97/97535/97535jx1.asp" color="blue">Inflation and the Measurement of School Spending (1996)</a><br />
 https://www.epi.org/publication/books_wheremoneygone/ <br />
 https://nces.ed.gov/pubs97/97535/97535jx1.asp 
 
-5. <a href=https://www.repblais.org/ruralschools" color="blue">Rep. Blais - Rural Schools</a>, <a href="https://www.ruralschoolsma.org/" color="blue">Rural Schools Advocacy in Massachusetts</a>, and <a href="https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DLM3SC083619">RSC FSS Draft Report</a>.<br />
+4. <a href=https://www.repblais.org/ruralschools" color="blue">Rep. Blais - Rural Schools</a>, <a href="https://www.ruralschoolsma.org/" color="blue">Rural Schools Advocacy in Massachusetts</a>, and <a href="https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DLM3SC083619">RSC FSS Draft Report</a>.<br />
 https://www.repblais.org/ruralschools <br />
 https://www.ruralschoolsma.org/<br />
 https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DLM3SC083619<br />
 <br />
-All data in this report comes from the Massachusetts Department of Elementary and Secondary Education (DESE). See Appendix A for detailed source information.
+All data in this report comes from the Massachusetts Department of Elementary and Secondary Education (DESE). See <a href="https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf" color="blue">Appendix A</a> for detailed source information (https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf).
 
 ================================================================================
 SECTION1_SUMMARY
@@ -102,13 +100,13 @@ This section provides a regional overview before diving into cohort-specific det
 
 ##H2 Contents
 
-• <b>Per-pupil expenditure and growth 2009-2024</b> compares 2009 to 2024 PPE for Western MA districts.
-• <b>Year-over-Year (YoY) growth rates</b> shows the rate of PPE change from 2009-2024 for Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury, and their cohorts.
-• <b>5-year and 15-year CAGR by district and cohort</b> shows how compound annual growth rate (CAGR) smooths out the volatility of YoY rates of change, making it easier to understand and compare change in PPE over time.
-• <b>Distribution of 2024 enrollment and proposed cohort grouping</b> shows a histogram of Western MA districts by enrollment with cohorts determined by statistics visualized by the histogram.
-• <b>Scatterplot analysis</b> shows the relationship between district enrollment and PPE for 2024, with a table of cohort members. 
-• <b>Maps</b> of district locations and 2024 enrollment cohorts, 2024 PPE vs enrollment cohort baseline, and PPE growth (2009-2024) vs enrollment cohort baseline.
-• <b>Statistical associations</b> between enrollment and PPE.
+• <b>Per-pupil expenditure and growth 2009-2024</b> compares 2009 to 2024 PPE for Western MA districts.<br />
+• <b>Year-over-Year (YoY) growth rates</b> shows the rate of PPE change from 2009-2024 for Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury, and their cohorts.<br />
+• <b>5-year and 15-year CAGR by district and cohort</b> shows how compound annual growth rate (CAGR) smooths out the volatility of YoY rates of change, making it easier to understand and compare change in PPE over time.<br />
+• <b>Distribution of 2024 enrollment and proposed cohort grouping</b> shows a histogram of Western MA districts by enrollment with cohorts determined by statistics visualized by the histogram.<br />
+• <b>Scatterplot analysis</b> shows the relationship between district enrollment and PPE for 2024, with a table of cohort members. <br />
+• <b>Maps</b> of district locations and 2024 enrollment cohorts, 2024 PPE vs enrollment cohort baseline, and PPE growth (2009-2024) vs enrollment cohort baseline.<br />
+• <b>Statistical associations</b> between enrollment and PPE.<br />
 
 All districts are grouped into enrollment cohorts based on 2024 in-district FTE using IQR (Interquartile Range) analysis. This grouping enables meaningful peer comparisons while acknowledging that enrollment size is just one factor influencing costs. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance—all of which shape costs and outcomes.
 
@@ -119,10 +117,6 @@ EXECUTIVE_SUMMARY_COHORT_EXPLANATION
 <b>Table {N}</b> compares PPE and cost growth of Western MA school district cohorts with the benchmark of all Western MA districts. <b>Tables {N+1} and {N+2}</b> benchmark districts against their cohort averages. 
 
 Cohorts are organized by enrollment size. Grouping districts by enrollment size enables more meaningful cost comparisons—districts of similar size face similar challenges with administration, staffing, facilities, and program requirements. Detailed information about cohorts follow in <b>sections 1 and 2</b>. Detailed comparisons of individual districts to cohorts follow in <b>sections 2 and 3</b>.
-
-Enrollment size is just one factor. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance — differences that PPE figures can obscure. This report examines revenue and expenditure subcategories over time rather than relying on top-line comparisons, but these breakdowns alone cannot determine which districts are 'efficient' or 'wasteful.' Such judgments require local knowledge of community priorities, student needs, and historical context. What this analysis can do is reveal patterns and anomalies that invite well-grounded investigation of education costs across Western Massachusetts.
-
-<i>Note: The following districts are omitted from this analysis: Chesterfield-Goshen (missing expenditure data), Hampshire (missing expenditure data), Southampton (missing expenditure data), Warwick (no enrollment data), Westhampton (missing expenditure data), Williamsburg (missing expenditure data).</i>
 
 ================================================================================
 EXECUTIVE_SUMMARY_TINY_EXPLANATION
@@ -321,36 +315,41 @@ SECTION1_CHOROPLETH_EXPLANATION
 
 Geography matters for understanding school costs. This map shows where enrollment cohorts cluster and how regional district boundaries cross municipal lines.
 
-Single-town elementary and PK-12 regions appear as solid shaded areas, colored by their enrollment cohort (blue for Tiny, light blue for Small, yellow for Medium, orange for Large). Unified regional districts (marked 'U') span multiple towns. Secondary regional districts are outlined with thick black borders and labeled (T/S/M/L) to show their cohort without covering up their member elementary districts.
+Single-town elementary and PK-12 regions appear as solid shaded areas, colored by their enrollment cohort (blue for Tiny, light blue for Small, yellow for Medium, orange for Large). Regional K-12 districts (marked 'K12') span multiple towns. Secondary regional districts are outlined with thick black borders and labeled (T/S/M/L) to show their cohort without covering up their member elementary districts.
+
+See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c">MassGIS map of Public School Districts.</a><br />
+https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c
 
 ================================================================================
 SECTION1_PPE_COMPARISON_EXPLANATION
 ================================================================================
 
-This map shows each district's 2024 per-pupil spending compared to its enrollment cohort baseline (weighted average of all Western MA districts in that cohort).
+This map shows each district's 2024 per-pupil spending compared to its enrollment cohort baseline (weighted average of all Western MA districts in that cohort). This helps identify which districts are operating above or below the typical spending level for their enrollment size, accounting for the well-documented relationship between district size and per-pupil costs.
 
 <b>Color coding:</b> Dark green indicates districts spending more than 10% below their cohort average (most cost-efficient). Light green shows 0-10% below average. Light red shows 0-10% above average. Dark red indicates districts spending more than 10% above their cohort average (highest relative cost).
 
-This visualization helps identify which districts are operating above or below the typical spending level for their enrollment size, accounting for the well-documented relationship between district size and per-pupil costs.
+See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c">MassGIS map of Public School Districts.</a><br />
+https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c
 
 ================================================================================
 SECTION1_CAGR_COMPARISON_EXPLANATION
 ================================================================================
 
-This map shows each district's 15-year spending growth rate (CAGR, 2009-2024) compared to its enrollment cohort baseline growth rate.
+This map shows each district's 15-year spending growth rate (CAGR, 2009-2024) compared to its enrollment cohort baseline growth rate. This helps identify which districts experienced faster or slower spending growth than similar-sized districts, revealing local policy decisions and cost pressures beyond typical enrollment cohort trends.
 
 <b>Color coding:</b> Dark blue indicates districts with growth more than 0.5 percentage points slower than their cohort average. Light blue shows 0-0.5 pp slower. Light orange shows 0-0.5 pp faster. Dark orange indicates districts with growth more than 0.5 pp faster than their cohort average.
 
-This visualization helps identify which districts experienced faster or slower spending growth than similar-sized districts, revealing local policy decisions and cost pressures beyond typical enrollment cohort trends.
+See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c">MassGIS map of Public School Districts.</a><br />
+https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c
 
 __BOXED_START__
 ##H3 Why the CAGR threshold is more sensitive
 
 Small differences in growth rates compound over time. A 0.5pp difference may seem modest, but:
 
-• $20,000 PPE growing at 4.0% → $36,019 after 15 years
-• $20,000 PPE growing at 4.5% → $38,318 after 15 years
-• Gap: $2,299/pupil (11.5% more total growth)
+• $20,000 PPE growing at 4.0% → $36,019 after 15 years<br />
+• $20,000 PPE growing at 4.5% → $38,318 after 15 years<br />
+• Gap: $2,299/pupil (11.5% more total growth)<br />
 
 For a 300-student district, that's $689,700 in additional annual spending by year 15. The 0.5pp threshold helps identify districts on meaningfully different long-term trajectories.
 __BOXED_END__
@@ -432,6 +431,30 @@ These analyses examine statistical associations, not causal relationships. The w
    • Other factors — wealth, demographics, facility age, governance, historical commitments — matter more than enrollment characteristics
 
 ================================================================================
+CH70_STATISTICAL_ASSOCIATIONS
+================================================================================
+
+<b>Key Finding</b>
+
+District size and enrollment cohort show associations with Chapter 70 Aid patterns. This section examines the distribution of Chapter 70 state aid (per foundation pupil) across Western Massachusetts traditional districts organized by enrollment size.
+
+<b>Distribution of Chapter 70 Aid by Enrollment Cohort</b>
+
+The five-number summaries below show two dimensions: current aid levels (2024 Ch70 Aid) and how they grew over time (2009-2024 growth rates).
+
+<b>2024 Chapter 70 Aid per Foundation Pupil by Cohort</b>
+
+Box plots show the spread of state aid within each size cohort. The median line shows typical aid levels for each cohort. Note: Foundation enrollment includes weighted adjustments for low-income, ELL, and special education students.
+
+__COHORT_CH70_TABLE__
+
+<b>2009-2024 Chapter 70 Aid Growth Rates by Cohort</b>
+
+These box plots reveal whether districts of similar size received similar aid growth (narrow boxes) or diverged over time (wide boxes). Comparing medians shows which cohorts experienced faster or slower aid increases.
+
+__COHORT_CH70_CAGR_TABLE__
+
+================================================================================
 CH70_STATISTICAL_TEST_RESULTS
 ================================================================================
 
@@ -482,6 +505,30 @@ These analyses examine statistical associations, not causal relationships. The f
    • Chapter 70 Aid levels associate with district size due to foundation budget formula minimums<br />
    • Aid growth rates show no association with enrollment characteristics<br />
    • State funding policy changes and formula adjustments affect all districts similarly
+
+================================================================================
+NSS_STATISTICAL_ASSOCIATIONS
+================================================================================
+
+<b>Key Finding</b>
+
+District size and enrollment cohort show associations with local funding effort patterns. This section examines Actual Net School Spending above Required NSS (per foundation pupil) - a measure of spending beyond state-mandated minimums.
+
+<b>Distribution of Actual NSS above Required NSS by Enrollment Cohort</b>
+
+The five-number summaries below show: current local funding effort (2024 values) and how this effort changed over time (2009-2024 growth rates).
+
+<b>2024 Actual NSS above Required NSS per Foundation Pupil by Cohort</b>
+
+Box plots show the spread of spending above requirements within each size cohort. Positive values indicate spending above the state-required minimum; negative values indicate spending below required levels. The median line shows typical local effort for each cohort.
+
+__COHORT_NSS_TABLE__
+
+<b>2009-2024 Actual NSS above Required NSS Growth Rates by Cohort</b>
+
+These box plots reveal whether districts of similar size increased local effort at similar rates (narrow boxes) or diverged over time (wide boxes). Comparing medians shows which cohorts increased spending above requirements faster or slower.
+
+__COHORT_NSS_CAGR_TABLE__
 
 ================================================================================
 NSS_STATISTICAL_TEST_RESULTS
@@ -539,7 +586,9 @@ These analyses examine statistical associations, not causal relationships. The w
 SECTION1_YOY_EXPLANATION
 ================================================================================
 
-These plots show year-over-year (YoY) growth rates in per-pupil expenditure (PPE) for districts of interest and their enrollment cohorts. Thicker lines represent cohort aggregates, thinner lines show individual districts. Cohort determination is detailed in Appendix A. While patterns emerge, no clear, actionable signal appears across all districts and cohorts over the 2009-2024 period. On the next page, we'll see how a compound growth calculation makes it easier to see similarities and differences between districts.
+These plots show year-over-year (YoY) growth rates in per-pupil expenditure (PPE) for districts of interest and their enrollment cohorts. Thicker lines represent cohort aggregates, thinner lines show individual districts. Cohort determination is detailed in <a href="https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf" color="blue">Appendix A</a>.<sup>1</sup> While patterns emerge, no clear, actionable signal appears across all districts and cohorts over the 2009-2024 period. On the next page, we'll see how a compound growth calculation makes it easier to see similarities and differences between districts.
+<br /><br />
+1. https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf
 
 ================================================================================
 SECTION1_CAGR_EXPLANATION
@@ -551,7 +600,7 @@ Compound annual growth rates (CAGR) smooth out YoY volatility to reveal long-ter
 SECTION1_DISTRIBUTION_EXPLANATION
 ================================================================================
 
-District enrollment cohorts need clear boundaries. To avoid arbitrary cutoffs, this approach uses the natural spread of enrollments. The histogram (top) shows a right-skewed distribution of 2024 enrollments with a long tail of larger districts. Based on interquartile range analysis, districts are grouped into four cohorts (bottom): Tiny (0-200 FTE), Small (201-800 FTE), Medium (801-1600 FTE), and Large (1601-10,000 FTE). Springfield (>10,000 FTE) is excluded as a statistical outlier. These cohorts enable comparison by scale, not to imply spending norms.
+District enrollment cohorts need clear boundaries. To avoid arbitrary cutoffs, this approach uses the natural spread of enrollments. The histogram (top) shows a right-skewed distribution of 2024 enrollments with a long tail of larger districts. Based on interquartile range analysis, districts are grouped into four cohorts (bottom): Tiny (0-200 FTE), Small (201-800 FTE), Medium (801-1600 FTE), and Large (1601-10,000 FTE). Springfield, with an in-district enrollment of 29,468 in 2024, is omitted as an outlier. These cohorts enable comparison by scale to discover financial norms, but are not meant to imply what spending should or should not be for schools of different sizes.
 <br /><br />
 The next page presents each district's enrollment and PPE in both scatterplot and reference table format.
 
@@ -581,4 +630,4 @@ SECTION3_SUMMARY
 
 These district-level pages enable direct comparison between individual district spending patterns and their respective cohorts. Note that although this section focuses on the five selected districts and Western MA, the same visualizations can be produced for other MA districts and regions.
 
-To skip to <b>Appendix A: Data Sources & Calculation Methodology</b>, turn to page {PAGE_APPENDIX_A}.
+For detailed methodology, see <b><a href="https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf" color="blue">Appendix A: Data Sources & Calculation Methodology</a></b> (https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf).

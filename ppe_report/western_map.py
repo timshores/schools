@@ -11,7 +11,7 @@ This module:
 
 District Type Classification (from data file):
 - "District" -> Elementary district (not regional)
-- "Unified Regional" -> Serves all grades PK-12 across multiple towns (gets "U" marker)
+- "Unified Regional" -> Serves all grades PK-12 across multiple towns (gets "K12" marker)
 - "Regional Composite" -> Secondary regional that overlaps elementary districts (gets cohort letter + black border)
 
 Map Design:
@@ -389,7 +389,18 @@ def create_western_ma_map(
     print(f"  Rendering {len(regional_unified)} unified regional districts (solid fill)")
     print(f"  Rendering {len(regional_secondary)} secondary regional districts (diagonal stripes)")
 
-    # LAYER 1: Plot non-regional districts with filled polygons
+    # LAYER 0: Plot ALL districts (including secondary regionals) with gray fill first
+    # This ensures any districts with missing cohort data still show up with boundaries
+    matched_gdf.plot(
+        ax=ax,
+        color="#E0E0E0",  # Light gray for missing data
+        edgecolor="gray",
+        linewidth=0.5,
+        alpha=0.85,
+        zorder=0
+    )
+
+    # LAYER 1: Plot non-regional districts with filled polygons (colored by cohort)
     for cohort_name, color in COHORT_COLORS.items():
         cohort_districts = non_regional[non_regional["cohort"] == cohort_name]
         if len(cohort_districts) > 0:
@@ -414,14 +425,14 @@ def create_western_ma_map(
                 alpha=0.85,
                 zorder=1
             )
-            # Add "U" label to each unified regional district
+            # Add "K12" label to each unified regional district
             for idx, row in cohort_districts.iterrows():
                 centroid = row.geometry.centroid
                 # Black text only (no outline)
                 ax.text(
-                    centroid.x, centroid.y, 'U',
+                    centroid.x, centroid.y, 'K12',
                     color='black',
-                    fontsize=20,
+                    fontsize=16,
                     fontweight='bold',
                     ha='center',
                     va='center',
@@ -500,6 +511,19 @@ def create_western_ma_map(
                 )
             )
 
+    # Add legend entry for missing data
+    n_missing = len(matched_gdf[matched_gdf["cohort"].isna()])
+    if n_missing > 0:
+        legend_elements.append(
+            mpatches.Patch(
+                facecolor="#E0E0E0",
+                edgecolor="gray",
+                linewidth=0.5,
+                alpha=0.85,
+                label=f"Missing data: {n_missing} district(s)"
+            )
+        )
+
     # Add explanation for secondary regional black border and cohort letters
     if len(regional_secondary) > 0:
         legend_elements.append(
@@ -525,14 +549,14 @@ def create_western_ma_map(
             )
         )
 
-    # Add explanation for "U" label on unified regional districts
+    # Add explanation for "K12" label on regional K-12 districts
     if len(regional_unified) > 0:
-        # Add "U" explanation (text only, no symbol)
+        # Add "K12" explanation (text only, no symbol)
         legend_elements.append(
             mpatches.Patch(
                 facecolor="none",
                 edgecolor="none",
-                label="U = Unified regional district (PK-12)")
+                label="K12 = Regional K-12 with all grade levels in a single district")
         )
 
     # Add legend to plot - positioned below the map to avoid overlap
@@ -595,12 +619,27 @@ def create_ppe_comparison_map(
     ppe_comparisons_lower = {k.lower(): v for k, v in ppe_comparisons.items()}
     matched_gdf["ppe_deviation"] = matched_gdf["district_name"].str.lower().map(ppe_comparisons_lower)
 
-    # Define color bins based on percentage deviation (CR 1003: 5% threshold)
-    # Blue = below baseline, White = within threshold, Orange = above baseline
-    bins = [-100, -5, 5, 100]  # Extended range to handle outliers
-    # More muted colors per user request
-    colors = ["#B3E0E6", "#FFFFFF", "#FFE6CC"]  # Muted blue (below), White (within ±5%), Muted orange (above)
-    labels = [">5% below", "Within ±5%", ">5% above"]
+    # Define color bins based on percentage deviation with graduated intensity
+    # Matches table shading: 5%, 10%, 15%, 20%+ (from lightest to darkest)
+    # Blue = below baseline (graduated), White = within threshold, Orange = above baseline (graduated)
+    bins = [-100, -20, -15, -10, -5, 5, 10, 15, 20, 100]  # Extended range to handle outliers
+    # Graduated colors: darker = further from baseline
+    colors = [
+        "#4DB8C4",  # Dark blue (≤-20%)
+        "#66C5D0",  # Medium-dark blue (-15% to -20%)
+        "#80D2DC",  # Medium blue (-10% to -15%)
+        "#B3E0E6",  # Light blue (-5% to -10%)
+        "#FFFFFF",  # White (within ±5%)
+        "#FFE6CC",  # Light orange (5% to 10%)
+        "#FFD9A8",  # Medium orange (10% to 15%)
+        "#FFCC85",  # Medium-dark orange (15% to 20%)
+        "#FFBF61",  # Dark orange (≥20%)
+    ]
+    labels = [
+        "≤-20%", "-15 to -20%", "-10 to -15%", "-5 to -10%",
+        "Within ±5%",
+        "+5 to +10%", "+10 to +15%", "+15 to +20%", "≥+20%"
+    ]
 
     # Categorize districts by deviation
     matched_gdf["color_category"] = pd.cut(
@@ -623,7 +662,18 @@ def create_ppe_comparison_map(
         ~((matched_gdf["is_regional"]) & (matched_gdf["regional_subtype"] == "secondary"))
     ]
 
-    # Plot non-secondary districts by color category with gray boundaries
+    # First, plot ALL non-secondary districts with gray fill and gray boundaries
+    # This ensures districts with missing data still show up with boundaries
+    non_secondary.plot(
+        ax=ax,
+        color="#E0E0E0",  # Light gray for missing data
+        edgecolor="gray",
+        linewidth=0.8,
+        alpha=0.85,
+        zorder=1
+    )
+
+    # Then, overlay colored districts by category (districts with data)
     for idx, (label, color) in enumerate(zip(labels, colors)):
         category_districts = non_secondary[non_secondary["color_category"] == label]
         if len(category_districts) > 0:
@@ -634,7 +684,7 @@ def create_ppe_comparison_map(
                 edgecolor="gray",
                 linewidth=0.8,
                 alpha=0.85,
-                zorder=1
+                zorder=2
             )
 
     # Plot secondary regional districts with black borders and text labels (no fill)
@@ -652,13 +702,21 @@ def create_ppe_comparison_map(
         deviation = row["ppe_deviation"]
         centroid = row.geometry.centroid
 
+        # Adjust label position for Hampshire Unified District (odd shape)
+        y_offset = 0
+        if "hampshire" in row["district_name"].lower():
+            # Move label up to avoid boundary crossing
+            bbox = row.geometry.bounds
+            y_range = bbox[3] - bbox[1]
+            y_offset = y_range * 0.15  # Move up 15% of district height
+
         # Format as +X% or -X% with sign
         sign = "+" if deviation > 0 else ""
         label_text = f'{sign}{deviation:.0f}%'
 
         # Use black text (more readable on muted colors)
         ax.text(
-            centroid.x, centroid.y, label_text,
+            centroid.x, centroid.y + y_offset, label_text,
             fontsize=20, ha='center', va='center',  # Match enrollment cohort map font size
             color='black', weight='bold',
             zorder=10
@@ -682,6 +740,19 @@ def create_ppe_comparison_map(
                     label=f"{label} cohort avg: {n_districts} district(s)"
                 )
             )
+
+    # Add legend entry for missing data
+    n_missing = len(non_secondary[non_secondary["color_category"].isna()])
+    if n_missing > 0:
+        legend_elements.append(
+            mpatches.Patch(
+                facecolor="#E0E0E0",
+                edgecolor="gray",
+                linewidth=0.8,
+                alpha=0.85,
+                label=f"Missing data: {n_missing} district(s)"
+            )
+        )
 
     # Add legend entry for secondary regional indicators
     if len(regional_secondary) > 0:
@@ -754,12 +825,27 @@ def create_cagr_comparison_map(
     cagr_comparisons_lower = {k.lower(): v for k, v in cagr_comparisons.items()}
     matched_gdf["cagr_deviation"] = matched_gdf["district_name"].str.lower().map(cagr_comparisons_lower)
 
-    # Define color bins based on percentage point deviation (CR 1003: 0.5pp threshold)
-    # Blue = below baseline, White = within threshold, Orange = above baseline
-    bins = [-100, -0.5, 0.5, 100]  # Extended range to handle outliers
-    # More muted colors per user request
-    colors = ["#B3E0E6", "#FFFFFF", "#FFE6CC"]  # Muted blue (below), White (within ±0.5pp), Muted orange (above)
-    labels = [">0.5pp slower", "Within ±0.5pp", ">0.5pp faster"]
+    # Define color bins based on percentage point deviation with graduated intensity
+    # Matches table shading: 0.5pp, 1pp, 1.5pp, 2pp+ (from lightest to darkest)
+    # Blue = below baseline (graduated), White = within threshold, Orange = above baseline (graduated)
+    bins = [-100, -2.0, -1.5, -1.0, -0.5, 0.5, 1.0, 1.5, 2.0, 100]  # Extended range to handle outliers
+    # Graduated colors: darker = further from baseline
+    colors = [
+        "#4DB8C4",  # Dark blue (≤-2.0pp)
+        "#66C5D0",  # Medium-dark blue (-1.5pp to -2.0pp)
+        "#80D2DC",  # Medium blue (-1.0pp to -1.5pp)
+        "#B3E0E6",  # Light blue (-0.5pp to -1.0pp)
+        "#FFFFFF",  # White (within ±0.5pp)
+        "#FFE6CC",  # Light orange (0.5pp to 1.0pp)
+        "#FFD9A8",  # Medium orange (1.0pp to 1.5pp)
+        "#FFCC85",  # Medium-dark orange (1.5pp to 2.0pp)
+        "#FFBF61",  # Dark orange (≥2.0pp)
+    ]
+    labels = [
+        "≤-2.0pp", "-1.5 to -2.0pp", "-1.0 to -1.5pp", "-0.5 to -1.0pp",
+        "Within ±0.5pp",
+        "+0.5 to +1.0pp", "+1.0 to +1.5pp", "+1.5 to +2.0pp", "≥+2.0pp"
+    ]
 
     # Categorize districts by deviation
     matched_gdf["color_category"] = pd.cut(
@@ -782,7 +868,18 @@ def create_cagr_comparison_map(
         ~((matched_gdf["is_regional"]) & (matched_gdf["regional_subtype"] == "secondary"))
     ]
 
-    # Plot non-secondary districts by color category with gray boundaries
+    # First, plot ALL non-secondary districts with gray fill and gray boundaries
+    # This ensures districts with missing data still show up with boundaries
+    non_secondary.plot(
+        ax=ax,
+        color="#E0E0E0",  # Light gray for missing data
+        edgecolor="gray",
+        linewidth=0.8,
+        alpha=0.85,
+        zorder=1
+    )
+
+    # Then, overlay colored districts by category (districts with data)
     for idx, (label, color) in enumerate(zip(labels, colors)):
         category_districts = non_secondary[non_secondary["color_category"] == label]
         if len(category_districts) > 0:
@@ -793,7 +890,7 @@ def create_cagr_comparison_map(
                 edgecolor="gray",
                 linewidth=0.8,
                 alpha=0.85,
-                zorder=1
+                zorder=2
             )
 
     # Plot secondary regional districts with black borders and text labels (no fill)
@@ -811,13 +908,21 @@ def create_cagr_comparison_map(
         deviation = row["cagr_deviation"]
         centroid = row.geometry.centroid
 
+        # Adjust label position for Hampshire Unified District (odd shape)
+        y_offset = 0
+        if "hampshire" in row["district_name"].lower():
+            # Move label up to avoid boundary crossing
+            bbox = row.geometry.bounds
+            y_range = bbox[3] - bbox[1]
+            y_offset = y_range * 0.15  # Move up 15% of district height
+
         # Format as +X.Xpp or -X.Xpp with sign
         sign = "+" if deviation > 0 else ""
         label_text = f'{sign}{deviation:.1f}pp'
 
         # Use black text (more readable on muted colors)
         ax.text(
-            centroid.x, centroid.y, label_text,
+            centroid.x, centroid.y + y_offset, label_text,
             fontsize=20, ha='center', va='center',  # Match enrollment cohort map font size
             color='black', weight='bold',
             zorder=10
@@ -841,6 +946,19 @@ def create_cagr_comparison_map(
                     label=f"{label} than cohort: {n_districts} district(s)"
                 )
             )
+
+    # Add legend entry for missing data
+    n_missing = len(non_secondary[non_secondary["color_category"].isna()])
+    if n_missing > 0:
+        legend_elements.append(
+            mpatches.Patch(
+                facecolor="#E0E0E0",
+                edgecolor="gray",
+                linewidth=0.8,
+                alpha=0.85,
+                label=f"Missing data: {n_missing} district(s)"
+            )
+        )
 
     # Add legend entry for secondary regional indicators
     if len(regional_secondary) > 0:

@@ -130,6 +130,7 @@ COHORT_DISTRICTS_MAP = {
 def get_cross_reference_footer(page_dict: dict) -> list:
     """
     Generate cross-reference footer links for a page based on its type and content.
+    Links are hyperlinked and consolidated into a single line when there are multiple references.
 
     Args:
         page_dict: Page dictionary with title, subtitle, section_id, etc.
@@ -149,18 +150,18 @@ def get_cross_reference_footer(page_dict: dict) -> list:
 
             # Determine if this is PPE or NSS/Ch70 page
             if "PPE and Enrollment" in subtitle:
-                cohort_section_id = f"western_{cohort.lower()}_ppe"
-                link_text = f"Compare to {cohort_label} cohort: PPE and Enrollment"
+                cohort_section_id = f"section2_{cohort.lower()}"
+                link_suffix = "PPE and Enrollment"
             elif "Chapter 70 Aid and Net School Spending" in subtitle:
-                cohort_section_id = f"western_{cohort.lower()}_nss"
-                link_text = f"Compare to {cohort_label} cohort: Chapter 70 Aid and Net School Spending"
+                cohort_section_id = f"section2_{cohort.lower()}_nss"
+                link_suffix = "Chapter 70 Aid and Net School Spending"
             else:
                 continue
 
             page_num = get_page_number(cohort_section_id)
             if page_num:
                 footer_paragraphs.append(Paragraph(
-                    f'<font size="9"><i>→ {link_text} (page {page_num})</i></font>',
+                    f'<font size="9"><i>→ Compare to <a href="#{cohort_section_id}" color="blue">{cohort_label} cohort: {link_suffix}</a> (page {page_num})</i></font>',
                     style_body
                 ))
             break
@@ -169,7 +170,7 @@ def get_cross_reference_footer(page_dict: dict) -> list:
     for cohort, districts in COHORT_DISTRICTS_MAP.items():
         cohort_label = get_cohort_label(cohort)
         if cohort_label in subtitle and "Western MA" in title:
-            # This is a cohort page - add links to member districts
+            # This is a cohort page - consolidate all links into single line
             if "PPE and Enrollment" in subtitle:
                 page_type = "ppe"
                 link_suffix = "PPE and Enrollment"
@@ -179,24 +180,29 @@ def get_cross_reference_footer(page_dict: dict) -> list:
             else:
                 continue
 
-            # Add link to Western MA aggregate
-            western_section_id = f"western_all_western_{page_type}"
+            # Build list of all reference links
+            links = []
+
+            # Add Western MA aggregate
+            if page_type == "ppe":
+                western_section_id = "section2_all_western"
+            else:  # nss
+                western_section_id = "section2_all_western_nss"
             western_page_num = get_page_number(western_section_id)
             if western_page_num:
-                footer_paragraphs.append(Paragraph(
-                    f'<font size="9"><i>→ Western MA (all, excl. Springfield): {link_suffix} (page {western_page_num})</i></font>',
-                    style_body
-                ))
+                links.append(f'<a href="#{western_section_id}" color="blue">Western MA (all, excl. Springfield)</a> (page {western_page_num})')
 
-            # Add links to member districts
+            # Add member districts
             for district in districts:
-                district_section_id = f"district_{make_safe_filename(district).lower()}_{page_type}"
+                district_section_id = f"{make_safe_filename(district).lower()}_{page_type}"
                 district_page_num = get_page_number(district_section_id)
                 if district_page_num:
-                    footer_paragraphs.append(Paragraph(
-                        f'<font size="9"><i>→ {district}: {link_suffix} (page {district_page_num})</i></font>',
-                        style_body
-                    ))
+                    links.append(f'<a href="#{district_section_id}" color="blue">{district}</a> (page {district_page_num})')
+
+            # Consolidate into single line
+            if links:
+                link_text = f'<font size="9"><i>→ Compare to {link_suffix} for {", ".join(links)}</i></font>'
+                footer_paragraphs.append(Paragraph(link_text, style_body))
             break
 
     # Check if this is Western MA aggregate page
@@ -210,16 +216,22 @@ def get_cross_reference_footer(page_dict: dict) -> list:
         else:
             return footer_paragraphs
 
-        # Add links to all cohort pages
+        # Build list of all cohort links
+        links = []
         for cohort in ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]:
             cohort_label = get_cohort_label(cohort)
-            cohort_section_id = f"western_{cohort.lower()}_{page_type}"
+            if page_type == "ppe":
+                cohort_section_id = f"section2_{cohort.lower()}"
+            else:  # nss
+                cohort_section_id = f"section2_{cohort.lower()}_nss"
             cohort_page_num = get_page_number(cohort_section_id)
             if cohort_page_num:
-                footer_paragraphs.append(Paragraph(
-                    f'<font size="9"><i>→ {cohort_label} cohort: {link_suffix} (page {cohort_page_num})</i></font>',
-                    style_body
-                ))
+                links.append(f'<a href="#{cohort_section_id}" color="blue">{cohort_label} cohort</a> (page {cohort_page_num})')
+
+        # Consolidate into single line
+        if links:
+            link_text = f'<font size="9"><i>→ Compare to {link_suffix} for {", ".join(links)}</i></font>'
+            footer_paragraphs.append(Paragraph(link_text, style_body))
 
     return footer_paragraphs
 
@@ -527,7 +539,15 @@ def load_report_text_sections(text_file: Path = None) -> dict:
             else:
                 # Regular line - process as before
                 line = item.rstrip()
-                if line == "":
+                # Check for boxed section markers
+                if line == "__BOXED_START__" or line == "__BOXED_END__":
+                    # Flush any accumulated paragraph text
+                    if current_para:
+                        paragraphs.append(" ".join(current_para))
+                        current_para = []
+                    # Add marker as separate item
+                    paragraphs.append(line)
+                elif line == "":
                     if current_para:
                         paragraphs.append(" ".join(current_para))
                         current_para = []
@@ -692,7 +712,7 @@ def _build_western_ma_nss_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.
     return _build_nss_ch70_baseline_map(nss_western, latest_year, foundation_western)
 
 
-def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, str]], doc_width: float, style_body, style_num, year: int = 2024):
+def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, str, str]], doc_width: float, style_body, style_num, year: int = 2024):
     """Build compact 3-column table showing all districts with cohort colors, enrollment, and year-specific PPE."""
     if not district_data:
         return None
@@ -740,11 +760,13 @@ def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, s
 
         # Left column
         if i < len(left_districts):
-            dist_name, cohort, enrollment, ppe, cohort_label = left_districts[i]
+            dist_name, cohort, enrollment, ppe, cohort_label, dist_type = left_districts[i]
             swatch_color = cohort_colors.get(cohort, colors.white)
+            # Append district type label if present
+            display_name = f"{dist_name} {dist_type}" if dist_type else dist_name
             row.extend([
                 DotSwatch(swatch_color),
-                Paragraph(dist_name, style_small),
+                Paragraph(display_name, style_small),
                 Paragraph(f"{enrollment:,.0f}", style_small_num),
                 Paragraph(f"${ppe:,.0f}", style_small_num)
             ])
@@ -760,11 +782,13 @@ def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, s
 
         # Right column
         if i < len(right_districts):
-            dist_name, cohort, enrollment, ppe, cohort_label = right_districts[i]
+            dist_name, cohort, enrollment, ppe, cohort_label, dist_type = right_districts[i]
             swatch_color = cohort_colors.get(cohort, colors.white)
+            # Append district type label if present
+            display_name = f"{dist_name} {dist_type}" if dist_type else dist_name
             row.extend([
                 DotSwatch(swatch_color),
-                Paragraph(dist_name, style_small),
+                Paragraph(display_name, style_small),
                 Paragraph(f"{enrollment:,.0f}", style_small_num),
                 Paragraph(f"${ppe:,.0f}", style_small_num)
             ])
@@ -811,12 +835,33 @@ def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, s
     tbl.setStyle(ts)
     return tbl
 
-def _build_scatterplot_district_table(df: pd.DataFrame, reg: pd.DataFrame, latest_year: int) -> List[Tuple[str, str, float, float, str]]:
+def _build_scatterplot_district_table(df: pd.DataFrame, reg: pd.DataFrame, latest_year: int) -> List[Tuple[str, str, float, float, str, str]]:
     """
     Build district table data for scatterplot page.
-    Returns: List of (district_name, cohort, enrollment, ppe, cohort_label) sorted by cohort then PPE descending.
+    Returns: List of (district_name, cohort, enrollment, ppe, cohort_label, district_type) sorted by cohort then PPE descending.
+    district_type is one of: "", "(Regional K-12)", "(Secondary Region)"
     """
     from school_shared import get_total_fte_for_year, get_enrollment_group, get_cohort_label, get_western_cohort_districts
+
+    # Load district types from profiles file
+    district_types = {}
+    try:
+        profiles_path = Path("./data/Ch 70 District Profiles Actual NSS Over Required.xlsx")
+        if profiles_path.exists():
+            profiles = pd.read_excel(profiles_path, sheet_name="MA_District_Profiles")
+            for idx, row in profiles.iterrows():
+                dist_name = str(row.get("DistOrg", "")).strip()
+                dist_type = str(row.get("DistType", "")).strip()
+                if dist_name and dist_type:
+                    # Map to display labels
+                    if dist_type == "Unified Regional":
+                        district_types[dist_name.lower()] = "(Regional K-12)"
+                    elif "Regional Composite" in dist_type:
+                        district_types[dist_name.lower()] = "(Secondary Region)"
+                    else:
+                        district_types[dist_name.lower()] = ""
+    except Exception as e:
+        print(f"[WARN] Could not load district types for scatterplot table: {e}")
 
     # Get Western MA traditional districts using centralized cohort function
     # This ensures consistent filtering (includes PPE validation)
@@ -840,7 +885,9 @@ def _build_scatterplot_district_table(df: pd.DataFrame, reg: pd.DataFrame, lates
         if total_ppe > 0:
             cohort = get_enrollment_group(enrollment)
             cohort_label = get_cohort_label(cohort)
-            district_data.append((dist.title(), cohort, float(enrollment), float(total_ppe), cohort_label))
+            # Look up district type label
+            dist_type_label = district_types.get(dist.lower(), "")
+            district_data.append((dist.title(), cohort, float(enrollment), float(total_ppe), cohort_label, dist_type_label))
 
     # Sort by cohort (TINY, SMALL, MEDIUM, LARGE, SPRINGFIELD) then by PPE descending within each cohort
     cohort_order = {"TINY": 0, "SMALL": 1, "MEDIUM": 2, "LARGE": 3, "SPRINGFIELD": 4}
@@ -878,26 +925,45 @@ def _abbr_bucket_suffix(full: str) -> str:
     return ""
 
 def _categorize_districts(district_list: list, reg: pd.DataFrame) -> dict:
-    """Categorize districts into regular districts, unified regions, and vocational/technical schools."""
-    categories = {"districts": [], "unified_regions": [], "vocational": []}
+    """Categorize districts into regular districts, unified regions, secondary regions, and vocational/technical schools."""
+    categories = {"districts": [], "unified_regions": [], "secondary_regions": [], "vocational": []}
+
+    # Load district types from profiles file to distinguish unified vs secondary regions
+    district_types = {}
+    profiles_path = Path("./data/Ch 70 District Profiles Actual NSS Over Required.xlsx")
+    if profiles_path.exists():
+        try:
+            profiles = pd.read_excel(profiles_path, sheet_name="MA_District_Profiles")
+            for idx, row in profiles.iterrows():
+                dist_name = str(row.get("DistOrg", "")).strip()
+                dist_type = str(row.get("DistType", "")).strip()
+                if dist_name and dist_type:
+                    district_types[dist_name.lower()] = dist_type
+        except Exception as e:
+            print(f"Warning: Could not load district types from profiles: {e}")
 
     for district in district_list:
+        # Check profiles file for district type
+        dist_type = district_types.get(district.lower(), "")
+
         # Find district in reg dataframe (case-insensitive match)
         mask = reg["DIST_NAME"].str.lower() == district.lower()
-        if not mask.any():
-            # If not found, categorize by name pattern
-            if "-" in district or "reg" in district.lower() or "regional" in district.lower():
-                categories["unified_regions"].append(district)
-            else:
-                categories["districts"].append(district)
-            continue
+        if mask.any():
+            school_type = reg[mask]["SCHOOL_TYPE"].iloc[0]
+            if school_type.lower() == "vocational":
+                categories["vocational"].append(district)
+                continue
 
-        school_type = reg[mask]["SCHOOL_TYPE"].iloc[0]
-
-        if school_type.lower() == "vocational":
-            categories["vocational"].append(district)
+        # Categorize by district type from profiles
+        if dist_type == "Unified Regional":
+            categories["unified_regions"].append(district)
+        elif "Regional Composite" in dist_type:
+            categories["secondary_regions"].append(district)
+        elif dist_type and dist_type != "District":
+            # Other regional types (e.g., "Regional") - default to unified
+            categories["unified_regions"].append(district)
         elif "-" in district or "reg" in district.lower() or "regional" in district.lower():
-            # Traditional regional unified districts
+            # Fall back to name pattern if type not found in profiles
             categories["unified_regions"].append(district)
         else:
             # Regular traditional districts
@@ -1339,18 +1405,19 @@ def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, coh
         cohort_label = row["cohort"]
 
         # Format values based on metric type
-        if is_dollar_metric:
-            min_str = f"${row['min']:,.0f}"
-            q1_str = f"${row['q1']:,.0f}"
-            med_str = f"${row['median']:,.0f}"
-            q3_str = f"${row['q3']:,.0f}"
-            max_str = f"${row['max']:,.0f}"
-        elif is_percentage_metric:
+        # Check percentage first since "Ch70 Aid Growth Rate (%)" contains both "Aid" and "%"
+        if is_percentage_metric:
             min_str = f"{row['min']:.1f}%"
             q1_str = f"{row['q1']:.1f}%"
             med_str = f"{row['median']:.1f}%"
             q3_str = f"{row['q3']:.1f}%"
             max_str = f"{row['max']:.1f}%"
+        elif is_dollar_metric:
+            min_str = f"${row['min']:,.0f}"
+            q1_str = f"${row['q1']:,.0f}"
+            med_str = f"${row['median']:,.0f}"
+            q3_str = f"${row['q3']:,.0f}"
+            max_str = f"${row['max']:,.0f}"
         else:
             # Fallback: just show numbers with 1 decimal
             min_str = f"{row['min']:.1f}"
@@ -2578,9 +2645,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     exec_summary_all_text = (
         exec_summary_intro_text +
         ["__BOXED_START__"] + exec_summary_quick_start + ["__BOXED_END__"] +
-        exec_summary_context +  # Add context section (not boxed)
-        ["<br />", "<br />", "<br />", "<br />", "<br />"] +  # Add 5 blank lines before Report Navigation box (cr05)
-        ["__BOXED_START__"] + mini_toc_text + ["__BOXED_END__"]  # Add mini ToC in box
+        exec_summary_context  # Add context section (not boxed) - Report Navigation box removed per user request
     )
 
     pages.append(dict(
@@ -3127,13 +3192,13 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     # PAGE 5: Geographic map 2024
     choropleth_explanation_2024 = report_text.get("SECTION1_CHOROPLETH_EXPLANATION", [
         "This map situates the districts within their geographic context in Western Massachusetts."
-    ])[0]  # Get first paragraph from list
+    ])  # Get all paragraphs from list
 
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
         subtitle=f"Geographic map showing district locations and enrollment cohorts (2024)",
         chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_2024.png"),
-        text_blocks=[choropleth_explanation_2024],
+        text_blocks=choropleth_explanation_2024,
         graph_only=True,
         section_id="section1_map"
     ))
@@ -3141,13 +3206,13 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     # PAGE 6: PPE comparison map 2024
     ppe_comparison_explanation_2024 = report_text.get("SECTION1_PPE_COMPARISON_EXPLANATION", [
         "This map shows district PPE compared to cohort baseline."
-    ])[0]
+    ])  # Get all paragraphs from list
 
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
         subtitle=f"Geographic map showing 2024 PPE vs enrollment cohort baseline",
         chart_path=str(OUTPUT_DIR / f"western_ma_ppe_comparison_2024.png"),
-        text_blocks=[ppe_comparison_explanation_2024],
+        text_blocks=ppe_comparison_explanation_2024,
         graph_only=True,
         section_id="section1_ppe_comparison"
     ))
@@ -3155,13 +3220,13 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     # PAGE 7: CAGR comparison map 2009-2024
     cagr_comparison_explanation_2024 = report_text.get("SECTION1_CAGR_COMPARISON_EXPLANATION", [
         "This map shows district CAGR compared to cohort baseline."
-    ])[0]
+    ])  # Get all paragraphs from list
 
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
         subtitle=f"Geographic map showing 15-year PPE growth (2009-2024) vs enrollment cohort baseline",
         chart_path=str(OUTPUT_DIR / f"western_ma_cagr_comparison_2009_2024.png"),
-        text_blocks=[cagr_comparison_explanation_2024],
+        text_blocks=cagr_comparison_explanation_2024,
         graph_only=True,
         section_id="section1_cagr_comparison"
     ))
@@ -3424,7 +3489,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
         if categories["unified_regions"]:
             count = len(categories["unified_regions"])
-            district_list_text.append(f"<b>Regions ({count}):</b> {', '.join(sorted([d.title() for d in categories['unified_regions']]))}.")
+            district_list_text.append(f"<b>Regional K-12 ({count}):</b> {', '.join(sorted([d.title() for d in categories['unified_regions']]))}.")
+            district_list_text.append("")  # Blank line
+
+        if categories["secondary_regions"]:
+            count = len(categories["secondary_regions"])
+            district_list_text.append(f"<b>Secondary regions ({count}):</b> {', '.join(sorted([d.title() for d in categories['secondary_regions']]))}.")
             district_list_text.append("")  # Blank line
 
         if categories["vocational"]:
@@ -3500,7 +3570,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                         dist_name=title,
                         raw_nss=nss_west,  # Store for Appendix C data tables
                         raw_foundation=foundation_west,  # CR08 - Store for plots
-                        district_list_text=district_list_text  # Add district list text below NSS table
+                        district_list_text=district_list_text,  # Add district list text below NSS table
+                        section_id=f"section2_{bucket.replace('-', '_')}_nss"  # Add section_id for cross-references
                     ))
 
     # Add Western MA (all, excl. Springfield) aggregate pages at end of Section 2 (cr04)
@@ -3521,12 +3592,25 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
         if categories["unified_regions"]:
             count = len(categories["unified_regions"])
-            district_list_text.append(f"<b>Regions ({count}):</b> {', '.join(sorted([d.title() for d in categories['unified_regions']]))}.")
+            district_list_text.append(f"<b>Regional K-12 ({count}):</b> {', '.join(sorted([d.title() for d in categories['unified_regions']]))}.")
+            district_list_text.append("")
+
+        if categories["secondary_regions"]:
+            count = len(categories["secondary_regions"])
+            district_list_text.append(f"<b>Secondary regions ({count}):</b> {', '.join(sorted([d.title() for d in categories['secondary_regions']]))}.")
             district_list_text.append("")
 
         if categories["vocational"]:
             count = len(categories["vocational"])
             district_list_text.append(f"<b>Vocational/technical ({count}):</b> {', '.join(sorted([d.title() for d in categories['vocational']]))}.")
+            district_list_text.append("")
+
+        # Add omitted districts note if any
+        if omitted_districts:
+            omitted_note = "<i>Note: The following districts are omitted from this analysis: "
+            omitted_list = ", ".join([f"{name} ({reason})" for name, reason in omitted_districts])
+            omitted_note += omitted_list + ".</i>"
+            district_list_text.append(omitted_note)
             district_list_text.append("")
 
         # PAGE 1: PPE aggregate page for all Western MA (no shading)
@@ -3585,6 +3669,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                     baseline_map=None,  # No shading
                     fte_baseline_map=None,  # CR08 - No shading for FE either
                     dist_name=title,
+                    section_id="section2_all_western_nss",  # Add section_id for cross-references
                     raw_nss=nss_west,
                     raw_foundation=foundation_west,  # CR08 - Store for plots
                     district_list_text=district_list_text
@@ -3705,7 +3790,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             page_type="district", baseline_title=base_title, baseline_map=base_map,
             fte_baseline_map=fte_base_map,
             raw_epp=epp, raw_lines=lines, dist_name=dist,
-            section_id=section_id
+            section_id=f"{section_id}_ppe"  # Add _ppe suffix for cross-references
         ))
 
         # District NSS/Ch70 page (grouped with this district)
@@ -3757,6 +3842,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                     baseline_map=nss_west_baseline,
                     fte_baseline_map=nss_west_baseline,  # CR08 - Already includes FE data
                     dist_name=dist,
+                    section_id=f"{section_id}_nss",  # Add _nss suffix for cross-references
                     raw_nss=nss_dist,  # Store raw data for Appendix A
                     raw_foundation=foundation_dist  # CR08
                 ))
@@ -3851,7 +3937,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         subtitle="",
         chart_path=None,
         graph_only=True,
-        text_blocks=methodology_page2
+        text_blocks=methodology_page2,
+        section_id="appendix_a"  # All Appendix A pages need section_id
     ))
 
     # Appendix A - Page 4: Chapter 70 Aid and Net School Spending (NSS)
@@ -3860,13 +3947,15 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         subtitle="",
         chart_path=None,
         graph_only=True,
-        text_blocks=methodology_page3
+        text_blocks=methodology_page3,
+        section_id="appendix_a"  # All Appendix A pages need section_id
     ))
 
     # Appendix A - Page 5: Threshold Analysis (moved to end)
     threshold_page = build_threshold_analysis_page()
     threshold_page["title"] = "Appendix A. Data Sources & Calculation Methodology (continued)"
     threshold_page["subtitle"] = "Rationale for 5% / 0.5pp Shading Thresholds"
+    threshold_page["section_id"] = "appendix_a"  # All Appendix A pages need section_id
     pages.append(threshold_page)
 
     # ===== APPENDIX B: CALCULATIONS AND EXAMPLES (Combined B & C) =====
@@ -4329,7 +4418,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             raw_epp=data["raw_epp"],
             raw_lines=data["raw_lines"],
             raw_nss=data.get("raw_nss"),  # May be None if no NSS/Ch70 data
-            dist_name=dist_name
+            dist_name=dist_name,
+            section_id="appendix_c"  # All data table pages are part of appendix_c
         )
 
         if first_data_table:
@@ -4337,7 +4427,6 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             page_dict["appendix_subtitle"] = "All data values used in plots"
             page_dict["appendix_note"] = ("This appendix contains the underlying data tables for all districts and regions shown in the report. "
                                         "Each table shows PPE by category (in $/pupil), FTE enrollment counts, and NSS/Ch70 funding components (in absolute dollars) across all available years.")
-            page_dict["section_id"] = "appendix_c"
             first_data_table = False
 
         pages.append(page_dict)
@@ -4380,7 +4469,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({year})",
                 chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
                 text_blocks=[scatterplot_generic.format(year=year)],
-                graph_only=True
+                graph_only=True,
+                section_id="appendix_d"
             ))
 
         # Add choropleth map for this year
@@ -4389,7 +4479,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             subtitle=f"Geographic map showing district locations and enrollment cohorts ({year})",
             chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{year}.png"),
             text_blocks=[choropleth_generic],
-            graph_only=True
+            graph_only=True,
+            section_id="appendix_d"
         ))
 
         # Add PPE comparison map for this year
@@ -4401,7 +4492,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             subtitle=f"Geographic map showing {year} PPE vs enrollment cohort baseline",
             chart_path=str(OUTPUT_DIR / f"western_ma_ppe_comparison_{year}.png"),
             text_blocks=[ppe_comparison_explanation],
-            graph_only=True
+            graph_only=True,
+            section_id="appendix_d"
         ))
 
         # Add CAGR comparison map for this year (only if not 2009, the baseline year)
@@ -4426,7 +4518,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 subtitle=f"Geographic map showing {period_desc} vs enrollment cohort baseline",
                 chart_path=str(OUTPUT_DIR / filename),
                 text_blocks=[cagr_comparison_explanation],
-                graph_only=True
+                graph_only=True,
+                section_id="appendix_d"
             ))
 
     return pages
@@ -4469,13 +4562,22 @@ def build_toc_page(include_main_sections=True, include_appendices=True):
             ("    Western MA (all, excl. Springfield)", "section2_all_western", 1),
             ("", None, -1),  # Extra spacing before Section 3
 
-            ("Section 3: Selected Districts Compared to Cohorts", "amherst_pelham", 0),
-            ("    Amherst-Pelham Regional", "amherst_pelham", 1),
-            ("    Amherst", "amherst", 1),
-            ("    Leverett", "leverett", 1),
-            ("    Pelham", "pelham", 1),
-            ("    Shutesbury", "shutesbury", 1),
+            ("Section 3: Selected Districts Compared to Cohorts", "amherst_pelham_ppe", 0),
+            ("    Amherst-Pelham Regional", "amherst_pelham_ppe", 1),
+            ("    Amherst", "amherst_ppe", 1),
+            ("    Leverett", "leverett_ppe", 1),
+            ("    Pelham", "pelham_ppe", 1),
+            ("    Shutesbury", "shutesbury_ppe", 1),
         ])
+
+        # Add note about online appendices for main PDF
+        if not include_appendices:
+            toc_entries.extend([
+                ("", None, -1),  # Extra spacing
+                ("Appendices (online)", None, 0),
+                ("    Appendices A-D are available online at:", None, 1),
+                ("    https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf", None, 1),
+            ])
 
     if include_appendices:
         toc_entries.extend([
@@ -5065,10 +5167,21 @@ def build_pdf(pages: List[dict], out_path: Path):
                 # Use 9pt font for all appendices (consistent sizing)
                 text_style = style_body
 
-                # Build paragraphs for text content
+                # Build paragraphs for text content (handle tuples for headings)
                 text_content = []
                 for block in text_blocks:
-                    text_content.append(Paragraph(block, text_style))
+                    if isinstance(block, tuple) and len(block) == 2:
+                        # Heading tuple
+                        heading_level, heading_text = block
+                        if heading_level == "H1":
+                            text_content.append(Paragraph(heading_text, style_h1))
+                        elif heading_level == "H2":
+                            text_content.append(Paragraph(heading_text, style_h2))
+                        elif heading_level == "H3":
+                            text_content.append(Paragraph(heading_text, style_h3))
+                    elif isinstance(block, str):
+                        # Regular paragraph text
+                        text_content.append(Paragraph(block, text_style))
                     text_content.append(Spacer(0, 6))
 
                 # For Appendix A and B, don't use KeepInFrame - let content flow naturally across pages
