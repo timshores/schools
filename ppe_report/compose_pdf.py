@@ -452,7 +452,12 @@ def load_report_text_sections(text_file: Path = None) -> dict:
         ##H2 Medium Heading Text
         ##H3 Small Heading Text
 
-    Note: Comment and heading markers must be on their own line (leading/trailing whitespace OK)
+    Box Syntax (content will be rendered with a border):
+        ##BOX_START
+        Content that should appear in a box
+        ##BOX_END
+
+    Note: Comment, heading, and box markers must be on their own line (leading/trailing whitespace OK)
     """
     if text_file is None:
         # Default to report_text.txt in the same directory as this script
@@ -517,6 +522,14 @@ def load_report_text_sections(text_file: Path = None) -> dict:
             elif line_stripped.startswith("##H3 "):
                 heading_text = line_stripped[5:].strip()
                 filtered_lines.append(("H3", heading_text))
+                continue
+
+            # Process box markers - convert to internal format
+            elif line_stripped == "##BOX_START":
+                filtered_lines.append("__BOXED_START__")
+                continue
+            elif line_stripped == "##BOX_END":
+                filtered_lines.append("__BOXED_END__")
                 continue
 
             # Keep all other lines
@@ -739,12 +752,12 @@ def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, s
     data = [
         [Paragraph("", style_small),  # Left swatch
          Paragraph("<b>District</b>", style_small),
-         Paragraph(f"<b>{year} FTE</b>", style_small_num),
+         Paragraph(f"<b>{year} In-District FTE</b>", style_small_num),
          Paragraph(f"<b>{year} PPE ▼</b>", style_small_num),  # Sort arrow indicator
          Paragraph("", style_small),  # Gap
          Paragraph("", style_small),  # Right swatch
          Paragraph("<b>District</b>", style_small),
-         Paragraph(f"<b>{year} FTE</b>", style_small_num),
+         Paragraph(f"<b>{year} In-District FTE</b>", style_small_num),
          Paragraph(f"<b>{year} PPE ▼</b>", style_small_num)]  # Sort arrow indicator
     ]
 
@@ -841,7 +854,7 @@ def _build_scatterplot_district_table(df: pd.DataFrame, reg: pd.DataFrame, lates
     Returns: List of (district_name, cohort, enrollment, ppe, cohort_label, district_type) sorted by cohort then PPE descending.
     district_type is one of: "", "(Regional K-12)", "(Secondary Region)"
     """
-    from school_shared import get_total_fte_for_year, get_enrollment_group, get_cohort_label, get_western_cohort_districts
+    from school_shared import get_indistrict_fte_for_year, get_enrollment_group, get_cohort_label, get_western_cohort_districts
 
     # Load district types from profiles file
     district_types = {}
@@ -872,7 +885,7 @@ def _build_scatterplot_district_table(df: pd.DataFrame, reg: pd.DataFrame, lates
 
     district_data = []
     for dist in western_districts:
-        enrollment = get_total_fte_for_year(df, dist, latest_year)
+        enrollment = get_indistrict_fte_for_year(df, dist, latest_year)
         # Note that we're retaining Springfield in this table although it's an outlier not shown on the plot
         ppe_data = df[
             (df["DIST_NAME"].str.lower() == dist) &
@@ -4642,9 +4655,62 @@ def build_pdf(pages: List[dict], out_path: Path):
 
             # Add explanation blocks
             explanation_blocks = p.get("explanation_blocks", [])
+            in_box = False
+            boxed_content = []
+
             for block in explanation_blocks:
-                story.append(Paragraph(block, style_body))
-                story.append(Spacer(0, 6))
+                # Check for boxed section markers
+                if isinstance(block, str) and block == "__BOXED_START__":
+                    in_box = True
+                    continue
+                elif isinstance(block, str) and block == "__BOXED_END__":
+                    # Render accumulated boxed content in a table with a border
+                    if boxed_content:
+                        boxed_paragraphs = []
+                        for b in boxed_content:
+                            if isinstance(b, tuple) and len(b) == 2:
+                                heading_level, heading_text = b
+                                if heading_level == "H1":
+                                    boxed_paragraphs.append(Paragraph(heading_text, style_h1))
+                                elif heading_level == "H2":
+                                    boxed_paragraphs.append(Paragraph(heading_text, style_h2))
+                                elif heading_level == "H3":
+                                    boxed_paragraphs.append(Paragraph(heading_text, style_h3))
+                            else:
+                                boxed_paragraphs.append(Paragraph(b, style_body))
+                        boxed_table_data = [[boxed_paragraphs]]
+                        boxed_table = Table(boxed_table_data, colWidths=[doc.width - 24])
+                        boxed_table.setStyle(TableStyle([
+                            ('LINEWIDTH', (0, 0), (-1, -1), 0.5, colors.black),
+                            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+                            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+                            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+                            ('TOPPADDING', (0, 0), (-1, -1), 12),
+                            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ]))
+                        story.append(boxed_table)
+                        story.append(Spacer(0, 6))
+                    boxed_content = []
+                    in_box = False
+                    continue
+
+                # Accumulate content if inside a box
+                if in_box:
+                    boxed_content.append(block)
+                # Handle tuples (headings) and strings differently
+                elif isinstance(block, tuple) and len(block) == 2:
+                    heading_level, heading_text = block
+                    if heading_level == "H1":
+                        story.append(Paragraph(heading_text, style_h1))
+                    elif heading_level == "H2":
+                        story.append(Paragraph(heading_text, style_h2))
+                    elif heading_level == "H3":
+                        story.append(Paragraph(heading_text, style_h3))
+                    story.append(Spacer(0, 6))
+                elif isinstance(block, str):
+                    story.append(Paragraph(block, style_body))
+                    story.append(Spacer(0, 6))
 
             if idx < len(pages)-1:
                 story.append(PageBreak())
@@ -4992,16 +5058,70 @@ def build_pdf(pages: List[dict], out_path: Path):
                 # Use the first_cohort_table_num we tracked earlier
                 substituted_blocks = []
                 for block in explanation_blocks:
-                    # Replace placeholders with actual table numbers
-                    block = block.replace("{N}", str(first_cohort_table_num))
-                    block = block.replace("{N+1}", str(first_cohort_table_num + 1))
-                    block = block.replace("{N+2}", str(first_cohort_table_num + 2))
+                    # Replace placeholders with actual table numbers (only for strings, not tuples/markers)
+                    if isinstance(block, str) and block not in ("__BOXED_START__", "__BOXED_END__"):
+                        block = block.replace("{N}", str(first_cohort_table_num))
+                        block = block.replace("{N+1}", str(first_cohort_table_num + 1))
+                        block = block.replace("{N+2}", str(first_cohort_table_num + 2))
                     substituted_blocks.append(block)
                 explanation_blocks = substituted_blocks
 
+            in_box = False
+            boxed_content = []
+
             for block in explanation_blocks:
-                story.append(Paragraph(block, style_body))
-                story.append(Spacer(0, 6))
+                # Check for boxed section markers
+                if isinstance(block, str) and block == "__BOXED_START__":
+                    in_box = True
+                    continue
+                elif isinstance(block, str) and block == "__BOXED_END__":
+                    # Render accumulated boxed content in a table with a border
+                    if boxed_content:
+                        boxed_paragraphs = []
+                        for b in boxed_content:
+                            if isinstance(b, tuple) and len(b) == 2:
+                                heading_level, heading_text = b
+                                if heading_level == "H1":
+                                    boxed_paragraphs.append(Paragraph(heading_text, style_h1))
+                                elif heading_level == "H2":
+                                    boxed_paragraphs.append(Paragraph(heading_text, style_h2))
+                                elif heading_level == "H3":
+                                    boxed_paragraphs.append(Paragraph(heading_text, style_h3))
+                            else:
+                                boxed_paragraphs.append(Paragraph(b, style_body))
+                        boxed_table_data = [[boxed_paragraphs]]
+                        boxed_table = Table(boxed_table_data, colWidths=[doc.width - 24])
+                        boxed_table.setStyle(TableStyle([
+                            ('LINEWIDTH', (0, 0), (-1, -1), 0.5, colors.black),
+                            ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+                            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+                            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+                            ('TOPPADDING', (0, 0), (-1, -1), 12),
+                            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ]))
+                        story.append(boxed_table)
+                        story.append(Spacer(0, 6))
+                    boxed_content = []
+                    in_box = False
+                    continue
+
+                # Accumulate content if inside a box
+                if in_box:
+                    boxed_content.append(block)
+                # Handle tuples (headings) and strings differently
+                elif isinstance(block, tuple) and len(block) == 2:
+                    heading_level, heading_text = block
+                    if heading_level == "H1":
+                        story.append(Paragraph(heading_text, style_h1))
+                    elif heading_level == "H2":
+                        story.append(Paragraph(heading_text, style_h2))
+                    elif heading_level == "H3":
+                        story.append(Paragraph(heading_text, style_h3))
+                    story.append(Spacer(0, 6))
+                elif isinstance(block, str):
+                    story.append(Paragraph(block, style_body))
+                    story.append(Spacer(0, 6))
 
             # Only add page break if next page is NOT also a summary table
             if idx < len(pages)-1:
@@ -5052,7 +5172,17 @@ def build_pdf(pages: List[dict], out_path: Path):
                 text_blocks = p.get("text_blocks", []) or []
                 if text_blocks:
                     for block in text_blocks:
-                        story.append(Paragraph(block, style_body))
+                        # Handle tuples (headings) and strings differently
+                        if isinstance(block, tuple) and len(block) == 2:
+                            heading_level, heading_text = block
+                            if heading_level == "H1":
+                                story.append(Paragraph(heading_text, style_h1))
+                            elif heading_level == "H2":
+                                story.append(Paragraph(heading_text, style_h2))
+                            elif heading_level == "H3":
+                                story.append(Paragraph(heading_text, style_h3))
+                        elif isinstance(block, str):
+                            story.append(Paragraph(block, style_body))
                     story.append(Spacer(0, 12))
 
                 # Add legend (first image in chart_paths)
@@ -5167,10 +5297,50 @@ def build_pdf(pages: List[dict], out_path: Path):
                 # Use 9pt font for all appendices (consistent sizing)
                 text_style = style_body
 
-                # Build paragraphs for text content (handle tuples for headings)
+                # Build paragraphs for text content (handle tuples for headings and boxed sections)
                 text_content = []
+                in_box = False
+                boxed_content = []
+
                 for block in text_blocks:
-                    if isinstance(block, tuple) and len(block) == 2:
+                    if isinstance(block, str) and block == "__BOXED_START__":
+                        in_box = True
+                        continue
+                    elif isinstance(block, str) and block == "__BOXED_END__":
+                        # Render accumulated boxed content in a table with a border
+                        if boxed_content:
+                            boxed_paragraphs = []
+                            for b in boxed_content:
+                                if isinstance(b, tuple) and len(b) == 2:
+                                    heading_level, heading_text = b
+                                    if heading_level == "H1":
+                                        boxed_paragraphs.append(Paragraph(heading_text, style_h1))
+                                    elif heading_level == "H2":
+                                        boxed_paragraphs.append(Paragraph(heading_text, style_h2))
+                                    elif heading_level == "H3":
+                                        boxed_paragraphs.append(Paragraph(heading_text, style_h3))
+                                else:
+                                    boxed_paragraphs.append(Paragraph(b, style_body))
+
+                            boxed_table_data = [[boxed_paragraphs]]
+                            boxed_table = Table(boxed_table_data, colWidths=[doc.width - 24])
+                            boxed_table.setStyle(TableStyle([
+                                ('BOX', (0, 0), (-1, -1), 1, colors.grey),
+                                ('LEFTPADDING', (0, 0), (-1, -1), 12),
+                                ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+                                ('TOPPADDING', (0, 0), (-1, -1), 12),
+                                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                            ]))
+                            text_content.append(boxed_table)
+                            text_content.append(Spacer(0, 6))
+                            boxed_content = []
+                        in_box = False
+                        continue
+
+                    if in_box:
+                        boxed_content.append(block)
+                    elif isinstance(block, tuple) and len(block) == 2:
                         # Heading tuple
                         heading_level, heading_text = block
                         if heading_level == "H1":
@@ -5179,10 +5349,11 @@ def build_pdf(pages: List[dict], out_path: Path):
                             text_content.append(Paragraph(heading_text, style_h2))
                         elif heading_level == "H3":
                             text_content.append(Paragraph(heading_text, style_h3))
+                        text_content.append(Spacer(0, 6))
                     elif isinstance(block, str):
                         # Regular paragraph text
                         text_content.append(Paragraph(block, text_style))
-                    text_content.append(Spacer(0, 6))
+                        text_content.append(Spacer(0, 6))
 
                 # For Appendix A and B, don't use KeepInFrame - let content flow naturally across pages
                 if p.get("appendix_b") or p.get("section_id") == "appendix_a":

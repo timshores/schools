@@ -210,6 +210,88 @@ def load_shapefiles() -> gpd.GeoDataFrame:
     return all_districts
 
 
+def get_all_western_ma_districts(
+    df: pd.DataFrame,
+    reg: pd.DataFrame,
+    shapes: gpd.GeoDataFrame,
+    years: list
+) -> gpd.GeoDataFrame:
+    """
+    Get ALL Western MA district geometries across multiple years.
+
+    This includes districts that may not have data for every year, ensuring
+    they still appear on maps (as gray) even when data is missing.
+
+    Args:
+        df: Main expenditure data
+        reg: District regions/metadata
+        shapes: GeoDataFrame with district geometries
+        years: List of years to check for districts
+
+    Returns:
+        GeoDataFrame with all Western MA district geometries
+    """
+    print("\nCollecting all Western MA districts across all years...")
+
+    # Load district types from data file
+    district_types = load_district_types()
+
+    # Collect all unique district names across all years
+    all_district_names = set()
+    for year in years:
+        cohorts = get_western_cohort_districts_for_year(df, reg, year)
+        for cohort_name, districts in cohorts.items():
+            all_district_names.update(d.lower() for d in districts)
+
+    print(f"  Found {len(all_district_names)} unique districts across {len(years)} years")
+
+    # Match all districts to geometries
+    matched_districts = []
+    unmatched = []
+
+    for dist_name in all_district_names:
+        clean_name = clean_district_name(dist_name)
+
+        # Try exact match first
+        matches = shapes[shapes["clean_name"] == clean_name]
+
+        if len(matches) == 0:
+            # Try fuzzy matching as fallback
+            potential_matches = []
+            for idx, row in shapes.iterrows():
+                shape_clean = row["clean_name"]
+                if clean_name in shape_clean or shape_clean in clean_name:
+                    potential_matches.append(row)
+                elif len(clean_name.split()) > 1:
+                    clean_words = set(clean_name.split())
+                    shape_words = set(shape_clean.split())
+                    if len(clean_words & shape_words) >= max(2, len(clean_words) * 0.6):
+                        potential_matches.append(row)
+
+            if potential_matches:
+                geom_row = potential_matches[0]
+                matches = gpd.GeoDataFrame([geom_row])
+
+        if len(matches) > 0:
+            geom_row = matches.iloc[0] if isinstance(matches, gpd.GeoDataFrame) else matches
+            matched_districts.append({
+                "district_name": dist_name.title(),
+                "geometry": geom_row["geometry"]
+            })
+        else:
+            unmatched.append(dist_name)
+
+    print(f"  Matched: {len(matched_districts)} districts to geometries")
+    if unmatched:
+        print(f"  Unmatched: {len(unmatched)} districts")
+
+    # Create GeoDataFrame
+    all_districts_gdf = gpd.GeoDataFrame(matched_districts, geometry="geometry", crs=shapes.crs)
+    all_districts_gdf = all_districts_gdf.to_crs(epsg=4326)
+
+    return all_districts_gdf
+
+
 def match_districts_to_geometries(
     df: pd.DataFrame,
     reg: pd.DataFrame,
@@ -349,7 +431,8 @@ def create_western_ma_map(
     matched_gdf: gpd.GeoDataFrame,
     output_path: Path,
     year: int = 2024,
-    title: str = "Western Massachusetts Traditional School Districts"
+    title: str = "Western Massachusetts Traditional School Districts",
+    shapes: gpd.GeoDataFrame = None
 ) -> None:
     """
     Generate choropleth map of Western MA districts color-coded by cohort.
@@ -363,9 +446,11 @@ def create_western_ma_map(
       * Black border shows the boundary of the secondary regional district
 
     Args:
-        matched_gdf: GeoDataFrame with matched districts and cohort assignments
+        matched_gdf: GeoDataFrame with matched districts and cohort assignments for this year
         output_path: Path to save PNG file
+        year: Year of analysis
         title: Map title
+        shapes: Optional GeoDataFrame with ALL Western MA districts (including those without data)
     """
     print(f"\nGenerating map: {output_path.name}")
 
@@ -389,16 +474,28 @@ def create_western_ma_map(
     print(f"  Rendering {len(regional_unified)} unified regional districts (solid fill)")
     print(f"  Rendering {len(regional_secondary)} secondary regional districts (diagonal stripes)")
 
-    # LAYER 0: Plot ALL districts (including secondary regionals) with gray fill first
-    # This ensures any districts with missing cohort data still show up with boundaries
-    matched_gdf.plot(
-        ax=ax,
-        color="#E0E0E0",  # Light gray for missing data
-        edgecolor="gray",
-        linewidth=0.5,
-        alpha=0.85,
-        zorder=0
-    )
+    # LAYER 0: Plot ALL Western MA districts (including those without data) with gray fill first
+    # If shapes is provided, use it to show all districts; otherwise fall back to matched_gdf
+    if shapes is not None:
+        print(f"  Plotting {len(shapes)} base districts (gray layer for missing data)")
+        shapes.plot(
+            ax=ax,
+            color="#999999",  # Dark gray for missing data
+            edgecolor="gray",
+            linewidth=0.5,
+            alpha=0.85,
+            zorder=0
+        )
+    else:
+        # Fallback: plot only matched districts
+        matched_gdf.plot(
+            ax=ax,
+            color="#999999",  # Dark gray for missing data
+            edgecolor="gray",
+            linewidth=0.5,
+            alpha=0.85,
+            zorder=0
+        )
 
     # LAYER 1: Plot non-regional districts with filled polygons (colored by cohort)
     for cohort_name, color in COHORT_COLORS.items():
@@ -512,11 +609,20 @@ def create_western_ma_map(
             )
 
     # Add legend entry for missing data
-    n_missing = len(matched_gdf[matched_gdf["cohort"].isna()])
+    # Count districts that are in shapes but not in matched_gdf (have no cohort for this year)
+    if shapes is not None:
+        # Districts in shapes but not in matched_gdf are missing data
+        matched_names = set(matched_gdf["district_name"].str.lower())
+        shapes_names = set(shapes["district_name"].str.lower())
+        n_missing = len(shapes_names - matched_names)
+    else:
+        # Fallback: count districts in matched_gdf with no cohort
+        n_missing = len(matched_gdf[matched_gdf["cohort"].isna()])
+
     if n_missing > 0:
         legend_elements.append(
             mpatches.Patch(
-                facecolor="#E0E0E0",
+                facecolor="#999999",
                 edgecolor="gray",
                 linewidth=0.5,
                 alpha=0.85,
@@ -591,7 +697,8 @@ def create_ppe_comparison_map(
     ppe_comparisons: Dict[str, float],
     output_path: Path,
     year: int = 2024,
-    title: str = "PPE vs Cohort Baseline"
+    title: str = "PPE vs Cohort Baseline",
+    shapes: gpd.GeoDataFrame = None
 ) -> None:
     """
     Generate choropleth map showing district PPE compared to cohort baseline.
@@ -609,6 +716,7 @@ def create_ppe_comparison_map(
         output_path: Path to save PNG file
         year: Year of analysis
         title: Map title
+        shapes: Optional GeoDataFrame with ALL Western MA districts (including those without data)
     """
     print(f"\nGenerating PPE comparison map: {output_path.name}")
 
@@ -651,10 +759,10 @@ def create_ppe_comparison_map(
 
     # Separate secondary regional districts from others
     # Secondary regionals should only have black borders and text labels (no fill)
+    # Show black borders for ALL secondary regionals, even those with missing data
     regional_secondary = matched_gdf[
         (matched_gdf["is_regional"]) &
-        (matched_gdf["regional_subtype"] == "secondary") &
-        (~matched_gdf["ppe_deviation"].isna())
+        (matched_gdf["regional_subtype"] == "secondary")
     ]
 
     # Non-secondary districts (get color fills)
@@ -662,32 +770,47 @@ def create_ppe_comparison_map(
         ~((matched_gdf["is_regional"]) & (matched_gdf["regional_subtype"] == "secondary"))
     ]
 
-    # First, plot ALL non-secondary districts with gray fill and gray boundaries
-    # This ensures districts with missing data still show up with boundaries
-    non_secondary.plot(
-        ax=ax,
-        color="#E0E0E0",  # Light gray for missing data
-        edgecolor="gray",
-        linewidth=0.8,
-        alpha=0.85,
-        zorder=1
-    )
+    # LAYER 0: Plot ALL Western MA districts (including those without data) with gray fill first
+    # If shapes is provided, use it to show all districts; otherwise fall back to matched_gdf
+    if shapes is not None:
+        print(f"  Plotting {len(shapes)} base districts (gray layer for missing data)")
+        shapes.plot(
+            ax=ax,
+            color="#999999",  # Dark gray for missing data
+            edgecolor="gray",
+            linewidth=0.8,
+            alpha=0.85,
+            zorder=1
+        )
+    else:
+        # Fallback: plot only matched districts
+        matched_gdf.plot(
+            ax=ax,
+            color="#999999",  # Dark gray for missing data
+            edgecolor="gray",
+            linewidth=0.8,
+            alpha=0.85,
+            zorder=1
+        )
 
     # Then, overlay colored districts by category (districts with data)
     for idx, (label, color) in enumerate(zip(labels, colors)):
         category_districts = non_secondary[non_secondary["color_category"] == label]
         if len(category_districts) > 0:
             # Use gray edges for all districts to make boundaries visible
+            # For white (within ±5%), use full opacity to avoid gray showing through
+            alpha_value = 1.0 if color == "#FFFFFF" else 0.85
             category_districts.plot(
                 ax=ax,
                 color=color,
                 edgecolor="gray",
                 linewidth=0.8,
-                alpha=0.85,
+                alpha=alpha_value,
                 zorder=2
             )
 
     # Plot secondary regional districts with black borders and text labels (no fill)
+    # Show borders for ALL secondary regionals, even those with missing data
     for idx, row in regional_secondary.iterrows():
         # Draw black border (no fill - transparent to show underlying elementary districts)
         gpd.GeoDataFrame([{"geometry": row.geometry}], geometry="geometry", crs=regional_secondary.crs).plot(
@@ -698,29 +821,30 @@ def create_ppe_comparison_map(
             zorder=2
         )
 
-        # Add text label showing deviation
+        # Add text label showing deviation (only if data exists)
         deviation = row["ppe_deviation"]
-        centroid = row.geometry.centroid
+        if pd.notna(deviation):
+            centroid = row.geometry.centroid
 
-        # Adjust label position for Hampshire Unified District (odd shape)
-        y_offset = 0
-        if "hampshire" in row["district_name"].lower():
-            # Move label up to avoid boundary crossing
-            bbox = row.geometry.bounds
-            y_range = bbox[3] - bbox[1]
-            y_offset = y_range * 0.15  # Move up 15% of district height
+            # Adjust label position for Hampshire Unified District (odd shape)
+            y_offset = 0
+            if "hampshire" in row["district_name"].lower():
+                # Move label up to avoid boundary crossing
+                bbox = row.geometry.bounds
+                y_range = bbox[3] - bbox[1]
+                y_offset = y_range * 0.15  # Move up 15% of district height
 
-        # Format as +X% or -X% with sign
-        sign = "+" if deviation > 0 else ""
-        label_text = f'{sign}{deviation:.0f}%'
+            # Format as +X% or -X% with sign
+            sign = "+" if deviation > 0 else ""
+            label_text = f'{sign}{deviation:.0f}%'
 
-        # Use black text (more readable on muted colors)
-        ax.text(
-            centroid.x, centroid.y + y_offset, label_text,
-            fontsize=20, ha='center', va='center',  # Match enrollment cohort map font size
-            color='black', weight='bold',
-            zorder=10
-        )
+            # Use black text (more readable on muted colors)
+            ax.text(
+                centroid.x, centroid.y + y_offset, label_text,
+                fontsize=20, ha='center', va='center',  # Match enrollment cohort map font size
+                color='black', weight='bold',
+                zorder=10
+            )
 
     # Remove axes
     ax.set_axis_off()
@@ -731,22 +855,33 @@ def create_ppe_comparison_map(
         n_districts = len(matched_gdf[matched_gdf["color_category"] == label])
         if n_districts > 0:
             # Use gray edges for all legend entries (consistent with map)
+            # For white (within ±5%), use full opacity
+            alpha_value = 1.0 if color == "#FFFFFF" else 0.85
             legend_elements.append(
                 mpatches.Patch(
                     facecolor=color,
                     edgecolor="gray",
                     linewidth=0.8,
-                    alpha=0.85,
+                    alpha=alpha_value,
                     label=f"{label} cohort avg: {n_districts} district(s)"
                 )
             )
 
     # Add legend entry for missing data
-    n_missing = len(non_secondary[non_secondary["color_category"].isna()])
+    # Count districts that are in shapes but not in matched_gdf (have no PPE data for this year)
+    if shapes is not None:
+        # Districts in shapes but not in matched_gdf are missing data
+        matched_names = set(matched_gdf["district_name"].str.lower())
+        shapes_names = set(shapes["district_name"].str.lower())
+        n_missing = len(shapes_names - matched_names)
+    else:
+        # Fallback: count districts in non_secondary with no color_category
+        n_missing = len(non_secondary[non_secondary["color_category"].isna()])
+
     if n_missing > 0:
         legend_elements.append(
             mpatches.Patch(
-                facecolor="#E0E0E0",
+                facecolor="#999999",
                 edgecolor="gray",
                 linewidth=0.8,
                 alpha=0.85,
@@ -796,7 +931,8 @@ def create_cagr_comparison_map(
     output_path: Path,
     start_year: int = 2009,
     end_year: int = 2024,
-    title: str = "CAGR vs Cohort Baseline"
+    title: str = "CAGR vs Cohort Baseline",
+    shapes: gpd.GeoDataFrame = None
 ) -> None:
     """
     Generate choropleth map showing district CAGR compared to cohort baseline.
@@ -815,6 +951,7 @@ def create_cagr_comparison_map(
         start_year: Period start year
         end_year: Period end year
         title: Map title
+        shapes: Optional GeoDataFrame with ALL Western MA districts (including those without data)
     """
     print(f"\nGenerating CAGR comparison map: {output_path.name}")
 
@@ -857,10 +994,10 @@ def create_cagr_comparison_map(
 
     # Separate secondary regional districts from others
     # Secondary regionals should only have black borders and text labels (no fill)
+    # Show black borders for ALL secondary regionals, even those with missing data
     regional_secondary = matched_gdf[
         (matched_gdf["is_regional"]) &
-        (matched_gdf["regional_subtype"] == "secondary") &
-        (~matched_gdf["cagr_deviation"].isna())
+        (matched_gdf["regional_subtype"] == "secondary")
     ]
 
     # Non-secondary districts (get color fills)
@@ -868,32 +1005,47 @@ def create_cagr_comparison_map(
         ~((matched_gdf["is_regional"]) & (matched_gdf["regional_subtype"] == "secondary"))
     ]
 
-    # First, plot ALL non-secondary districts with gray fill and gray boundaries
-    # This ensures districts with missing data still show up with boundaries
-    non_secondary.plot(
-        ax=ax,
-        color="#E0E0E0",  # Light gray for missing data
-        edgecolor="gray",
-        linewidth=0.8,
-        alpha=0.85,
-        zorder=1
-    )
+    # LAYER 0: Plot ALL Western MA districts (including those without data) with gray fill first
+    # If shapes is provided, use it to show all districts; otherwise fall back to matched_gdf
+    if shapes is not None:
+        print(f"  Plotting {len(shapes)} base districts (gray layer for missing data)")
+        shapes.plot(
+            ax=ax,
+            color="#999999",  # Dark gray for missing data
+            edgecolor="gray",
+            linewidth=0.8,
+            alpha=0.85,
+            zorder=1
+        )
+    else:
+        # Fallback: plot only matched districts
+        matched_gdf.plot(
+            ax=ax,
+            color="#999999",  # Dark gray for missing data
+            edgecolor="gray",
+            linewidth=0.8,
+            alpha=0.85,
+            zorder=1
+        )
 
     # Then, overlay colored districts by category (districts with data)
     for idx, (label, color) in enumerate(zip(labels, colors)):
         category_districts = non_secondary[non_secondary["color_category"] == label]
         if len(category_districts) > 0:
             # Use gray edges for all districts to make boundaries visible
+            # For white (within ±0.5pp), use full opacity to avoid gray showing through
+            alpha_value = 1.0 if color == "#FFFFFF" else 0.85
             category_districts.plot(
                 ax=ax,
                 color=color,
                 edgecolor="gray",
                 linewidth=0.8,
-                alpha=0.85,
+                alpha=alpha_value,
                 zorder=2
             )
 
     # Plot secondary regional districts with black borders and text labels (no fill)
+    # Show borders for ALL secondary regionals, even those with missing data
     for idx, row in regional_secondary.iterrows():
         # Draw black border (no fill - transparent to show underlying elementary districts)
         gpd.GeoDataFrame([{"geometry": row.geometry}], geometry="geometry", crs=regional_secondary.crs).plot(
@@ -904,29 +1056,30 @@ def create_cagr_comparison_map(
             zorder=2
         )
 
-        # Add text label showing deviation
+        # Add text label showing deviation (only if data exists)
         deviation = row["cagr_deviation"]
-        centroid = row.geometry.centroid
+        if pd.notna(deviation):
+            centroid = row.geometry.centroid
 
-        # Adjust label position for Hampshire Unified District (odd shape)
-        y_offset = 0
-        if "hampshire" in row["district_name"].lower():
-            # Move label up to avoid boundary crossing
-            bbox = row.geometry.bounds
-            y_range = bbox[3] - bbox[1]
-            y_offset = y_range * 0.15  # Move up 15% of district height
+            # Adjust label position for Hampshire Unified District (odd shape)
+            y_offset = 0
+            if "hampshire" in row["district_name"].lower():
+                # Move label up to avoid boundary crossing
+                bbox = row.geometry.bounds
+                y_range = bbox[3] - bbox[1]
+                y_offset = y_range * 0.15  # Move up 15% of district height
 
-        # Format as +X.Xpp or -X.Xpp with sign
-        sign = "+" if deviation > 0 else ""
-        label_text = f'{sign}{deviation:.1f}pp'
+            # Format as +X.Xpp or -X.Xpp with sign
+            sign = "+" if deviation > 0 else ""
+            label_text = f'{sign}{deviation:.1f}pp'
 
-        # Use black text (more readable on muted colors)
-        ax.text(
-            centroid.x, centroid.y + y_offset, label_text,
-            fontsize=20, ha='center', va='center',  # Match enrollment cohort map font size
-            color='black', weight='bold',
-            zorder=10
-        )
+            # Use black text (more readable on muted colors)
+            ax.text(
+                centroid.x, centroid.y + y_offset, label_text,
+                fontsize=20, ha='center', va='center',  # Match enrollment cohort map font size
+                color='black', weight='bold',
+                zorder=10
+            )
 
     # Remove axes
     ax.set_axis_off()
@@ -937,22 +1090,33 @@ def create_cagr_comparison_map(
         n_districts = len(matched_gdf[matched_gdf["color_category"] == label])
         if n_districts > 0:
             # Use gray edges for all legend entries (consistent with map)
+            # For white (within ±0.5pp), use full opacity
+            alpha_value = 1.0 if color == "#FFFFFF" else 0.85
             legend_elements.append(
                 mpatches.Patch(
                     facecolor=color,
                     edgecolor="gray",
                     linewidth=0.8,
-                    alpha=0.85,
+                    alpha=alpha_value,
                     label=f"{label} than cohort: {n_districts} district(s)"
                 )
             )
 
     # Add legend entry for missing data
-    n_missing = len(non_secondary[non_secondary["color_category"].isna()])
+    # Count districts that are in shapes but not in matched_gdf (have no CAGR data for this period)
+    if shapes is not None:
+        # Districts in shapes but not in matched_gdf are missing data
+        matched_names = set(matched_gdf["district_name"].str.lower())
+        shapes_names = set(shapes["district_name"].str.lower())
+        n_missing = len(shapes_names - matched_names)
+    else:
+        # Fallback: count districts in non_secondary with no color_category
+        n_missing = len(non_secondary[non_secondary["color_category"].isna()])
+
     if n_missing > 0:
         legend_elements.append(
             mpatches.Patch(
-                facecolor="#E0E0E0",
+                facecolor="#999999",
                 edgecolor="gray",
                 linewidth=0.8,
                 alpha=0.85,
@@ -1141,6 +1305,10 @@ def main():
     # Years to generate maps for (in reverse order: 2024, 2019, 2014, 2009)
     years = [2024, 2019, 2014, 2009]
 
+    # Get ALL Western MA districts across all years (for base gray layer)
+    print("\n[2b] Getting all Western MA district geometries...")
+    all_western_districts_gdf = get_all_western_ma_districts(df, reg, shapes, years)
+
     for year in years:
         print(f"\n{'='*60}")
         print(f"Generating maps for FY {year}")
@@ -1153,7 +1321,7 @@ def main():
         # Generate enrollment cohort map for this year
         print(f"\n[3b] Generating enrollment cohort map...")
         output_path = OUTPUT_DIR / f"western_ma_choropleth_{year}.png"
-        create_western_ma_map(matched_gdf, output_path, year=year)
+        create_western_ma_map(matched_gdf, output_path, year=year, shapes=all_western_districts_gdf)
 
         # Generate PPE comparison map for this year
         print(f"\n[3c] Generating PPE comparison map...")
@@ -1162,7 +1330,7 @@ def main():
             output_path_ppe = OUTPUT_DIR / f"western_ma_ppe_comparison_{year}.png"
             # Create a copy of matched_gdf to avoid modifying original
             matched_gdf_copy = matched_gdf.copy()
-            create_ppe_comparison_map(matched_gdf_copy, ppe_comparisons, output_path_ppe, year=year)
+            create_ppe_comparison_map(matched_gdf_copy, ppe_comparisons, output_path_ppe, year=year, shapes=all_western_districts_gdf)
 
         # Generate CAGR comparison maps for different periods
         # For 2024: 15-year CAGR (2009-2024)
@@ -1175,21 +1343,21 @@ def main():
             if cagr_comparisons:
                 output_path_cagr = OUTPUT_DIR / f"western_ma_cagr_comparison_2009_2024.png"
                 matched_gdf_copy = matched_gdf.copy()
-                create_cagr_comparison_map(matched_gdf_copy, cagr_comparisons, output_path_cagr, 2009, 2024)
+                create_cagr_comparison_map(matched_gdf_copy, cagr_comparisons, output_path_cagr, 2009, 2024, shapes=all_western_districts_gdf)
         elif year == 2019:
             print(f"\n[3d] Generating CAGR comparison map (2009-2019)...")
             cagr_comparisons = calculate_cagr_comparison_to_cohort(df, reg, 2009, 2019)
             if cagr_comparisons:
                 output_path_cagr = OUTPUT_DIR / f"western_ma_cagr_comparison_2009_2019.png"
                 matched_gdf_copy = matched_gdf.copy()
-                create_cagr_comparison_map(matched_gdf_copy, cagr_comparisons, output_path_cagr, 2009, 2019)
+                create_cagr_comparison_map(matched_gdf_copy, cagr_comparisons, output_path_cagr, 2009, 2019, shapes=all_western_districts_gdf)
         elif year == 2014:
             print(f"\n[3d] Generating CAGR comparison map (2009-2014)...")
             cagr_comparisons = calculate_cagr_comparison_to_cohort(df, reg, 2009, 2014)
             if cagr_comparisons:
                 output_path_cagr = OUTPUT_DIR / f"western_ma_cagr_comparison_2009_2014.png"
                 matched_gdf_copy = matched_gdf.copy()
-                create_cagr_comparison_map(matched_gdf_copy, cagr_comparisons, output_path_cagr, 2009, 2014)
+                create_cagr_comparison_map(matched_gdf_copy, cagr_comparisons, output_path_cagr, 2009, 2014, shapes=all_western_districts_gdf)
         # No CAGR map for 2009 (baseline year)
 
         print(f"\n[SUCCESS] Maps for {year} generated!")

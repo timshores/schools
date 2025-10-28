@@ -117,6 +117,18 @@ EXECUTIVE_SUMMARY_COHORT_EXPLANATION
 <b>Table {N}</b> compares PPE and cost growth of Western MA school district cohorts with the benchmark of all Western MA districts. <b>Tables {N+1} and {N+2}</b> benchmark districts against their cohort averages. 
 
 Cohorts are organized by enrollment size. Grouping districts by enrollment size enables more meaningful cost comparisons—districts of similar size face similar challenges with administration, staffing, facilities, and program requirements. Detailed information about cohorts follow in <b>sections 1 and 2</b>. Detailed comparisons of individual districts to cohorts follow in <b>sections 2 and 3</b>.
+<br /><br />
+##BOX_START
+##H3 Why the CAGR threshold is more sensitive
+##COMMENT Tim checked and corrected this math example
+Small differences in growth rates compound over time. A 0.5pp difference may seem modest, but:
+<br /><br />
+• $20,000 PPE growing at 4.0% → $36,019 after 15 years <br />
+• $20,000 PPE growing at 4.5% → $38,706 after 15 years <br />
+• Gap: $2,687/pupil (7.5% more total growth)
+<br /><br />
+For a 100-student district, that's $268,700 in additional annual spending by year 15. The 0.5pp threshold helps identify districts on meaningfully different long-term trajectories.
+##BOX_END
 
 ================================================================================
 EXECUTIVE_SUMMARY_TINY_EXPLANATION
@@ -125,6 +137,32 @@ EXECUTIVE_SUMMARY_TINY_EXPLANATION
 This table compares Leverett, Pelham, and Shutesbury to the Western MA Tiny cohort average. Districts are shaded relative to the cohort average.
 
 <b>Calculation methodology:</b> All figures represent enrollment-weighted per-pupil expenditures. For cohort aggregates, we calculate weighted averages where each district's contribution is proportional to its enrollment. CAGR (Compound Annual Growth Rate) is computed as (End/Start)^(1/years) - 1. Shading indicates deviations from baseline: blue for below, orange for above. Intensity increases with deviation magnitude.
+
+================================================================================
+EXECUTIVE_SUMMARY_CH70_EXPLANATION
+================================================================================
+
+Tables {N}-{N+2} compare Chapter 70 aid (per foundation pupil) across Western MA school districts organized by enrollment size.
+<br /><br /><br /><br />
+##BOX_START
+Chapter 70 aid and net school spending calculations (this and next page) use foundation enrollment for per-pupil figures, while PPE totals and 
+expense categories (previous page) use in-district FTE enrollment. These metrics come from different DESE departments:
+<br /><br />
+• <b>Foundation enrollment</b> (Chapter 70): All students residing in the district on October 1st of the prior year for whom the district is 
+financially responsible.<br />
+• <b>In-district FTE</b> (PPE reports): Full-year enrollment calculated from total membership days for students either residing in the district, or 
+choiced or tuitioned into the district.<br />
+<br />
+This difference complicates direct comparison between Chapter 70 and expense analyses, but remains valid since each district uses the same 
+denominator type within each metric. For more information, see the <a href="https://www.doe.mass.edu/research/researchers.html" color="blue">DESE Researcher's Guide</a>.<br />
+https://www.doe.mass.edu/research/researchers.html
+##BOX_END
+
+================================================================================
+EXECUTIVE_SUMMARY_NSS_EXPLANATION
+================================================================================
+
+Tables {N}-{N+2} compare Actual NSS above Required NSS (per foundation pupil) - showing local funding effort beyond state requirements.
 
 ================================================================================
 METHODOLOGY_PPE_DEFINITION
@@ -317,7 +355,7 @@ Geography matters for understanding school costs. This map shows where enrollmen
 
 Single-town elementary and PK-12 regions appear as solid shaded areas, colored by their enrollment cohort (blue for Tiny, light blue for Small, yellow for Medium, orange for Large). Regional K-12 districts (marked 'K12') span multiple towns. Secondary regional districts are outlined with thick black borders and labeled (T/S/M/L) to show their cohort without covering up their member elementary districts.
 
-See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c">MassGIS map of Public School Districts.</a><br />
+See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c" color="blue">MassGIS map of Public School Districts.</a><br />
 https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c
 
 ================================================================================
@@ -328,7 +366,7 @@ This map shows each district's 2024 per-pupil spending compared to its enrollmen
 
 <b>Color coding:</b> Dark green indicates districts spending more than 10% below their cohort average (most cost-efficient). Light green shows 0-10% below average. Light red shows 0-10% above average. Dark red indicates districts spending more than 10% above their cohort average (highest relative cost).
 
-See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c">MassGIS map of Public School Districts.</a><br />
+See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c" color="blue">MassGIS map of Public School Districts.</a><br />
 https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c
 
 ================================================================================
@@ -339,20 +377,8 @@ This map shows each district's 15-year spending growth rate (CAGR, 2009-2024) co
 
 <b>Color coding:</b> Dark blue indicates districts with growth more than 0.5 percentage points slower than their cohort average. Light blue shows 0-0.5 pp slower. Light orange shows 0-0.5 pp faster. Dark orange indicates districts with growth more than 0.5 pp faster than their cohort average.
 
-See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c">MassGIS map of Public School Districts.</a><br />
+See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c" color="blue">MassGIS map of Public School Districts.</a><br />
 https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c
-
-__BOXED_START__
-##H3 Why the CAGR threshold is more sensitive
-
-Small differences in growth rates compound over time. A 0.5pp difference may seem modest, but:
-
-• $20,000 PPE growing at 4.0% → $36,019 after 15 years<br />
-• $20,000 PPE growing at 4.5% → $38,318 after 15 years<br />
-• Gap: $2,299/pupil (11.5% more total growth)<br />
-
-For a 300-student district, that's $689,700 in additional annual spending by year 15. The 0.5pp threshold helps identify districts on meaningfully different long-term trajectories.
-__BOXED_END__
 
 ================================================================================
 PPE_STATISTICAL_ASSOCIATIONS
@@ -600,7 +626,7 @@ Compound annual growth rates (CAGR) smooth out YoY volatility to reveal long-ter
 SECTION1_DISTRIBUTION_EXPLANATION
 ================================================================================
 
-District enrollment cohorts need clear boundaries. To avoid arbitrary cutoffs, this approach uses the natural spread of enrollments. The histogram (top) shows a right-skewed distribution of 2024 enrollments with a long tail of larger districts. Based on interquartile range analysis, districts are grouped into four cohorts (bottom): Tiny (0-200 FTE), Small (201-800 FTE), Medium (801-1600 FTE), and Large (1601-10,000 FTE). Springfield, with an in-district enrollment of 29,468 in 2024, is omitted as an outlier. These cohorts enable comparison by scale to discover financial norms, but are not meant to imply what spending should or should not be for schools of different sizes.
+District enrollment cohorts need clear boundaries. To avoid arbitrary cutoffs, this approach uses the natural spread of enrollments. The histogram (top) shows a right-skewed distribution of 2024 enrollments with a long tail of larger districts. Based on interquartile range analysis, districts are grouped into four cohorts (bottom): Tiny (0-200 FTE), Small (201-800 FTE), Medium (801-1600 FTE), and Large (1601-10,000 FTE). Springfield, with an in-district enrollment of 23,723 in 2024, is omitted as an outlier. These cohorts enable comparison by scale to discover financial norms, but are not meant to imply what spending should or should not be for schools of different sizes.
 <br /><br />
 The next page presents each district's enrollment and PPE in both scatterplot and reference table format.
 

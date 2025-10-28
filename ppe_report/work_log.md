@@ -1,5 +1,70 @@
 # Work Log - PPE Report Project
 
+## 2025-10-27 - Missing Districts Gray Fill Fix
+
+### Fixed missing districts on enrollment cohort map
+- **Issue**: Districts without data for specific years (Hampshire, Chesterfield-Goshen, Southampton, Westhampton, Williamsburg) showed as white instead of gray on 2024 enrollment cohort map
+- **Solution**: Created comprehensive base layer of ALL Western MA districts across all years
+- **Implementation**:
+  - Added `get_all_western_ma_districts()` function to collect all unique Western MA districts from years 2009-2024 (lines 213-292 in western_map.py)
+  - Modified `create_western_ma_map()` to accept optional `shapes` parameter with all district geometries (line 353)
+  - Updated base layer plotting logic to use `shapes` if provided, showing ALL districts in gray before overlaying cohort colors (lines 395-416)
+  - Updated missing data count calculation to compare districts in shapes vs matched_gdf (lines 529-549)
+  - Modified `main()` to call new helper function and pass result to map creation (lines 1250-1266)
+- **Results**:
+  - 2024 map: 65 total districts in base layer, 60 with cohort data, 5 missing districts shown in gray
+  - Legend now correctly shows "Missing data: 5 district(s)" for 2024
+- File: `western_map.py` lines 213-292, 353, 395-416, 529-549, 1250-1266
+- Benefits: All Western MA districts visible on maps regardless of data availability, clear indication of missing data
+
+### Fixed missing districts and white color on PPE comparison map
+- **Issue**: Missing districts not showing as gray, and districts within ±5% of cohort average showing as light gray instead of white
+- **Solution**: Applied same gray base layer fix as enrollment cohort map, and fixed white color transparency
+- **Implementation**:
+  - Added `shapes` parameter to `create_ppe_comparison_map()` function (line 701)
+  - Updated base layer plotting to use `shapes` if provided (lines 773-794)
+  - Fixed white color transparency: Changed alpha from 0.85 to 1.0 for districts within ±5% (line 802)
+  - Updated legend alpha to match map (line 857)
+  - Updated missing data count to compare shapes vs matched_gdf (lines 868-888)
+  - Modified function call in `main()` to pass shapes parameter (line 1302)
+- **Results**:
+  - 2024 map: 65 total districts in base layer, 60 with PPE data, 5 missing districts shown in gray
+  - Districts within ±5% now show as pure white (not light gray)
+  - Legend correctly shows "Missing data: 5 district(s)" for 2024
+- File: `western_map.py` lines 701, 773-794, 802, 857, 868-888, 1302
+- Benefits: Consistent gray fill for missing districts across all map types, white color properly visible for districts near cohort baseline
+
+### Fixed missing districts and white color on CAGR comparison maps
+- **Issue**: Same issues as PPE maps - missing districts not showing as gray, districts within ±0.5pp showing as light gray instead of white
+- **Solution**: Applied same fixes to all three CAGR comparison maps (2009-2024, 2009-2019, 2009-2014)
+- **Implementation**:
+  - Added `shapes` parameter to `create_cagr_comparison_map()` function (line 933)
+  - Updated base layer plotting to use `shapes` if provided (lines 1006-1027)
+  - Fixed white color transparency: Changed alpha from 0.85 to 1.0 for districts within ±0.5pp (line 1035)
+  - Updated legend alpha to match map (line 1092)
+  - Updated missing data count to compare shapes vs matched_gdf (lines 1103-1123)
+  - Modified function calls in `main()` to pass shapes parameter (lines 1346, 1353, 1360)
+- **Results**:
+  - 2009-2024 map: 65 total districts, 59 with CAGR data, 6 missing shown in gray
+  - 2009-2019 map: 65 total districts, 64 with CAGR data, 1 missing shown in gray
+  - 2009-2014 map: 65 total districts, 62 with CAGR data, 3 missing shown in gray
+  - Districts within ±0.5pp now show as pure white (not light gray)
+- File: `western_map.py` lines 933, 1006-1027, 1035, 1092, 1103-1123, 1346, 1353, 1360
+- Benefits: Complete consistency across all comparison map types
+
+### Added black borders for secondary regional districts with missing data
+- **Issue**: Secondary regional districts like Hampshire weren't showing their characteristic black borders when data was missing
+- **Solution**: Show black borders for ALL secondary regional districts, regardless of data availability
+- **Implementation**:
+  - **PPE maps**: Removed data filter from regional_secondary selection (line 763), added NaN check before adding labels (line 826)
+  - **CAGR maps**: Removed data filter from regional_secondary selection (line 996), added NaN check before adding labels (line 1059)
+- **Results**:
+  - Hampshire and other secondary regionals now show black borders even when data is missing
+  - Labels only appear when data exists (not shown for missing data)
+  - Consistent visual treatment of secondary regional boundaries across all years
+- File: `western_map.py` lines 763, 826 (PPE), 996, 1059 (CAGR)
+- Benefits: Secondary regional district boundaries visible on all maps, improving geographic context
+
 ## 2025-10-25 - TOC, Statistics, Labels, and Navigation Improvements
 
 ### Completed Change Requests (Batch 2: CR A01-A05)
@@ -1386,3 +1451,251 @@
   - Scatterplot table shows "(Regional K-12)" labels
   - NSS/Ch70 pages show "Regional K-12" headers
   - Choropleth explanation references "K12" markers
+
+---
+
+## 2025-10-27 - Final Bug Fixes for Choropleth Maps and Boxed Sections
+
+### Completed Changes
+
+**Moved CAGR sensitivity box from CAGR map to executive summary**
+- **Change:** Moved "Why the CAGR threshold is more sensitive" boxed section from SECTION1_CAGR_COMPARISON_EXPLANATION to EXECUTIVE_SUMMARY_COHORT_EXPLANATION
+- **Location:** Now appears after "Cohorts are organized by enrollment size..." paragraph in executive summary
+- **Files Modified:**
+  - `report_text.txt` lines 121-131: Added boxed section to executive summary
+  - `report_text.txt` line 357-367: Removed boxed section from CAGR comparison explanation
+- **Impact:** CAGR threshold explanation now contextualizes cohort comparisons in executive summary
+
+**Fixed __BOXED_START__ markers printing literally**
+- **Issue:** Boxed section markers were appearing as literal text "__BOXED_START__" and "__BOXED_END__" in PDF
+- **Root cause:** graph_only rendering path didn't handle boxed section markers
+- **Solution:** Added boxed section handling to graph_only rendering code (similar to main rendering path)
+- **Files Modified:**
+  - `compose_pdf.py` lines 5170-5226: Added in_box state tracking and boxed content accumulation/rendering for graph_only pages
+- **Impact:** Boxed sections now render correctly with gray borders on all page types
+
+**Changed gray color to darker shade**
+- **Change:** Changed missing data fill color from #E0E0E0 (light gray) to #999999 (medium-dark gray)
+- **Rationale:** User requested darker gray for better visibility
+- **Files Modified:**
+  - `western_map.py`: All instances of #E0E0E0 replaced with #999999 (6 locations)
+- **Impact:** Missing districts more visible on all choropleth maps
+
+**Fixed Hampshire not showing on CAGR comparison map**
+- **Issue:** Hampshire Regional (secondary regional district) was missing on CAGR comparison map
+- **Root cause:** Gray base layer was only plotting `non_secondary` districts, excluding secondary regionals
+- **Solution:** Changed base layer to plot ALL districts (`matched_gdf`) instead of just `non_secondary`
+- **Files Modified:**
+  - `western_map.py` lines 667-679: Changed PPE comparison base layer to plot all districts
+  - `western_map.py` lines 867-879: Changed CAGR comparison base layer to plot all districts
+- **Impact:** All secondary regionals (including Hampshire) now show with gray fill if missing data
+
+**Ensured enrollment cohort map has gray base layer**
+- **Status:** Already implemented in previous changes (line 392-401)
+- **Verification:** Confirmed gray base layer plots ALL districts including secondary regionals
+- **Files Modified:**
+  - `western_map.py` line 396: Updated comment from "Light gray" to "Dark gray"
+- **Impact:** Missing districts show up with dark gray fill on enrollment cohort map
+
+### Summary
+
+**Files Modified:**
+- `report_text.txt` (moved boxed section)
+- `compose_pdf.py` (fixed boxed section rendering in graph_only pages)
+- `western_map.py` (darker gray color, fixed base layer to include all districts)
+
+**Impact:**
+- CAGR sensitivity explanation now in executive summary where it provides better context
+- Boxed sections render correctly as bordered boxes instead of literal text
+- Darker gray (#999999) makes missing districts more visible
+- ALL districts show up on ALL choropleth maps, including secondary regionals like Hampshire
+- Consistent missing data handling across all three choropleth map types
+
+**Testing Needed:**
+- Regenerate all choropleth maps to verify:
+  - Darker gray color (#999999) for missing districts
+  - Hampshire shows with gray fill on CAGR comparison map
+  - All missing districts show with gray fill and legend entry on all maps
+- Regenerate PDF to verify:
+  - CAGR sensitivity box appears in executive summary with border
+  - No literal "__BOXED_START__" text appears anywhere
+  - All choropleth explanation paragraphs display correctly
+
+---
+
+## 2025-10-27 - Fixed Tuple Handling in Text Processing
+
+### Completed Changes
+
+**Fixed AttributeError: 'tuple' object has no attribute 'replace'**
+- **Issue:** PDF generation failed with error when trying to call `.replace()` on tuple objects (headings)
+- **Root cause:** Multiple code paths assumed all blocks in text_blocks were strings, not accounting for heading tuples
+- **Solution:** Added proper type checking in all text processing loops to handle both tuples (headings) and strings
+- **Files Modified:**
+  - `compose_pdf.py` lines 4995-5000: Added isinstance check for table number substitution
+  - `compose_pdf.py` lines 5003-5015: Added tuple/string handling for explanation blocks
+  - `compose_pdf.py` lines 4645-4657: Added tuple/string handling for chart page explanation blocks
+  - `compose_pdf.py` lines 5075-5086: Added tuple/string handling for CAGR page text blocks
+- **Impact:** PDF generation now works correctly with headings in text blocks
+
+### Pattern Applied
+
+All text block processing now follows this pattern:
+```python
+for block in text_blocks:
+    if isinstance(block, tuple) and len(block) == 2:
+        # Heading tuple - render with appropriate style
+        heading_level, heading_text = block
+        if heading_level == "H1":
+            story.append(Paragraph(heading_text, style_h1))
+        elif heading_level == "H2":
+            story.append(Paragraph(heading_text, style_h2))
+        elif heading_level == "H3":
+            story.append(Paragraph(heading_text, style_h3))
+    elif isinstance(block, str):
+        # Regular text - render with body style
+        story.append(Paragraph(block, style_body))
+    # Also handle boxed sections, table objects, etc.
+```
+
+### Summary
+
+**Files Modified:**
+- `compose_pdf.py` (multiple locations for tuple handling)
+
+**Impact:**
+- PDF generation now succeeds with all text processing paths properly handling headings
+- Headings render with appropriate styles (H1, H2, H3)
+- No more AttributeError crashes
+
+**Testing Status:**
+- Ready for PDF generation test run
+
+---
+
+## 2025-10-27 - Added Box Marker Support and Missing Text Sections
+
+### Completed Changes
+
+**Added ##BOX_START and ##BOX_END marker support**
+- **Feature:** Users can now use ##BOX_START and ##BOX_END markers in report_text.txt to wrap content in a bordered box
+- **Implementation:** Markers are converted to internal __BOXED_START__ and __BOXED_END__ format during parsing
+- **Files Modified:**
+  - `compose_pdf.py` lines 522-528: Added box marker parsing in parse_report_text function
+  - `compose_pdf.py` lines 455-458: Updated docstring to document box syntax
+- **Usage Example:**
+  ```
+  ##BOX_START
+  Content that should appear in a box
+  ##BOX_END
+  ```
+
+**Added missing text sections to report_text.txt**
+- **Issue:** Text for Chapter 70 and NSS comparison pages was hardcoded in compose_pdf.py instead of being editable in report_text.txt
+- **Solution:** Added two new sections to report_text.txt that were already being looked up but missing:
+  - `EXECUTIVE_SUMMARY_CH70_EXPLANATION`: "Tables {N}-{N+2} compare Chapter 70 Aid (per foundation pupil) across Western MA school districts organized by enrollment size."
+  - `EXECUTIVE_SUMMARY_NSS_EXPLANATION`: "Tables {N}-{N+2} compare Actual NSS above Required NSS (per foundation pupil) - showing local funding effort beyond state requirements."
+- **Files Modified:**
+  - `report_text.txt` lines 139-150: Added both missing sections
+- **Impact:** All explanatory text is now centralized in report_text.txt for easy editing
+
+### Summary
+
+**Files Modified:**
+- `compose_pdf.py` (added box marker support)
+- `report_text.txt` (added missing CH70 and NSS explanation sections)
+
+**New Features:**
+- ##BOX_START / ##BOX_END markers available for use in report_text.txt
+- All report text now editable in report_text.txt without needing to modify compose_pdf.py
+
+**Testing Status:**
+- Ready for testing with box markers in report content
+
+---
+
+## 2025-10-27 - Fixed Box Marker Rendering in Explanation Blocks
+
+### Completed Changes
+
+**Fixed boxed markers being printed literally instead of rendering as boxes**
+- **Issue:** When using ##BOX_START and ##BOX_END in report_text.txt, the internal markers __BOXED_START__ and __BOXED_END__ were printed as literal text in the PDF
+- **Root cause:** The explanation_blocks rendering code checked for tuples (headings) and strings, but didn't check for boxed markers before rendering strings as paragraphs
+- **Solution:** Added boxed marker handling to both explanation_blocks rendering locations
+- **Files Modified:**
+  - `compose_pdf.py` lines 4656-4713: Added boxed marker handling in first explanation_blocks loop
+  - `compose_pdf.py` lines 5055-5124: Added boxed marker handling in second explanation_blocks loop (with table number substitution)
+  - `compose_pdf.py` line 5062: Updated table number substitution to skip boxed markers
+- **Impact:** ##BOX_START and ##BOX_END markers now work correctly in all text sections
+
+### Pattern Applied
+
+All explanation_blocks rendering now follows this pattern:
+```python
+in_box = False
+boxed_content = []
+
+for block in explanation_blocks:
+    if isinstance(block, str) and block == "__BOXED_START__":
+        in_box = True
+        continue
+    elif isinstance(block, str) and block == "__BOXED_END__":
+        # Render boxed content in a bordered table
+        if boxed_content:
+            # Build paragraphs, create table with border
+            ...
+        boxed_content = []
+        in_box = False
+        continue
+    
+    if in_box:
+        boxed_content.append(block)
+    elif isinstance(block, tuple):
+        # Render heading
+        ...
+    elif isinstance(block, str):
+        # Render normal paragraph
+        ...
+```
+
+### Summary
+
+**Files Modified:**
+- `compose_pdf.py` (two explanation_blocks rendering locations)
+
+**Impact:**
+- Box markers now render correctly as bordered tables in all report sections
+- Headings inside boxes are properly styled
+- Table number substitution skips box markers
+
+**Testing Status:**
+- Ready for PDF generation test with box markers
+
+---
+
+## 2025-10-27 - Fixed Scatterplot Table to Use In-District FTE
+
+### Completed Changes
+
+**Fixed scatterplot table showing total FTE instead of in-district FTE**
+- **Issue:** The district table on the "Scatterplot of enrollment vs. per-pupil expenditure" page was displaying total FTE values instead of in-district FTE values
+- **Root cause:** The `_build_scatterplot_district_table` function was calling `get_total_fte_for_year` instead of `get_indistrict_fte_for_year`
+- **Solution:** Updated function to use in-district FTE for consistency with cohort definitions throughout the report
+- **Files Modified:**
+  - `compose_pdf.py` line 857: Changed import from `get_total_fte_for_year` to `get_indistrict_fte_for_year`
+  - `compose_pdf.py` line 888: Changed enrollment calculation to use `get_indistrict_fte_for_year`
+  - `compose_pdf.py` lines 755, 760: Updated table headers to clarify "In-District FTE"
+- **Impact:** Scatterplot table now correctly shows in-district FTE values, matching cohort definitions used throughout the report
+
+### Summary
+
+**Files Modified:**
+- `compose_pdf.py` (_build_scatterplot_district_table function and _build_scatterplot_district_table_as_table function)
+
+**Impact:**
+- Table now shows in-district FTE instead of total FTE
+- Column headers now explicitly say "In-District FTE" for clarity
+- Data is now consistent with cohort definitions (which are based on in-district FTE)
+
+**Testing Status:**
+- Ready for PDF generation test
