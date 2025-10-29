@@ -1699,3 +1699,98 @@ for block in explanation_blocks:
 
 **Testing Status:**
 - Ready for PDF generation test
+
+
+---
+
+## 2025-10-28 - Added DRAFT Watermark to PDFs
+
+### Change Request
+Add watermark_text="DRAFT" to all pages of both main and appendix PDF outputs
+
+### Implementation
+- **Solution:** Added watermark_text parameter to SimpleDocTemplate in build_pdf function
+- **Files Modified:**
+  - compose_pdf.py line 4622: Added watermark_text="DRAFT" parameter to SimpleDocTemplate constructor
+- **Impact:** Both main PDF ("Western MA Per Pupil Expenditure Report.pdf") and appendices PDF ("WMPPE Appendices.pdf") will now display DRAFT watermark on all pages
+
+### Summary
+
+**Files Modified:**
+- compose_pdf.py (build_pdf function)
+
+**Impact:**
+- All pages of both PDFs will display "DRAFT" watermark
+- Single change applies to both main and appendices PDFs since they use the same build_pdf function
+
+**Testing Status:**
+- Ready for PDF generation test
+
+
+
+---
+
+## 2025-10-29 - CORRECTION: Properly Added DRAFT Watermark to PDFs
+
+### Change Request
+Add watermark_text="DRAFT" to all pages of both main and appendix PDF outputs
+
+### Implementation
+- **Problem:** Initial attempt to add watermark_text parameter to SimpleDocTemplate was incorrect - this parameter doesn't exist in reportlab
+- **Solution:** Implemented watermark using canvas callback in draw_footer function
+  - Watermark is drawn as 60pt Helvetica-Bold text in light gray (0.85)
+  - Rotated 45 degrees and centered on each page
+  - Drawn before footer content so it appears in background
+- **Files Modified:**
+  - compose_pdf.py lines 328-339: Added watermark drawing code to draw_footer function
+  - compose_pdf.py line 4636: Removed invalid watermark_text parameter from SimpleDocTemplate
+
+### Implementation Details
+The watermark is added through the existing draw_footer callback that's passed to doc.build() via onFirstPage and onLaterPages parameters. The watermark drawing:
+1. Sets font to Helvetica-Bold 60pt
+2. Sets fill and stroke color to 85% gray
+3. Translates canvas to page center
+4. Rotates 45 degrees
+5. Draws centered "DRAFT" text
+6. Restores canvas state for footer drawing
+
+### Summary
+
+**Files Modified:**
+- compose_pdf.py (draw_footer function)
+
+**Impact:**
+- All pages of both PDFs will display diagonal "DRAFT" watermark in background
+- Watermark appears on both main PDF ("Western MA Per Pupil Expenditure Report.pdf") and appendices PDF ("WMPPE Appendices.pdf")
+- Same callback applies to both PDFs since they both use draw_footer
+
+**Testing Status:**
+- Ready for PDF generation test
+
+
+
+---
+
+## 2025-10-29 - Adjusted DRAFT Watermark Size and Opacity
+
+### Change Request
+- Double the watermark font size (60pt → 120pt)
+- Make watermark 10% fainter (0.85 → 0.95 gray)
+
+### Implementation
+- **Files Modified:**
+  - compose_pdf.py line 329: Changed font size from 60pt to 120pt
+  - compose_pdf.py lines 330-331: Changed gray value from 0.85 to 0.95 (lighter/fainter)
+
+### Summary
+
+**Files Modified:**
+- compose_pdf.py (draw_footer function)
+
+**Impact:**
+- Watermark text is now twice as large (120pt vs 60pt)
+- Watermark is more subtle (95% gray vs 85% gray)
+
+**Testing Status:**
+- Ready for PDF generation test
+

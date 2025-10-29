@@ -324,6 +324,21 @@ SOURCE_LINE2 = "https://educationtocareer.data.mass.gov/Finance-and-Budget/Distr
 
 def draw_footer(canvas, doc):
     canvas.saveState()
+
+    # Draw watermark
+    canvas.setFont("Helvetica-Bold", 120)
+    canvas.setFillGray(0.95)
+    canvas.setStrokeGray(0.95)
+    # Center the watermark on the page
+    page_width = doc.pagesize[0]
+    page_height = doc.pagesize[1]
+    canvas.translate(page_width / 2, page_height / 2)
+    canvas.rotate(45)
+    canvas.drawCentredString(0, 0, "DRAFT")
+    canvas.rotate(-45)
+    canvas.translate(-page_width / 2, -page_height / 2)
+
+    # Draw footer
     canvas.setFont("Helvetica", 8)
     y1 = 0.6 * inch
     # Source lines removed from footer, now in appendix
