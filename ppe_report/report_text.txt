@@ -70,7 +70,7 @@ Two districts with identical PPE amounts and growth may differ significantly in 
 
 In the end, we are likely to find that our structural funding challenges will persist until the Commonwealth finds the courage to deliver policy changes that no region, town or school district can achieve alone.
 
-For a good start on how to advocate for meaningful change, see the <a href="https://www.repblais.org/ruralschools" color="blue">July 2022 report A Sustainable Future for Rural Schools</a>, the steadfast work of the champions at <a href="https://www.ruralschoolsma.org/" color="blue">Rural Schools MA</a>, and the <a href="https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DLM3SC083619">September 2025 draft report</a> by the Amherst-Pelham Regional School Committee's Fiscal Sustainability Subcommittee.<sup>4</sup>
+For a good start on how to advocate for meaningful change, see the <a href="https://www.repblais.org/ruralschools" color="blue">July 2022 report A Sustainable Future for Rural Schools</a>, the steadfast work of the champions at <a href="https://www.ruralschoolsma.org/" color="blue">Rural Schools MA</a>, and the Amherst-Pelham Regional School Committee's <a href="https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DMQPEL64432C" color="blue">Fiscal Sustainability Subcommittee October 2025 report</a>.<sup>4</sup>
 
 ##H1 References
 1. <a href="https://www.amherstindy.org/2025/02/07/letter-correcting-councilor-ryan-on-the-regional-school-budget/" color="blue">Amherst Indy, "Letter: Correcting Councilor Ryan on the Regional School Budget"</a>
@@ -83,10 +83,10 @@ https://www.aasa.org/docs/default-source/resources/reports/school-budgets-101.pd
 https://www.epi.org/publication/books_wheremoneygone/ <br />
 https://nces.ed.gov/pubs97/97535/97535jx1.asp 
 
-4. <a href=https://www.repblais.org/ruralschools" color="blue">Rep. Blais - Rural Schools</a>, <a href="https://www.ruralschoolsma.org/" color="blue">Rural Schools Advocacy in Massachusetts</a>, and <a href="https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DLM3SC083619">RSC FSS Draft Report</a>.<br />
+4. <a href=https://www.repblais.org/ruralschools" color="blue">Rep. Blais - Rural Schools</a>, <a href="https://www.ruralschoolsma.org/" color="blue">Rural Schools Advocacy in Massachusetts</a>, and <a href="https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DMQPEL64432C" color="blue">RSC FSS Report</a>.<br />
 https://www.repblais.org/ruralschools <br />
 https://www.ruralschoolsma.org/<br />
-https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DLM3SC083619<br />
+https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DMQPEL64432C<br />
 <br />
 All data in this report comes from the Massachusetts Department of Elementary and Secondary Education (DESE). See <a href="https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf" color="blue">Appendix A</a> for detailed source information (https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf).
 

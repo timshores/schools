@@ -295,17 +295,17 @@ style_title_main = ParagraphStyle("title_main", parent=styles["Heading1"], fontS
 style_title_sub  = ParagraphStyle("title_sub",  parent=styles["Normal"],   fontSize=12, leading=14, spaceAfter=6)
 style_body       = ParagraphStyle("body",       parent=styles["Normal"],   fontSize=9,  leading=12)
 style_body_12pt  = ParagraphStyle("body_12pt",  parent=styles["Normal"],   fontSize=12, leading=16)  # Readable font for Appendix C
-style_num        = ParagraphStyle("num",        parent=styles["Normal"],   fontSize=9,  leading=12, alignment=2)
-style_legend     = ParagraphStyle("legend",     parent=style_body,         fontSize=8,  leading=10, alignment=2)
-style_legend_center = ParagraphStyle("legend_center", parent=style_body,   fontSize=8,  leading=10, alignment=1)
-style_legend_right  = ParagraphStyle("legend_right",  parent=style_body,   fontSize=8,  leading=10, alignment=2)
-style_note       = ParagraphStyle("note",       parent=style_body,         fontSize=8,  leading=10, alignment=2)
-style_hdr_left   = ParagraphStyle("hdr_left",   parent=styles["Normal"],   fontSize=9,  leading=12, alignment=0)
-style_hdr_right  = ParagraphStyle("hdr_right",  parent=styles["Normal"],   fontSize=9,  leading=12, alignment=2)
-style_right_small= ParagraphStyle("right_small", parent=styles["Normal"],  fontSize=8,  leading=10, alignment=2)
-style_data_cell  = ParagraphStyle("data_cell",   parent=styles["Normal"],  fontSize=6,  leading=8,  alignment=2)
-style_data_hdr   = ParagraphStyle("data_hdr",    parent=styles["Normal"],  fontSize=7,  leading=9,  alignment=2)
-style_data_label = ParagraphStyle("data_label",  parent=styles["Normal"],  fontSize=6,  leading=8,  alignment=0)
+style_num        = ParagraphStyle("num",        parent=styles["Normal"],   fontSize=8,  leading=11, alignment=2)
+style_legend     = ParagraphStyle("legend",     parent=style_body,         fontSize=7,  leading=9, alignment=2)
+style_legend_center = ParagraphStyle("legend_center", parent=style_body,   fontSize=7,  leading=9, alignment=1)
+style_legend_right  = ParagraphStyle("legend_right",  parent=style_body,   fontSize=7,  leading=9, alignment=2)
+style_note       = ParagraphStyle("note",       parent=style_body,         fontSize=7,  leading=9, alignment=2)
+style_hdr_left   = ParagraphStyle("hdr_left",   parent=styles["Normal"],   fontSize=8,  leading=11, alignment=0)
+style_hdr_right  = ParagraphStyle("hdr_right",  parent=styles["Normal"],   fontSize=8,  leading=11, alignment=2)
+style_right_small= ParagraphStyle("right_small", parent=styles["Normal"],  fontSize=7,  leading=9, alignment=2)
+style_data_cell  = ParagraphStyle("data_cell",   parent=styles["Normal"],  fontSize=5,  leading=7,  alignment=2)
+style_data_hdr   = ParagraphStyle("data_hdr",    parent=styles["Normal"],  fontSize=6,  leading=8,  alignment=2)
+style_data_label = ParagraphStyle("data_label",  parent=styles["Normal"],  fontSize=5,  leading=7,  alignment=0)
 style_figure_num = ParagraphStyle("figure_num",  parent=styles["Normal"],  fontSize=8,  leading=10, alignment=0, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Small, italic, left-aligned, light gray background
 style_table_num  = ParagraphStyle("table_num",   parent=styles["Normal"],  fontSize=8,  leading=10, alignment=2, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Small, italic, right-aligned, light gray background
 style_fig_table_num = ParagraphStyle("fig_table_num", parent=styles["Normal"], fontSize=8, leading=10, alignment=2, fontName='Helvetica-Oblique', backColor=colors.HexColor("#F5F5F5"))  # Combined figure and table numbers
@@ -338,8 +338,10 @@ def draw_footer(canvas, doc):
     canvas.rotate(-45)
     canvas.translate(-page_width / 2, -page_height / 2)
 
-    # Draw footer
+    # Draw footer (reset to black for page numbers)
     canvas.setFont("Helvetica", 8)
+    canvas.setFillGray(0.0)  # Black for page numbers
+    canvas.setStrokeGray(0.0)
     y1 = 0.6 * inch
     # Source lines removed from footer, now in appendix
     x_right = doc.pagesize[0] - doc.rightMargin
@@ -754,7 +756,7 @@ def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, s
         'SPRINGFIELD': HexColor('#A50026'),  # Dark Red (outliers)
     }
 
-    # Smaller font styles for compact table
+    # Smaller font styles for compact table (reverted to original size for readability)
     style_small = ParagraphStyle("small", parent=style_body, fontSize=7, leading=9)
     style_small_num = ParagraphStyle("small_num", parent=style_num, fontSize=7, leading=9)
 
@@ -2527,7 +2529,7 @@ def build_threshold_analysis_page() -> dict:
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
         ('BACKGROUND', (0, 3), (-1, 3), colors.lightgreen),  # Highlight selected row
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),

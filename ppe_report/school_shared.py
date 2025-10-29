@@ -12,7 +12,7 @@ DATA_DIR = Path("./data")
 OUTPUT_DIR = Path("./output")
 EXCEL_FILE = DATA_DIR / "E2C_Hub_MA_DESE_Data.xlsx"
 COLOR_MAP_PATH = OUTPUT_DIR / "category_color_map.json"
-COLOR_MAP_VERSION = 4  # unified, colorblind-safe palette
+COLOR_MAP_VERSION = 5  # unified, colorblind-safe palette + Guidance/Counseling separated
 
 # Windows reserved device names (case-insensitive)
 _WINDOWS_RESERVED_NAMES = {
@@ -337,6 +337,7 @@ CANON_CATS_BOTTOM_TO_TOP = [
     "Operations and Maintenance",
     "Instructional Leadership",
     "Administration",
+    "Guidance, Counseling and Testing",
     "Other",
 ]
 
@@ -348,11 +349,11 @@ SUBCAT_TO_CANON = {
     "insurance, retirement programs and other": "Insurance, Retirement and Other",
     "insurance, retirement and other": "Insurance, Retirement and Other",
     "pupil services": "Pupil Services",
+    "guidance, counseling and testing": "Guidance, Counseling and Testing",
     "other teaching services": "Other Teaching Services",
     "operations and maintenance": "Operations and Maintenance",
     "instructional leadership": "Instructional Leadership",
     "administration": "Administration",
-    "guidance, counseling and testing": "Pupil Services",
     "professional development": "Other",
     "instructional materials, equipment and technology": "Other",
     "student transportation": "Other",
@@ -373,6 +374,7 @@ UNIFIED_PALETTE = {
     "Operations and Maintenance":                  "#C8E6F5",  # lighter sky blue
     "Instructional Leadership":                    "#F8F4B8",  # lighter yellow
     "Administration":                              "#F0C5A8",  # lighter burnt orange
+    "Guidance, Counseling and Testing":            "#E8B5D0",  # lighter rose (NEW - distinct pastel)
     "Other":                                       "#D8D8D8",  # lighter gray
 }
 
@@ -1100,22 +1102,25 @@ def prepare_district_nss_ch70(
     Returns:
         Tuple of (nss_pivot, enrollment_series, foundation_enrollment):
         - nss_pivot: DataFrame with years as index, columns: ['Ch70 Aid', 'Req NSS (adj)', 'Actual NSS (adj)']
-          All values are in dollars per pupil
-        - enrollment_series: In-District FTE enrollment by year
+          All values are in dollars per pupil (divided by Foundation Enrollment)
+        - enrollment_series: In-District FTE enrollment by year (from expenditure data)
         - foundation_enrollment: Foundation enrollment by year (from c70 distfoundenro, capped at 2024)
 
     Notes:
+        Ch70 financial data uses Foundation Enrollment (distfoundenro) as denominator
+        because it comes from Fall Chapter 70 reports, NOT end-of-year In-District FTE.
+
         Stacking logic (bottom to top):
-        1. Chapter 70 Aid (c70aid / enrollment)
-        2. Required NSS minus Ch70 (max(0, rqdnss2 - c70aid) / enrollment)
-        3. Actual NSS minus Required NSS ((actualNSS - rqdnss2) / enrollment)
+        1. Chapter 70 Aid (c70aid / foundation_enrollment)
+        2. Required NSS minus Ch70 (max(0, rqdnss2 - c70aid) / foundation_enrollment)
+        3. Actual NSS minus Required NSS ((actualNSS - rqdnss2) / foundation_enrollment)
 
         If c70aid > rqdnss2 (rare edge case), the "Req NSS (adj)" component will be 0.
     """
     if c70 is None or c70.empty:
         return pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=float)
 
-    # Get enrollment for this district
+    # Get In-District FTE enrollment for this district (for reference, not for Ch70 calculations)
     enr_data = df[
         (df["DIST_NAME"].str.lower() == dist.lower()) &
         (df["IND_CAT"].str.lower() == "student enrollment") &
@@ -1123,9 +1128,9 @@ def prepare_district_nss_ch70(
     ][["YEAR", "IND_VALUE"]].copy()
 
     if enr_data.empty:
-        return pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=float)
-
-    enroll_series = enr_data.set_index("YEAR")["IND_VALUE"].sort_index()
+        enroll_series = pd.Series(dtype=float)
+    else:
+        enroll_series = enr_data.set_index("YEAR")["IND_VALUE"].sort_index()
 
     # Get C70 data for this district (including foundation enrollment)
     c70_dist = c70[(c70["DIST_NAME"].str.lower() == dist.lower()) & (c70["YEAR"] <= 2024)][
@@ -1135,42 +1140,30 @@ def prepare_district_nss_ch70(
     if c70_dist.empty:
         return pd.DataFrame(), enroll_series, pd.Series(dtype=float)
 
-    # Extract foundation enrollment
-    foundation_enr = c70_dist[["YEAR", "distfoundenro"]].dropna()
-    if not foundation_enr.empty:
-        foundation_series = foundation_enr.set_index("YEAR")["distfoundenro"].sort_index()
-    else:
-        foundation_series = pd.Series(dtype=float)
-
-    # Merge C70 data with enrollment to compute per-pupil values
+    # Set index and use distfoundenro as the enrollment for Ch70 calculations
     merged = c70_dist.set_index("YEAR").copy()
 
-    # Merge enrollment data for per-pupil conversion
-    merged = merged.join(enroll_series.rename("enrollment"))
+    # Rename distfoundenro to foundation_enrollment for clarity
+    merged = merged.rename(columns={"distfoundenro": "foundation_enrollment"})
 
-    # For years with missing enrollment, use most recent available enrollment as proxy
-    missing_enr = merged[merged["enrollment"].isna() | (merged["enrollment"] == 0)]
-    if not missing_enr.empty:
-        available_enr = merged[merged["enrollment"] > 0].sort_index(ascending=False)
-        if not available_enr.empty:
-            most_recent_enr = available_enr.iloc[0]["enrollment"]
-            merged.loc[merged["enrollment"].isna() | (merged["enrollment"] == 0), "enrollment"] = most_recent_enr
+    # Extract foundation enrollment series for return
+    foundation_series = merged["foundation_enrollment"].copy()
 
-    # Drop rows that still have missing enrollment
-    merged = merged[merged["enrollment"] > 0].copy()
+    # Drop rows with missing or zero foundation enrollment
+    merged = merged[merged["foundation_enrollment"] > 0].copy()
 
     if merged.empty:
         return pd.DataFrame(), enroll_series, foundation_series
 
-    # Calculate per-pupil values
+    # Calculate per-pupil values using Foundation Enrollment
     # Stack 1 (bottom): Chapter 70 Aid per pupil
-    merged["Ch70 Aid"] = merged["c70aid"] / merged["enrollment"]
+    merged["Ch70 Aid"] = merged["c70aid"] / merged["foundation_enrollment"]
 
     # Stack 2 (middle): Required NSS minus Ch70 per pupil (can be 0 if Ch70 > Required)
-    merged["Req NSS (minus Ch70)"] = np.maximum(0, merged["rqdnss2"] - merged["c70aid"]) / merged["enrollment"]
+    merged["Req NSS (minus Ch70)"] = np.maximum(0, merged["rqdnss2"] - merged["c70aid"]) / merged["foundation_enrollment"]
 
     # Stack 3 (top): Actual NSS minus Required NSS per pupil (can be negative if underfunding)
-    merged["Actual NSS (minus Req NSS)"] = (merged["actualNSS"] - merged["rqdnss2"]) / merged["enrollment"]
+    merged["Actual NSS (minus Req NSS)"] = (merged["actualNSS"] - merged["rqdnss2"]) / merged["foundation_enrollment"]
 
     # Create pivot with stacking columns
     nss_pivot = merged[["Ch70 Aid", "Req NSS (minus Ch70)", "Actual NSS (minus Req NSS)"]].sort_index()
@@ -1316,48 +1309,32 @@ def prepare_aggregate_nss_ch70_weighted(
     else:
         foundation_series = pd.Series(dtype=float)
 
-    # Merge enrollment with C70 data to compute per-district weighted averages
-    # First, get enrollment for each district/year
-    enr_pivot = enr_data.pivot_table(index="YEAR", columns="DIST_NAME", values="IND_VALUE", fill_value=0)
+    # Use foundation enrollment (distfoundenro) for Ch70 per-pupil calculations
+    # Ch70 data comes from Fall reports using foundation enrollment, not end-of-year In-District FTE
+    merged = c70_agg.copy()
 
-    # Merge C70 data with enrollment
-    merged = c70_agg.merge(enr_data.rename(columns={"IND_VALUE": "enrollment"}),
-                           on=["DIST_NAME", "YEAR"], how="left")
+    # Rename for clarity
+    merged = merged.rename(columns={"distfoundenro": "foundation_enrollment"})
 
-    # For years with missing enrollment, use most recent available enrollment as proxy
-    # This handles cases like 2025 where C70 data exists but enrollment data hasn't been released
-    for dist_name in merged["DIST_NAME"].unique():
-        dist_mask = merged["DIST_NAME"] == dist_name
-        dist_data = merged[dist_mask].copy()
-
-        # Find years with missing enrollment for this district
-        missing_enr = dist_data[dist_data["enrollment"].isna() | (dist_data["enrollment"] == 0)]
-        if not missing_enr.empty:
-            # Get most recent available enrollment for this district
-            available_enr = dist_data[dist_data["enrollment"] > 0].sort_values("YEAR", ascending=False)
-            if not available_enr.empty:
-                most_recent_enr = available_enr.iloc[0]["enrollment"]
-                # Fill missing enrollment with most recent value
-                merged.loc[dist_mask & (merged["enrollment"].isna() | (merged["enrollment"] == 0)), "enrollment"] = most_recent_enr
-
-    # Drop rows that still have missing enrollment after forward-filling
-    merged = merged[merged["enrollment"] > 0].copy()
+    # Drop rows with missing or zero foundation enrollment
+    merged = merged[merged["foundation_enrollment"] > 0].copy()
 
     if merged.empty:
-        return pd.DataFrame(), enroll_series
+        return pd.DataFrame(), enroll_series, foundation_series
 
-    # Compute per-pupil for each district
-    merged["actualNSS_pp"] = merged["actualNSS"] / merged["enrollment"]
-    merged["rqdnss2_pp"] = merged["rqdnss2"] / merged["enrollment"]
-    merged["c70aid_pp"] = merged["c70aid"] / merged["enrollment"]
+    # Compute per-pupil for each district using Foundation Enrollment
+    merged["actualNSS_pp"] = merged["actualNSS"] / merged["foundation_enrollment"]
+    merged["rqdnss2_pp"] = merged["rqdnss2"] / merged["foundation_enrollment"]
+    merged["c70aid_pp"] = merged["c70aid"] / merged["foundation_enrollment"]
 
     # Compute enrollment-weighted average per-pupil across districts for each year
+    # Weight by foundation enrollment (not In-District FTE)
     weighted_avg = merged.groupby("YEAR").apply(
         lambda g: pd.Series({
-            "actualNSS_pp": (g["actualNSS_pp"] * g["enrollment"]).sum() / g["enrollment"].sum(),
-            "rqdnss2_pp": (g["rqdnss2_pp"] * g["enrollment"]).sum() / g["enrollment"].sum(),
-            "c70aid_pp": (g["c70aid_pp"] * g["enrollment"]).sum() / g["enrollment"].sum(),
-            "avg_enrollment": g["enrollment"].mean()  # Average enrollment per district
+            "actualNSS_pp": (g["actualNSS_pp"] * g["foundation_enrollment"]).sum() / g["foundation_enrollment"].sum(),
+            "rqdnss2_pp": (g["rqdnss2_pp"] * g["foundation_enrollment"]).sum() / g["foundation_enrollment"].sum(),
+            "c70aid_pp": (g["c70aid_pp"] * g["foundation_enrollment"]).sum() / g["foundation_enrollment"].sum(),
+            "avg_enrollment": g["foundation_enrollment"].mean()  # Average foundation enrollment per district
         }),
         include_groups=False
     ).sort_index()
