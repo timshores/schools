@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import pickle
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -60,6 +61,10 @@ from school_shared import (
     weighted_epp_aggregation,
 )
 
+# Cache directory for storing intermediate results
+CACHE_DIR = Path("./cache")
+CACHE_DIR.mkdir(exist_ok=True)
+
 # Shapefile paths
 SHAPEFILE_DIR = Path("./data/shapefiles")
 UNIFIED_SHP = SHAPEFILE_DIR / "tl_2023_25_unsd.shp"
@@ -84,6 +89,38 @@ DISTRICT_PROFILES_FILE = Path("./data/Ch 70 District Profiles Actual NSS Over Re
 
 # Version stamp
 CODE_VERSION = "v2025.10.11-MAPS-COHORT-LETTERS"
+
+
+def _get_cache_path(cache_name: str) -> Path:
+    """Get path for a cache file."""
+    return CACHE_DIR / f"{cache_name}.pkl"
+
+
+def _is_cache_valid(cache_path: Path, source_files: List[Path]) -> bool:
+    """Check if cache is valid (exists and newer than source files)."""
+    if not cache_path.exists():
+        return False
+
+    cache_mtime = cache_path.stat().st_mtime
+    for source_file in source_files:
+        if source_file.exists() and source_file.stat().st_mtime > cache_mtime:
+            return False
+
+    return True
+
+
+def _load_from_cache(cache_path: Path):
+    """Load data from cache file."""
+    print(f"  [CACHE] Loading from {cache_path.name}")
+    with open(cache_path, 'rb') as f:
+        return pickle.load(f)
+
+
+def _save_to_cache(data, cache_path: Path):
+    """Save data to cache file."""
+    print(f"  [CACHE] Saving to {cache_path.name}")
+    with open(cache_path, 'wb') as f:
+        pickle.dump(data, f)
 
 
 def clean_district_name(name: str) -> str:
@@ -122,7 +159,7 @@ def clean_district_name(name: str) -> str:
     return cleaned
 
 
-def load_district_types() -> Dict[str, str]:
+def load_district_types(force_recompute: bool = False) -> Dict[str, str]:
     """
     Load district types from MA_District_Profiles sheet.
 
@@ -131,9 +168,18 @@ def load_district_types() -> Dict[str, str]:
     - "Unified Regional" -> "unified_regional" (serves all grades PK-12 across multiple towns)
     - "Regional Composite" -> "regional_composite" (overlaps with multiple elementary districts)
 
+    Args:
+        force_recompute: If True, bypass cache and reload from source
+
     Returns:
         Dictionary mapping cleaned district name -> district type
     """
+    cache_path = _get_cache_path("district_types")
+
+    # Try cache first (if not forcing recompute)
+    if not force_recompute and _is_cache_valid(cache_path, [DISTRICT_PROFILES_FILE]):
+        return _load_from_cache(cache_path)
+
     district_types = {}
 
     try:
@@ -171,16 +217,29 @@ def load_district_types() -> Dict[str, str]:
     except Exception as e:
         print(f"[WARN] Could not load district types: {e}")
 
+    # Save to cache
+    _save_to_cache(district_types, cache_path)
+
     return district_types
 
 
-def load_shapefiles() -> gpd.GeoDataFrame:
+def load_shapefiles(force_recompute: bool = False) -> gpd.GeoDataFrame:
     """
     Load and combine all three types of MA school district shapefiles.
+
+    Args:
+        force_recompute: If True, bypass cache and reload from source
 
     Returns:
         Combined GeoDataFrame with unified, elementary, and secondary districts
     """
+    cache_path = _get_cache_path("shapefiles")
+
+    # Try cache first (if not forcing recompute)
+    source_files = [UNIFIED_SHP, ELEMENTARY_SHP, SECONDARY_SHP]
+    if not force_recompute and _is_cache_valid(cache_path, source_files):
+        return _load_from_cache(cache_path)
+
     print("Loading shapefiles...")
 
     # Load all three shapefile types
@@ -206,6 +265,9 @@ def load_shapefiles() -> gpd.GeoDataFrame:
 
     print(f"  Loaded {len(unified)} unified, {len(elementary)} elementary, {len(secondary)} secondary districts")
     print(f"  Total: {len(all_districts)} district geometries")
+
+    # Save to cache
+    _save_to_cache(all_districts, cache_path)
 
     return all_districts
 
@@ -233,8 +295,8 @@ def get_all_western_ma_districts(
     """
     print("\nCollecting all Western MA districts across all years...")
 
-    # Load district types from data file
-    district_types = load_district_types()
+    # Note: district_types cached separately, not passed as parameter
+    # Will be loaded from cache in match_districts_to_geometries if needed
 
     # Collect all unique district names across all years
     all_district_names = set()
@@ -296,7 +358,8 @@ def match_districts_to_geometries(
     df: pd.DataFrame,
     reg: pd.DataFrame,
     shapes: gpd.GeoDataFrame,
-    year: int = None
+    year: int = None,
+    force_recompute: bool = False
 ) -> gpd.GeoDataFrame:
     """
     Match Western MA districts from our analysis to shapefile geometries.
@@ -306,14 +369,15 @@ def match_districts_to_geometries(
         reg: District regions/metadata
         shapes: GeoDataFrame with district geometries
         year: Specific year to use for enrollment/cohorts (defaults to latest if None)
+        force_recompute: If True, bypass cache and recompute from source
 
     Returns:
         GeoDataFrame with matched districts, cohort assignments, and geometries
     """
     print(f"\nMatching districts to geometries for year {year if year else 'latest'}...")
 
-    # Load district types from data file
-    district_types = load_district_types()
+    # Load district types from data file (uses its own cache)
+    district_types = load_district_types(force_recompute=force_recompute)
 
     # Get Western MA cohort districts for specified year
     # This now uses year-specific cohort boundaries
@@ -1298,9 +1362,9 @@ def main():
     print(f"  Loaded {len(df)} expenditure records")
     print(f"  Loaded {len(reg)} district metadata records")
 
-    # Load shapefiles (only once)
+    # Load shapefiles (only once) - uses cache
     print("\n[2/3] Loading shapefiles...")
-    shapes = load_shapefiles()
+    shapes = load_shapefiles(force_recompute=args.force_recompute)
 
     # Years to generate maps for (in reverse order: 2024, 2019, 2014, 2009)
     years = [2024, 2019, 2014, 2009]
@@ -1316,7 +1380,7 @@ def main():
 
         # Match districts to geometries for this year
         print(f"\n[3a] Matching districts for {year}...")
-        matched_gdf = match_districts_to_geometries(df, reg, shapes, year=year)
+        matched_gdf = match_districts_to_geometries(df, reg, shapes, year=year, force_recompute=args.force_recompute)
 
         # Generate enrollment cohort map for this year
         print(f"\n[3b] Generating enrollment cohort map...")

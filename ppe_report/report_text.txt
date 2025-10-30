@@ -145,17 +145,15 @@ EXECUTIVE_SUMMARY_CH70_EXPLANATION
 Tables {N}-{N+2} compare Chapter 70 aid (per foundation pupil) across Western MA school districts organized by enrollment size.
 <br /><br /><br /><br />
 ##BOX_START
-Chapter 70 aid and net school spending calculations (this and next page) use foundation enrollment for per-pupil figures, while PPE totals and 
-expense categories (previous page) use in-district FTE enrollment. These metrics come from different DESE departments:
+##H2 Note about enrollment denominators
+Chapter 70 aid and net school spending calculations use foundation enrollment for per-pupil figures, while PPE totals and expense categories use in-district FTE enrollment. These metrics come from different DESE reporting touchpoints:
 <br /><br />
-• <b>Foundation enrollment</b> (Chapter 70): All students residing in the district on October 1st of the prior year for whom the district is 
+• <b>Foundation enrollment</b> (Chapter 70 profile): All students residing in the district on October 1st of the prior year for whom the district is 
 financially responsible.<br />
-• <b>In-district FTE</b> (PPE reports): Full-year enrollment calculated from total membership days for students either residing in the district, or 
+• <b>In-district FTE</b> (End-of-year-report (EOYR)): Full-year enrollment calculated from total membership days for students either residing in the district, or 
 choiced or tuitioned into the district.<br />
 <br />
-This difference complicates direct comparison between Chapter 70 and expense analyses, but remains valid since each district uses the same 
-denominator type within each metric. For more information, see the <a href="https://www.doe.mass.edu/research/researchers.html" color="blue">DESE Researcher's Guide</a>.<br />
-https://www.doe.mass.edu/research/researchers.html
+This difference complicates direct comparison between Chapter 70 and expense analyses, but remains valid since each district uses the same denominator type within each metric. The comparison is not apples-to-oranges, but a picture of apples in the morning compared with a picture of apples in the evening. For more information, see the <a href="https://www.doe.mass.edu/research/researchers.html" color="blue">DESE Researcher's Guide</a>: https://www.doe.mass.edu/research/researchers.html
 ##BOX_END
 
 ================================================================================

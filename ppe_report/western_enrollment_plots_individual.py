@@ -11,6 +11,7 @@ Each plot saved separately for PDF layout (2 per page).
 """
 
 import argparse
+import pickle
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -24,6 +25,10 @@ from school_shared import (
     get_outlier_threshold, EXCLUDE_DISTRICTS
 )
 
+# Cache directory for storing intermediate results
+CACHE_DIR = Path("./cache")
+CACHE_DIR.mkdir(exist_ok=True)
+
 # Styling constants
 HIGHLIGHT_COLOR = "#FF8C00"  # Dark orange for districts of interest
 WESTERN_COLOR = "#4682B4"  # Steel blue for other Western MA districts
@@ -36,9 +41,33 @@ CODE_VERSION = "v2025.10.04-ENROLLMENT-DIST-V2"
 # Outlier threshold calculated dynamically using IQR method (Q3 + 1.5*IQR)
 
 
-def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year: int):
+def _get_cache_path(cache_name: str) -> Path:
+    """Get path for a cache file."""
+    return CACHE_DIR / f"{cache_name}.pkl"
+
+
+def _load_from_cache(cache_path: Path):
+    """Load data from cache file."""
+    print(f"  [CACHE] Loading from {cache_path.name}")
+    with open(cache_path, 'rb') as f:
+        return pickle.load(f)
+
+
+def _save_to_cache(data, cache_path: Path):
+    """Save data to cache file."""
+    print(f"  [CACHE] Saving to {cache_path.name}")
+    with open(cache_path, 'wb') as f:
+        pickle.dump(data, f)
+
+
+def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year: int, force_recompute: bool = False):
     """Analyze enrollment distribution for Western MA traditional districts."""
     from school_shared import calculate_cohort_boundaries, get_western_cohort_districts_for_year
+
+    # Try cache first (if not forcing recompute)
+    cache_path = _get_cache_path(f"enrollment_analysis_{latest_year}")
+    if not force_recompute and cache_path.exists():
+        return _load_from_cache(cache_path)
 
     # Calculate year-specific cohort definitions for display
     year_cohort_defs = calculate_cohort_boundaries(df, reg, latest_year)
@@ -107,7 +136,7 @@ def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year:
     non_springfield = [e for e in enrollments if e <= SPRINGFIELD_THRESHOLD]
     x_max = max(non_springfield) * 1.1 if non_springfield else SPRINGFIELD_THRESHOLD
 
-    return {
+    result = {
         'districts': districts,
         'enrollments': enrollments,
         'ppes': ppes,
@@ -123,6 +152,11 @@ def analyze_western_enrollment(df: pd.DataFrame, reg: pd.DataFrame, latest_year:
         'outlier_threshold': SPRINGFIELD_THRESHOLD,  # Use fixed 10,000 threshold for display
         'year_cohort_defs': year_cohort_defs,  # Include year-specific cohort definitions
     }
+
+    # Save to cache
+    _save_to_cache(result, cache_path)
+
+    return result
 
 
 def plot_scatterplot(data: dict, out_path: Path):
@@ -457,9 +491,9 @@ def main():
         print(f"Generating plots for FY {year}")
         print(f"{'='*70}")
 
-        # Analyze enrollment for this year
+        # Analyze enrollment for this year (uses cache)
         print(f"\n[1/3] Analyzing enrollment distribution for {year}...")
-        data = analyze_western_enrollment(df, reg, year)
+        data = analyze_western_enrollment(df, reg, year, force_recompute=args.force_recompute)
         print(f"  Total districts: {len(data['enrollments'])}")
         print(f"  Median enrollment: {data['median']:.0f} FTE")
 

@@ -3935,58 +3935,23 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         "CAGR_BIN_4": f"{SHADE_BINS_CAGR[3]*100:.0f}",
     }
 
-    # Load methodology pages from external text file (with fallback to hardcoded defaults)
-    # Apply placeholders for dynamic content
-    methodology_page1 = fill_text_placeholders(
-        report_text.get("METHODOLOGY_PPE_DEFINITION", []),
+    # ===== APPENDIX A: DATA SOURCES & CALCULATION METHODOLOGY =====
+    # Load content from appendix_a_text.txt and apply placeholders
+    appendix_a_content = fill_text_placeholders(
+        report_text.get("METHODOLOGY_DATA_SOURCES", []),
         placeholders
     )
 
-    methodology_page2 = fill_text_placeholders(
-        report_text.get("METHODOLOGY_SHADING_LOGIC", []),
-        placeholders
-    )
-
-    methodology_page3 = report_text.get("METHODOLOGY_NSS_CH70", [])
-
-    methodology_page4 = report_text.get("METHODOLOGY_DATA_SOURCES", [])
-
-    # Appendix A - Page 1: Data Sources and PPE Definition (combined to avoid page break)
+    # Appendix A - Single page with all methodology content
+    # Content will flow across multiple pages naturally
     pages.append(dict(
         title="Appendix A. Data Sources & Calculation Methodology",
         subtitle="",
         chart_path=None,
         graph_only=True,
-        text_blocks=methodology_page4 + methodology_page1,  # Combine both sections
+        text_blocks=appendix_a_content,
         section_id="appendix_a"
     ))
-
-    # Appendix A - Page 3: Orange/Blue Shading Logic
-    pages.append(dict(
-        title="Appendix A. Data Sources & Calculation Methodology (continued)",
-        subtitle="",
-        chart_path=None,
-        graph_only=True,
-        text_blocks=methodology_page2,
-        section_id="appendix_a"  # All Appendix A pages need section_id
-    ))
-
-    # Appendix A - Page 4: Chapter 70 Aid and Net School Spending (NSS)
-    pages.append(dict(
-        title="Appendix A. Data Sources & Calculation Methodology (continued)",
-        subtitle="",
-        chart_path=None,
-        graph_only=True,
-        text_blocks=methodology_page3,
-        section_id="appendix_a"  # All Appendix A pages need section_id
-    ))
-
-    # Appendix A - Page 5: Threshold Analysis (moved to end)
-    threshold_page = build_threshold_analysis_page()
-    threshold_page["title"] = "Appendix A. Data Sources & Calculation Methodology (continued)"
-    threshold_page["subtitle"] = "Rationale for 5% / 0.5pp Shading Thresholds"
-    threshold_page["section_id"] = "appendix_a"  # All Appendix A pages need section_id
-    pages.append(threshold_page)
 
     # ===== APPENDIX B: CALCULATIONS AND EXAMPLES (Combined B & C) =====
     # This appendix combines "Complete Calculations" (ordered by figures/tables)
@@ -5620,5 +5585,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate school district PDF report")
     parser.add_argument("--appendices-only", action="store_true",
                         help="Generate only the appendices PDF (CR A07)")
+    parser.add_argument("--force-recompute", action="store_true",
+                        help="Bypass cache (accepted for pipeline compatibility, not used)")
     args = parser.parse_args()
     main(appendices_only=args.appendices_only)
