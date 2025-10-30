@@ -2651,9 +2651,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         # Building appendices PDF: include links to appendices only
         mini_toc_entries = [
             ("Appendix A: Data Sources & Calculation Methodology", "appendix_a"),
-            ("Appendix B: Calculations and Examples", "appendix_b"),
-            ("Appendix C: Data Tables", "appendix_c"),
-            ("Appendix D: Additional Visualizations", "appendix_d"),
+            ("Appendix B: Data Tables", "appendix_b"),
+            ("Appendix C: Maps from previous years", "appendix_c"),
         ]
     else:
         # Building main PDF: include links to main sections only
@@ -3598,7 +3597,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                         baseline_map=western_nss_baseline,
                         fte_baseline_map=western_nss_baseline,  # CR08 - same baseline includes FE
                         dist_name=title,
-                        raw_nss=nss_west,  # Store for Appendix C data tables
+                        raw_nss=nss_west,  # Store for Appendix B data tables
                         raw_foundation=foundation_west,  # CR08 - Store for plots
                         district_list_text=district_list_text,  # Add district list text below NSS table
                         section_id=f"section2_{bucket.replace('-', '_')}_nss"  # Add section_id for cross-references
@@ -3953,433 +3952,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         section_id="appendix_a"
     ))
 
-    # ===== APPENDIX B: CALCULATIONS AND EXAMPLES (Combined B & C) =====
-    # This appendix combines "Complete Calculations" (ordered by figures/tables)
-    # with "Detailed Examples" for specific cases
-
-    appendix_b_examples_content = []  # Will hold detailed examples from file
-    appendix_b_path = Path("appendix_b_text.txt")
-    if appendix_b_path.exists():
-        # Read and parse detailed examples content - split by "====" section markers
-        appendix_b_full = appendix_b_path.read_text(encoding='utf-8')
-
-        # Split by ===== markers to get sections
-        raw_sections = appendix_b_full.split('=' * 80)  # 80 equals signs
-
-        # First section (before first ====) is the introduction for title page
-        intro_text = []
-        if raw_sections and raw_sections[0].strip():
-            intro_lines = raw_sections[0].strip().split('\n')
-            for line in intro_lines:
-                intro_text.append(line.strip())
-
-        # If no intro found in file, use default
-        if not intro_text:
-            intro_text = [
-                "This appendix provides calculation examples showing the source of numbers and demonstrating every step of the analysis for two examples:",
-                "1. Western MA Medium Cohort (aggregate cohort calculations)",
-                "2. Amherst-Pelham Regional (individual district calculations)",
-                "",
-                "The following pages detail:",
-                "• Data sources and cohort determination methodology",
-                "• Weighted average per-pupil expenditure calculations",
-                "• Time series analysis and compound annual growth rate (CAGR) formulas",
-                "• Chapter 70 state aid and Net School Spending calculations",
-                "• Comparative analysis methods",
-            ]
-
-        # Parse all sections and concatenate into one continuous content block
-        all_content = []
-
-        # Start from index 1 to skip the intro section
-        for raw_section in raw_sections[1:]:
-            lines = raw_section.strip().split('\n')
-            if not lines or not lines[0].strip():
-                continue
-
-            # First non-empty line is the section title (from === markers)
-            section_title = lines[0].strip()
-            if not section_title:
-                continue
-
-            # Add section header as bold, larger text
-            all_content.append("")  # Spacing before section
-            all_content.append(f"<b><font size=14>{section_title}</font></b>")
-            all_content.append("")  # Spacing after header
-
-            # Rest are content - format them
-            for line in lines[1:]:
-                stripped = line.strip()
-
-                # Format headers and steps as bold
-                if stripped.startswith('Step '):
-                    all_content.append(f"<b>{stripped}</b>")
-                elif stripped.startswith('PART '):
-                    all_content.append(f"<b><font size=13>{stripped}</font></b>")
-                elif stripped.endswith(':') and len(stripped) < 100 and not stripped.startswith('•') and not stripped.startswith('http'):
-                    # Looks like a subsection header
-                    all_content.append(f"<b>{stripped}</b>")
-                elif stripped.startswith('---'):
-                    # Separator line - skip it, section headers provide enough visual separation
-                    pass  # Don't add separator lines
-                else:
-                    # Regular line - preserve original formatting
-                    all_content.append(line.rstrip())
-
-        # Store detailed examples content for merging with complete calculations
-        # Combine intro and content into single block
-        appendix_b_examples_content = intro_text + [""] + all_content  # Add blank line between intro and content
-
-    # ===== APPENDIX C: COMPLETE CALCULATIONS =====
-    # Comprehensive calculations for all plots, tables, and methodology
-    appendix_c_content = [
-        "<b>Purpose</b>",
-        "This appendix provides complete, step-by-step calculations for every figure and table in the report. "
-        "The goal is to make it easy for an experienced analyst to verify the mathematics behind every result.",
-        "",
-        "=" * 80,
-        "",
-        "<b>1. EXECUTIVE SUMMARY CALCULATIONS</b>",
-        "",
-        "<b>Figure 1: Year-over-Year (YoY) Growth Rates</b>",
-        "<i>Location:</i> Executive Summary page",
-        "<i>Source:</i> executive_summary_plots.py, lines 44-63",
-        "",
-        "<b>Formula:</b>",
-        "YoY Growth(year) = [(PPE(year) / PPE(year-1)) - 1] × 100",
-        "",
-        "<b>Calculation Steps:</b>",
-        "1. For each district, get total PPE by year:",
-        "   - Load expenditure data from df (all expense categories)",
-        "   - Pivot to get PPE by category and year",
-        "   - Sum across all categories: total_ppe[year] = sum(PPE_category[year] for all categories)",
-        "",
-        "2. Calculate YoY growth:",
-        "   - For year in [2010, 2011, ..., 2024]:",
-        "     YoY[year] = [(total_ppe[year] / total_ppe[year-1]) - 1] × 100",
-        "   - First year (2009) has no YoY value (no prior year)",
-        "",
-        "3. For cohort aggregates:",
-        "   - Get all districts in cohort",
-        "   - Calculate weighted aggregate PPE (see Calculation #5)",
-        "   - Apply same YoY formula to aggregate PPE series",
-        "",
-        "<b>Example (Amherst 2023-2024):</b>",
-        "- PPE(2023) = $25,432.18",
-        "- PPE(2024) = $26,789.45",
-        "- YoY Growth = [(26,789.45 / 25,432.18) - 1] × 100 = 5.34%",
-        "",
-        "=" * 80,
-        "",
-        "<b>Figure 2: 5-Year CAGR (Compound Annual Growth Rate) - Grouped Bars</b>",
-        "<i>Location:</i> Executive Summary page",
-        "<i>Source:</i> executive_summary_plots.py, lines 66-95",
-        "",
-        "<b>Formula:</b>",
-        "CAGR = [(End_Value / Start_Value)^(1/Years) - 1] × 100",
-        "",
-        "<b>Calculation Steps:</b>",
-        "1. Define three 5-year periods:",
-        "   - Period 1: 2009-2014 (5 years)",
-        "   - Period 2: 2014-2019 (5 years)",
-        "   - Period 3: 2019-2024 (5 years)",
-        "",
-        "2. For each district and each period:",
-        "   - Get total_ppe[start_year] and total_ppe[end_year]",
-        "   - CAGR = [(total_ppe[end] / total_ppe[start])^(1/5) - 1] × 100",
-        "",
-        "3. For cohort aggregates:",
-        "   - Use weighted aggregate PPE (see Calculation #5)",
-        "   - Apply same CAGR formula",
-        "",
-        "<b>Example (Medium Cohort 2019-2024):</b>",
-        "- Weighted PPE(2019) = $22,145.67",
-        "- Weighted PPE(2024) = $28,934.21",
-        "- CAGR = [(28,934.21 / 22,145.67)^(1/5) - 1] × 100",
-        "- CAGR = [1.30672^0.2 - 1] × 100",
-        "- CAGR = [1.05497 - 1] × 100 = 5.50%",
-        "",
-        "=" * 80,
-        "",
-        "<b>Figure 3: 15-Year CAGR (2009-2024)</b>",
-        "<i>Location:</i> Executive Summary page",
-        "<i>Source:</i> executive_summary_plots.py, lines 98-118",
-        "",
-        "<b>Formula:</b>",
-        "CAGR_15yr = [(PPE(2024) / PPE(2009))^(1/15) - 1] × 100",
-        "",
-        "<b>Calculation Steps:</b>",
-        "1. Get total_ppe[2009] and total_ppe[2024] for each district",
-        "2. Apply CAGR formula with years = 15",
-        "3. For cohort aggregates, use weighted aggregate PPE",
-        "",
-        "<b>Example (Amherst):</b>",
-        "- PPE(2009) = $18,234.56",
-        "- PPE(2024) = $26,789.45",
-        "- CAGR = [(26,789.45 / 18,234.56)^(1/15) - 1] × 100",
-        "- CAGR = [1.46923^0.06667 - 1] × 100 = 2.61%",
-        "",
-        "=" * 80,
-        "",
-        "<b>2. COHORT DETERMINATION CALCULATIONS</b>",
-        "",
-        "<b>Purpose:</b> Assign each district to one of 6 enrollment-based cohorts",
-        "<i>Source:</i> school_shared.py, lines 140-200 (calculate_cohort_boundaries)",
-        "",
-        "<b>Cohort Definitions:</b>",
-        "- TINY: 0 - Q1 (25th percentile)",
-        "- SMALL: Q1 - Q2 (median)",
-        "- MEDIUM: Q2 - Q3 (75th percentile)",
-        "- LARGE: Q3 - 10,000 FTE",
-        "- SPRINGFIELD: > 10,000 FTE (outlier district)",
-        "",
-        "<b>Calculation Steps (FY2024):</b>",
-        "1. Get all Western MA traditional districts",
-        "2. Get FY2024 FTE enrollment for each district",
-        "3. Create array of all enrollments (INCLUDING Springfield):",
-        "   all_enrollments = [154.7, 287.3, ..., 24,567.8]  # 59 districts",
-        "",
-        "4. Calculate percentiles ON FULL DATASET:",
-        "   - Q1 (25th) = np.percentile(all_enrollments, 25) = 154.7",
-        "   - Q2 (50th) = np.percentile(all_enrollments, 50) = 520.3",
-        "   - Q3 (75th) = np.percentile(all_enrollments, 75) = 1,597.6",
-        "   - P90 (90th) = np.percentile(all_enrollments, 90) = 3,892.1",
-        "",
-        "5. Round to clean boundaries:",
-        "   - Q1: 154.7 → 200 FTE",
-        "   - Median: 520.3 → 500 FTE",
-        "   - Q3: 1,597.6 → 1,600 FTE",
-        "   - P90: 3,892.1 → 4,000 FTE",
-        "   - Outlier threshold: Fixed at 10,000 FTE",
-        "",
-        "6. Final FY2024 Cohort Boundaries:",
-        "   - TINY: 0-200 FTE (13 districts)",
-        "   - SMALL: 201-500 FTE (16 districts)",
-        "   - MEDIUM: 501-1,600 FTE (15 districts)",
-        "   - LARGE: 1,601-10,000 FTE (14 districts)",
-        "   - SPRINGFIELD: >10,000 FTE (1 district: 24,567.8 FTE)",
-        "",
-        "<b>Note:</b> For historical data, cohorts are calculated year-by-year using that year's enrollment distribution.",
-        "",
-        "=" * 80,
-        "",
-        "<b>3. WEIGHTED AGGREGATION METHODOLOGY</b>",
-        "",
-        "<b>Purpose:</b> Calculate enrollment-weighted per-pupil expenditure for a group of districts",
-        "<i>Source:</i> school_shared.py, lines 1001-1050 (weighted_epp_aggregation)",
-        "",
-        "<b>Formula:</b>",
-        "Weighted PPE(category, year) = Σ[PPE(d, cat, yr) × FTE(d, yr)] / Σ[FTE(d, yr)]",
-        "where d = district, cat = category, yr = year",
-        "",
-        "<b>Calculation Steps:</b>",
-        "1. For each district d in cohort:",
-        "   - Get PPE by category and year: PPE(d, category, year)",
-        "   - Get FTE enrollment by year: FTE(d, year)",
-        "",
-        "2. For each category and year:",
-        "   - Calculate weighted numerator:",
-        "     numerator(cat, yr) = Σ[PPE(d, cat, yr) × FTE(d, yr)] for all d in cohort",
-        "   - Calculate total FTE:",
-        "     denominator(yr) = Σ[FTE(d, yr)] for all d in cohort",
-        "   - Weighted PPE(cat, yr) = numerator(cat, yr) / denominator(yr)",
-        "",
-        "<b>Example (Medium Cohort, Instruction category, 2024):</b>",
-        "Districts in Medium cohort (FY2024): 15 districts",
-        "",
-        "District A: PPE_instruction = $12,345, FTE = 678",
-        "District B: PPE_instruction = $13,456, FTE = 891",
-        "...",
-        "District O: PPE_instruction = $11,234, FTE = 1,234",
-        "",
-        "Numerator = (12,345 × 678) + (13,456 × 891) + ... + (11,234 × 1,234)",
-        "         = 8,369,910 + 11,989,296 + ... + 13,862,756",
-        "         = 156,432,890",
-        "",
-        "Denominator = 678 + 891 + ... + 1,234 = 13,456 FTE",
-        "",
-        "Weighted PPE_instruction = 156,432,890 / 13,456 = $11,627.45/pupil",
-        "",
-        "=" * 80,
-        "",
-        "<b>4. SHADING THRESHOLD CALCULATIONS</b>",
-        "",
-        "<b>Purpose:</b> Determine 5% / 0.5pp thresholds for gradient shading in comparison tables",
-        "<i>Source:</i> Appendix A (Threshold Analysis), compose_pdf.py lines 1212-1349",
-        "",
-        "<b>Statistical Analysis (All 59 Western MA Districts):</b>",
-        "",
-        "1. Calculate variation in PPE:",
-        "   - Mean PPE = $24,237",
-        "   - Std Dev PPE = $5,462",
-        "   - Coefficient of Variation (CV) = 5,462 / 24,237 = 0.225 (22.5%)",
-        "",
-        "2. Calculate variation in CAGR:",
-        "   - Mean CAGR = 6.00 percentage points",
-        "   - Std Dev CAGR = 3.24 percentage points",
-        "   - Coefficient of Variation (CV) = 3.24 / 6.00 = 0.540 (54.0%)",
-        "",
-        "3. Key insight: CAGR varies 2.4× more than PPE relative to means (54.0% / 22.5% = 2.4)",
-        "",
-        "4. Evaluate threshold scenarios:",
-        "   Scenario: 5% PPE / 0.5pp CAGR (SELECTED)",
-        "   - PPE: 5% = 0.05 × 24,237 = $1,212",
-        "   - PPE Standard Deviations: 1,212 / 5,462 = 0.22 SD",
-        "   - CAGR Standard Deviations: 0.50 / 3.24 = 0.15 SD",
-        "   - Balance ratio: 0.15 / 0.22 = 0.7× (CAGR more sensitive for compound growth)",
-        "   - PPE flagging rate: ~82% of comparisons",
-        "   - CAGR flagging rate: ~88% of comparisons",
-        "",
-        "<b>Gradient Shading Bins:</b>",
-        "- CAGR bins (absolute percentage points): [0.5pp, 1pp, 1.5pp, 2pp+]",
-        "- Dollar bins (relative percent): [5%, 10%, 15%, 20%+]",
-        "- Intensity increases with bin: lightest shade → darkest shade",
-        "",
-        "=" * 80,
-        "",
-        "<b>5. DISTRICT COMPARISON TABLE CALCULATIONS</b>",
-        "",
-        "<b>Purpose:</b> Compare district PPE to baseline (cohort or Western MA aggregate)",
-        "<i>Source:</i> compose_pdf.py, lines 425-583 (_build_category_table)",
-        "",
-        "<b>For Each Category (e.g., Instruction, Student Support, etc.):</b>",
-        "",
-        "1. Get latest year (2024) and 5-year-ago baseline (2019)",
-        "",
-        "2. Calculate CAGR:",
-        "   District CAGR = [(PPE_2024 / PPE_2019)^(1/5) - 1] × 100",
-        "   Baseline CAGR = [(Baseline_PPE_2024 / Baseline_PPE_2019)^(1/5) - 1] × 100",
-        "",
-        "3. Calculate CAGR difference (absolute percentage points):",
-        "   CAGR_diff = |District_CAGR - Baseline_CAGR|",
-        "",
-        "4. Determine CAGR shading:",
-        "   if CAGR_diff < 1.0pp: No shading (white)",
-        "   elif CAGR_diff < 2.0pp: Lightest shade",
-        "   elif CAGR_diff < 3.0pp: Light shade",
-        "   elif CAGR_diff < 4.0pp: Medium shade",
-        "   else: Darkest shade",
-        "   Color: Amber if above baseline, Teal if below",
-        "",
-        "5. Calculate dollar difference (relative percent):",
-        "   Dollar_diff = |PPE_2024 - Baseline_PPE_2024| / Baseline_PPE_2024",
-        "",
-        "6. Determine dollar shading:",
-        "   if Dollar_diff < 5%: No shading",
-        "   elif Dollar_diff < 10%: Lightest shade",
-        "   elif Dollar_diff < 15%: Light shade",
-        "   elif Dollar_diff < 20%: Medium shade",
-        "   else: Darkest shade",
-        "   Color: Amber if above baseline, Teal if below",
-        "",
-        "<b>Example (Amherst Instruction vs Medium Cohort):</b>",
-        "- Amherst PPE_2019 = $10,234, PPE_2024 = $12,456",
-        "- Medium PPE_2019 = $9,876, PPE_2024 = $11,234",
-        "",
-        "CAGR calculations:",
-        "- Amherst CAGR = [(12,456 / 10,234)^0.2 - 1] × 100 = 4.01%",
-        "- Medium CAGR = [(11,234 / 9,876)^0.2 - 1] × 100 = 2.60%",
-        "- CAGR_diff = |4.01 - 2.60| = 1.41pp → Medium-dark amber shade (in [1pp, 1.5pp) bin)",
-        "",
-        "Dollar calculations:",
-        "- Dollar_diff = |12,456 - 11,234| / 11,234 = 10.88%",
-        "- 10.88% is in [10%, 15%) range → Light amber shade",
-        "",
-        "=" * 80,
-        "",
-        "<b>6. ENROLLMENT FTE CALCULATIONS</b>",
-        "",
-        "<b>Purpose:</b> Calculate total FTE enrollment from component categories",
-        "<i>Source:</i> school_shared.py, prepare_district_epp_lines()",
-        "",
-        "<b>FTE Categories:</b>",
-        "- Foundation Enrollment (low-income, ELL, special ed weighted)",
-        "- PK (Pre-Kindergarten)",
-        "- K-6 (Kindergarten through 6th grade)",
-        "- 7-12 (7th through 12th grade)",
-        "",
-        "<b>Calculation:</b>",
-        "Total FTE(year) = Foundation(year) + PK(year) + K6(year) + 712(year)",
-        "",
-        "<b>Example (Amherst 2024):</b>",
-        "- Foundation = 1,234.5 FTE",
-        "- PK = 89.2 FTE",
-        "- K-6 = 678.3 FTE",
-        "- 7-12 = 543.1 FTE",
-        "- Total FTE = 1,234.5 + 89.2 + 678.3 + 543.1 = 2,545.1 FTE",
-        "",
-        "=" * 80,
-        "",
-        "<b>7. NSS/CH70 FUNDING CALCULATIONS</b>",
-        "",
-        "<b>Purpose:</b> Calculate Chapter 70 aid and Net School Spending from components",
-        "<i>Source:</i> school_shared.py, prepare_district_nss_ch70()",
-        "",
-        "<b>Components:</b>",
-        "- Foundation Budget: State-determined minimum spending level",
-        "- Required Local Contribution: Municipality's required contribution",
-        "- Chapter 70 Aid: State aid = Foundation - Required Local Contribution",
-        "- Actual Net School Spending (NSS): Actual spending by district",
-        "",
-        "<b>Calculations:</b>",
-        "Ch70 Aid = Foundation Budget - Required Local Contribution",
-        "NSS Gap = Actual NSS - Foundation Budget",
-        "Total Spending = Required Local Contribution + Ch70 Aid + NSS Gap",
-        "",
-        "<b>Example (Amherst 2024):</b>",
-        "- Foundation Budget = $45,678,901",
-        "- Required Local Contribution = $38,234,567",
-        "- Ch70 Aid = $45,678,901 - $38,234,567 = $7,444,334",
-        "- Actual NSS = $52,123,456",
-        "- NSS Gap = $52,123,456 - $45,678,901 = $6,444,555",
-        "",
-        "=" * 80,
-        "",
-        "<b>NOTES</b>",
-        "",
-        "• All dollar values shown are illustrative examples for demonstration purposes",
-        "• Actual data values are stored in Appendix C (Data Tables)",
-        "• All calculations use enrollment-weighted aggregations for cohort comparisons",
-        "• CAGR calculations exclude negative or zero values",
-        "• Shading applies independently to CAGR and dollar comparisons",
-        "• Year-specific cohort assignments are used for all historical maps and scatterplots",
-    ]
-
-    # Combine Complete Calculations (Appendix C) with Detailed Examples (Appendix B)
-    # into a single Appendix B, synthesized in order of figures and tables
-    combined_appendix_b = [
-        "<b>Purpose</b>",
-        "This appendix provides calculations and worked examples for all figures and tables in the report. "
-        "It combines step-by-step calculation procedures with detailed examples for verification.",
-        "",
-        "=" * 80,
-        "",
-    ] + appendix_c_content[6:]  # Skip the original purpose section of appendix_c_content
-
-    # Add detailed examples section if available
-    if appendix_b_examples_content:
-        combined_appendix_b.extend([
-            "",
-            "=" * 80,
-            "",
-            "<b>DETAILED WORKED EXAMPLES</b>",
-            "",
-            "The following sections provide complete worked examples for specific districts and cohorts:",
-            ""
-        ])
-        combined_appendix_b.extend(appendix_b_examples_content)
-
-    pages.append(dict(
-        title="Appendix B. Calculations and Examples",
-        subtitle="Complete calculations and worked examples for all figures and tables",
-        chart_path=None,
-        graph_only=True,
-        text_blocks=combined_appendix_b,
-        section_id="appendix_b",
-        appendix_b=True  # Flag for 12pt font
-    ))
-
-    # ===== APPENDIX D: DATA TABLES =====
+    # ===== APPENDIX B: DATA TABLES =====
     # Deduplicate by dist_name to avoid duplicate data tables
     # Collect both EPP and NSS/Ch70 data for each district
     data_pages_to_add = []
@@ -4407,26 +3980,27 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
         page_dict = dict(
             title=f"Data: {dist_name}",
-            subtitle="PPE ($/pupil), FTE Enrollment, and NSS/Ch70 Funding ($)",
+            subtitle="PPE ($/in-district FTE pupil), FTE Enrollment, and NSS/Ch70 Funding ($/foundation enrollment pupil)",
             chart_path=None,
             page_type="data_table",
             raw_epp=data["raw_epp"],
             raw_lines=data["raw_lines"],
             raw_nss=data.get("raw_nss"),  # May be None if no NSS/Ch70 data
             dist_name=dist_name,
-            section_id="appendix_c"  # All data table pages are part of appendix_c
+            section_id="appendix_b",  # All data table pages are part of appendix_b
+            is_cohort=(dist_name in ["Western MA (all, excl. Springfield)", "Western MA Tiny", "Western MA Small", "Western MA Medium", "Western MA Large"])
         )
 
         if first_data_table:
-            page_dict["appendix_title"] = "Appendix C. Data Tables"
+            page_dict["appendix_title"] = "Appendix B. Data Tables"
             page_dict["appendix_subtitle"] = "All data values used in plots"
             page_dict["appendix_note"] = ("This appendix contains the underlying data tables for all districts and regions shown in the report. "
-                                        "Each table shows PPE by category (in $/pupil), FTE enrollment counts, and NSS/Ch70 funding components (in absolute dollars) across all available years.")
+                                        "Each table shows PPE by category (in $/in-district FTE pupil), FTE enrollment counts, and NSS/Ch70 funding components (in $/foundation enrollment pupil) across all available years.")
             first_data_table = False
 
         pages.append(page_dict)
 
-    # ===== APPENDIX D: ADDITIONAL VISUALIZATIONS =====
+    # ===== APPENDIX C: ADDITIONAL VISUALIZATIONS =====
     # Multi-year scatterplots and choropleth maps (2019, 2014, 2009)
 
     # Generic explanations for multi-year visualizations
@@ -4440,55 +4014,66 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         "This map situates the districts within their geographic context in Western Massachusetts."
     ])[0]  # Get first paragraph from list
 
-    appendix_d_intro = [
-        "This appendix contains historical scatterplots and geographic maps showing the evolution of district "
-        "enrollment and per-pupil expenditures over time. These visualizations provide context for understanding "
-        "how enrollment patterns and spending levels have shifted across Western Massachusetts districts from 2009 to 2024."
+    appendix_c_intro = [
+        "This appendix contains historical geographic maps showing the evolution of district "
+        "enrollment cohorts and per-pupil expenditures over time (2009, 2014, 2019). These visualizations provide context for understanding "
+        "how enrollment patterns and spending levels have shifted across Western Massachusetts districts."
     ]
 
-    # Add Appendix D pages for years 2019, 2014, 2009
+    # Add Appendix C pages for years 2019, 2014, 2009
     for idx, year in enumerate([2019, 2014, 2009]):
-        # First page of Appendix D gets the intro text
+        # SCATTERPLOTS REMOVED - Only choropleth maps in Appendix C
+        # # First page of Appendix C gets the intro text
+        # if idx == 0:
+        #     pages.append(dict(
+        #         title="Appendix C. Maps from previous years",
+        #         subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({year})",
+        #         chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
+        #         text_blocks=appendix_c_intro + [scatterplot_generic.format(year=year)],
+        #         graph_only=True,
+        #         section_id="appendix_c"
+        #     ))
+        # else:
+        #     pages.append(dict(
+        #         title="Appendix C. Maps from previous years (continued)",
+        #         subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({year})",
+        #         chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
+        #         text_blocks=[scatterplot_generic.format(year=year)],
+        #         graph_only=True,
+        #         section_id="appendix_c"
+        #     ))
+
+        # Add choropleth map for this year - First page gets intro text and title
         if idx == 0:
             pages.append(dict(
-                title="Appendix D. Additional Visualizations",
-                subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({year})",
-                chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
-                text_blocks=appendix_d_intro + [scatterplot_generic.format(year=year)],
+                title="Appendix C. Maps from previous years",
+                subtitle=f"Geographic map showing district locations and enrollment cohorts ({year})",
+                chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{year}.png"),
+                text_blocks=appendix_c_intro + [choropleth_generic],
                 graph_only=True,
-                section_id="appendix_d"
+                section_id="appendix_c"
             ))
         else:
             pages.append(dict(
-                title="Appendix D. Additional Visualizations (continued)",
-                subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({year})",
-                chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
-                text_blocks=[scatterplot_generic.format(year=year)],
+                title="Appendix C. Maps from previous years (continued)",
+                subtitle=f"Geographic map showing district locations and enrollment cohorts ({year})",
+                chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{year}.png"),
+                text_blocks=[choropleth_generic],
                 graph_only=True,
-                section_id="appendix_d"
+                section_id="appendix_c"
             ))
-
-        # Add choropleth map for this year
-        pages.append(dict(
-            title="Appendix D. Additional Visualizations (continued)",
-            subtitle=f"Geographic map showing district locations and enrollment cohorts ({year})",
-            chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{year}.png"),
-            text_blocks=[choropleth_generic],
-            graph_only=True,
-            section_id="appendix_d"
-        ))
 
         # Add PPE comparison map for this year
         ppe_comparison_explanation = report_text.get("SECTION1_PPE_COMPARISON_EXPLANATION", [
             "This map shows district PPE compared to cohort baseline."
         ])[0]
         pages.append(dict(
-            title="Appendix D. Additional Visualizations (continued)",
+            title="Appendix C. Maps from previous years (continued)",
             subtitle=f"Geographic map showing {year} PPE vs enrollment cohort baseline",
             chart_path=str(OUTPUT_DIR / f"western_ma_ppe_comparison_{year}.png"),
             text_blocks=[ppe_comparison_explanation],
             graph_only=True,
-            section_id="appendix_d"
+            section_id="appendix_c"
         ))
 
         # Add CAGR comparison map for this year (only if not 2009, the baseline year)
@@ -4509,12 +4094,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 filename = f"western_ma_cagr_comparison_2009_{year}.png"
 
             pages.append(dict(
-                title="Appendix D. Additional Visualizations (continued)",
+                title="Appendix C. Maps from previous years (continued)",
                 subtitle=f"Geographic map showing {period_desc} vs enrollment cohort baseline",
                 chart_path=str(OUTPUT_DIR / filename),
                 text_blocks=[cagr_comparison_explanation],
                 graph_only=True,
-                section_id="appendix_d"
+                section_id="appendix_c"
             ))
 
     return pages
@@ -4578,9 +4163,8 @@ def build_toc_page(include_main_sections=True, include_appendices=True):
         toc_entries.extend([
             ("Appendices", None, 0),
             ("    Appendix A: Data Sources & Calculation Methodology", "appendix_a", 1),
-            ("    Appendix B: Calculations and Examples", "appendix_b", 1),
-            ("    Appendix C: Data Tables", "appendix_c", 1),
-            ("    Appendix D: Additional Visualizations", "appendix_d", 1),
+            ("    Appendix B: Data Tables", "appendix_b", 1),
+            ("    Appendix C: Maps from previous years", "appendix_c", 1),
         ])
 
     return dict(
@@ -5392,7 +4976,11 @@ def build_pdf(pages: List[dict], out_path: Path):
         # Data table pages: show raw data tables
         if p.get("page_type") == "data_table":
             story.append(Spacer(0, 10))
-            story.append(Paragraph("PPE by Category ($/pupil)", style_body))
+            # Add weighted average notation for cohort pages
+            if p.get("is_cohort"):
+                story.append(Paragraph("PPE by Category ($/in-district FTE pupil) — Weighted Averages", style_body))
+            else:
+                story.append(Paragraph("PPE by Category ($/in-district FTE pupil)", style_body))
             story.append(Spacer(0, 6))
             epp_table = _build_epp_data_table(p.get("raw_epp"), p.get("dist_name", ""), doc.width)
             if epp_table:
@@ -5419,7 +5007,11 @@ def build_pdf(pages: List[dict], out_path: Path):
             raw_nss = p.get("raw_nss")
             if raw_nss is not None and not raw_nss.empty:
                 story.append(Spacer(0, 12))
-                story.append(Paragraph("NSS/Ch70 Funding Components ($)", style_body))
+                # Add weighted average notation for cohort pages
+                if p.get("is_cohort"):
+                    story.append(Paragraph("NSS/Ch70 Funding Components ($/foundation enrollment pupil) — Weighted Averages", style_body))
+                else:
+                    story.append(Paragraph("NSS/Ch70 Funding Components ($/foundation enrollment pupil)", style_body))
                 story.append(Spacer(0, 6))
                 nss_table = _build_nss_ch70_data_table(raw_nss, p.get("dist_name", ""), doc.width)
                 if nss_table:
@@ -5435,6 +5027,23 @@ def build_pdf(pages: List[dict], out_path: Path):
                 for footer_para in cross_ref_footer:
                     story.append(footer_para)
                     story.append(Spacer(0, 3))
+
+            # Add cohort info at bottom of cohort pages
+            if p.get("is_cohort"):
+                story.append(Spacer(0, 12))
+                story.append(Paragraph("<b>Cohort Composition (FY2024):</b>", style_body))
+                story.append(Spacer(0, 6))
+
+                # Get cohort info text
+                cohort_info_lines = [
+                    f"• {placeholders['COHORT_TINY_INFO']}",
+                    f"• {placeholders['COHORT_SMALL_INFO']}",
+                    f"• {placeholders['COHORT_MEDIUM_INFO']}",
+                    f"• {placeholders['COHORT_LARGE_INFO']}",
+                    f"• {placeholders['COHORT_SPRINGFIELD_INFO']}"
+                ]
+                for line in cohort_info_lines:
+                    story.append(Paragraph(line, style_body))
 
             if idx < len(pages)-1:
                 story.append(PageBreak())
