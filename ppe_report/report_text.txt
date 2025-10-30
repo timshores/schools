@@ -378,233 +378,79 @@ This map shows each district's 15-year spending growth rate (CAGR, 2009-2024) co
 See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c" color="blue">MassGIS map of Public School Districts.</a><br />
 https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c
 
+### CLAUDE THIS IS WHERE THE NEW APPENDIX B WILL BEGIN ###
 ================================================================================
 PPE_STATISTICAL_ASSOCIATIONS
 ================================================================================
 
-##H2 Key Finding
-<b>District size and enrollment trends explain very little about spending patterns.</b> Analysis of Western Massachusetts traditional districts (2009-2024) reveals that enrollment cohort (district size) explains only 22% of variation in current spending levels and has no association with spending growth rates. Enrollment growth rates show even weaker associations. This is evidence that knowing a district's size or enrollment trajectory tells us little about its per-pupil expenditure.
+##H1 District Size: A Factor, Not the Factor
 
-##H2 Distribution of PPE by Enrollment Cohort
-The five-number summaries and box plots below show two critical dimensions: where districts are now (2024 PPE) and how they got there (2009-2024 PPE growth rates).
+The five-number summaries and box plots below show two critical dimensions: where districts are now (2024 PPE) and how they got there (2009-2024 PPE growth rates). Box plots show the spread of current spending within each size cohort. Wide boxes indicate greater spending variation; narrow boxes suggest similar spending patterns. The median line shows typical spending for each cohort.
 
-##H3 2024 PPE by Cohort
-Box plots show the spread of current spending within each size cohort. Wide boxes indicate greater spending variation; narrow boxes suggest similar spending patterns. The median line shows typical spending for each cohort.
-<br />
+##H2 Key finding
+
+Size doesn't tell us much: Enrollment cohort membership explains only 22% of spending variation.
+
+##H3 2024 PPE by cohort
 
 __COHORT_PPE_TABLE__
 <br />
-##H3 2009-2024 PPE Growth Rates by Cohort
-These box plots reveal whether districts of similar size grew at similar rates (narrow boxes) or diverged over time (wide boxes). Comparing medians shows which cohorts experienced faster or slower growth.
-<br />
+
+##H3 2009-2024 PPE growth rates by cohort
 
 __COHORT_CAGR_TABLE__
 
-<br /><br /><b>Pattern Recognition:</b> A cohort with high 2024 PPE but typical growth rates suggests historically elevated spending maintained over time — exactly what we see in our selected districts.
+<br />
+##H2 Similar Growth, Different Starting Points
 
-================================================================================
-PPE_STATISTICAL_TEST_RESULTS
-================================================================================
-
-##H2 Statistical Test Results for Per-Pupil Expenditures
-##H3 What Associates with Current Spending (2024 PPE)?
-
-District size (cohort) — WEAK ASSOCIATION
-
-   • ANOVA: F(3,36) = 3.85, p = 0.014, η² = 0.216<br />
-   • Enrollment cohort explains ~22% of PPE variation<br />
-   • Effect size: small to medium (substantial variation within cohorts)
-
-Enrollment growth rate — NO ASSOCIATION
-
-   • Linear regression: r = 0.226, R² = 0.051, p = 0.160<br />
-   • Explains only 5% of PPE variation<br />
-   • Not statistically significant at α = 0.05
-
-Combined model — MODEST PREDICTIVE POWER
-
-   • ANCOVA: R² = 0.232, Adjusted R² = 0.155, F(4,35) = 3.02, p = 0.023<br />
-   • Size + growth together explain 23% of variation<br />
-   • Enrollment growth adds minimal predictive value once cohort is accounted for
-
-##H3 What Associates with Spending Growth (2009-2024 CAGR)?
-
-District size (cohort) — NO ASSOCIATION
-
-   • ANOVA: F(3,36) = 0.61, p = 0.611, η² = 0.036<br />
-   • Effect size: negligible<br />
-   • All cohorts show similar growth rate distributions
-
-Enrollment growth rate — NO ASSOCIATION
-
-   • Linear regression: r = -0.175, R² = 0.031, p = 0.283<br />
-   • Weak negative correlation (not significant)<br />
-   • Declining enrollment doesn't predict higher PPE growth
-
-Combined model — NO PREDICTIVE POWER
-
-   • ANCOVA: R² = 0.069, Adjusted R² = -0.027, F(4,35) = 0.74, p = 0.569<br />
-   • Negative adjusted R² indicates model performs worse than sample mean<br />
-   • Enrollment characteristics don't predict spending trajectories
-
-##H3 Interpretation
-These analyses examine statistical associations, not causal relationships. The weak associations demonstrate that:
-
-   • Districts of similar size have widely varying spending levels<br />
-   • Enrollment change doesn't systematically drive PPE change<br />
-   • Other factors — wealth, demographics, facility age, governance, historical commitments — matter more than enrollment characteristics
+Growth rates are remarkably consistent across cohorts (3.4-4.6% median CAGR), with the large outlier Springfield growing the slowest. This uniform growth means current spending differences primarily reflect where districts started, not how fast they've grown.
 
 ================================================================================
 CH70_STATISTICAL_ASSOCIATIONS
 ================================================================================
 
-<b>Key Finding</b>
+##H1 State Aid Doesn't Equalize
 
-District size and enrollment cohort show associations with Chapter 70 Aid patterns. This section examines the distribution of Chapter 70 state aid (per foundation pupil) across Western Massachusetts traditional districts organized by enrollment size.
+This section examines the distribution of Chapter 70 state aid (per foundation pupil) across Western Massachusetts traditional districts organized by enrollment size. The five-number summaries below show two dimensions: current aid levels (2024 Ch70 Aid) and how they grew over time (2009-2024 growth rates).
 
-<b>Distribution of Chapter 70 Aid by Enrollment Cohort</b>
+##H2 Key finding
 
-The five-number summaries below show two dimensions: current aid levels (2024 Ch70 Aid) and how they grew over time (2009-2024 growth rates).
+Chapter 70 aid shows a pattern: Medium and Large cohorts receive comparable or higher per-pupil state aid than Tiny districts. Despite this, smaller districts still have higher total PPE — a difference that may be caused by state aid formulas that don't offset enrollment-based cost differences.
 
-<b>2024 Chapter 70 Aid per Foundation Pupil by Cohort</b>
-
-Box plots show the spread of state aid within each size cohort. The median line shows typical aid levels for each cohort. Note: Foundation enrollment includes weighted adjustments for low-income, ELL, and special education students.
+##H3 2024 Chapter 70 aid per foundation pupil by cohort
 
 __COHORT_CH70_TABLE__
+<br />
 
-<b>2009-2024 Chapter 70 Aid Growth Rates by Cohort</b>
-
-These box plots reveal whether districts of similar size received similar aid growth (narrow boxes) or diverged over time (wide boxes). Comparing medians shows which cohorts experienced faster or slower aid increases.
+##H3 2009-2024 Chapter 70 Aid growth rates per by cohort
 
 __COHORT_CH70_CAGR_TABLE__
-
-================================================================================
-CH70_STATISTICAL_TEST_RESULTS
-================================================================================
-
-##H2 Statistical Test Results for Chapter 70 Aid
-##H3 What Associates with Current Chapter 70 Aid (2024 Ch70 per foundation pupil)?
-
-District size (cohort) — MODERATE ASSOCIATION
-
-   • ANOVA: F(3,36) = 6.12, p = 0.002, η² = 0.338<br />
-   • Enrollment cohort explains ~34% of Ch70 Aid variation<br />
-   • Effect size: medium (smaller districts receive higher per-pupil aid due to foundation formula minimum)
-
-Enrollment growth rate — MINIMAL ASSOCIATION
-
-   • Linear regression: r = -0.142, R² = 0.020, p = 0.389<br />
-   • Explains only 2% of Ch70 Aid variation<br />
-   • Not statistically significant at α = 0.05
-
-Combined model — MODEST PREDICTIVE POWER
-
-   • ANCOVA: R² = 0.351, Adjusted R² = 0.277, F(4,35) = 5.46, p = 0.002<br />
-   • Size + growth together explain 35% of variation<br />
-   • Enrollment growth adds minimal predictive value once cohort is accounted for
-
-##H3 What Associates with Chapter 70 Aid Growth (2009-2024 CAGR)?
-
-District size (cohort) — WEAK ASSOCIATION
-
-   • ANOVA: F(3,36) = 1.28, p = 0.297, η² = 0.096<br />
-   • Effect size: small<br />
-   • All cohorts show similar aid growth rate distributions
-
-Enrollment growth rate — NO ASSOCIATION
-
-   • Linear regression: r = -0.084, R² = 0.007, p = 0.616<br />
-   • Weak negative correlation (not significant)<br />
-   • Declining enrollment doesn't predict higher or lower Ch70 growth
-
-Combined model — NO PREDICTIVE POWER
-
-   • ANCOVA: R² = 0.103, Adjusted R² = 0.000, F(4,35) = 1.13, p = 0.358<br />
-   • Near-zero adjusted R² indicates model performs no better than sample mean<br />
-   • Enrollment characteristics don't predict aid growth trajectories
-
-##H3 Interpretation
-These analyses examine statistical associations, not causal relationships. The findings demonstrate that:
-
-   • Chapter 70 Aid levels associate with district size due to foundation budget formula minimums<br />
-   • Aid growth rates show no association with enrollment characteristics<br />
-   • State funding policy changes and formula adjustments affect all districts similarly
 
 ================================================================================
 NSS_STATISTICAL_ASSOCIATIONS
 ================================================================================
 
-<b>Key Finding</b>
+##H1 Local Effort Varies Widely
 
-District size and enrollment cohort show associations with local funding effort patterns. This section examines Actual Net School Spending above Required NSS (per foundation pupil) - a measure of spending beyond state-mandated minimums.
+The widest variation appears in discretionary local spending above state requirements. Within the Tiny cohort alone, local effort ranges from $1,275 to $34,082 per pupil above required minimums. This suggests local wealth and priorities — not enrollment — drive spending variation.
 
-<b>Distribution of Actual NSS above Required NSS by Enrollment Cohort</b>
-
-The five-number summaries below show: current local funding effort (2024 values) and how this effort changed over time (2009-2024 growth rates).
-
-<b>2024 Actual NSS above Required NSS per Foundation Pupil by Cohort</b>
-
-Box plots show the spread of spending above requirements within each size cohort. Positive values indicate spending above the state-required minimum; negative values indicate spending below required levels. The median line shows typical local effort for each cohort.
+##H3 2024 Actual NSS above Required NSS per foundation pupil by cohort
 
 __COHORT_NSS_TABLE__
+<br />
 
-<b>2009-2024 Actual NSS above Required NSS Growth Rates by Cohort</b>
-
-These box plots reveal whether districts of similar size increased local effort at similar rates (narrow boxes) or diverged over time (wide boxes). Comparing medians shows which cohorts increased spending above requirements faster or slower.
+##H3 2009-2024 Actual NSS above Required NSS growth rates by cohort
 
 __COHORT_NSS_CAGR_TABLE__
+<br />
 
-================================================================================
-NSS_STATISTICAL_TEST_RESULTS
-================================================================================
+##H2 High-spending district patterns
 
-##H2 Statistical Test Results for Actual NSS above Required NSS
-##H3 What Associates with Current Local Funding Effort (2024 Actual NSS above Required NSS)?
+• Historically elevated baselines (high 2009 PPE)<br />
+• Moderate growth rates<br />
+• Substantial local funding above minimum required spending<br />
 
-District size (cohort) — MODERATE ASSOCIATION
-
-   • ANOVA: F(3,36) = 4.73, p = 0.007, η² = 0.283<br />
-   • Enrollment cohort explains ~28% of local funding effort variation<br />
-   • Effect size: medium (wealth and tax base often correlate with district size)
-
-Enrollment growth rate — NO ASSOCIATION
-
-   • Linear regression: r = 0.087, R² = 0.008, p = 0.607<br />
-   • Explains less than 1% of funding effort variation<br />
-   • Not statistically significant at α = 0.05
-
-Combined model — MODEST PREDICTIVE POWER
-
-   • ANCOVA: R² = 0.291, Adjusted R² = 0.210, F(4,35) = 4.12, p = 0.008<br />
-   • Size + growth together explain 29% of variation<br />
-   • Enrollment growth adds no predictive value once cohort is accounted for
-
-##H3 What Associates with Local Funding Effort Growth (2009-2024 CAGR)?
-
-District size (cohort) — NO ASSOCIATION
-
-   • ANOVA: F(3,36) = 0.52, p = 0.669, η² = 0.042<br />
-   • Effect size: negligible<br />
-   • All cohorts show similar growth rate distributions in local funding effort
-
-Enrollment growth rate — NO ASSOCIATION
-
-   • Linear regression: r = -0.068, R² = 0.005, p = 0.689<br />
-   • Weak negative correlation (not significant)<br />
-   • Declining enrollment doesn't predict changes in funding effort
-
-Combined model — NO PREDICTIVE POWER
-
-   • ANCOVA: R² = 0.047, Adjusted R² = -0.062, F(4,35) = 0.51, p = 0.730<br />
-   • Negative adjusted R² indicates model performs worse than sample mean<br />
-   • Enrollment characteristics don't predict local funding trajectories
-
-##H3 Interpretation
-These analyses examine statistical associations, not causal relationships. The weak associations demonstrate that:
-
-   • Local funding effort varies widely among districts of similar size<br />
-   • Enrollment change doesn't systematically drive changes in spending above requirements<br />
-   • Community wealth, property values, governance decisions, and historical commitments matter more than enrollment characteristics
+Amherst-Pelham exemplifies this: 24% above cohort in 2009, growing slower than peers (3.77% vs 4.09%), yet maintaining position through consistently high local contribution.
 
 ================================================================================
 SECTION1_YOY_EXPLANATION

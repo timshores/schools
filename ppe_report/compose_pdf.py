@@ -2628,6 +2628,11 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     # Merge appendix_a_text into report_text
     report_text.update(appendix_a_text)
 
+    # Load Appendix B text sections from separate file
+    appendix_b_text = load_report_text_sections(Path(__file__).parent / "appendix_b_text.txt")
+    # Merge appendix_b_text into report_text
+    report_text.update(appendix_b_text)
+
     # Note: Threshold Analysis moved to Appendix A
 
     latest = int(df["YEAR"].max())
@@ -2651,8 +2656,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         # Building appendices PDF: include links to appendices only
         mini_toc_entries = [
             ("Appendix A: Data Sources & Calculation Methodology", "appendix_a"),
-            ("Appendix B: Data Tables", "appendix_b"),
-            ("Appendix C: Maps from previous years", "appendix_c"),
+            ("Appendix B: Statistical Associations", "appendix_b"),
+            ("Appendix C: Data Tables", "appendix_c"),
+            ("Appendix D: Maps from previous years", "appendix_d"),
         ]
     else:
         # Building main PDF: include links to main sections only
@@ -3597,7 +3603,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                         baseline_map=western_nss_baseline,
                         fte_baseline_map=western_nss_baseline,  # CR08 - same baseline includes FE
                         dist_name=title,
-                        raw_nss=nss_west,  # Store for Appendix B data tables
+                        raw_nss=nss_west,  # Store for Appendix C data tables
                         raw_foundation=foundation_west,  # CR08 - Store for plots
                         district_list_text=district_list_text,  # Add district list text below NSS table
                         section_id=f"section2_{bucket.replace('-', '_')}_nss"  # Add section_id for cross-references
@@ -3941,6 +3947,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         placeholders
     )
 
+    # Extract H1 headings for TOC
+    appendix_a_h1_headings = []
+    for block in appendix_a_content:
+        if isinstance(block, tuple) and len(block) == 2:
+            heading_level, heading_text = block
+            if heading_level == "H1":
+                appendix_a_h1_headings.append(heading_text)
+
     # Appendix A - Single page with all methodology content
     # Content will flow across multiple pages naturally
     pages.append(dict(
@@ -3949,10 +3963,38 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         chart_path=None,
         graph_only=True,
         text_blocks=appendix_a_content,
-        section_id="appendix_a"
+        section_id="appendix_a",
+        h1_headings=appendix_a_h1_headings  # Store for TOC generation
     ))
 
-    # ===== APPENDIX B: DATA TABLES =====
+    # ===== APPENDIX B: STATISTICAL ASSOCIATIONS =====
+    # Load content from appendix_b_text.txt and apply placeholders
+    appendix_b_content = fill_text_placeholders(
+        report_text.get("STATISTICAL_ASSOCIATIONS", []),
+        placeholders
+    )
+
+    # Extract H1 headings for TOC
+    appendix_b_h1_headings = []
+    for block in appendix_b_content:
+        if isinstance(block, tuple) and len(block) == 2:
+            heading_level, heading_text = block
+            if heading_level == "H1":
+                appendix_b_h1_headings.append(heading_text)
+
+    # Appendix B - Single page with all statistical associations content
+    # Content will flow across multiple pages naturally
+    pages.append(dict(
+        title="Appendix B. Statistical Associations",
+        subtitle="",
+        chart_path=None,
+        graph_only=True,
+        text_blocks=appendix_b_content,
+        section_id="appendix_b",
+        h1_headings=appendix_b_h1_headings  # Store for TOC generation
+    ))
+
+    # ===== APPENDIX C: DATA TABLES =====
     # Deduplicate by dist_name to avoid duplicate data tables
     # Collect both EPP and NSS/Ch70 data for each district
     data_pages_to_add = []
@@ -3978,6 +4020,10 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         if data["raw_epp"] is None or data["raw_epp"].empty:
             continue  # Skip if no EPP data
 
+        # Check if this is a cohort page (Western MA aggregates, but NOT the overall "All Western MA" aggregate)
+        is_cohort_page = (dist_name.startswith("All Western MA Traditional Districts:") and
+                          "All Western MA (excl. Springfield)" not in dist_name)
+
         page_dict = dict(
             title=f"Data: {dist_name}",
             subtitle="PPE ($/in-district FTE pupil), FTE Enrollment, and NSS/Ch70 Funding ($/foundation enrollment pupil)",
@@ -3987,12 +4033,31 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             raw_lines=data["raw_lines"],
             raw_nss=data.get("raw_nss"),  # May be None if no NSS/Ch70 data
             dist_name=dist_name,
-            section_id="appendix_b",  # All data table pages are part of appendix_b
-            is_cohort=(dist_name in ["Western MA (all, excl. Springfield)", "Western MA Tiny", "Western MA Small", "Western MA Medium", "Western MA Large"])
+            section_id="appendix_c",  # All data table pages are part of appendix_c
+            is_cohort=is_cohort_page
         )
 
+        # Add cohort info to the page dict if this is a cohort page
+        # Only show the specific cohort's membership, not all cohorts
+        if is_cohort_page:
+            # Determine which cohort this page belongs to
+            cohort_info = None
+            if "Tiny" in dist_name:
+                cohort_info = placeholders['COHORT_TINY_INFO']
+            elif "Small" in dist_name:
+                cohort_info = placeholders['COHORT_SMALL_INFO']
+            elif "Medium" in dist_name:
+                cohort_info = placeholders['COHORT_MEDIUM_INFO']
+            elif "Large" in dist_name:
+                cohort_info = placeholders['COHORT_LARGE_INFO']
+            elif "Outliers" in dist_name or "Springfield" in dist_name:
+                cohort_info = placeholders['COHORT_SPRINGFIELD_INFO']
+
+            if cohort_info:
+                page_dict["cohort_info_lines"] = [cohort_info]
+
         if first_data_table:
-            page_dict["appendix_title"] = "Appendix B. Data Tables"
+            page_dict["appendix_title"] = "Appendix C. Data Tables"
             page_dict["appendix_subtitle"] = "All data values used in plots"
             page_dict["appendix_note"] = ("This appendix contains the underlying data tables for all districts and regions shown in the report. "
                                         "Each table shows PPE by category (in $/in-district FTE pupil), FTE enrollment counts, and NSS/Ch70 funding components (in $/foundation enrollment pupil) across all available years.")
@@ -4000,88 +4065,46 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
         pages.append(page_dict)
 
-    # ===== APPENDIX C: ADDITIONAL VISUALIZATIONS =====
-    # Multi-year scatterplots and choropleth maps (2019, 2014, 2009)
+    # ===== APPENDIX D: MAPS FROM PREVIOUS YEARS =====
+    # Multi-year choropleth maps (2019, 2014, 2009)
 
-    # Generic explanations for multi-year visualizations
-    scatterplot_generic = (
-        "This scatterplot shows the relationship between district enrollment (x-axis) and per-pupil "
-        "expenditure (y-axis) for Western Massachusetts traditional districts in {year}. Each point represents "
-        "one district, colored by enrollment cohort. Horizontal lines show quartile boundaries used to define cohorts."
-    )
-
-    choropleth_generic = report_text.get("SECTION1_CHOROPLETH_EXPLANATION", [
-        "This map situates the districts within their geographic context in Western Massachusetts."
-    ])[0]  # Get first paragraph from list
-
-    appendix_c_intro = [
-        "This appendix contains historical geographic maps showing the evolution of district "
-        "enrollment cohorts and per-pupil expenditures over time (2009, 2014, 2019). These visualizations provide context for understanding "
-        "how enrollment patterns and spending levels have shifted across Western Massachusetts districts."
-    ]
-
-    # Add Appendix C pages for years 2019, 2014, 2009
+    # Add Appendix D pages for years 2019, 2014, 2009
+    # NO EXPLANATORY TEXT - just maps with subtitles
     for idx, year in enumerate([2019, 2014, 2009]):
-        # SCATTERPLOTS REMOVED - Only choropleth maps in Appendix C
-        # # First page of Appendix C gets the intro text
-        # if idx == 0:
-        #     pages.append(dict(
-        #         title="Appendix C. Maps from previous years",
-        #         subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({year})",
-        #         chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
-        #         text_blocks=appendix_c_intro + [scatterplot_generic.format(year=year)],
-        #         graph_only=True,
-        #         section_id="appendix_c"
-        #     ))
-        # else:
-        #     pages.append(dict(
-        #         title="Appendix C. Maps from previous years (continued)",
-        #         subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({year})",
-        #         chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
-        #         text_blocks=[scatterplot_generic.format(year=year)],
-        #         graph_only=True,
-        #         section_id="appendix_c"
-        #     ))
+        # SCATTERPLOTS REMOVED - Only choropleth maps in Appendix D
 
-        # Add choropleth map for this year - First page gets intro text and title
+        # Add choropleth map for this year - First page gets title, others get "continued"
         if idx == 0:
             pages.append(dict(
-                title="Appendix C. Maps from previous years",
+                title="Appendix D. Maps from previous years",
                 subtitle=f"Geographic map showing district locations and enrollment cohorts ({year})",
                 chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{year}.png"),
-                text_blocks=appendix_c_intro + [choropleth_generic],
+                text_blocks=[],  # No explanatory text
                 graph_only=True,
-                section_id="appendix_c"
+                section_id="appendix_d"
             ))
         else:
             pages.append(dict(
-                title="Appendix C. Maps from previous years (continued)",
+                title="Appendix D. Maps from previous years (continued)",
                 subtitle=f"Geographic map showing district locations and enrollment cohorts ({year})",
                 chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{year}.png"),
-                text_blocks=[choropleth_generic],
+                text_blocks=[],  # No explanatory text
                 graph_only=True,
-                section_id="appendix_c"
+                section_id="appendix_d"
             ))
 
         # Add PPE comparison map for this year
-        ppe_comparison_explanation = report_text.get("SECTION1_PPE_COMPARISON_EXPLANATION", [
-            "This map shows district PPE compared to cohort baseline."
-        ])[0]
         pages.append(dict(
-            title="Appendix C. Maps from previous years (continued)",
+            title="Appendix D. Maps from previous years (continued)",
             subtitle=f"Geographic map showing {year} PPE vs enrollment cohort baseline",
             chart_path=str(OUTPUT_DIR / f"western_ma_ppe_comparison_{year}.png"),
-            text_blocks=[ppe_comparison_explanation],
+            text_blocks=[],  # No explanatory text
             graph_only=True,
-            section_id="appendix_c"
+            section_id="appendix_d"
         ))
 
         # Add CAGR comparison map for this year (only if not 2009, the baseline year)
         if year != 2009:
-            cagr_comparison_explanation = report_text.get("SECTION1_CAGR_COMPARISON_EXPLANATION", [
-                "This map shows district CAGR compared to cohort baseline."
-            ])[0]
-
             # Determine period description based on year
             if year == 2019:
                 period_desc = "10-year PPE growth (2009-2019)"
@@ -4094,24 +4117,25 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 filename = f"western_ma_cagr_comparison_2009_{year}.png"
 
             pages.append(dict(
-                title="Appendix C. Maps from previous years (continued)",
+                title="Appendix D. Maps from previous years (continued)",
                 subtitle=f"Geographic map showing {period_desc} vs enrollment cohort baseline",
                 chart_path=str(OUTPUT_DIR / filename),
-                text_blocks=[cagr_comparison_explanation],
+                text_blocks=[],  # No explanatory text
                 graph_only=True,
-                section_id="appendix_c"
+                section_id="appendix_d"
             ))
 
     return pages
 
 # ---- Table of Contents ----
-def build_toc_page(include_main_sections=True, include_appendices=True):
+def build_toc_page(include_main_sections=True, include_appendices=True, pages=None):
     """
     Build table of contents page dict with hierarchical structure.
 
     Args:
         include_main_sections: If True, include main sections (Executive Summary, Sections 1-3)
         include_appendices: If True, include appendix sections
+        pages: List of page dicts (used to extract Appendix A H1 headings)
     """
     # Hierarchical TOC entries: (title, section_id, indent_level)
     # indent_level: 0=main section, 1=sub-section, 2=sub-sub-section
@@ -4163,8 +4187,27 @@ def build_toc_page(include_main_sections=True, include_appendices=True):
         toc_entries.extend([
             ("Appendices", None, 0),
             ("    Appendix A: Data Sources & Calculation Methodology", "appendix_a", 1),
-            ("    Appendix B: Data Tables", "appendix_b", 1),
-            ("    Appendix C: Maps from previous years", "appendix_c", 1),
+        ])
+
+        # Add H1 headings from Appendix A as sub-entries
+        if pages:
+            appendix_a_page = next((p for p in pages if p.get("section_id") == "appendix_a"), None)
+            if appendix_a_page and "h1_headings" in appendix_a_page:
+                for h1_heading in appendix_a_page["h1_headings"]:
+                    toc_entries.append((f"        {h1_heading}", None, 2))
+
+        toc_entries.append(("    Appendix B: Statistical Associations", "appendix_b", 1))
+
+        # Add H1 headings from Appendix B as sub-entries
+        if pages:
+            appendix_b_page = next((p for p in pages if p.get("section_id") == "appendix_b"), None)
+            if appendix_b_page and "h1_headings" in appendix_b_page:
+                for h1_heading in appendix_b_page["h1_headings"]:
+                    toc_entries.append((f"        {h1_heading}", None, 2))
+
+        toc_entries.extend([
+            ("    Appendix C: Data Tables", "appendix_c", 1),
+            ("    Appendix D: Maps from previous years", "appendix_d", 1),
         ])
 
     return dict(
@@ -4921,8 +4964,8 @@ def build_pdf(pages: List[dict], out_path: Path):
                         text_content.append(Paragraph(block, text_style))
                         text_content.append(Spacer(0, 6))
 
-                # For Appendix A and B, don't use KeepInFrame - let content flow naturally across pages
-                if p.get("appendix_b") or p.get("section_id") == "appendix_a":
+                # For Appendices A, B, and C (text/data heavy), don't use KeepInFrame - let content flow naturally across pages
+                if p.get("section_id") in ["appendix_a", "appendix_b", "appendix_c"]:
                     # Add content directly without frame constraints
                     for item in text_content:
                         story.append(item)
@@ -5029,20 +5072,13 @@ def build_pdf(pages: List[dict], out_path: Path):
                     story.append(Spacer(0, 3))
 
             # Add cohort info at bottom of cohort pages
-            if p.get("is_cohort"):
+            if p.get("is_cohort") and p.get("cohort_info_lines"):
                 story.append(Spacer(0, 12))
                 story.append(Paragraph("<b>Cohort Composition (FY2024):</b>", style_body))
                 story.append(Spacer(0, 6))
 
-                # Get cohort info text
-                cohort_info_lines = [
-                    f"• {placeholders['COHORT_TINY_INFO']}",
-                    f"• {placeholders['COHORT_SMALL_INFO']}",
-                    f"• {placeholders['COHORT_MEDIUM_INFO']}",
-                    f"• {placeholders['COHORT_LARGE_INFO']}",
-                    f"• {placeholders['COHORT_SPRINGFIELD_INFO']}"
-                ]
-                for line in cohort_info_lines:
+                # Get cohort info text from page dict
+                for line in p["cohort_info_lines"]:
                     story.append(Paragraph(line, style_body))
 
             if idx < len(pages)-1:
@@ -5148,13 +5184,13 @@ def main(appendices_only=False):
     if appendices_only:
         # Building appendices only: TOC with appendix sections only
         print("[INFO] Building appendices only (--appendices-only flag)")
-        toc_page = build_toc_page(include_main_sections=False, include_appendices=True)
+        toc_page = build_toc_page(include_main_sections=False, include_appendices=True, pages=appendix_pages)
         appendix_pages.insert(0, toc_page)
         pdfs_to_build.append(("appendices", appendix_pages, "WMPPE Appendices.pdf"))
     else:
         # Building main report only: TOC with main sections only
         print("[INFO] Building main report only")
-        toc_page = build_toc_page(include_main_sections=True, include_appendices=False)
+        toc_page = build_toc_page(include_main_sections=True, include_appendices=False, pages=all_pages)
         main_pages.insert(0, toc_page)
         pdfs_to_build.append(("main", main_pages, "Western MA Per Pupil Expenditure Report.pdf"))
 

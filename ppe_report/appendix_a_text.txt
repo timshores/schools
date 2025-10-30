@@ -174,3 +174,111 @@ These thresholds reflect the different ways these metrics behave. PPE and enroll
 For a 300-student district, that's $689,700 in additional annual spending by year 15. For municipalities managing long-term budgets and multi-year labor contracts, these trajectories matter—even when year-to-year changes seem modest.
 
 The tighter CAGR threshold (0.5pp vs. 5%) also reflects statistical reality: growth rates vary more widely across districts (CV = 54%) than PPE levels do (CV = 22.5%). A {CAGR_THRESHOLD_PP}pp threshold flags districts with growth trajectories meaningfully different from their cohort without overcounting normal variation. By using a more sensitive threshold for CAGR, the analysis captures the real-world policy significance of compound growth differences while maintaining appropriate sensitivity for dollar and enrollment comparisons.
+
+##H1 5. Calculation Example: Baseline vs. Growth Analysis
+
+To illustrate how historical baselines drive current spending differences, consider this detailed example comparing a district to its cohort average:
+
+##H2 Amherst-Pelham Regional (Medium Cohort)
+
+Starting point (2009):
+
+• District PPE: $16,211 per pupil<br />
+• Medium cohort average: $13,032 per pupil<br />
+• Dollar difference: $16,211 - $13,032 = $3,179 above cohort<br />
+• Percentage difference: ($3,179 ÷ $13,032) × 100 = 24.4% above cohort<br />
+
+Calculating 15-year growth rates (2009-2024):
+
+District CAGR:
+
+• Formula: CAGR = (End_Value ÷ Start_Value)^(1 ÷ Years) - 1<br />
+• CAGR = ($28,233 ÷ $16,211)^(1/15) - 1 = (1.74139)^(0.06667) - 1 = 1.0377 - 1 = 3.77% annually
+
+Medium cohort CAGR:
+
+• CAGR = ($23,785 ÷ $13,032)^(1/15) - 1 = (1.82525)^(0.06667) - 1 = 1.0409 - 1 = 4.09% annually<br />
+
+Growth rate difference: 3.77% - 4.09% = -0.32 percentage points
+(District grew slower than cohort)
+
+Ending point (2024):
+
+• District PPE: $28,233 per pupil<br />
+• Medium cohort average: $23,785 per pupil<br />
+• Dollar difference: $28,233 - $23,785 = $4,448 above cohort<br />
+• Percentage difference: ($4,448 ÷ $23,785) × 100 = 18.7% above cohort
+
+##H2 Key insight
+
+Despite growing more slowly than peer districts (3.77% vs. 4.09% annually), Amherst-Pelham remains well above the cohort average because it started from a higher baseline. The district actually narrowed the gap from 24.4% to 18.7% above peers — evidence of relative fiscal restraint over 15 years, not excess growth.
+The absolute dollar difference grew ($3,179 → $4,448) because both the district and cohort experienced inflation and cost increases, but the relative position improved, showing the district's growth has been modest compared to peers.
+
+This pattern — where high current spending reflects high historical baselines rather than high growth — appears across multiple Western MA districts.
+
+##H1 6. Weighted Average Calculation Example: Medium Cohort
+
+This example shows the complete weighted average calculation for the Medium cohort's 2024 Teachers category PPE using all 15 member districts.
+
+##H2 Medium Cohort Member Districts (2024 In-District FTE)
+
+1. Mohawk Trail: 804.8 FTE <br />
+2. Monson: 807.8 FTE <br />
+3. Gill-Montague: 899.8 FTE <br />
+4. Amherst: 1,001.5 FTE (Teachers PPE: $9,745 from Appendix B. Table 22) <br />
+5. Hoosac Valley Regional: 1,002.7 FTE <br />
+6. Palmer: 1,061.5 FTE <br />
+7. Ware: 1,095.8 FTE <br />
+8. Berkshire Hills: 1,174.4 FTE <br />
+9. North Adams: 1,196.0 FTE <br />
+10. Mount Greylock: 1,206.9 FTE <br />
+11. Amherst-Pelham: 1,209.3 FTE (Teachers PPE: $8,270 from Appendix B. Table 19) <br />
+12. Southwick-Tolland-Granville Regional: 1,312.8 FTE <br />
+13. Greenfield: 1,394.0 FTE <br />
+14. Easthampton: 1,403.7 FTE <br />
+15. Central Berkshire: 1,585.9 FTE <br />
+
+Total Medium Cohort Enrollment: 17,156.9 FTE
+
+##H2 Weighted Average Calculation for Teachers PPE (2024)
+
+For each district, we multiply their Teachers PPE by their enrollment weight:<br />
+[District PPE × (District FTE ÷ 17,156.9)]
+
+The sum of all 15 weighted contributions equals the Medium cohort weighted average: $7,431 per pupil for Teachers expenditure in 2024.
+
+##H2 Verifying with Total PPE (2024)
+
+Medium Cohort Total PPE components sum to:
+
+• Other: $1,200 <br />
+• Guidance, Counseling and Testing: $826 <br />
+• Administration: $911 <br />
+• Instructional Leadership: $1,573 <br />
+• Operations and Maintenance: $1,953 <br />
+• Other Teaching Services: $2,395 <br />
+• Pupil Services: $2,755 <br />
+• Insurance, Retirement and Other: $4,740 <br />
+• Teachers: $7,431 <br />
+• Total: $23,785 per pupil <br />
+
+##H2 Cohort CAGR Calculation (2009-2024)
+
+Using the weighted totals for all 15 districts at the starting point (2009):
+
+• Total enrollment: 21,996 FTE (15 districts × avg 1,466 from Table 8)<br />
+• Weighted Total PPE: $13,032 per pupil
+
+Ending point (2024):
+
+• Total enrollment: 17,156.9 FTE (sum of all 15 districts)<br />
+• Weighted Total PPE: $23,785 per pupil
+
+CAGR calculation:
+
+• CAGR = ($23,785 ÷ $13,032)^(1/15) - 1 = CAGR = (1.82525)^(0.06667) - 1 CAGR = 1.0409 - 1 = 4.09% annually
+
+##H2 Key insights:
+
+• Enrollment decline: The Medium cohort's total enrollment dropped from ~22,000 to ~17,000 students (-22%) over 15 years<br />
+• Weighting impact: Central Berkshire (1,586 FTE) has nearly twice the influence of Mohawk Trail (805 FTE) in the weighted average<br />
