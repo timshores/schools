@@ -1442,6 +1442,10 @@ def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, coh
             med_str = f"{row['median']:.1f}%"
             q3_str = f"{row['q3']:.1f}%"
             max_str = f"{row['max']:.1f}%"
+
+            # Add superscript asterisk for Tiny cohort's negative Ch70 CAGR (Worthington structural change)
+            if cohort_name == "TINY" and "Ch70" in metric_name and "Growth" in metric_name and row['min'] < 0:
+                min_str = f"{row['min']:.1f}%<super>*</super>"
         elif is_dollar_metric:
             min_str = f"${row['min']:,.0f}"
             q1_str = f"${row['q1']:,.0f}"
@@ -3309,20 +3313,20 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             section_id="section1_statistical"
         ))
 
-        # CR A03: Add PPE Statistical Test Results page immediately after
-        ppe_test_results_text = report_text.get("PPE_STATISTICAL_TEST_RESULTS", [
-            "<b>Statistical Test Results for Per-Pupil Expenditures</b>",
-            "",
-            "This section examines statistical associations between enrollment characteristics and per-pupil expenditure patterns.",
-            "These analyses examine statistical associations, not causal relationships."
-        ])
-        pages.append(dict(
-            title="Section 1 — Western MA traditional public school district trends (continued)",
-            subtitle="Statistical Test Results for Per-Pupil Expenditures",
-            text_blocks=ppe_test_results_text,
-            text_only_page=True,
-            section_id="section1_ppe_test_results"
-        ))
+        # CR A03: REMOVED - PPE Statistical Test Results page (moved to Appendix B)
+        # ppe_test_results_text = report_text.get("PPE_STATISTICAL_TEST_RESULTS", [
+        #     "<b>Statistical Test Results for Per-Pupil Expenditures</b>",
+        #     "",
+        #     "This section examines statistical associations between enrollment characteristics and per-pupil expenditure patterns.",
+        #     "These analyses examine statistical associations, not causal relationships."
+        # ])
+        # pages.append(dict(
+        #     title="Section 1 — Western MA traditional public school district trends (continued)",
+        #     subtitle="Statistical Test Results for Per-Pupil Expenditures",
+        #     text_blocks=ppe_test_results_text,
+        #     text_only_page=True,
+        #     section_id="section1_ppe_test_results"
+        # ))
 
     # ===== CR G: Statistical Analysis for Ch70 Aid and Actual NSS (in Section 1, as separate pages) =====
     if c70 is not None and not c70.empty:
@@ -3383,20 +3387,20 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             section_id="section1_ch70_statistical"
         ))
 
-        # Add Ch70 Aid Statistical Test Results page immediately after (CR A02)
-        ch70_test_results_text = report_text.get("CH70_STATISTICAL_TEST_RESULTS", [
-            "<b>Statistical Test Results for Chapter 70 Aid</b>",
-            "",
-            "This section examines statistical associations between enrollment characteristics and Chapter 70 Aid patterns.",
-            "These analyses examine statistical associations, not causal relationships."
-        ])
-        pages.append(dict(
-            title="Section 1 — Western MA traditional public school district trends (continued)",
-            subtitle="Statistical Test Results for Chapter 70 Aid (per foundation pupil)",
-            text_blocks=ch70_test_results_text,
-            text_only_page=True,
-            section_id="section1_ch70_test_results"
-        ))
+        # REMOVED - Ch70 Aid Statistical Test Results page (moved to Appendix B)
+        # ch70_test_results_text = report_text.get("CH70_STATISTICAL_TEST_RESULTS", [
+        #     "<b>Statistical Test Results for Chapter 70 Aid</b>",
+        #     "",
+        #     "This section examines statistical associations between enrollment characteristics and Chapter 70 Aid patterns.",
+        #     "These analyses examine statistical associations, not causal relationships."
+        # ])
+        # pages.append(dict(
+        #     title="Section 1 — Western MA traditional public school district trends (continued)",
+        #     subtitle="Statistical Test Results for Chapter 70 Aid (per foundation pupil)",
+        #     text_blocks=ch70_test_results_text,
+        #     text_only_page=True,
+        #     section_id="section1_ch70_test_results"
+        # ))
 
         # === Actual NSS Statistical Analysis ===
         # Calculate distributions for Actual NSS (both current and growth)
@@ -3443,20 +3447,20 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             section_id="section1_nss_statistical"
         ))
 
-        # Add Actual NSS Statistical Test Results page immediately after (CR A02)
-        nss_test_results_text = report_text.get("NSS_STATISTICAL_TEST_RESULTS", [
-            "<b>Statistical Test Results for Actual NSS above Required NSS</b>",
-            "",
-            "This section examines statistical associations between enrollment characteristics and local funding effort (Actual NSS above Required NSS).",
-            "These analyses examine statistical associations, not causal relationships."
-        ])
-        pages.append(dict(
-            title="Section 1 — Western MA traditional public school district trends (continued)",
-            subtitle="Statistical Test Results for Actual NSS above Required NSS (per foundation pupil)",
-            text_blocks=nss_test_results_text,
-            text_only_page=True,
-            section_id="section1_nss_test_results"
-        ))
+        # REMOVED - Actual NSS Statistical Test Results page (moved to Appendix B)
+        # nss_test_results_text = report_text.get("NSS_STATISTICAL_TEST_RESULTS", [
+        #     "<b>Statistical Test Results for Actual NSS above Required NSS</b>",
+        #     "",
+        #     "This section examines statistical associations between enrollment characteristics and local funding effort (Actual NSS above Required NSS).",
+        #     "These analyses examine statistical associations, not caural relationships."
+        # ])
+        # pages.append(dict(
+        #     title="Section 1 — Western MA traditional public school district trends (continued)",
+        #     subtitle="Statistical Test Results for Actual NSS above Required NSS (per foundation pupil)",
+        #     text_blocks=nss_test_results_text,
+        #     text_only_page=True,
+        #     section_id="section1_nss_test_results"
+        # ))
 
     # Set up cohort data structures for Section 2
     cmap_all = create_or_load_color_map(df)

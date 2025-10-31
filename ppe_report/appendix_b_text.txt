@@ -8,7 +8,7 @@ Statistical tests reveal that commonly cited factors — enrollment size, enroll
 
 ##H2 Statistical tests used in this analysis
 
-This appendix presents exploratory statistical tests examining associations between budget and enrollment variables and per-pupil expenditure levels in 59 Western Massachusetts traditional school districts. The analyses below are not meant to imply that this report has conducted rigorous econometric research. Rather, these statistical tests are practical and replicable ways of identifying stronger or weaker relationships between school spending and variables in this report. However, other variables not considered in this report are also worthy of close inspection. All correlations and associations presented should be interpreted as descriptive rather than predictive or prescriptive.
+This appendix presents exploratory statistical tests examining associations between budget and enrollment variables and per-pupil expenditure levels in 59 Western Massachusetts traditional school districts. The analyses below are not meant to imply that this report has conducted rigorous econometric research. Rather, these statistical tests are practical and replicable ways of gauging the strength or weakness of relationships between school spending and variables in this report, variables that are relevant to public discussion of education budgets. Other variables not considered in this report are also worthy of close inspection. All correlations and associations presented should be interpreted as descriptive rather than predictive or prescriptive.
 
 Throughout this analysis, we use p < 0.05 as the threshold for statistical significance. 
 
@@ -35,7 +35,7 @@ When ANOVA finds differences, this identifies which specific groups differ from 
 Tests how factors work together to explain the dependent variable — PPE, in this case. Reveals which variables remain important when controlling for others, and which lose their apparent influence. Helps distinguish genuine predictors from those that merely correlate with the real drivers.
 
 
-##H1 1. Enrollment and PPE
+##H1 1.  Association between enrollment and PPE
 
 This section provides statistical evidence supporting the report's finding that district enrollment size has limited explanatory power for per-pupil expenditure variations.
 
@@ -142,114 +142,200 @@ When controlling for historical spending patterns and local funding decisions, e
 
 District enrollment size, while correlated with spending at the aggregate level, explains relatively little about why specific districts spend what they do. The large within-cohort variations relative to between-cohort differences consistently indicate that enrollment-based categorization, while administratively useful, has limited predictive power for expenditure levels.
 
-##H1 2. Statistical Analysis of PPE Growth-Current PPE Relationships
+##H1 2. Association between enrollment change and PPE
 
-This section examines whether districts with faster spending growth over 15 years have higher current per-pupil expenditures.
+This section examines whether growth or decline in enrollment is associated with change in per-pupil expenditures.
 
 ##H2 Linear regression analysis
 
-• Model: PPE (2024) = β<sub>0</sub> + β<sub>1</sub> × PPE CAGR (2009-2024) + ε <br />
-• Testing whether growth rates predict current spending levels.<br />
+• Model: PPE (2024) = β<sub>0</sub> + β<sub>1</sub> × Enrollment CAGR (2009-2024) + ε<br />
+• Testing whether enrollment growth/decline predicts current spending levels.<br />
 
 ##H3 Results for 59 Western MA traditional districts
 
-• R² = 0.09<br />
-• Adjusted R² = 0.07<br />
-• F-statistic: 5.4 (p = 0.024)<br />
-• Standard error: $5,309
+• R² = 0.14<br />
+• Adjusted R² = 0.12<br />
+• F-statistic: 9.2 (p = 0.004)<br />
+• Standard error: $5,167
 
 ##H3 Interpretation
 
-PPE growth rate explains only 9% of the variation in current per-pupil expenditures. The remaining 91% reflects that starting points matter far more than growth rates in determining current spending levels.
+Enrollment change explains only 14% of the variation in current per-pupil expenditures. While statistically significant, the relationship is weak — 86% of spending variation is unrelated to enrollment trends.
 
 ##H2 Correlation analysis by cohort
 
-Pearson correlation coefficients between PPE CAGR and PPE (2024) within each cohort:
+Pearson correlation coefficients between enrollment CAGR and PPE (2024) within each cohort:
 
 ##H3 Tiny (0-200): No significant relationship.
 
-• n = 17 <br />
-• Correlation = 0.21 <br />
-• p-value = 0.42 <br />
+• n = 17<br />
+• Correlation = -0.31<br />
+• p-value = 0.22<br />
 
 ##H3 Small (201-800): No significant relationship.
 
-• n = 13 <br />
-• Correlation = -0.14 <br />
-• p-value = 0.65 <br />
+• n = 13<br />
+• Correlation = -0.28<br />
+• p-value = 0.35<br />
 
 ##H3 Medium (801-1600): No significant relationship.
 
-• n = 15 <br />
-• Correlation = 0.08 <br />
-• p-value = 0.77 <br />
+• n = 15<br />
+• Correlation = -0.19<br />
+• p-value = 0.49<br />
 
 ##H3 Large (1601-10K): No significant relationship.
 
-• n = 14 <br />
-• Correlation = 0.19 <br />
-• p-value = 0.51 <br />
-
-##H3 Key finding 
-
-Within enrollment cohorts, there is no correlation between growth rates and current spending levels. High-spending districts include both fast and slow growers, confirming that historical baselines dominate current positions.
+• n = 14<br />
+• Correlation = -0.24<br />
+• p-value = 0.41<br />
 
 ##H2 Analysis of Variance (ANOVA)
 
-Testing whether mean PPE differs across growth rate quartiles.
+Testing whether mean PPE differs across enrollment change quartiles.
 
 ##H3 One-way ANOVA results
 
-• F(3, 55) = 2.31, p = 0.09<br />
-• Between-group variance: 11%<br />
-• Within-group variance: 89%<br />
+• F(3, 55) = 2.89, p = 0.044<br />
+• Between-group variance: 13%<br />
+• Within-group variance: 87%<br />
+
+##H3 Post-hoc Tukey HSD test:
+
+• Fastest declining vs. growing: Mean difference = $3,421 (p = 0.08)<br />
+• Other pairwise comparisons: not significant (p > 0.10)<br />
+
+##H2 Enrollment change distribution analysis
+
+##H3 Enrollment changes 2009-2024
+
+• Districts with declining enrollment (negative CAGR): 47 of 59 (80%)<br />
+• Districts with growing enrollment (positive CAGR): 12 of 59 (20%)<br />
+• Median enrollment change: -1.5% annually<br />
+• Range: -4.2% to +2.1% annually<br />
+
+##H2 Multiple regression model
+
+Extended Model: PPE (2024) = β<sub>0</sub> + β<sub>1</sub> × Enrollment CAGR + β<sub>2</sub> × PPE(2009) + β<sub>3</sub> × Current Enrollment + ε
+
+##H3 Results
+
+• R² = 0.78<br />
+• Adjusted R² = 0.77<br />
+• Variables' contribution to R²:<br />
+• Historical PPE (2009): 70%<br />
+• Current enrollment size: 6%<br />
+• Enrollment change rate: 2%<br />
+
+##H2 Conclusion
+
+While districts with the steepest enrollment declines show slightly higher mean PPE, the overwhelming within-group variation (87%) confirms that enrollment trends have minimal predictive power for current PPE levels. Districts with declining, stable, and growing enrollment all show similar PPE ranges compared to cohort baselines. This does not support an assumption that enrollment growth or decline is associated with higher per-pupil costs.
+
+##H1 3. Association between enrollment change and PPE growth rates
+
+This section examines whether districts with declining enrollment experience faster PPE growth.
+
+##H2 Linear regression analysis
+
+• Model: PPE CAGR (2009-2024) = β<sub>0</sub> + β<sub>1</sub> × Enrollment CAGR (2009-2024) + ε<br />
+• Testing whether enrollment change predicts spending growth rates.<br />
+
+##H3 Results for 59 Western MA traditional districts
+
+• R² = 0.02<br />
+• Adjusted R² = 0.00<br />
+• F-statistic: 1.1 (p = 0.30)<br />
+• Standard error: 1.2%<br />
+
+##H3 Interpretation
+
+Enrollment change explains only 2% of the variation in PPE growth rates. There is no statistically significant relationship between enrollment trends and spending growth — districts grow spending at similar rates regardless of whether they're gaining or losing students.
+
+##H2 Correlation analysis by cohort
+
+Pearson correlation coefficients between enrollment CAGR and PPE CAGR within each cohort:
+
+##H3 Tiny (0-200): No significant relationship.
+
+• n = 17<br />
+• Correlation = -0.09<br />
+• p-value = 0.73<br />
+
+##H3 Small (201-800): No significant relationship.
+
+• n = 13<br />
+• Correlation = 0.11<br />
+• p-value = 0.72<br />
+
+##H3 Medium (801-1600): No significant relationship.
+
+• n = 15<br />
+• Correlation = -0.06<br />
+• p-value = 0.83<br />
+
+##H3 Large (1601-10K): No significant relationship.
+
+• n = 14<br />
+• Correlation = 0.08<br />
+• p-value = 0.78<br />
+
+##H3 Key finding
+
+Within all enrollment cohorts, enrollment change shows no correlation with PPE growth rates. This directly contradicts the common claim that declining enrollment causes costs to rise faster.
+
+##H2 Analysis of Variance (ANOVA)
+
+Testing whether mean PPE growth rates differ across enrollment change quartiles.
+
+##H3 One-way ANOVA results
+
+• F(3, 55) = 0.67, p = 0.57<br />
+• Between-group variance: 3%<br />
+• Within-group variance: 97%<br />
 
 ##H3 Post-hoc Tukey HSD test:
 
 • All pairwise comparisons: not significant (p > 0.10)<br />
 
-##H3 Interpretation 
+##H3 Interpretation
 
-Growth rate quartiles show no statistically significant differences in mean PPE. The overwhelming within-group variation (89%) confirms that these 15-year growth patterns don't determine current spending positions.
+Districts with declining, stable, and growing enrollment all show identical PPE growth rates. The minimal between-group variance (3%) confirms that enrollment trends do not drive spending growth differentials.
 
-##H2 Historical baseline analysis
+##H2 Distribution analysis
 
-##H3 Correlation between PPE (2009) and PPE (2024)
+##H3 PPE growth rates by enrollment trend
 
-• Correlation coefficient: r = 0.87<br />
-• p-value: < 0.001<br />
+• Districts with declining enrollment: Mean PPE CAGR = 4.8%, SD = 1.1%<br />
+• Districts with stable enrollment (±0.5% annually): Mean PPE CAGR = 4.9%, SD = 1.0%<br />
+• Districts with growing enrollment: Mean PPE CAGR = 4.7%, SD = 1.2%<br />
 
 ##H3 Interpretation
 
-The extremely strong correlation between 2009 and 2024 spending levels demonstrates path dependency. Where districts started matters far more than how fast they grew.
+All districts cluster around 4.8% annual PPE growth regardless of enrollment trajectory, with nearly identical distributions. The "declining enrollment causes rising costs" narrative finds no empirical support.
 
 ##H2 Multiple regression model
 
-Extended Model: PPE (2024) = β<sub>0</sub> + β<sub>1</sub> × PPE CAGR + β<sub>2</sub> × PPE(2009) + β<sub>3</sub> × ln(Enrollment) + ε
+Extended Model: PPE CAGR = β<sub>0</sub> + β<sub>1</sub> × Enrollment CAGR + β<sub>2</sub> × PPE(2009) + β<sub>3</sub> × Ch70 CAGR + ε
 
 ##H3 Results
 
-• R² = 0.83 <br />
-• Adjusted R² = 0.82 <br />
+• R² = 0.18<br />
+• Adjusted R² = 0.14<br />
 • Variables' contribution to R²:<br />
 
-    • Historical PPE (2009): 76%<br />
-    • PPE growth rate: 5%<br />
-    • Current enrollment: 2%<br />
+    • Chapter 70 growth: 11%<br />
+    • Historical PPE (2009): 5%<br />
+    • Enrollment change: 2%<br />
 
 ##H3 Interpretation
 
-When controlling for starting position, growth rates add minimal explanatory power. Districts maintain their relative spending positions over time despite varying growth rates.
-
-##H2 Note about statistical significance
-
-The weak relationship between growth rates and current levels highlights that percentage growth can be misleading — a 3% annual increase from $15,000 adds far more dollars than 5% growth from $10,000.
+Even when controlling for other factors, enrollment change does not explain PPE growth. 
 
 ##H2 Conclusion
 
-Current PPE levels are overwhelmingly determined by historical baselines rather than recent growth rates. High-spending districts today were generally high-spending districts 15 years ago, regardless of growth patterns.
+The near-zero correlation (R² = 0.02) and identical growth distributions across enrollment change categories does not support the claim that increasing or declining enrollment drives PPE growth. Budget growth appears driven by systemic factors affecting all districts equally, not by enrollment-specific pressures.
 
-##H1 3. Statistical Analysis of Chapter 70 Aid-PPE Relationships
+##H1 4. Association between Chapter 70 aid and PPE
 
 This section examines the relationship between state Chapter 70 aid levels and total per-pupil expenditures.
 
@@ -332,7 +418,7 @@ The significant negative correlation reveals an offset pattern: communities rece
 
 ##H2 Multiple regression model
 
-Extended Model: PPE (2024) = β<sub>0</sub> + β<sub>1</sub> × Ch70PerPupil + β<sub>2</sub> × LocalInvestment + β<sub>3</sub> × ln(Enrollment) + ε
+Extended Model: PPE (2024) = β<sub>0</sub> + β<sub>1</sub> × Ch70PerPupil + β<sub>2</sub> × LocalContribution + β<sub>3</sub> × ln(Enrollment) + ε
 
 ##H3 Results
 
@@ -356,7 +442,7 @@ The lack of correlation between state aid and total spending suggests that the C
 
 Chapter 70 aid levels have virtually no relationship with total PPE due to offsetting local funding decisions. Communities adjust their local contributions based on state aid received, maintaining historical spending patterns regardless of aid levels.
 
-##H1 4. Statistical Analysis of Chapter 70 Growth-PPE Relationships
+##H1 5. Association between Chapter 70 aid growth and PPE
 
 This section examines whether districts with faster Chapter 70 aid growth have higher current per-pupil expenditures.
 
@@ -460,7 +546,7 @@ Historical spending levels dominate current positions. Local contribution growth
 
 Chapter 70 aid growth rates have no predictive power for current PPE levels. State efforts to increase aid have not altered the fundamental spending patterns across districts, which remain anchored to historical baselines and local decisions. The 2019 Student Opportunity Act's impact may have been dampened if communities adjusted local funding to maintain relative positions.
 
-##H1 5. Statistical Analysis of Local Investment-PPE Relationships
+##H1 6. Association between actual NSS above required NSS and PPE
 
 This section examines the relationship between local contribution (Actual NSS above Required NSS) and total per-pupil expenditures.
 
@@ -562,7 +648,7 @@ Actual local contribution dominates the model. When communities invest more abov
 
 Local contribution above required minimums is the dominant predictor of total PPE, explaining nearly three-quarters of spending variation. Communities that choose to fund above requirements drive the spending disparities observed across districts.
 
-##H1 6. Statistical Analysis of Local Investment Growth-PPE Relationships
+##H1 7. Association between actual NSS growth with PPE
 
 This section examines whether districts with faster local contribution growth have higher current per-pupil expenditures.
 

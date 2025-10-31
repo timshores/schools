@@ -9,6 +9,8 @@ EXECUTIVE_SUMMARY_PAGE1
 "By the time it can be captured in numbers, it's too late."<br />
 — Peter Drucker, 'The Effective Executive', 1967
 <br /><br />
+<b>Draft Status:</b> As of <b>{TODAY_DATE}</b>, this report is under review and has not been presented to any committee. Questions and comments should be directed to the author, Tim Shores (Leverett and Amherst-Pelham Regional School Committee member) at shorest@arps.org.
+
 ##H1 How to use this report
 The report is organized from broad regional patterns down to district-level details. As a descriptive report, it makes no forecasts and offers no recommendations. One way to use it would be as a companion to discussions that depend on meaningful cost comparisons. You could read straight through to build understanding from high-level trends to selected district details. Or you could use this <b>quick-start guide</b> to answer specific questions: 
 <br /><br />
@@ -44,9 +46,6 @@ EXECUTIVE_SUMMARY_QUICK_START
 EXECUTIVE_SUMMARY_CONTEXT
 ================================================================================
 
-<br />
-<b>Draft Status:</b> As of <b>{TODAY_DATE}</b>, this report is under review and has not been presented to any committee. Questions and comments should be directed to the author, Tim Shores (Leverett and Amherst-Pelham Regional School Committee member) at shorest@arps.org.
-
 ##H1 Understanding Per-Pupil Expenditure in Context
 <b>Per-pupil expenditure (PPE)</b> provides a flawed lens for understanding school budgets. While this single metric obscures the complexity of school systems — shaped by student needs, facility requirements, governance structures, and historical commitments — it remains an accessible standard for state reporting and public discussion. We might as well try to understand it in full. This report examines PPE patterns across Western Massachusetts districts, organizing them into enrollment-based cohorts to identify trends and provide context for budget deliberations.
 
@@ -58,10 +57,8 @@ Schools are not like factories, nonprofit organizations or hospitals. Schools ar
 ##H1 Approach
 This report takes the position that before we set out to understand why we spend so much on schools, we should ask two key questions: What has our budget growth rate been, and what was our starting point? Understanding whether education costs have grown predictably or exceptionally is a question we can answer by looking at data collected by the Commonwealth. This report breaks down PPE and compares expenses by category, state aid, and local contributions across enrollment-based district cohorts. These groupings allow comparison of districts facing similar scale challenges. The goal is to support informed deliberation about education funding within the broader context of regional economic conditions and policy decisions.
 
-##H1 Key Finding: Consistent Growth from Elevated Baselines
-Analysis of spending patterns in Amherst-Pelham, Amherst, Leverett, Pelham, and Shutesbury reveals an important pattern: per-pupil expenditure in these districts has grown at rates comparable to — and often lower than — their Western Massachusetts peers over the 2009-2024 period. Their current high PPE reflects normal growth from a high starting point. In 2009, the selected districts already maintained PPE significantly above regional averages. With normal growth rates applied to above-average baselines, spending will remain above average.
-
-If we learn that school budgets grow consistently at 4-6%, then we should plan for 4-6% school budget growth. Less than normal growth risks the adequacy of our schools.
+##H1 Key Finding: Today's high PPE driven by legacy of high PPE and net spending above required spending — not declining enrollment
+Analysis of spending patterns in Amherst-Pelham, Amherst, Leverett, Pelham, and Shutesbury reveals an important pattern: per-pupil expenditure in these districts has grown 3-6% from 2009-2024, rates that are comparable to or lower than their Western Massachusetts peers. Current high PPE and net school spending (NSS) is the result of normal growth from a high starting point. In 2009, these districts already maintained PPE significantly above regional averages. With normal growth rates applied to above-average baselines, spending will remain above average. Understanding this shifts the conversation from 'why are costs so high?' to 'how do we manage the school system that we've inherited at 3-6% annual growth?'
 
 ##H1 Implications
 This finding should shift our focus from addressing perceived runaway costs to addressing the change in local fiscal effort to fund our schools. Fiscal effort measures a community's local tax burden for schools relative to its capacity to pay. The Commonwealth calculates this as each district's required local contribution divided by its combined property values and resident income — a community spending 5% of its wealth shows lower effort than one spending 10%, regardless of absolute dollar amounts.
@@ -425,6 +422,9 @@ __COHORT_CH70_TABLE__
 ##H3 2009-2024 Chapter 70 Aid growth rates per by cohort
 
 __COHORT_CH70_CAGR_TABLE__
+<br />
+
+* The Worthington district shows anomalous foundation enrollment data, reporting only 8 students in 2009 but 120 students in 2024. Chapter 70 aid increased from $72,731 to $464,966 over this period. However, this represents a decrease in per-pupil aid from approximately $9,091 to $3,875. The unrealistically low foundation enrollment figures prior to 2016 suggest a structural district change or data reporting issue rather than actual enrollment patterns. Such outliers may warrant exclusion from statistical analyses to avoid skewing results.
 
 ================================================================================
 NSS_STATISTICAL_ASSOCIATIONS
