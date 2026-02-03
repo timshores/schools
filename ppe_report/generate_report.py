@@ -2,16 +2,21 @@
 Master script to generate the complete school district analysis report.
 
 This script orchestrates the execution of all analysis components:
-1. District expenditure plots
-2. NSS/Ch70 funding analysis plots
-3. Western MA choropleth maps
-4. Enrollment distribution plots
-5. PDF composition
+1. Threshold analysis for shading thresholds
+2. Executive Summary plots
+3. District expenditure plots
+4. NSS/Ch70 funding analysis plots
+5. Western MA choropleth maps
+6. Enrollment distribution plots
+7. PDF composition
 
 Usage:
-    python generate_report.py                    # Generate main PDF only (default)
-    python generate_report.py --force-recompute  # Bypass cache and recompute from source
-    python generate_report.py --appendices-only  # Generate appendices PDF only
+    python generate_report.py                              # Full pipeline, main PDF
+    python generate_report.py --force-recompute            # Bypass cache and recompute
+    python generate_report.py --appendices-only            # Appendices PDF only
+    python generate_report.py --pdf-only                   # Skip plots, just compose PDF
+    python generate_report.py --pdf-only --sections exec   # Skip plots, render exec summary only
+    python generate_report.py --sections section2,section3 # Full pipeline, render subset
 
 The report is split into two separate PDFs:
 - Main PDF: "Western MA Per Pupil Expenditure Report.pdf"
@@ -21,6 +26,13 @@ The report is split into two separate PDFs:
 
 By default, only the main PDF is generated. Use --appendices-only to regenerate the appendices
 PDF independently (useful for updating methodology documentation without regenerating all plots).
+
+Use --pdf-only to skip plot generation steps (1-6) and jump straight to PDF composition.
+This is useful when you've only changed text or layout and the plot images are already up to date.
+
+Use --sections to render only specific section groups of the PDF. This produces a DRAFT file
+with no TOC and a single-pass build (faster). Available groups:
+  exec, section1, section2, section3, appendix_a, appendix_b, appendix_c, appendix_d
 """
 
 import argparse
@@ -41,7 +53,8 @@ PIPELINE = [
 ]
 
 
-def run_script(script_path: str, description: str, force_recompute: bool = False, appendices_only: bool = False) -> bool:
+def run_script(script_path: str, description: str, force_recompute: bool = False,
+               appendices_only: bool = False, sections: str = None) -> bool:
     """
     Run a Python script and return success status.
 
@@ -49,7 +62,8 @@ def run_script(script_path: str, description: str, force_recompute: bool = False
         script_path: Path to the script to execute
         description: Human-readable description for logging
         force_recompute: If True, pass --force-recompute flag to script
-        appendices_only: If True, pass --appendices-only flag to compose_pdf.py (CR A07)
+        appendices_only: If True, pass --appendices-only flag to compose_pdf.py
+        sections: If set, pass --sections flag to compose_pdf.py
 
     Returns:
         True if script succeeded, False otherwise
@@ -65,6 +79,8 @@ def run_script(script_path: str, description: str, force_recompute: bool = False
             cmd.append("--force-recompute")
         if appendices_only and script_path == "compose_pdf.py":
             cmd.append("--appendices-only")
+        if sections and script_path == "compose_pdf.py":
+            cmd.extend(["--sections", sections])
 
         result = subprocess.run(
             cmd,
@@ -93,7 +109,13 @@ def main():
     parser.add_argument("--force-recompute", action="store_true",
                         help="Bypass cache and recompute all data from source")
     parser.add_argument("--appendices-only", action="store_true",
-                        help="Generate only the appendices PDF (CR A07)")
+                        help="Generate only the appendices PDF")
+    parser.add_argument("--pdf-only", action="store_true",
+                        help="Skip plot generation (steps 1-6), run only compose_pdf.py")
+    parser.add_argument("--sections", type=str, default=None,
+                        help="Comma-separated section groups to render (forwarded to compose_pdf.py). "
+                             "Available: exec, section1, section2, section3, "
+                             "appendix_a, appendix_b, appendix_c, appendix_d")
     args = parser.parse_args()
 
     print("\n" + "=" * 70)
@@ -102,18 +124,28 @@ def main():
     print(f"Working directory: {Path.cwd()}")
     print(f"Python executable: {sys.executable}")
 
-    # CR A07: If appendices_only, only run compose_pdf.py
-    if args.appendices_only:
-        print(f"Mode: Appendices only")
-        pipeline_to_run = [("compose_pdf.py", "PDF composition (appendices only)")]
+    # Determine pipeline to run
+    if args.pdf_only or args.appendices_only:
+        desc = "PDF composition"
+        if args.pdf_only:
+            desc += " (pdf-only)"
+        if args.appendices_only:
+            desc += " (appendices-only)"
+        if args.sections:
+            desc += f" (sections: {args.sections})"
+        print(f"Mode: {desc}")
+        pipeline_to_run = [("compose_pdf.py", desc)]
     else:
         print(f"Pipeline steps: {len(PIPELINE)}")
         pipeline_to_run = PIPELINE
 
     if args.force_recompute:
         print(f"Mode: Force recompute (bypassing cache)")
-    else:
+    elif not args.pdf_only and not args.appendices_only:
         print(f"Mode: Using cache if available")
+
+    if args.sections:
+        print(f"Sections filter: {args.sections}")
 
     # Verify all scripts exist before starting
     missing_scripts = []
@@ -134,7 +166,10 @@ def main():
 
     for i, (script_path, description) in enumerate(pipeline_to_run, 1):
         print(f"\n[Step {i}/{len(pipeline_to_run)}]")
-        success = run_script(script_path, description, force_recompute=args.force_recompute, appendices_only=args.appendices_only)
+        success = run_script(script_path, description,
+                             force_recompute=args.force_recompute,
+                             appendices_only=args.appendices_only,
+                             sections=args.sections)
 
         if not success:
             failed_steps.append(description)
@@ -156,10 +191,13 @@ def main():
     else:
         print("Status: SUCCESS")
         print("\nGenerated files:")
-        if args.appendices_only:
+        if args.sections:
+            print("  - DRAFT PDF (partial render) in output/ directory")
+        elif args.appendices_only:
             print("  - Appendices PDF: output/WMPPE Appendices.pdf")
         else:
-            print("  - PNG plots in output/ directory")
+            if not args.pdf_only:
+                print("  - PNG plots in output/ directory")
             print("  - Main PDF: output/Western MA Per Pupil Expenditure Report.pdf")
         print("\n[OK] Report generation complete!")
 

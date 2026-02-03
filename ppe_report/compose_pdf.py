@@ -50,6 +50,18 @@ from statistical_analysis import run_all_analyses, format_results_for_report
 # ===== code version =====
 CODE_VERSION = "v2025.09.29-REFACTORED"
 
+# ===== Section groups for targeted PDF generation =====
+SECTION_GROUPS = {
+    "exec", "section1", "section2", "section3",
+    "appendix_a", "appendix_b", "appendix_c", "appendix_d",
+}
+
+def filter_pages(pages: list, groups: list) -> list:
+    """Filter pages to only include those belonging to the requested groups."""
+    if not groups:
+        return pages
+    return [p for p in pages if p.get("group") in groups]
+
 # ===== Figure and Table Counters =====
 _FIGURE_COUNTER = 0
 _TABLE_COUNTER = 0
@@ -2692,7 +2704,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         subtitle="",
         text_blocks=exec_summary_all_text,
         text_only_page=True,
-        section_id="executive_summary"
+        section_id="executive_summary",
+        group="exec"
     ))
 
     # PAGE 0a: Executive Summary - PPE Overview (will be added after cohort tables - see CR5)
@@ -2718,7 +2731,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         chart_path=str(OUTPUT_DIR / "ppe_overview_all_western.png"),
         text_blocks=western_text_blocks_exec,
         graph_only=True,
-        section_id="section1_ppe_overview"
+        section_id="section1_ppe_overview",
+        group="exec"
     )
 
     # PAGE 0b: Executive Summary - Statistical Analysis (text from report_text.txt)
@@ -2921,7 +2935,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         summary_table=cohort_table1,
         explanation_blocks=[],  # Removed - explanation moved to bottom after all tables
         first_cohort_table=True,  # Flag to show legend at top
-        section_id="exec_summary_cohort_comparison"
+        section_id="exec_summary_cohort_comparison",
+        group="exec"
     ))
 
     # TABLE 2: The Mediums (baseline row not shaded, districts shaded vs Medium cohort)
@@ -2941,7 +2956,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         subtitle="",  # Removed subtitle per CR20
         summary_table=cohort_table2,
         explanation_blocks=[],  # Removed - explanation moved to bottom after all tables
-        omit_title=True  # Skip title since it's on the same page as Table 1
+        omit_title=True,  # Skip title since it's on the same page as Table 1
+        group="exec"
     ))
 
     # TABLE 3: The Tinies (baseline row not shaded, districts shaded vs Tiny cohort)
@@ -2967,7 +2983,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         summary_table=cohort_table3,
         explanation_blocks=cohort_explanation_text,
         omit_title=True,  # Skip title since it's on the same page as Table 1
-        needs_table_num_substitution=True  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
+        needs_table_num_substitution=True,  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
+        group="exec"
     ))
 
     # ===== CR09: Ch70 Aid Comparison Tables (3 tables: All Western MA, Medium, Tiny) =====
@@ -3008,7 +3025,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             explanation_blocks=[],
             first_cohort_table=True,  # Flag to show legend at top
             force_new_page=True,  # CR A: Force page break
-            section_id="exec_summary_ch70_comparison"
+            section_id="exec_summary_ch70_comparison",
+            group="exec"
         ))
 
         # Ch70 TABLE 2: The Mediums (baseline row not shaded, districts shaded vs Medium cohort)
@@ -3028,7 +3046,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             subtitle="",  # No subtitle for table 2
             summary_table=ch70_table2,
             explanation_blocks=[],
-            omit_title=True  # Skip title since it's on the same page as Table 1
+            omit_title=True,  # Skip title since it's on the same page as Table 1
+            group="exec"
         ))
 
         # Ch70 TABLE 3: The Tinies (baseline row not shaded, districts shaded vs Tiny cohort)
@@ -3054,7 +3073,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             summary_table=ch70_table3,
             explanation_blocks=ch70_explanation_text,
             omit_title=True,  # Skip title since it's on the same page as Table 1
-            needs_table_num_substitution=True  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
+            needs_table_num_substitution=True,  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
+            group="exec"
         ))
 
     # ===== CR10: Actual NSS (above Req NSS) Comparison Tables (3 tables: All Western MA, Medium, Tiny) =====
@@ -3095,7 +3115,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             explanation_blocks=[],
             first_cohort_table=True,  # Flag to show legend at top
             force_new_page=True,  # CR B: Force page break
-            section_id="exec_summary_nss_comparison"
+            section_id="exec_summary_nss_comparison",
+            group="exec"
         ))
 
         # NSS TABLE 2: The Mediums (baseline row not shaded, districts shaded vs Medium cohort)
@@ -3115,7 +3136,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             subtitle="",  # No subtitle for table 2
             summary_table=nss_table2,
             explanation_blocks=[],
-            omit_title=True  # Skip title since it's on the same page as Table 1
+            omit_title=True,  # Skip title since it's on the same page as Table 1
+            group="exec"
         ))
 
         # NSS TABLE 3: The Tinies (baseline row not shaded, districts shaded vs Tiny cohort)
@@ -3141,7 +3163,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             summary_table=nss_table3,
             explanation_blocks=nss_explanation_text,
             omit_title=True,  # Skip title since it's on the same page as Table 1
-            needs_table_num_substitution=True  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
+            needs_table_num_substitution=True,  # Flag to replace {N}, {N+1}, {N+2} with actual table numbers
+            group="exec"
         ))
 
     # ===== SECTION 1: WESTERN MA TRADITIONAL PUBLIC SCHOOL DISTRICT TRENDS =====
@@ -3162,7 +3185,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         subtitle="",
         text_blocks=section1_all_text,
         text_only_page=True,
-        section_id="section1_summary"
+        section_id="section1_summary",
+        group="section1"
     ))
 
     # PAGE 1: PPE Overview (moved from Executive Summary - cr06)
@@ -3175,7 +3199,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         chart_path=str(OUTPUT_DIR / "executive_summary_yoy_panes.png"),
         text_blocks=[exec_summary_explanation],
         graph_only=True,
-        section_id="section1_yoy"
+        section_id="section1_yoy",
+        group="section1"
     ))
 
     # PAGE 2: 5-year CAGR (moved from Executive Summary)
@@ -3190,7 +3215,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         text_blocks=[cagr_explanation],
         graph_only=True,
         cagr_with_legend=True,  # Special flag for legend + two charts layout
-        section_id="section1_cagr"
+        section_id="section1_cagr",
+        group="section1"
     ))
 
     # PAGE 3: Distribution of 2024 enrollment and proposed cohort grouping (text from report_text.txt)
@@ -3206,7 +3232,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         text_blocks=[enrollment_dist_explanation],
         graph_only=True,
         two_charts_vertical=True,
-        section_id="section1_distribution"
+        section_id="section1_distribution",
+        group="section1"
     ))
 
     # PAGE 4: 2024 Scatterplot with district table
@@ -3225,7 +3252,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         graph_only=False,  # Includes table
         scatterplot_districts=scatterplot_table_data,
         year=2024,
-        section_id="section1_scatter"
+        section_id="section1_scatter",
+        group="section1"
     ))
 
     # PAGE 5: Geographic map 2024
@@ -3239,7 +3267,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_2024.png"),
         text_blocks=choropleth_explanation_2024,
         graph_only=True,
-        section_id="section1_map"
+        section_id="section1_map",
+        group="section1"
     ))
 
     # PAGE 6: PPE comparison map 2024
@@ -3253,7 +3282,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         chart_path=str(OUTPUT_DIR / f"western_ma_ppe_comparison_2024.png"),
         text_blocks=ppe_comparison_explanation_2024,
         graph_only=True,
-        section_id="section1_ppe_comparison"
+        section_id="section1_ppe_comparison",
+        group="section1"
     ))
 
     # PAGE 7: CAGR comparison map 2009-2024
@@ -3267,7 +3297,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         chart_path=str(OUTPUT_DIR / f"western_ma_cagr_comparison_2009_2024.png"),
         text_blocks=cagr_comparison_explanation_2024,
         graph_only=True,
-        section_id="section1_cagr_comparison"
+        section_id="section1_cagr_comparison",
+        group="section1"
     ))
 
     # PAGE 8: Statistical Associations (moved from Executive Summary - cr03)
@@ -3310,7 +3341,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             subtitle="Statistical Associations between Enrollment and Per-Pupil Expenditures",
             text_blocks=stat_text_blocks_with_tables,
             text_only_page=True,
-            section_id="section1_statistical"
+            section_id="section1_statistical",
+            group="section1"
         ))
 
         # CR A03: REMOVED - PPE Statistical Test Results page (moved to Appendix B)
@@ -3384,7 +3416,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             subtitle="Statistical Associations between Enrollment and Chapter 70 Aid (per foundation pupil)",
             text_blocks=ch70_stat_text_blocks_with_tables,
             text_only_page=True,
-            section_id="section1_ch70_statistical"
+            section_id="section1_ch70_statistical",
+            group="section1"
         ))
 
         # REMOVED - Ch70 Aid Statistical Test Results page (moved to Appendix B)
@@ -3444,7 +3477,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             subtitle="Statistical Associations between Enrollment and Actual NSS (per foundation pupil)",
             text_blocks=nss_stat_text_blocks_with_tables,
             text_only_page=True,
-            section_id="section1_nss_statistical"
+            section_id="section1_nss_statistical",
+            group="section1"
         ))
 
         # REMOVED - Actual NSS Statistical Test Results page (moved to Appendix B)
@@ -3499,7 +3533,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         subtitle="",
         text_blocks=section2_all_text,
         text_only_page=True,
-        section_id="section2_intro"
+        section_id="section2_intro",
+        group="section2"
     ))
 
     # Each cohort gets PPE and NSS/Ch70 aggregate pages (moved from Section 1)
@@ -3570,7 +3605,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             raw_epp=epp,
             raw_lines=lines_mean,
             dist_name=title,
-            section_id=f"section2_{bucket.replace('-', '_')}"
+            section_id=f"section2_{bucket.replace('-', '_')}",
+            group="section2"
         ))
 
         # PAGE 2 for this cohort: NSS/Ch70 aggregate page (with district list text)
@@ -3610,7 +3646,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                         raw_nss=nss_west,  # Store for Appendix C data tables
                         raw_foundation=foundation_west,  # CR08 - Store for plots
                         district_list_text=district_list_text,  # Add district list text below NSS table
-                        section_id=f"section2_{bucket.replace('-', '_')}_nss"  # Add section_id for cross-references
+                        section_id=f"section2_{bucket.replace('-', '_')}_nss",  # Add section_id for cross-references
+                        group="section2"
                     ))
 
     # Add Western MA (all, excl. Springfield) aggregate pages at end of Section 2 (cr04)
@@ -3679,7 +3716,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 raw_epp=epp,
                 raw_lines=lines_mean,
                 dist_name=title,
-                section_id="section2_all_western"
+                section_id="section2_all_western",
+                group="section2"
             ))
 
         # PAGE 2: NSS/Ch70 aggregate page for all Western MA (no shading)
@@ -3711,7 +3749,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                     section_id="section2_all_western_nss",  # Add section_id for cross-references
                     raw_nss=nss_west,
                     raw_foundation=foundation_west,  # CR08 - Store for plots
-                    district_list_text=district_list_text
+                    district_list_text=district_list_text,
+                    group="section2"
                 ))
 
     # ===== SECTION 3: SPECIFIC DISTRICTS COMPARED TO COHORTS =====
@@ -3740,7 +3779,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         subtitle="",
         text_blocks=section3_all_text,
         text_only_page=True,
-        section_id="section3_intro"
+        section_id="section3_intro",
+        group="section3"
     ))
 
     # Pre-compute Western district lists for NSS/Ch70 baseline computation (6 enrollment groups)
@@ -3829,7 +3869,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             page_type="district", baseline_title=base_title, baseline_map=base_map,
             fte_baseline_map=fte_base_map,
             raw_epp=epp, raw_lines=lines, dist_name=dist,
-            section_id=f"{section_id}_ppe"  # Add _ppe suffix for cross-references
+            section_id=f"{section_id}_ppe",  # Add _ppe suffix for cross-references
+            group="section3"
         ))
 
         # District NSS/Ch70 page (grouped with this district)
@@ -3883,7 +3924,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                     dist_name=dist,
                     section_id=f"{section_id}_nss",  # Add _nss suffix for cross-references
                     raw_nss=nss_dist,  # Store raw data for Appendix A
-                    raw_foundation=foundation_dist  # CR08
+                    raw_foundation=foundation_dist,  # CR08
+                    group="section3"
                 ))
 
     # Note: Section 3 (ALPS PK-12 & Peers) removed. Districts now compared to enrollment-based peer groups.
@@ -3968,7 +4010,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         graph_only=True,
         text_blocks=appendix_a_content,
         section_id="appendix_a",
-        h1_headings=appendix_a_h1_headings  # Store for TOC generation
+        h1_headings=appendix_a_h1_headings,  # Store for TOC generation
+        group="appendix_a"
     ))
 
     # ===== APPENDIX B: STATISTICAL ASSOCIATIONS =====
@@ -3995,7 +4038,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         graph_only=True,
         text_blocks=appendix_b_content,
         section_id="appendix_b",
-        h1_headings=appendix_b_h1_headings  # Store for TOC generation
+        h1_headings=appendix_b_h1_headings,  # Store for TOC generation
+        group="appendix_b"
     ))
 
     # ===== APPENDIX C: DATA TABLES =====
@@ -4038,7 +4082,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             raw_nss=data.get("raw_nss"),  # May be None if no NSS/Ch70 data
             dist_name=dist_name,
             section_id="appendix_c",  # All data table pages are part of appendix_c
-            is_cohort=is_cohort_page
+            is_cohort=is_cohort_page,
+            group="appendix_c"
         )
 
         # Add cohort info to the page dict if this is a cohort page
@@ -4085,7 +4130,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{year}.png"),
                 text_blocks=[],  # No explanatory text
                 graph_only=True,
-                section_id="appendix_d"
+                section_id="appendix_d",
+                group="appendix_d"
             ))
         else:
             pages.append(dict(
@@ -4094,7 +4140,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{year}.png"),
                 text_blocks=[],  # No explanatory text
                 graph_only=True,
-                section_id="appendix_d"
+                section_id="appendix_d",
+                group="appendix_d"
             ))
 
         # Add PPE comparison map for this year
@@ -4104,7 +4151,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             chart_path=str(OUTPUT_DIR / f"western_ma_ppe_comparison_{year}.png"),
             text_blocks=[],  # No explanatory text
             graph_only=True,
-            section_id="appendix_d"
+            section_id="appendix_d",
+            group="appendix_d"
         ))
 
         # Add CAGR comparison map for this year (only if not 2009, the baseline year)
@@ -4126,7 +4174,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 chart_path=str(OUTPUT_DIR / filename),
                 text_blocks=[],  # No explanatory text
                 graph_only=True,
-                section_id="appendix_d"
+                section_id="appendix_d",
+                group="appendix_d"
             ))
 
     return pages
@@ -4409,9 +4458,7 @@ def build_pdf(pages: List[dict], out_path: Path):
 
                 table_data.append([title_cell, page_cell, indent_level])
 
-            # Build table with custom styling
-            from reportlab.platypus import Table
-            from reportlab.lib import colors
+            # Build table with custom styling (Table and colors already imported at module level)
 
             # Extract title and page columns (indent_level used for styling)
             # CR 999: Removed dotted leaders
@@ -5156,23 +5203,39 @@ def build_pdf(pages: List[dict], out_path: Path):
     doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
 
 # ---- Main ----
-def main(appendices_only=False):
+def main(appendices_only=False, sections=None):
     """
     Generate PDF reports.
 
     Args:
         appendices_only: If True, generate only the appendices PDF (CR A07)
+        sections: Comma-separated section groups to render (e.g. "exec,section1").
+                  If None, render all sections. Available groups:
+                  exec, section1, section2, section3,
+                  appendix_a, appendix_b, appendix_c, appendix_d
     """
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     df, reg, profile_c70 = load_data()
-    # Note: add_alps_pk12() removed - no longer using ALPS PK-12 aggregate concept
     # Pass appendices_only to filter mini TOC links appropriately (CR A07)
     all_pages = build_page_dicts(df, reg, profile_c70, appendices_only=appendices_only)
     if not all_pages:
         print("[WARN] No pages to write."); return
 
+    # Parse section groups if specified
+    requested_groups = None
+    if sections:
+        requested_groups = [s.strip() for s in sections.split(",")]
+        unknown = [g for g in requested_groups if g not in SECTION_GROUPS]
+        if unknown:
+            print(f"[WARN] Unknown section groups ignored: {', '.join(unknown)}")
+            print(f"[INFO] Available groups: {', '.join(sorted(SECTION_GROUPS))}")
+            requested_groups = [g for g in requested_groups if g in SECTION_GROUPS]
+        if not requested_groups:
+            print("[ERROR] No valid section groups specified."); return
+
+    is_partial = requested_groups is not None
+
     # CR A07: Split pages into main report and appendices
-    # Appendices are pages with section_id starting with "appendix_"
     main_pages = []
     appendix_pages = []
 
@@ -5183,58 +5246,86 @@ def main(appendices_only=False):
         else:
             main_pages.append(page)
 
+    # Apply section filtering if requested
+    if is_partial:
+        main_pages = filter_pages(main_pages, requested_groups)
+        appendix_pages = filter_pages(appendix_pages, requested_groups)
+        total_filtered = len(main_pages) + len(appendix_pages)
+        print(f"[INFO] Partial render: {', '.join(requested_groups)} ({total_filtered} pages)")
+
     # Determine which PDFs to build and insert appropriate TOC
     pdfs_to_build = []
     if appendices_only:
-        # Building appendices only: TOC with appendix sections only
-        print("[INFO] Building appendices only (--appendices-only flag)")
-        toc_page = build_toc_page(include_main_sections=False, include_appendices=True, pages=appendix_pages)
-        appendix_pages.insert(0, toc_page)
-        pdfs_to_build.append(("appendices", appendix_pages, "WMPPE Appendices.pdf"))
+        if is_partial:
+            print("[INFO] Building partial appendices (--sections filter active)")
+            pdfs_to_build.append(("appendices", appendix_pages, "WMPPE Appendices (DRAFT).pdf"))
+        else:
+            print("[INFO] Building appendices only (--appendices-only flag)")
+            toc_page = build_toc_page(include_main_sections=False, include_appendices=True, pages=appendix_pages)
+            appendix_pages.insert(0, toc_page)
+            pdfs_to_build.append(("appendices", appendix_pages, "WMPPE Appendices.pdf"))
     else:
-        # Building main report only: TOC with main sections only
-        print("[INFO] Building main report only")
-        toc_page = build_toc_page(include_main_sections=True, include_appendices=False, pages=all_pages)
-        main_pages.insert(0, toc_page)
-        pdfs_to_build.append(("main", main_pages, "Western MA Per Pupil Expenditure Report.pdf"))
+        if is_partial:
+            # Partial: no TOC, draft filename, may include both main and appendix pages
+            all_filtered = main_pages + appendix_pages
+            if all_filtered:
+                pdfs_to_build.append(("draft", all_filtered, "Western MA Per Pupil Expenditure Report (DRAFT).pdf"))
+        else:
+            print("[INFO] Building main report only")
+            toc_page = build_toc_page(include_main_sections=True, include_appendices=False, pages=all_pages)
+            main_pages.insert(0, toc_page)
+            pdfs_to_build.append(("main", main_pages, "Western MA Per Pupil Expenditure Report.pdf"))
 
-    # Build each PDF with two-pass generation
+    # Build each PDF
     for pdf_name, pages, filename in pdfs_to_build:
         if not pages:
             print(f"[WARN] No pages for {pdf_name}, skipping...")
             continue
 
         print(f"\n[INFO] Generating {pdf_name} PDF: {filename}")
-
-        # Two-pass PDF generation to populate TOC with page numbers
-        # Pass 1: Build PDF to capture page numbers in _PAGE_MAP
-        print(f"[INFO] Pass 1: Building {pdf_name} PDF to capture page numbers...")
-        clear_page_map()
-        temp_pdf = OUTPUT_DIR / f"{pdf_name}_temp.pdf"
-        build_pdf(pages, temp_pdf)
-
-        # Pass 2: Rebuild PDF with populated page numbers in TOC
-        print(f"[INFO] Pass 2: Rebuilding {pdf_name} PDF with page numbers ({len(_PAGE_MAP)} sections tracked)...")
         final_pdf = OUTPUT_DIR / filename
 
-        try:
-            build_pdf(pages, final_pdf)
-            # Clean up temporary file on success
-            if temp_pdf.exists():
-                temp_pdf.unlink()
-            print(f"[SUCCESS] {pdf_name.upper()} PDF generated: {final_pdf}")
-        except PermissionError as e:
-            print(f"[ERROR] Cannot write to {final_pdf}: file is locked (probably open in PDF viewer)")
-            print(f"[INFO] Temporary PDF with page numbers is available at: {temp_pdf}")
-            print("[INFO] Please close the PDF viewer and run the script again, or manually rename the temp file.")
-            raise
+        if is_partial:
+            # Single-pass for partial renders (no TOC to populate)
+            print(f"[INFO] Single-pass build ({len(pages)} pages, no TOC)...")
+            clear_page_map()
+            try:
+                build_pdf(pages, final_pdf)
+                print(f"[SUCCESS] {pdf_name.upper()} PDF generated: {final_pdf}")
+            except PermissionError:
+                print(f"[ERROR] Cannot write to {final_pdf}: file is locked (probably open in PDF viewer)")
+                raise
+        else:
+            # Two-pass PDF generation to populate TOC with page numbers
+            print(f"[INFO] Pass 1: Building {pdf_name} PDF to capture page numbers...")
+            clear_page_map()
+            temp_pdf = OUTPUT_DIR / f"{pdf_name}_temp.pdf"
+            build_pdf(pages, temp_pdf)
+
+            print(f"[INFO] Pass 2: Rebuilding {pdf_name} PDF with page numbers ({len(_PAGE_MAP)} sections tracked)...")
+
+            try:
+                build_pdf(pages, final_pdf)
+                if temp_pdf.exists():
+                    temp_pdf.unlink()
+                print(f"[SUCCESS] {pdf_name.upper()} PDF generated: {final_pdf}")
+            except PermissionError:
+                print(f"[ERROR] Cannot write to {final_pdf}: file is locked (probably open in PDF viewer)")
+                print(f"[INFO] Temporary PDF with page numbers is available at: {temp_pdf}")
+                print("[INFO] Please close the PDF viewer and run the script again, or manually rename the temp file.")
+                raise
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Generate school district PDF report")
     parser.add_argument("--appendices-only", action="store_true",
                         help="Generate only the appendices PDF (CR A07)")
+    parser.add_argument("--sections", type=str, default=None,
+                        help="Comma-separated section groups to render. "
+                             "Available: exec, section1, section2, section3, "
+                             "appendix_a, appendix_b, appendix_c, appendix_d. "
+                             "Default: all sections.")
     parser.add_argument("--force-recompute", action="store_true",
                         help="Bypass cache (accepted for pipeline compatibility, not used)")
     args = parser.parse_args()
-    main(appendices_only=args.appendices_only)
+    main(appendices_only=args.appendices_only, sections=args.sections)
