@@ -1,0 +1,53 @@
+Department,Item,Replacement_FY,Cost,Life_Years,Annual_Cost,Dept_Annual_Subtotal
+Police,Radio system for police/fire,2031,48000,10,4800,29799
+Police,Cruiser 1,2032,75000,9,8333,29799
+Police,Cruiser 2,2026,75000,9,8333,29799
+Police,Cruiser 3,2029,75000,9,8333,29799
+Highway,Volvo EWR 150E excavator,2041,325000,20,16250,117800
+Highway,Dump truck & body (Truck #8),2037,315000,15,21000,117800
+Highway,One ton truck (Truck #2),2035,110000,12,9167,117800
+Highway,Loader,2027,200000,20,10000,117800
+Highway,School tractor,2026,75000,20,3750,117800
+Highway,Zero turn mower,2028,18000,10,1800,117800
+Highway,Pickup (Truck #1),2035,100000,12,8333,117800
+Highway,Dump truck & body (Truck #7),2029,305000,15,20333,117800
+Highway,Grader,2029,450000,25,18000,117800
+Highway,10-wheel dump truck (Truck #10),2050,275000,30,9167,117800
+Fire,Lucas CPR machine,2031,15000,10,1500,80933
+Fire,Jaws of life,2042,40000,20,2000,80933
+Fire,Cistern at elementary school,2028,40000,20,2000,80933
+Fire,Cistern at north Leverett fire station,2028,20000,20,1000,80933
+Fire,Brush truck,2039,86000,15,5733,80933
+Fire,Fire chief vehicle,2029,65000,10,6500,80933
+Fire,Washer/extractor for turnout gear,2030,15000,10,1500,80933
+Fire,Air compressor to recharge SCBAs,2028,60000,20,3000,80933
+Fire,Tanker fire truck,2027,500000,25,20000,80933
+Fire,Fire engine B,2037,750000,25,30000,80933
+Fire,Medical response vehicle,2033,65000,10,6500,80933
+Fire,Handheld thermal imager,2030,12000,10,1200,80933
+Transfer Station,Compactor 1 (trash),2035,22000,15,1467,2934
+Transfer Station,Compactor 2 (paper),2032,22000,15,1467,2934
+Facilities,Boiler at public safety complex,2038,17000,18,944,33113
+Facilities,Paving at safety complex and library,2044,152000,20,7600,33113
+Facilities,ADA compliance at public safety,2028,12450,20,623,33113
+Facilities,ADA compliance at library,2028,21475,20,1074,33113
+Facilities,ADA compliance at Field building,2028,18850,20,943,33113
+Facilities,Town hall septic system and well,2030,389492,40,9737,33113
+Facilities,Library roof,2029,125000,50,2500,33113
+Facilities,Safety complex roof,2029,145640,50,2913,33113
+Facilities,Salt shed roof,2029,128960,50,2579,33113
+Facilities,School roof,2029,210000,50,4200,33113
+School,Gas stove/range,2041,12920,20,646,43130
+School,PA/phone system,2032,20000,10,2000,43130
+School,Sprinkler,2026,225000,15,15000,43130
+School,Boiler,2028,45000,20,2250,43130
+School,Water heater,2026,14000,20,700,43130
+School,7 heating units,2028,210000,20,10500,43130
+School,HVAC control system,2026,19010,15,1267,43130
+School,HVAC pumps,2028,10000,20,500,43130
+School,Server (computer),2026,15000,8,1875,43130
+School,Recreational facilities,2028,20000,15,1333,43130
+School,General ADA compliance,2028,26174,20,1309,43130
+School,Pre-K toilet ADA compliance,2028,25000,20,1250,43130
+School,"Ramps, ADA compliance",2028,45000,20,2250,43130
+School,"Walkways, ADA compliance",2028,45000,20,2250,43130

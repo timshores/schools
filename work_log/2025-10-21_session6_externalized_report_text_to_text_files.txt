@@ -1,0 +1,73 @@
+## 2025-10-21 (Session 6 continued) - Externalized Report Text to Text Files
+
+
+### Moved All Explanatory Text to External Files for Easy Editing
+
+**Context:** User requested that all explanatory text in the report be moved to external .txt files (similar to appendix_c_text.txt) for easier editing, with consistent formatting using list-based paragraphs instead of literal line breaks in code.
+
+**Files Created:**
+- `report_text.txt` - External text file containing all report explanatory text
+
+**Files Modified:**
+- `compose_pdf.py` (lines 262-343, 1711, 1905-1909, 2251-2318)
+
+**Changes Made:**
+
+1. **Created report_text.txt** with 5 text sections:
+   - `EXECUTIVE_SUMMARY_TINY_EXPLANATION` - Explanation for Tiny cohort comparison table
+   - `METHODOLOGY_PPE_DEFINITION` - PPE definitions, CAGR formulas, enrollment cohorts
+   - `METHODOLOGY_SHADING_LOGIC` - Orange/blue shading explanation
+   - `METHODOLOGY_NSS_CH70` - Chapter 70 and NSS calculations
+   - `METHODOLOGY_DATA_SOURCES` - Data source citations and URLs
+
+2. **Added Text Loading Functions** (compose_pdf.py:262-343):
+   - `load_report_text_sections()` - Loads and parses text file using `===` separators
+   - `fill_text_placeholders()` - Replaces {PLACEHOLDER} markers with dynamic values
+
+3. **Implemented Placeholder System** for dynamic content:
+   - `{COHORT_TINY_INFO}`, `{COHORT_SMALL_INFO}`, etc. - Cohort membership lists
+   - `{DOLLAR_THRESHOLD_PERCENT}`, `{CAGR_THRESHOLD_PP}` - Threshold values
+   - `{DOLLAR_BIN_1}` through `{DOLLAR_BIN_4}` - Shading intensity bins
+   - `{CAGR_BIN_1}` through `{CAGR_BIN_4}` - CAGR shading bins
+
+4. **Updated compose_pdf.py** to load external text:
+   - Line 1711: Load text sections at start of `build_page_dicts()`
+   - Lines 1905-1909: Replace hardcoded `explanation_text` with external load
+   - Lines 2261-2300: Build placeholder dictionary with dynamic cohort information
+   - Lines 2304-2316: Load 4 methodology pages from external file with placeholder filling
+   - Removed ~150 lines of hardcoded text blocks
+
+5. **Text File Format**:
+   ```
+   ================================================================================
+   SECTION_NAME
+   ================================================================================
+
+   Paragraph 1 text...
+
+   Paragraph 2 text...
+   ```
+   - Matches appendix_c_text.txt format for consistency
+   - Each empty line creates a blank paragraph for spacing
+   - ReportLab treats each list element as a paragraph
+
+**Impact:**
+- ✅ All explanatory text now in easy-to-edit .txt files
+- ✅ No need to touch Python code to update report text
+- ✅ Consistent formatting using paragraph lists (no literal line breaks)
+- ✅ Version control friendly (text changes don't pollute code diffs)
+- ✅ Dynamic content (cohort lists, thresholds) filled at runtime
+- ✅ Follows same pattern as existing appendix_c_text.txt
+
+**Usage for Future Edits:**
+- Edit `report_text.txt` to change any explanatory text
+- Placeholders like `{COHORT_TINY_INFO}` are automatically replaced
+- No code changes needed for text updates
+- Run compose_pdf.py to regenerate PDF with updated text
+
+**Verification:**
+- Tested text loading with Python script - successfully loads all 5 sections
+- Placeholder system tested with cohort info and threshold values
+- Text sections properly parsed into paragraph lists for ReportLab
+
+---

@@ -9,7 +9,7 @@ EXECUTIVE_SUMMARY_PAGE1
 "By the time it can be captured in numbers, it's too late."<br />
 — Peter Drucker, 'The Effective Executive', 1967
 <br /><br />
-<b>Draft Status:</b> As of <b>{TODAY_DATE}</b>, this report has been reviewed by the Amherst-Pelham Regional Schools (ARPS) Budget & Audit Subcommittee, which has referred it for review by the ARPS Fiscal Sustainability Subcommittee. Questions and comments should be directed to the author, Tim Shores (Leverett and ARPS School Committee member) at shorest@arps.org.
+<b>Draft Status:</b> As of <b>{TODAY_DATE}</b>, this report has been reviewed by the Amherst-Pelham Regional Schools (ARPS) Budget & Audit Subcommittee and the chair of the ARPS Fiscal Sustainability Subcommittee. It has been sent to the chair of the Leverett School Committee, Finance Committee, and Selectboard. Questions and comments should be directed to the author, Tim Shores (Leverett and ARPS School Committee member) at shorest@arps.org.
 
 ##H1 How to use this report
 The report is organized from broad regional patterns down to district-level details. As a descriptive report, it makes no forecasts and offers no recommendations. One way to use it would be as a companion to discussions that depend on meaningful cost comparisons. You could read straight through to build understanding from high-level trends to selected district details. Or you could use this <b>quick-start guide</b> to answer specific questions: 

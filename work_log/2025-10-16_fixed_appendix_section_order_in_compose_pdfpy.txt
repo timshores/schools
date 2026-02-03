@@ -1,0 +1,43 @@
+## 2025-10-16 - Fixed Appendix Section Order in compose_pdf.py
+
+
+### Reorganized Appendix pages.append() Calls to Match Logical Order
+
+**Context:** The appendix sections in compose_pdf.py were being added to the `pages` list in the wrong order. The content definitions were in one sequence, but the pages.append() calls were happening in a different order, causing the PDF to have appendices out of sequence.
+
+**Problem:**
+- Pages were being appended in order: C, D, A, B (lines ~1754-2456)
+- Should have been appended in order: A, B, C, D
+
+**Changes Made:**
+
+**File Modified:**
+- `compose_pdf.py`
+
+**Reorganization:**
+Moved four major code blocks to correct the pages.append() order:
+1. **Appendix A** (lines 2127-2373) → moved to lines 1754-2000
+   - Data Sources & Calculation Methodology
+   - Includes threshold analysis and methodology pages
+2. **Appendix B** (lines 2375-2456) → moved to lines 2002-2083
+   - Detailed Calculation Examples
+   - Reads from appendix_c_text.txt file
+3. **Appendix C** (lines 1754-2078) → moved to lines 2085-2409
+   - Complete Calculations
+   - Step-by-step calculations for all figures and tables
+4. **Appendix D** (lines 2080-2125) → moved to lines 2411-2456
+   - Data Tables
+   - Raw data tables for all districts
+
+**Final Structure (pages.append() order):**
+- Line 1754: APPENDIX A starts (Data Sources & Calculation Methodology)
+- Line 2002: APPENDIX B starts (Detailed Calculation Examples)
+- Line 2085: APPENDIX C starts (Complete Calculations)
+- Line 2411: APPENDIX D starts (Data Tables)
+
+**Impact:**
+- ✅ Appendices now appear in PDF in correct alphabetical order: A, B, C, D
+- ✅ No changes to content or functionality - pure reorganization
+- ✅ Maintains all existing section IDs and references
+
+---

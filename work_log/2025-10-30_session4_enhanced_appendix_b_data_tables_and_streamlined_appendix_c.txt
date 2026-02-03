@@ -1,0 +1,105 @@
+## 2025-10-30 (Session 4) - Enhanced Appendix B Data Tables and Streamlined Appendix C
+
+
+### Updated Appendix B with Explicit Per-Pupil Denominators and Cohort Information
+
+**Context:** User requested clearer labeling of per-pupil metrics in Appendix B, weighted average notation for cohort pages, cohort composition lists, and streamlining of Appendix C to show only maps. Follow-up corrections: remove explanatory text from Appendix C maps, clarify that table numbering starts at 1 in appendices PDF (separate file), and fix cohort lists implementation.
+
+**Files Modified:**
+- `compose_pdf.py` - Updated Appendix B headers, added cohort info, streamlined Appendix C
+
+**Changes Made:**
+
+1. **Updated Appendix B Table Headers and Subtitles:**
+   - Changed "PPE by Category ($/pupil)" → "PPE by Category ($/in-district FTE pupil)" (lines 3983, 3998, 4970, 4972)
+   - Changed "NSS/Ch70 Funding Components ($)" → "NSS/Ch70 Funding Components ($/foundation enrollment pupil)" (lines 3983, 3998, 5001, 5003)
+   - Updated appendix_note to clarify per-pupil denominators (line 3998)
+   - Makes explicit which enrollment denominator is used for each metric
+
+2. **Added Weighted Average Notation for Cohort Pages:**
+   - Added `is_cohort` flag to page_dict for cohort data tables (line 3991)
+   - Cohorts identified: "Western MA (all, excl. Springfield)", "Western MA Tiny", "Western MA Small", "Western MA Medium", "Western MA Large"
+   - PPE header for cohorts: "PPE by Category ($/in-district FTE pupil) — Weighted Averages" (line 4970)
+   - NSS header for cohorts: "NSS/Ch70 Funding Components ($/foundation enrollment pupil) — Weighted Averages" (line 5001)
+
+3. **Added Cohort Composition Lists at Bottom of Cohort Pages:**
+   - Added cohort info section after tables on cohort pages (lines 5014-5021)
+   - Displays "Cohort Composition (FY2024):" header
+   - Lists all 5 cohorts with district counts and members:
+     * Tiny (0-200 FTE)
+     * Small (201-800 FTE)
+     * Medium (801-1600 FTE)
+     * Large (1601-10K FTE)
+     * Springfield (>10K FTE)
+   - **Implementation fix:** Cohort info stored in page dict (lines 3998-4005) to solve scope issue
+   - Original implementation tried to access `placeholders` dict from wrong scope
+   - Now working correctly with cohort lists displaying at bottom of cohort pages
+
+4. **Table Numbering (Already Working):**
+   - Verified that table numbering continues from main document into appendices
+   - `reset_counters()` called once at start of PDF generation (line 4173)
+   - `next_table_number()` increments global counter throughout entire PDF
+   - No changes needed - feature already implemented correctly
+
+5. **Removed Scatterplots from Appendix C:**
+   - Commented out all scatterplot pages for years 2019, 2014, 2009 (lines 4025-4044)
+   - Code preserved in comments for potential future restoration
+   - Appendix C now contains only choropleth maps:
+     * Enrollment cohort maps (3 years)
+     * PPE comparison maps (3 years)
+     * CAGR comparison maps (2 years: 2019, 2014)
+   - Total: 8 map pages instead of 11 pages (3 scatterplots removed)
+
+5b. **Removed Explanatory Text from Appendix C Maps:**
+   - All `text_blocks` set to empty list `[]` for map pages (lines 4028, 4037, 4047, 4069)
+   - Removed intro text, choropleth explanations, PPE comparison explanations, CAGR explanations
+   - Maps now display with subtitles only, no body text below images
+   - Cleaner presentation focused purely on visual data
+
+6. **Renamed Appendix C:**
+   - Changed "Appendix C. Additional Visualizations" → "Appendix C. Maps from previous years" (lines 4049, 4058, 4071, 4097)
+   - Updated intro text to remove scatterplot references (lines 4017-4020)
+   - Updated TOC entries in both mini-TOC and full TOC (lines 2655, 4167)
+   - More descriptive title focusing on historical geographic data
+
+**Impact:**
+- ✅ Clearer communication of which enrollment denominator is used (in-district FTE vs foundation enrollment)
+- ✅ Cohort pages explicitly labeled as weighted averages
+- ✅ Cohort composition visible on data table pages for easy reference (after scope fix)
+- ✅ Table numbering starts at 1 in appendices PDF (separate from main report)
+- ✅ Appendix C streamlined - 3 fewer pages, no explanatory text, clearer focus on maps
+- ✅ All TOC entries updated with new naming
+
+**Per-Pupil Denominator Clarification:**
+- **PPE metrics:** Use in-district FTE enrollment (from EOYR data)
+- **NSS/Ch70 metrics:** Use foundation enrollment (from Ch70 Fall reports)
+- This distinction now explicitly shown in all headers and subtitles
+- See `prepare_district_nss_ch70()` and `prepare_aggregate_nss_ch70_weighted()` in school_shared.py for implementation
+
+**Cohort Pages Enhanced:**
+- Weighted average labels prevent confusion about aggregation method
+- Cohort composition lists show which districts are in each cohort
+- Consistent with Appendix A methodology documentation
+- Easy to verify cohort assignments while viewing data
+
+**Appendix C Streamlined:**
+- Scatterplots were redundant with Section 1 content
+- Maps provide unique historical geographic perspective
+- Cleaner narrative flow focused on geographic trends
+- Original scatterplot code preserved in comments (lines 4025-4044)
+
+**Testing:**
+- Run `python compose_pdf.py --appendices-only` to verify:
+  * Appendix B headers show correct denominators
+  * Cohort pages show "Weighted Averages" notation
+  * Cohort composition lists appear at bottom of cohort pages (Western MA cohort pages)
+  * Table numbers start at 1 in appendices PDF
+  * Appendix C shows only maps (8 pages total) with no explanatory text below images
+  * TOC shows "Maps from previous years"
+
+**Corrections Applied (follow-up):**
+1. Removed all explanatory text from Appendix C map pages (lines 4028, 4037, 4047, 4069)
+2. Clarified table numbering: starts at 1 in appendices PDF (separate file from main report)
+3. Fixed cohort lists implementation: moved cohort info from placeholders dict (wrong scope) to page dict (lines 3998-4005, 5014-5021)
+
+---

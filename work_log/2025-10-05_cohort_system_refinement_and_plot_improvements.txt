@@ -1,0 +1,80 @@
+## 2025-10-05 - Cohort System Refinement and Plot Improvements
+
+
+### Implemented 5-Tier IQR-Based Cohort System
+
+**Change 1: Updated Cohort Boundaries from 4-tier to 5-tier**
+- **Old system (4 tiers):**
+  - Small: 0 to Median (rounded to nearest 100)
+  - Medium: Median+1 to Q3 (rounded to nearest 100)
+  - Large: Q3+1 to max non-outlier (rounded to nearest 100)
+  - Springfield: >8000 FTE (outlier)
+
+- **New system (5 tiers):**
+  - Tiny: 0 to Q1 (rounded to nearest 100)
+  - Small: Q1+1 to Median (rounded to nearest 100)
+  - Medium: Median+1 to Q3 (rounded to nearest 100)
+  - Large: Q3+1 to max non-outlier (rounded **up** to nearest 1000)
+  - Springfield: >8000 FTE (outlier)
+
+**Implementation:**
+- `school_shared.py:87-97` - Updated `calculate_cohort_boundaries()` to calculate Q1, Median, Q3
+  - Added `round_up_1000()` function for Large cohort upper bound (ensures districts like Chicopee (7,530 FTE) are correctly classified)
+  - Updated static fallback definitions to include TINY
+- `school_shared.py:243-246` - Updated `get_western_cohort_districts()` to return 5 cohorts
+- `school_shared.py:670-695` - Updated `prepare_western_epp_lines()` to handle "tiny" bucket
+- `school_shared.py:577-587` - Updated `context_for_western()` to include TINY mapping
+- `compose_pdf.py:203-208` - Added purple color (#9C27B0) for TINY in scatterplot table
+- `compose_pdf.py:326-328` - Updated scatterplot table sort order to place TINY first
+- `compose_pdf.py:1230-1248` - Added western_tiny list and TINY grouping logic
+- `compose_pdf.py:1274-1281` - Added TINY to bucket_map for district baselines
+- `compose_pdf.py:1323-1330` - Added TINY to group_map for NSS/Ch70 baselines
+- `compose_pdf.py:1417-1442` - Added TINY to Appendix B methodology text
+- `compose_pdf.py:1466-1481` - Updated methodology to describe 5 cohorts instead of 4
+- `nss_ch70_main.py:74-79` - Added western_tiny to enrollment_groups
+- `nss_ch70_main.py:126-127` - Added "Tiny" filename handling for NSS/Ch70 plots
+- `western_enrollment_plots_individual.py:130-150` - Added TINY cohort (purple) to scatterplot
+- `western_enrollment_plots_individual.py:160-206` - Updated enrollment grouping plot to show 5 bars with narrower width (height=0.64)
+
+**Change 2: Improved Plot Overflow Tick Logic**
+- **Problem:** Faded overflow ticks appeared on all plots, even when recent enrollment stayed within cohort bounds
+- **Solution:** Only extend y-axis with faded ticks when **early years (2009-2011)** exceed the cohort upper bound
+- **Implementation:**
+  - `nss_ch70_plots.py:151-187` - Check early years enrollment before extending axis
+    - If early max > cohort bound: extend by 100-200 above early max
+    - Tick spacing: 100 (if ylim < 1000), 200 (if ylim ≤ 2000), 500 (if ylim < 5000), 1000 (otherwise)
+  - `district_expend_pp_stack.py:173-201, 254-282` - Same logic for PPE plots (both plot_one_simple and plot_one)
+- **Examples:**
+  - Amherst (Medium, ylim=1800): Shows 0-1800 with 200 spacing, faded 2000 tick if 2009 enrollment > 1800
+  - Leverett (Tiny, ylim=200): Shows 0-200 with 100 spacing, no overflow ticks if 2009 ≤ 200
+
+**Change 3: Removed Top Border from All Plots**
+- `nss_ch70_plots.py:147` - Added `axL.spines['top'].set_visible(False)`
+- `district_expend_pp_stack.py:202, 283` - Added same to both plot functions
+
+**Files Modified:**
+- `school_shared.py` - 5-tier cohort calculation, TINY handling throughout
+- `compose_pdf.py` - TINY cohort in all mappings, tables, methodology
+- `nss_ch70_main.py` - TINY aggregate plot generation
+- `nss_ch70_plots.py` - Early-years overflow logic, top border removal
+- `district_expend_pp_stack.py` - Early-years overflow logic, top border removal, tick spacing fix
+- `western_enrollment_plots_individual.py` - 5-tier scatterplot and grouping plot
+
+**Impact:**
+- ✅ Better granularity for small districts (Tiny cohort separates smallest 25%)
+- ✅ Large cohort upper bound now accommodates high-enrollment districts correctly
+- ✅ Scatterplot table shows all 5 cohorts with color-coded dots
+- ✅ Y-axis overflow ticks only appear when historically necessary
+- ✅ Tick marks properly align with cohort boundaries (e.g., 1800 for Medium)
+- ✅ All titles and labels automatically reflect dynamic IQR-based boundaries
+- ✅ Cleaner plot appearance without top border
+
+**Cascade Verification:**
+- [x] Enrollment grouping plot shows 5 bars with correct boundaries
+- [x] Scatterplot shows 5 colors (purple, green, blue, orange for cohorts)
+- [x] All Western MA aggregate pages generated for 5 cohorts
+- [x] District comparison baselines automatically use correct cohort
+- [x] Appendix B methodology lists 5 cohorts with member districts
+- [x] No legacy ">500 Students" or "≤500 Students" text remains
+
+---

@@ -1,0 +1,77 @@
+## 2025-10-30 (Session 5) - Fixed Cohort Composition List Bug
+
+
+### Bug Fix: Cohort Detection Logic Was Broken + Display Only Relevant Cohort
+
+**Context:** User reported that cohort composition lists were still not appearing on Appendix B cohort pages, despite previous "fix" in Session 4. Then clarified that each cohort page should show only that cohort's membership, not all 5 cohorts.
+
+**Root Cause #1 - Detection Logic:** The `is_cohort_page` check at line 3982 was comparing against incorrect string values. The check was looking for exact matches like "Western MA Tiny", but the actual `dist_name` values from `prepare_western_epp_lines()` are formatted as:
+- "All Western MA Traditional Districts: Tiny (0-400 FTE)"
+- "All Western MA Traditional Districts: Small (401-800 FTE)"
+- etc.
+
+This mismatch meant `is_cohort_page` was always `False`, so cohort_info_lines were never added to the page dict, and thus never rendered.
+
+**Root Cause #2 - Wrong Info Displayed:** The original implementation added all 5 cohort info lines to every cohort page. The requirement is that each cohort page should show only that specific cohort's membership.
+
+**Files Modified:**
+- `compose_pdf.py` - Fixed cohort detection logic (line 3982-3983) and display logic (lines 3998-4015)
+
+**Changes Made:**
+
+1. **Fixed Cohort Page Detection Logic:**
+   - **Old logic (broken):**
+     ```python
+     is_cohort_page = (dist_name in ["Western MA (all, excl. Springfield)", "Western MA Tiny", ...])
+     ```
+   - **New logic (working):**
+     ```python
+     is_cohort_page = (dist_name.startswith("All Western MA Traditional Districts:") and
+                       "All Western MA (excl. Springfield)" not in dist_name)
+     ```
+   - Now correctly identifies cohort pages by checking if dist_name starts with the aggregate prefix
+   - Excludes the overall "All Western MA (excl. Springfield)" aggregate (not a specific cohort)
+   - Will match: Tiny, Small, Medium, Large, and Springfield cohorts
+
+2. **Fixed Cohort Info Display - Show Only Relevant Cohort:**
+   - **Old logic (showing all 5 cohorts on every page):**
+     ```python
+     page_dict["cohort_info_lines"] = [
+         f"• {placeholders['COHORT_TINY_INFO']}",
+         f"• {placeholders['COHORT_SMALL_INFO']}",
+         # ... all 5 cohorts
+     ]
+     ```
+   - **New logic (showing only the page's specific cohort):**
+     ```python
+     # Determine which cohort this page belongs to by parsing dist_name
+     if "Tiny" in dist_name:
+         cohort_info = placeholders['COHORT_TINY_INFO']
+     elif "Small" in dist_name:
+         cohort_info = placeholders['COHORT_SMALL_INFO']
+     # ... etc.
+
+     if cohort_info:
+         page_dict["cohort_info_lines"] = [cohort_info]
+     ```
+   - Parses dist_name to identify which cohort (Tiny, Small, Medium, Large, or Outliers/Springfield)
+   - Adds only that cohort's info to cohort_info_lines
+   - Results in each page showing only its relevant membership
+
+**Impact:**
+- ✅ Cohort composition lists now appear at bottom of cohort data table pages
+- ✅ Each cohort page shows ONLY that cohort's membership (not all 5)
+- ✅ Tiny page shows Tiny membership, Large page shows Large membership, etc.
+- ✅ Individual district pages and overall aggregate page have no cohort lists (as intended)
+
+**Testing:**
+- Run `python compose_pdf.py --appendices-only` to verify:
+  * Tiny cohort page shows only Tiny cohort membership at bottom
+  * Small cohort page shows only Small cohort membership at bottom
+  * Medium cohort page shows only Medium cohort membership at bottom
+  * Large cohort page shows only Large cohort membership at bottom
+  * Springfield cohort page shows only Springfield cohort membership at bottom
+  * Individual district pages show no cohort info
+  * "All Western MA (excl. Springfield)" page shows no cohort info
+
+---

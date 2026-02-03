@@ -1,0 +1,54 @@
+## 2025-10-30 (Session 9) - Added Footnote Marker for Worthington Ch70 CAGR Anomaly
+
+
+### Change: Marked Structural Change Anomaly in Ch70 CAGR Table
+
+**Context:** User identified that Worthington's -5.5% Ch70 aid CAGR (2009-2024) is misleading due to a structural change (regionalization/merger) rather than actual funding cuts. Foundation enrollment jumped from 12 pupils (2015) to 115 pupils (2016), while total aid actually increased 6.4x. The per-pupil decline reflects enrollment changes, not state funding policy.
+
+**Files Modified:**
+- `compose_pdf.py` - Added superscript asterisk to Tiny cohort's minimum Ch70 CAGR value (lines 1446-1448)
+
+**Investigation Results:**
+
+Worthington's Ch70 aid trajectory:
+- **Total Aid:** $72,731 (2009) → $464,966 (2024) = 6.4x increase
+- **Foundation Enrollment:** 8 pupils (2009) → 120 pupils (2024) = 15x increase
+- **Per-Pupil Aid:** $9,091 (2009) → $3,875 (2024) = -5.5% CAGR
+
+The dramatic enrollment jump (12 → 115 pupils) between 2015-2016 indicates a structural change (likely regionalization or merger with another district), not a funding decrease.
+
+**Changes Made:**
+
+1. **Added Conditional Formatting for Anomalous Value (lines 1446-1448):**
+   ```python
+   # Add superscript asterisk for Tiny cohort's negative Ch70 CAGR (Worthington structural change)
+   if cohort_name == "TINY" and "Ch70" in metric_name and "Growth" in metric_name and row['min'] < 0:
+       min_str = f"{row['min']:.1f}%<super>*</super>"
+   ```
+   - Detects: Tiny cohort + Ch70 Growth Rate metric + negative minimum value
+   - Appends: `<super>*</super>` HTML tag for superscript asterisk
+   - Result: -5.5%* displays in the table
+
+2. **User Will Add Footnote:**
+   - User will add explanatory note in `report_text.txt` below the Ch70 CAGR table
+   - Note will explain structural change (regionalization/merger) affecting per-pupil calculation
+
+**Impact:**
+- ✅ Readers alerted to data quality issue via footnote marker
+- ✅ Prevents misinterpretation of -5.5% as funding cuts
+- ✅ Maintains data integrity while flagging anomaly
+- ✅ Specific detection (only affects Tiny cohort's Ch70 growth rate minimum)
+
+**Data Quality Insight:**
+This reveals a broader issue: districts undergoing structural changes (regionalization, mergers, breakups) create misleading CAGR values. Future improvements could:
+- Exclude districts with >50% enrollment jumps from CAGR calculations
+- Use post-structural-change baseline years
+- Identify and flag all structural change anomalies
+
+**Testing:**
+- Run `python compose_pdf.py --appendices-only` to verify:
+  * Ch70 CAGR table shows -5.5%* (with superscript asterisk) in Tiny cohort's Min column
+  * Other cohorts and metrics remain unchanged
+  * PPE CAGR and NSS CAGR tables unaffected (no structural change anomalies there)
+
+---

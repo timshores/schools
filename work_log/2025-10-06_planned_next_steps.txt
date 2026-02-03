@@ -1,0 +1,83 @@
+## 2025-10-06 - Planned Next Steps
+
+
+### Objective: Add Regional CPI Comparison and Geographic Visualization
+
+**1. Regional CPI Data Integration**
+- **Data source:** Bureau of Labor Statistics (BLS) CPI-U data for Boston-Cambridge-Newton metro area
+  - Boston CPI is standard reference for Massachusetts cost-of-living adjustments
+  - May also want Northeast region CPI or National CPI for additional context
+- **Time period:** 2009-2024 (matching current plot timeframe)
+- **Integration points:**
+  - Add CPI adjustment option to expenditure plots (inflation-adjusted dollars)
+  - Show real vs nominal growth rates in CAGR tables
+  - Compare district spending growth to CPI growth (outpacing inflation vs falling behind)
+- **Implementation considerations:**
+  - Need to decide: adjust historical values to 2024 dollars, or show CPI as overlay line?
+  - May need new column in tables: "Real CAGR (CPI-adjusted)"
+  - Could add toggle in plot generation: nominal vs real dollars
+- **Data location:**
+  - Store in new CSV: `data/cpi_boston_metro.csv` or similar
+  - Add BLS API integration option for automatic updates
+
+**2. Choropleth Map of Included Districts**
+- **Purpose:** Show which Western MA districts are included in analysis at a glance
+- **Map requirements:**
+  - Massachusetts state outline
+  - Western MA county boundaries (Berkshire, Franklin, Hampshire, Hampden)
+  - District boundaries or town polygons
+  - Color coding:
+    - Highlight 5 districts of interest (Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury) in dark orange
+    - Show all other Western MA Traditional districts in steel blue
+    - Gray out excluded districts (charters, vocational, non-Western)
+  - Cohort indicators: Could use different shades/patterns for Tiny/Small/Medium/Large cohorts
+- **Technical approach:**
+  - Use geopandas + matplotlib for static map generation
+  - Data source: MassGIS (MA Office of Geographic Information) provides district/town shapefiles
+  - Alternative: Use Folium for interactive HTML map (could be separate from PDF)
+- **Integration:**
+  - Add as new page early in PDF (before Section 1 or after TOC)
+  - Title: "Western Massachusetts Traditional School Districts Included in Analysis"
+  - Could include legend showing cohort boundaries and district counts
+- **File structure:**
+  - New script: `western_map.py` for map generation
+  - Shapefile data in: `data/ma_districts/` directory
+  - Output: `output/western_ma_map.png`
+
+**3. Additional Enhancements to Consider**
+- **CPI comparison page:**
+  - Dedicated page showing CPI trend line 2009-2024
+  - Table comparing district/cohort CAGR to CPI growth rate
+  - Districts with spending growth < CPI highlighted (losing purchasing power)
+- **Real vs Nominal toggle:**
+  - Add parameter to all plotting functions: `inflation_adjusted=False`
+  - When True: multiply historical values by CPI ratio to convert to 2024 dollars
+  - Update y-axis labels: "$ per pupil (2024 dollars)" vs "$ per pupil (nominal)"
+- **Map enhancements:**
+  - Add district enrollment size as circle overlays
+  - Show PPE by color gradient (expensive districts darker, cheaper lighter)
+  - Include major highways/cities for geographic orientation
+
+**4. Data Files Needed**
+- CPI data CSV with columns: year, cpi_value, cpi_index_2024base
+- MA district shapefile (.shp, .shx, .dbf, .prj) from MassGIS
+- District-to-town mapping (some districts span multiple towns)
+
+**5. New Dependencies**
+- `geopandas` for spatial data handling
+- `shapely` for geometry operations (comes with geopandas)
+- `descartes` or `contextily` for basemap backgrounds (optional)
+
+### Questions to Resolve
+1. CPI reference: Boston metro only, or also show Northeast/National for comparison?
+2. Inflation adjustment: Convert all to real dollars, or keep nominal with CPI overlay?
+3. Map style: Simple choropleth, or add enrollment/PPE overlays?
+4. Map placement: Before Section 1, after TOC, or in new "Geography" appendix?
+5. Interactive map: HTML version in addition to static PDF image?
+
+### Nul
+The code created the file output\nul which causes problems with git. 'nul' is a reserved name in Windows. 
+Instructions for Claude Code during next session: Update the code to make sure it does not create a nul file.
+Tell Daisy why it was created in the first place, if known.
+
+---

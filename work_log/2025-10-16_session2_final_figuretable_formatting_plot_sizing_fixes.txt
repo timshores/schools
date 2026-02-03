@@ -1,0 +1,44 @@
+## 2025-10-16 (Session 2) - Final Figure/Table Formatting & Plot Sizing Fixes
+
+
+### Fixed Remaining Visual Issues from Previous Session
+
+**Context:** Continued from earlier session to address user feedback on figure/table positioning, plot sizing, and legend layouts.
+
+**Files Modified:**
+- `western_enrollment_plots_individual.py` (line 220)
+- `executive_summary_plots.py` (lines 556, 677-679)
+
+**Changes Made:**
+
+1. **Scatterplot Legend - Full Width Layout**
+   - Changed legend from `ncol=4` to `ncol=9` (line 220 in western_enrollment_plots_individual.py)
+   - Legend now spans full plot width horizontally, reducing vertical space usage
+   - Maintains all legend items (5 cohorts + 4 quartile/percentile lines)
+
+2. **5-Year CAGR Grouped Plot - Restored Original Size**
+   - Changed figsize from `(16, 7)` back to `(16, 9)` (line 556 in executive_summary_plots.py)
+   - Plot no longer appears "tiny" - matches proper proportions with large legend above
+   - Width remains 16 inches to match 15-year plot width
+
+3. **15-Year CAGR Plot - Corrected Bar Width Calculation**
+   - Changed bar_width from `1.4` to `0.6` (line 679 in executive_summary_plots.py)
+   - CRITICAL FIX: Bars are now 2-3x wider than individual bars in 5-year grouped plot
+   - Previous change incorrectly made bars 2x their original width (0.7 → 1.4)
+   - Correct calculation: 5-year bars = 0.8/n_items * 0.95 ≈ 0.076 units (for n=10)
+   - 15-year bars at 0.6 = approximately 2.5x the 5-year individual bar width
+   - Added explanatory comments documenting the calculation
+
+**Impact:**
+- ✅ All figure/table numbering complete (from previous session)
+- ✅ All appendices in correct order A, B, C, D (from previous session)
+- ✅ Scatterplot legend optimized for horizontal space
+- ✅ CAGR plots properly sized relative to each other
+- ✅ Bar width relationship between 5-year and 15-year plots corrected
+
+**Technical Notes:**
+- Bar width calculation accounts for different plot types: grouped bars (5-year) vs individual bars (15-year)
+- Grouped plot divides 0.8 units among n_items, while 15-year plot spaces bars at integer positions
+- Visual consistency achieved through careful calculation of data unit proportions
+
+---

@@ -1,0 +1,71 @@
+## 2025-10-30 (Session 6) - Added Appendix A Section Headings to TOC
+
+
+### Enhancement: Show ##H1 Headings from Appendix A in Table of Contents
+
+**Context:** User requested that ##H1 headings from appendix_a_text.txt appear as subheadings under "Appendix A" in the Table of Contents.
+
+**Files Modified:**
+- `compose_pdf.py` - Extract H1 headings and add to TOC (lines 3944-3961, 4109-4180, 5156, 5162)
+
+**Changes Made:**
+
+1. **Extract H1 Headings from Appendix A Content (lines 3944-3950):**
+   - After loading and processing appendix_a_text.txt content
+   - Loop through text blocks to find H1 heading tuples
+   - Store extracted H1 headings in `appendix_a_h1_headings` list
+
+2. **Store H1 Headings in Page Dict (line 3961):**
+   - Added `h1_headings` field to appendix_a page dict
+   - Makes H1 headings available to TOC generation function
+
+3. **Updated build_toc_page Function Signature (line 4109):**
+   - Added `pages=None` parameter to access page data
+   - Allows TOC builder to extract H1 headings from appendix_a page
+
+4. **Add H1 Headings to TOC (lines 4170-4175):**
+   - After "Appendix A" entry in TOC, find appendix_a page
+   - Extract h1_headings list from page dict
+   - Add each H1 heading as sub-entry with indent_level=2
+   - Format: "        {H1 heading text}" (8 spaces for visual hierarchy)
+
+5. **Pass Pages to build_toc_page Calls (lines 5156, 5162):**
+   - Appendices PDF: Pass `appendix_pages` to access appendix_a page
+   - Main report PDF: Pass `all_pages` (though main report doesn't show appendices)
+
+**Result:**
+
+TOC now shows hierarchical structure for Appendix A:
+```
+Appendices
+    Appendix A: Data Sources & Calculation Methodology
+        1. Data sources
+        2. Key definitions & calculations
+        3. District size classifications
+        4. Cohort definitions
+        5. Spending metrics
+        6. Enrollment-adjusted comparisons
+        7. Statistical Analysis of Enrollment-Expenditure Relationships
+    Appendix B: Data Tables
+    Appendix C: Maps from previous years
+```
+
+**Impact:**
+- ✅ Improved navigation within Appendix A
+- ✅ Shows document structure at a glance
+- ✅ H1 headings automatically update when appendix_a_text.txt changes
+- ✅ Maintains hierarchical indentation (0=main, 1=appendix, 2=section)
+
+**Technical Notes:**
+- H1 headings stored as tuples: `("H1", "heading text")`
+- TOC entries use indent_level: 0 (main), 1 (sub), 2 (sub-sub)
+- No section_id for H1 entries (they're informational, not linkable)
+- Mini-TOC navigation boxes unchanged (remain simple appendix links)
+
+**Testing:**
+- Run `python compose_pdf.py --appendices-only` to verify:
+  * TOC shows Appendix A with all ##H1 sections indented below it
+  * Each H1 heading appears with proper indentation (8 spaces)
+  * Order matches appendix_a_text.txt sequence
+
+---

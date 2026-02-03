@@ -1,0 +1,52 @@
+## 2025-10-30 (Session 8) - Removed Statistical Test Results Pages from Main Report
+
+
+### Change: Moved Statistical Test Results to Appendix B Only
+
+**Context:** User requested removal of 3 "Statistical Test Results" pages from Section 1 of the main report. These pages contained brief summaries stating analyses examine "statistical associations, not causal relationships." The detailed statistical content now lives exclusively in Appendix B.
+
+**Files Modified:**
+- `compose_pdf.py` - Commented out 3 statistical test results pages (lines 3312-3325, 3386-3399, 3446-3459)
+
+**Changes Made:**
+
+1. **Removed PPE Statistical Test Results Page (lines 3312-3325):**
+   - Title: "Statistical Test Results for Per-Pupil Expenditures"
+   - Content: Brief intro stating analyses examine associations, not causation
+   - Status: Commented out (can be restored if needed)
+   - Reason: Content now in Appendix B with full detail
+
+2. **Removed Ch70 Aid Statistical Test Results Page (lines 3386-3399):**
+   - Title: "Statistical Test Results for Chapter 70 Aid (per foundation pupil)"
+   - Content: Brief intro about enrollment-Ch70 associations
+   - Status: Commented out
+   - Reason: Content now in Appendix B with full detail
+
+3. **Removed NSS Statistical Test Results Page (lines 3446-3459):**
+   - Title: "Statistical Test Results for Actual NSS above Required NSS (per foundation pupil)"
+   - Content: Brief intro about enrollment-NSS associations
+   - Status: Commented out
+   - Reason: Content now in Appendix B with full detail
+
+**Impact:**
+- ✅ Main report (Section 1) now has only Statistical Associations pages with box plot distributions
+- ✅ No duplicate/redundant content between main report and appendix
+- ✅ Cleaner flow in Section 1
+- ✅ All detailed statistical analyses consolidated in Appendix B
+- ✅ Code preserved in comments for easy restoration if needed
+
+**Result:**
+Main report Section 1 now ends with:
+- Statistical Associations between Enrollment and Per-Pupil Expenditures (with box plots)
+- Statistical Associations between Enrollment and Chapter 70 Aid (with box plots)
+- Statistical Associations between Enrollment and Actual NSS (with box plots)
+
+All detailed statistical tests (regression, correlation, ANOVA, multiple regression) are in Appendix B.
+
+**Testing:**
+- Run `python compose_pdf.py` (without --appendices-only) to verify:
+  * Main report does NOT contain the 3 "Statistical Test Results" pages
+  * Section 1 ends with the distribution box plots pages
+  * Main report flows directly from statistical associations to Section 2
+
+---

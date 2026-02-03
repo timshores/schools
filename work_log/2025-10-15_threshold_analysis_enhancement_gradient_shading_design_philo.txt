@@ -1,0 +1,39 @@
+## 2025-10-15 - Threshold Analysis Enhancement: Gradient Shading Design Philosophy
+
+
+### Added Design Philosophy Section to Threshold Analysis Page
+
+**Context:** Enhanced the threshold analysis "working page" to include comprehensive explanation of why ~80% flagging rates work perfectly with gradient shading, and why 5%/1pp is the "Goldilocks solution."
+
+**Changes Made:**
+
+**Location:** `compose_pdf.py` lines 1278-1307 (within `build_threshold_analysis_page()`)
+
+**New Section Added:** "Design Philosophy: Why ~80% Flagging Rates Work with Gradient Shading"
+
+**Key Content:**
+1. **Three Levels of Information:**
+   - No shading (white): Districts statistically similar (<5% / <1pp difference)
+   - Light shading (subtle color): Notable differences worth attention
+   - Intense shading (saturated color): Exceptional outliers that grab the eye
+
+2. **Threshold as "Noise Floor":**
+   - Filters trivial differences below 5%/1pp
+   - Gradient intensity shows *how much* a district differs from peers
+   - Creates natural visual hierarchy
+
+3. **The Goldilocks Solution (5%/1pp):**
+   - **Statistical balance:** Similar flagging rates (~82% vs ~76%) despite different natural variation
+   - **Practical communication:** Round, memorable numbers vs impractically precise 0.72pp
+   - **Appropriate sensitivity:** Loosens overly-tight previous thresholds, filters noise, reserves intense shading for true outliers
+
+**Impact:**
+- ✅ Explains why high flagging rates are actually ideal with gradient shading (not binary on/off)
+- ✅ Justifies design choice with visual hierarchy theory
+- ✅ Contrasts with alternative approaches (0.72pp perfectionism, 5%/5pp imbalance)
+- ✅ Reinforces the multi-dimensional optimality of 5%/1pp choice
+
+**Files Modified:**
+- `compose_pdf.py`: Added ~30 lines to explanation_blocks in build_threshold_analysis_page()
+
+---

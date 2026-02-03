@@ -1,0 +1,100 @@
+# Work Log - School Data Analysis Project
+
+Session files (newest first):
+
+  2025-10-30_session9_added_footnote_marker_for_worthington_ch70_cagr_anomaly.txt
+    2025-10-30 (Session 9) - Added Footnote Marker for Worthington Ch70 CAGR Anomaly
+
+  2025-10-30_session8_removed_statistical_test_results_pages_from_main_report.txt
+    2025-10-30 (Session 8) - Removed Statistical Test Results Pages from Main Report
+
+  2025-10-30_session7_reorganized_appendices_and_added_statistical_associations.txt
+    2025-10-30 (Session 7) - Reorganized Appendices and Added Statistical Associations
+
+  2025-10-30_session6_added_appendix_a_section_headings_to_toc.txt
+    2025-10-30 (Session 6) - Added Appendix A Section Headings to TOC
+
+  2025-10-30_session5_fixed_cohort_composition_list_bug.txt
+    2025-10-30 (Session 5) - Fixed Cohort Composition List Bug
+
+  2025-10-30_session4_enhanced_appendix_b_data_tables_and_streamlined_appendix_c.txt
+    2025-10-30 (Session 4) - Enhanced Appendix B Data Tables and Streamlined Appendix C
+
+  2025-10-30_session3_removed_appendix_b_and_renumbered_appendices.txt
+    2025-10-30 (Session 3) - Removed Appendix B and Renumbered Appendices
+
+  2025-10-30_session2_refactored_appendix_a_to_use_external_text_file_only.txt
+    2025-10-30 (Session 2) - Refactored Appendix A to Use External Text File Only
+
+  2025-10-30_session1_implemented_comprehensive_caching_for_map_generation_and_enr.txt
+    2025-10-30 (Session 1) - Implemented Comprehensive Caching for Map Generation and Enrollment Analysis
+
+  2025-10-23_session3_externalized_ppe_overview_and_geographic_map_explanations.txt
+    2025-10-23 (Session 3) - Externalized PPE Overview and Geographic Map Explanations
+
+  2025-10-23_session2_pdf_layout_improvements_district_pages_toc_and_executive_sum.txt
+    2025-10-23 (Session 2) - PDF Layout Improvements: District Pages, TOC, and Executive Summary
+
+  2025-10-23_report_reorganization_executive_summary_section_1_section_2_.txt
+    2025-10-23 - Report Reorganization: Executive Summary, Section 1, Section 2, and Appendix D
+
+  2025-10-21_session6_externalized_report_text_to_text_files.txt
+    2025-10-21 (Session 6 continued) - Externalized Report Text to Text Files
+
+  2025-10-21_session6_fixed_nssch70_tableplot_discrepancy.txt
+    2025-10-21 (Session 6) - Fixed NSS/Ch70 Table/Plot Discrepancy
+
+  2025-10-20_session5_figure_label_alignment_and_executive_summary_cohort_tables.txt
+    2025-10-20 (Session 5) - Figure Label Alignment and Executive Summary Cohort Tables
+
+  2025-10-16_session4_figuretable_label_refinement_and_plot_generation_cleanup.txt
+    2025-10-16 (Session 4) - Figure/Table Label Refinement and Plot Generation Cleanup
+
+  2025-10-16_session3_final_formatting_and_appendix_reorganization.txt
+    2025-10-16 (Session 3) - Final Formatting and Appendix Reorganization
+
+  2025-10-16_session2_final_figuretable_formatting_plot_sizing_fixes.txt
+    2025-10-16 (Session 2) - Final Figure/Table Formatting & Plot Sizing Fixes
+
+  2025-10-16_fixed_appendix_section_order_in_compose_pdfpy.txt
+    2025-10-16 - Fixed Appendix Section Order in compose_pdf.py
+
+  2025-10-15_major_document_enhancements_figuretable_numbering_appendix_r.txt
+    2025-10-15 - Major Document Enhancements: Figure/Table Numbering & Appendix Reorganization
+
+  2025-10-15_threshold_analysis_enhancement_gradient_shading_design_philo.txt
+    2025-10-15 - Threshold Analysis Enhancement: Gradient Shading Design Philosophy
+
+  2025-10-12_year-specific_cohorts_and_label_updates.txt
+    2025-10-12 - Year-Specific Cohorts and Label Updates
+
+  2025-10-07_choropleth_map_refinements_and_data-driven_district_types.txt
+    2025-10-07 - Choropleth Map Refinements and Data-Driven District Types
+
+  2025-10-06_choropleth_map_and_windows_filename_fix.txt
+    2025-10-06 - Choropleth Map and Windows Filename Fix
+
+  2025-10-06_final_formatting_polish_and_consistency_updates.txt
+    2025-10-06 - Final Formatting Polish and Consistency Updates
+
+  2025-10-06_planned_next_steps.txt
+    2025-10-06 - Planned Next Steps
+
+  2025-10-05_cohort_system_refinement_and_plot_improvements.txt
+    2025-10-05 - Cohort System Refinement and Plot Improvements
+
+  2025-10-03_entry_27.txt
+    2025-10-03 (Evening Session)
+
+  2025-10-03_entry_28.txt
+    2025-10-03
+
+  2025-09-29_session_start.txt
+    2025-09-29 - Session Start
+
+  2025-10-02_session_7_chapter_70_and_net_school_spending_nss_analysis.txt
+    2025-10-02 - Session 7: Chapter 70 and Net School Spending (NSS) Analysis
+
+  2025-10-23_fixed_executive_summary_page_1_and_added_statistical_analysi.txt
+    2025-10-23 - Fixed Executive Summary Page 1 and Added Statistical Analysis
+

@@ -1,0 +1,79 @@
+## 2025-10-23 - Report Reorganization: Executive Summary, Section 1, Section 2, and Appendix D
+
+
+### Comprehensive Report Structure Reorganization
+
+**Context:** User requested 5 change requests (CR1-CR5) to reorganize the report structure: improve Executive Summary layout with statistical analysis, restructure Section 1 to focus on trends, move cohort aggregate pages to Section 2, and create Appendix D for historical visualizations.
+
+**Files Modified:**
+- `report_text.txt` - Added `<br />` breaks in quick-start guide
+- `compose_pdf.py` - Major restructuring of Executive Summary, Section 1, Section 2, Appendix D, and TOC
+
+**Changes Made:**
+
+1. **CR1: Added Line Breaks to Quick-Start Guide** (report_text.txt):
+   - Added `<br />` tags between numbered items (1, 2, 3) in Executive Summary quick-start guide
+   - Improves visual spacing and readability
+
+2. **CR2: Reordered Executive Summary Pages** (compose_pdf.py:1730-1795):
+   - Page order now: Intro → PPE Overview → Cohort Tables → Statistical Analysis
+   - Moved PPE Overview chart from Section 1 to Executive Summary (after intro page)
+   - Added Statistical Analysis page after cohort comparison tables
+   - Statistical analysis results stored early and added to Executive Summary after cohort tables
+
+3. **CR3: Reorganized Section 1** (compose_pdf.py:1946-2052):
+   - Updated title from "Section 1: Western MA traditional district trends" to "Section 1 — Western MA traditional public school district trends" (using em dash)
+   - New page order:
+     * Summary page
+     * Year-over-Year (YoY) growth rates by district and cohort (moved from Executive Summary)
+     * 5-year CAGR by district and cohort (moved from Executive Summary)
+     * Distribution of 2024 enrollment and proposed cohort grouping
+     * Scatterplot of enrollment vs. PPE (2024)
+     * Geographic map showing district locations and enrollment cohorts (2024)
+   - Removed cohort aggregate pages from Section 1 (moved to Section 2)
+
+4. **CR4: Created Appendix D for Additional Visualizations** (compose_pdf.py:2903-2962):
+   - Added new "Appendix D. Additional Visualizations" section
+   - Contains 6 historical visualization pages:
+     * Scatterplot of enrollment vs. PPE (2019)
+     * Geographic map (2019)
+     * Scatterplot of enrollment vs. PPE (2014)
+     * Geographic map (2014)
+     * Scatterplot of enrollment vs. PPE (2009)
+     * Geographic map (2009)
+   - Intro text explains historical context for enrollment and spending evolution
+   - Generic explanations templated for all years
+   - Updated TOC to include Appendix D
+
+5. **CR5: Restructured Section 2 with Cohort Aggregate Pages** (compose_pdf.py:2063-2149):
+   - Moved cohort aggregate PPE and NSS/Ch70 pages from Section 1 to Section 2
+   - Each cohort (Tiny, Small, Medium, Large, X-Large, Springfield) now has:
+     * PPE aggregate page (title: "Section 2 — Western MA cohort details", subtitle with cohort label)
+     * NSS/Ch70 aggregate page (same title structure)
+   - Added district list text below enrollment table on NSS/Ch70 pages (compose_pdf.py:3450-3456)
+   - Removed "This cohort's aggregate expenditure trends..." text
+   - Updated section_id generation to replace hyphens with underscores (e.g., "section2_x_large")
+
+6. **Updated Table of Contents** (compose_pdf.py:2964-2987):
+   - Removed "Scatterplot of Enrollment vs. Per-Pupil Expenditure (2024)" link (was "section1_western")
+   - Removed "Cohort Aggregate Trends" heading from Section 1
+   - Section 1 now links only to summary page
+   - Cohort links remain in Section 2
+   - Added Appendix D link
+
+7. **NSS/Ch70 Page Rendering** (compose_pdf.py:3450-3456):
+   - Added district_list_text rendering after FTE table on NSS/Ch70 pages
+   - Displays cohort membership information on Section 2 cohort pages
+   - Handles both text paragraphs and blank line spacers
+
+**Testing:**
+- Successfully generated PDF (16MB, expenditures_series.pdf)
+- All changes verified working correctly
+- No errors in PDF generation
+
+**Impact:**
+- Executive Summary now provides better high-level overview with PPE trends and statistical analysis
+- Section 1 focuses on Western MA trends and regional patterns
+- Section 2 shows cohort details with aggregate expenditure data
+- Appendix D provides historical context with multi-year visualizations
+- Improved information architecture and navigation

@@ -1,0 +1,165 @@
+## 2025-10-15 - Major Document Enhancements: Figure/Table Numbering & Appendix Reorganization
+
+
+### Comprehensive Report Structure Improvements
+
+**Context:** Implemented systematic figure and table numbering throughout the PDF, reorganized appendices for better logical flow, and enhanced plot formatting for consistency.
+
+**Changes Made:**
+
+### 1. Figure and Table Numbering System
+
+**Files Modified:**
+- `compose_pdf.py`
+
+**Implementation:**
+- Added global figure and table counters with `next_figure_number()` and `next_table_number()` functions
+- Created `style_figure_num` and `style_table_num` paragraph styles (small, italic, centered)
+- Added `reset_counters()` function called at start of PDF generation
+- Systematically added figure numbers below all plots throughout the document
+- Systematically added table numbers below all data tables
+
+**Locations:**
+- Lines 50-70: Counter functions and reset mechanism
+- Lines 101-102: Figure and table number styles
+- Line 2158: Counter reset in `build_pdf()`
+- Lines 2256-2322: Figure numbers added after all image insertions
+- Lines 2174-2435: Table numbers added after all table insertions
+
+**Impact:**
+- ✅ All plots now have sequential figure numbers (small, italic, centered)
+- ✅ All tables now have sequential table numbers (small, italic, centered)
+- ✅ Easy cross-referencing throughout the document
+- ✅ Professional document formatting
+
+### 2. Executive Summary Plot Adjustments
+
+**Files Modified:**
+- `executive_summary_plots.py`
+
+**Changes:**
+- Made `executive_summary_cagr_grouped.png` and `executive_summary_cagr_15year.png` same height (16×7)
+- Increased bar width in 15-year CAGR plot from 0.7 to 1.4 (2x wider)
+- Enlarged legend in grouped CAGR plot: fontsize 13→26, added markerscale=2.0, handlelength=4, handleheight=2
+
+**Locations:**
+- Line 556: Changed figsize from (16, 9) to (16, 7)
+- Line 677: Changed bar_width from 0.7 to 1.4
+- Lines 593-594: Enhanced legend with 2x larger font and swatches
+
+**Impact:**
+- ✅ Both CAGR plots now have consistent width
+- ✅ 15-year plot bars are properly proportioned relative to grouped plot
+- ✅ Grouped plot legend is more readable with larger font and swatches
+
+### 3. Appendix Reorganization
+
+**Files Modified:**
+- `compose_pdf.py`
+
+**Major Structural Changes:**
+
+**Old Structure:**
+- Appendix A: Data Tables
+- Appendix B: Data Sources & Calculation Methodology
+- Appendix C: Detailed Calculation Examples
+
+**New Structure:**
+- **Appendix A: Data Sources & Calculation Methodology** (was Appendix B)
+  - Includes Threshold Analysis as first page
+- **Appendix B: Detailed Calculation Examples** (was Appendix C)
+- **Appendix C: Complete Calculations** (NEW - placeholder)
+  - Framework for comprehensive step-by-step calculations for all figures and tables
+- **Appendix D: Data Tables** (was Appendix A)
+
+**Specific Changes:**
+- Moved Threshold Analysis from standalone Page 0 to first page of Appendix A (lines 2010-2015)
+- Renamed all appendix titles and section IDs throughout document
+- Updated TOC entries to reflect new structure (lines 2145-2148)
+- Updated cross-references (e.g., "Appendix B" → "Appendix A" in cohort determination text)
+- Added comprehensive Appendix C placeholder with structure for future calculations (lines 1754-1801)
+- Changed style references from `appendix_c` to `appendix_b` for 12pt font handling
+
+**Key Locations:**
+- Line 1354: Removed standalone Threshold Analysis page
+- Line 1757: Renamed to "APPENDIX D: DATA TABLES"
+- Line 1795: Changed appendix_title to "Appendix D. Data Tables", section_id to "appendix_d"
+- Line 1804: Renamed to "APPENDIX A: DATA SOURCES & CALCULATION METHODOLOGY"
+- Lines 2010-2050: Threshold Analysis moved to Appendix A, all methodology pages renamed
+- Lines 1754-1801: New Appendix C (Complete Calculations) placeholder created
+- Line 2052: Renamed to "APPENDIX B: DETAILED CALCULATION EXAMPLES"
+- Lines 2338-2348: Updated style and handling references from appendix_c to appendix_b
+
+**Impact:**
+- ✅ Logical flow: Methodology first, then detailed examples, then comprehensive calculations, then raw data
+- ✅ Threshold Analysis now integrated with methodology rather than standalone
+- ✅ Framework in place for comprehensive calculation documentation in Appendix C
+- ✅ All cross-references updated consistently
+- ✅ TOC reflects new structure
+
+### Summary of Files Modified
+
+1. **executive_summary_plots.py**
+   - Plot sizing and legend enhancements
+
+2. **compose_pdf.py**
+   - Figure/table numbering system infrastructure
+   - All image and table insertion locations
+   - Complete appendix reorganization
+   - TOC updates
+   - Style reference updates
+
+**Next Steps:**
+- Run `python executive_summary_plots.py` to regenerate plots with new formatting
+- Run `python compose_pdf.py` to generate PDF with figure/table numbers and reorganized appendices
+- ~~Populate Appendix C with detailed calculations for all figures and tables~~ ✅ COMPLETED
+
+### 4. Appendix C - Complete Calculations Implementation
+
+**Context:** Created comprehensive step-by-step calculations for all figures and tables to enable mathematical verification.
+
+**Files Modified:**
+- `compose_pdf.py` (lines 1756-2069, 2220-2224)
+
+**Content Added:**
+1. **Executive Summary Calculations:**
+   - Figure 1: YoY Growth Rate formula and methodology
+   - Figure 2: 5-Year CAGR calculation steps
+   - Figure 3: 15-Year CAGR methodology
+
+2. **Cohort Determination Calculations:**
+   - Percentile calculations (Q1, Q2, Q3, P90) on full dataset
+   - Rounding methodology for clean boundaries
+   - FY2024 cohort membership breakdown
+
+3. **Weighted Aggregation Methodology:**
+   - Enrollment-weighted PPE formula
+   - Step-by-step calculation process
+   - Worked example with real structure
+
+4. **Shading Threshold Calculations:**
+   - Statistical analysis (mean, SD, CV) for PPE and CAGR
+   - Threshold evaluation methodology
+   - Gradient shading bin definitions
+
+5. **District Comparison Table Calculations:**
+   - CAGR comparison methodology
+   - Dollar difference calculations
+   - Shading intensity determination
+
+6. **Additional Calculations:**
+   - Enrollment FTE component summation
+   - NSS/Ch70 funding component breakdown
+
+**Bug Fix:**
+- Fixed missing anchor for 'appendix_a' link (line 2220-2224)
+- Added section_id anchor to threshold_analysis page rendering
+
+**Impact:**
+- ✅ Comprehensive calculations documented for QA verification
+- ✅ All formulas extracted from source code with line references
+- ✅ Step-by-step methodology for each calculation type
+- ✅ Worked examples provided for clarity
+- ✅ PDF generation error resolved
+
+---

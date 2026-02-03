@@ -6,6 +6,10 @@ Reenter venv whenever you want:
 WINDOWS
 if (!(Test-Path .venv)) { py -m venv .venv }; .\.venv\Scripts\Activate.ps1; python -m pip install --upgrade pip; python -m pip install -r requirements.txt
 
+claude doctor
+npm i -g @anthropic-ai/claude-code
+
+
 MAC
 if [ ! -d .venv ]; then python3 -m venv .venv fi
 source .venv/bin/activate

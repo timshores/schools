@@ -1,0 +1,75 @@
+## 2025-10-30 (Session 2) - Refactored Appendix A to Use External Text File Only
+
+
+### Eliminated Legacy Hardcoded Appendix A Content and Centralized to appendix_a_text.txt
+
+**Context:** User updated appendix_a_text.txt with all Appendix A methodology content and requested that the code be refactored to: (1) use only content from the text file, (2) properly populate placeholders like {COHORT_TINY_INFO} and {CAGR_THRESHOLD_PP}, and (3) eliminate any legacy code generating Appendix A content outside the text file.
+
+**Files Modified:**
+- `compose_pdf.py` (lines 3938-3954) - Simplified Appendix A generation to use only appendix_a_text.txt
+
+**Changes Made:**
+
+1. **Removed Legacy Multi-Page Appendix A Approach** (lines 3938-3989):
+   - Deleted old methodology_page1, methodology_page2, methodology_page3, methodology_page4 variables
+   - These were loading separate sections from report_text.txt:
+     * METHODOLOGY_PPE_DEFINITION
+     * METHODOLOGY_SHADING_LOGIC
+     * METHODOLOGY_NSS_CH70
+     * METHODOLOGY_DATA_SOURCES
+   - Deleted 5 individual page dictionaries that combined these sections
+   - Removed threshold analysis page from Appendix A
+
+2. **Implemented Unified Appendix A from appendix_a_text.txt** (lines 3938-3954):
+   - Loads METHODOLOGY_DATA_SOURCES from appendix_a_text.txt (already merged into report_text on line 2629)
+   - Applies `fill_text_placeholders()` with all dynamic values
+   - Creates single page dictionary with all content
+   - Content flows naturally across multiple pages during PDF rendering
+
+3. **Placeholder System Already Working:**
+   - Placeholders dictionary built on lines 3919-3936
+   - Includes all required values:
+     * Cohort info: {COHORT_TINY_INFO}, {COHORT_SMALL_INFO}, {COHORT_MEDIUM_INFO}, {COHORT_LARGE_INFO}, {COHORT_SPRINGFIELD_INFO}
+     * Thresholds: {DOLLAR_THRESHOLD_PERCENT}, {CAGR_THRESHOLD_PP}
+     * Shading bins: {DOLLAR_BIN_1-4}, {CAGR_BIN_1-4}
+   - `fill_text_placeholders()` function (lines 597-617) replaces all {PLACEHOLDER} markers
+
+4. **Text File Format Support:**
+   - ##H1, ##H2, ##H3 heading markers converted to styled headings
+   - <br /> tags for line breaks
+   - Placeholder markers like {COHORT_TINY_INFO} replaced with actual district lists
+   - Content flows across pages automatically (no manual page breaking needed)
+
+**Content Now in appendix_a_text.txt:**
+- Section 1: Data sources (Primary dataset, Chapter 70, District classifications)
+- Section 2: Key definitions & calculations (PPE, Ch70/NSS, enrollment denominators, CAGR, weighted averages)
+- Section 3: Enrollment-based cohort methodology (cohort boundaries with placeholders)
+- Section 4: Comparison shading methodology (colors, thresholds, statistical justification)
+
+**Legacy Content Removed:**
+- Separate methodology pages (4 individual page dictionaries)
+- Hardcoded threshold analysis page
+- Manual page combining logic (methodology_page4 + methodology_page1)
+- Multiple "continued" pages with redundant titles
+
+**Data Flow:**
+1. appendix_a_text.txt loaded (line 2627)
+2. Merged into report_text (line 2629), overriding old METHODOLOGY_DATA_SOURCES from report_text.txt
+3. Placeholders filled with dynamic cohort data (line 3940-3943)
+4. Single page dictionary created with all content (lines 3947-3954)
+5. PDF renderer handles heading tuples and multi-page flow automatically
+
+**Impact:**
+- ✅ Appendix A now uses ONLY content from appendix_a_text.txt
+- ✅ All placeholders properly populated with dynamic values
+- ✅ No legacy hardcoded content generation
+- ✅ Simplified code (45 lines → 17 lines)
+- ✅ Content easily editable in text file (no Python changes needed)
+- ✅ Consistent with existing report_text.txt pattern
+
+**Notes:**
+- Old METHODOLOGY_* sections in report_text.txt are no longer referenced for Appendix A
+- These sections can be removed from report_text.txt if not used elsewhere
+- appendix_a_text.txt now the single source of truth for all Appendix A content
+
+---

@@ -1,0 +1,111 @@
+## 2025-10-30 (Session 7) - Reorganized Appendices and Added Statistical Associations
+
+
+### Major Change: Appendix Restructuring with New Statistical Content
+
+**Context:** User requested reorganizing appendices to move statistical analysis into its own appendix section. New structure:
+- Appendix A: Data Sources & Calculation Methodology (unchanged)
+- Appendix B: Statistical Associations (NEW - from appendix_b_text.txt)
+- Appendix C: Data Tables (formerly Appendix B)
+- Appendix D: Maps from previous years (formerly Appendix C)
+
+**Files Modified:**
+- `compose_pdf.py` - Reorganized appendices, added new Appendix B loading and H1 extraction
+- `appendix_b_text.txt` - New file with 6 statistical analysis sections
+
+**Changes Made:**
+
+1. **Created appendix_b_text.txt with Section Header:**
+   - Added section delimiter: `STATISTICAL_ASSOCIATIONS` between equal signs
+   - Contains intro text and 6 ##H1 sections analyzing different relationships:
+     * Enrollment-Expenditure Relationships
+     * PPE Growth-Current PPE Relationships
+     * Chapter 70 Aid-PPE Relationships
+     * Chapter 70 Growth-PPE Relationships
+     * Local Investment-PPE Relationships
+     * Local Investment Growth-PPE Relationships
+   - Fixed typo: "prescriptive or prescriptive" → "predictive or prescriptive"
+
+2. **Loaded appendix_b_text.txt Content (lines 2631-2634):**
+   - Load using `load_report_text_sections()` like appendix_a_text.txt
+   - Merge into main report_text dictionary
+   - Section key: `STATISTICAL_ASSOCIATIONS`
+
+3. **Renamed Current Appendix B → C (Data Tables):**
+   - Updated section_id: `appendix_b` → `appendix_c` (line 4036)
+   - Updated title: "Appendix B. Data Tables" → "Appendix C. Data Tables" (line 4060)
+   - Updated comment: "Store for Appendix B data tables" → "Store for Appendix C data tables" (line 3606)
+
+4. **Renamed Current Appendix C → D (Maps):**
+   - Updated all section_id: `appendix_c` → `appendix_d` (lines 4084-4126)
+   - Updated all titles: "Appendix C" → "Appendix D" throughout map pages
+   - Updated comment header: "APPENDIX C" → "APPENDIX D" (line 4068)
+
+5. **Inserted New Appendix B (Statistical Associations) (lines 3997-4022):**
+   - Load content using `fill_text_placeholders()` from `STATISTICAL_ASSOCIATIONS` section
+   - Extract H1 headings for TOC (6 statistical analysis sections)
+   - Create page dict with section_id `appendix_b`
+   - Store h1_headings for TOC generation
+   - Content flows naturally across multiple pages (text-heavy appendix)
+
+6. **Updated TOC Generation (lines 4199-4211):**
+   - Added "Appendix B: Statistical Associations" entry
+   - Extract and add H1 headings from appendix_b as sub-entries (indent level 2)
+   - Updated "Appendix C: Data Tables" reference
+   - Added "Appendix D: Maps from previous years" reference
+
+7. **Updated Mini-TOC Navigation (lines 2657-2662):**
+   - Added "Appendix B: Statistical Associations" entry
+   - Updated "Appendix C: Data Tables" reference
+   - Added "Appendix D: Maps from previous years" reference
+   - All 4 appendices now appear in mini-TOC boxes
+
+8. **Updated Content Flow Logic (line 4968):**
+   - Updated comment: "Appendix A and B" → "Appendices A, B, and C"
+   - Changed condition to check section_id in list: `["appendix_a", "appendix_b", "appendix_c"]`
+   - All text/data-heavy appendices flow naturally without KeepInFrame constraints
+   - Only Appendix D (maps) uses KeepInFrame shrink mode
+
+**Result:**
+
+New appendix structure in TOC:
+```
+Appendices
+    Appendix A: Data Sources & Calculation Methodology
+        1. Data sources
+        2. Key definitions & calculations
+        [... other H1 sections]
+    Appendix B: Statistical Associations
+        1. Statistical Analysis of Enrollment-Expenditure Relationships
+        2. Statistical Analysis of PPE Growth-Current PPE Relationships
+        3. Statistical Analysis of Chapter 70 Aid-PPE Relationships
+        4. Statistical Analysis of Chapter 70 Growth-PPE Relationships
+        5. Statistical Analysis of Local Investment-PPE Relationships
+        6. Statistical Analysis of Local Investment Growth-PPE Relationships
+    Appendix C: Data Tables
+    Appendix D: Maps from previous years
+```
+
+**Impact:**
+- ✅ Statistical analysis now has dedicated appendix (Appendix B)
+- ✅ Clear separation between methodology (A), analysis (B), data (C), and maps (D)
+- ✅ All ##H1 headings from Appendices A and B appear in TOC for easy navigation
+- ✅ Mini-TOC boxes updated with all 4 appendix references
+- ✅ Content automatically flows across pages for text-heavy appendices
+- ✅ All references updated consistently throughout codebase
+
+**Statistical Content (Appendix B):**
+- 6 comprehensive analyses examining relationships between enrollment, spending, state aid, and local investment
+- Each section includes: linear regression, correlation by cohort, ANOVA, and multiple regression models
+- Key finding: Historical baselines and local investment decisions dominate current spending patterns
+- Enrollment size and state aid show weak explanatory power for spending variations
+
+**Testing:**
+- Run `python compose_pdf.py --appendices-only` to verify:
+  * TOC shows all 4 appendices with correct labels
+  * Appendix B shows 6 H1 statistical analysis sections indented below it
+  * Appendix B content loads from appendix_b_text.txt
+  * All section_ids correctly assigned (A, B, C, D)
+  * Mini-TOC navigation boxes show all 4 appendices
+
+---

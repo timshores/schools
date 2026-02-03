@@ -1,0 +1,46 @@
+## 2025-10-23 (Session 3) - Externalized PPE Overview and Geographic Map Explanations
+
+
+### Moved Hardcoded Text Blocks to report_text.txt for Easy Editing
+
+**Context:** User requested that PPE overview and geographic map explanation text blocks be moved from hardcoded strings in compose_pdf.py to external report_text.txt file for easier editing.
+
+**Files Modified:**
+- `report_text.txt` - Added two new text sections for PPE overview and choropleth map
+- `compose_pdf.py` - Updated three locations to load text from report_text.txt
+
+**Changes Made:**
+
+1. **Added PPE_OVERVIEW_EXPLANATION to report_text.txt** (lines 249-253):
+   - Contains explanation of PPE overview bar chart
+   - Describes what the 2024 PPE bars represent with 2019 growth shown in darker color
+   - Explains limitations of PPE as a metric
+   - Note about omitted districts remains dynamically generated in code
+
+2. **Added SECTION1_CHOROPLETH_EXPLANATION to report_text.txt** (lines 257-261):
+   - Contains explanation of geographic map visualization
+   - Describes cohort color coding (Tiny=blue, Small=light blue, Medium=yellow, Large=orange, X-Large=red)
+   - Explains unified and regional district representations
+   - Used for both Section 1 (2024) and Appendix D (historical) maps
+
+3. **Updated compose_pdf.py to load text from report_text.txt**:
+   - **Line 1753-1755**: Updated PPE overview explanation loading
+     * Changed from hardcoded string to `report_text.get("PPE_OVERVIEW_EXPLANATION")[0]`
+     * Omitted districts note continues to be dynamically generated based on actual data
+   - **Line 2045-2047**: Updated Section 1 choropleth explanation
+     * Changed from hardcoded f-string to `report_text.get("SECTION1_CHOROPLETH_EXPLANATION")[0]`
+   - **Line 2903-2905**: Updated Appendix D choropleth explanation
+     * Changed from hardcoded f-string to `report_text.get("SECTION1_CHOROPLETH_EXPLANATION")[0]`
+     * Reuses same text as Section 1 for consistency
+
+**Testing:**
+- Successfully generated PDF (14MB, expenditures_series.pdf)
+- All text blocks load correctly from report_text.txt
+- No errors during PDF generation
+- Only expected statsmodels warning
+
+**Impact:**
+- PPE overview and geographic map explanations now easily editable in report_text.txt
+- Consistent text across Section 1 and Appendix D maps
+- Reduced hardcoded strings in compose_pdf.py
+- Better separation of content from code logic

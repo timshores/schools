@@ -1,0 +1,230 @@
+## 2025-10-03
+
+
+### Moved ALPS PK-12 NSS/Ch70 Page Back to District Section with Baseline Shading
+
+**Change:** Moved ALPS PK-12 Chapter 70 Aid and Net School Spending page from Appendix A back to the district section (after ALPS district pages), and added baseline comparison shading.
+
+**Implementation** (`compose_pdf.py` lines 1184-1212):
+- Removed ALPS PK-12 NSS/Ch70 from Appendix A section
+- Added after ALPS PK-12 district pages (following ALPS Peers comparison)
+- Computes ALPS Peers baseline for comparison
+- Adds red/green shading to show how ALPS PK-12 compares to ALPS Peers aggregate
+- Title: "ALPS PK-12: Chapter 70 Aid and Net School Spending (vs ALPS Peers)"
+
+**Files Modified:**
+- `compose_pdf.py` - Moved ALPS PK-12 NSS/Ch70 page, added baseline shading
+- Regenerated PDF (7.8 MB, 12:57)
+
+---
+
+### Added 2025 Data to Aggregates Using 2024 Enrollment Proxy
+
+**Issue:** Aggregate NSS/Ch70 plots showed 2009-2024 while individual districts showed 2009-2025, causing the 2025 column in district comparison tables to have no red/green shading.
+
+**Root Cause:** Enrollment data only available through 2024, but C70 data includes 2025. Previous code dropped 2025 for aggregates.
+
+**Solution:** For years with missing enrollment (like 2025), use the most recent available enrollment as a proxy.
+
+**Implementation** (`school_shared.py` lines 698-712):
+```python
+# For each district with missing enrollment for a year:
+# 1. Find most recent available enrollment
+# 2. Use that value as proxy for missing year
+# This allows 2025 C70 data to be included using 2024 enrollment
+```
+
+**Verification:**
+- Western MA >500: Now includes 2025 (~$224.8M per district)
+- ALPS Peers: Now includes 2025
+- ALPS PK-12: Now includes 2025
+- Individual district comparison tables: 2025 column now has red/green shading vs aggregates
+
+**Files Modified:**
+- `school_shared.py` - Added enrollment forward-fill logic
+- Regenerated all plots and PDF (7.8 MB, 12:40)
+
+---
+
+### FINAL FIX: Changed to Weighted Avg Per District (Not Per Pupil)
+
+**Clarification:** The aggregates should use **weighted average per DISTRICT**, not per pupil.
+
+**New Calculation:**
+1. For each district/year: Compute per-pupil values (dollars / enrollment)
+2. Compute enrollment-weighted average per-pupil across all districts
+3. Multiply by average enrollment per district to get weighted avg $ per district
+
+**Formula:**
+```
+weighted_avg_pp = sum(district_pp * district_enrollment) / sum(district_enrollment)
+weighted_avg_per_district = weighted_avg_pp * mean(district_enrollment)
+```
+
+**Changes Made:**
+
+1. **Rewrote `prepare_aggregate_nss_ch70_weighted()`** (`school_shared.py` lines 690-732):
+   - Merges C70 data with enrollment by district/year
+   - Computes per-pupil for each district
+   - Calculates enrollment-weighted average per-pupil
+   - Multiplies by average enrollment to get weighted avg $ per district
+   - Added `include_groups=False` to fix pandas FutureWarning
+
+2. **Updated All Labels** to "Weighted Avg $ per District":
+   - **nss_ch70_plots.py** line 113: Y-axis label
+   - **compose_pdf.py** lines 1227, 1288, 1308: Subtitles
+
+**Verification:**
+- Western MA >500: Shows ~$33M-$58M per district (2024)
+- Values represent what an average district in the aggregate spends
+- Weighted by enrollment so larger districts have more influence
+
+**Files Modified:**
+- `school_shared.py` - Complete rewrite of weighted aggregate calculation
+- `nss_ch70_plots.py` - Updated y-axis label
+- `compose_pdf.py` - Updated subtitles
+- Regenerated all plots and PDF (7.8 MB, 12:26)
+
+---
+
+### CRITICAL FIX: NSS/Ch70 Data Alignment and Total Row Shading
+
+**Issues Found:**
+1. **2025 data showing 745 million instead of ~$17K per pupil** - enrollment data ended at 2024 but C70 data included 2025
+2. **Total row not shaded in comparison tables** - baseline map didn't include "Total"
+3. **Labels said "$ per pupil" instead of "Weighted Avg"** - misleading for aggregates
+4. **Only one bar showing for 2025 on aggregate plots** - division by zero/NaN issue
+
+**Fixes Applied:**
+
+1. **Fixed `prepare_aggregate_nss_ch70_weighted()`** (`school_shared.py` lines 693-699):
+   - Now drops years where enrollment data is missing
+   - Prevents division by zero or NaN
+   - Ensures consistent per-pupil calculations across all years
+   - Before: 2025 showed $745M (undivided absolute dollars)
+   - After: 2025 is dropped (no enrollment data available)
+
+2. **Added Total to Baseline Maps** (`compose_pdf.py` lines 691-702):
+   - `_build_nss_ch70_baseline_map()` now computes Total row baseline
+   - Sums all components to get total series
+   - Computes CAGR and dollar values for Total
+   - Enables red/green shading on Total row
+
+3. **Updated Labels to "Weighted Avg $ per Pupil"**:
+   - **nss_ch70_plots.py** line 113: Y-axis label
+   - **compose_pdf.py** lines 1214, 1275, 1295: Subtitles for all aggregates
+
+**Verification:**
+- Western MA >500: Now shows bars for 2009-2024 (not 2025), values $8K-$16K per pupil
+- Total row shading: Now works in comparison tables
+- Labels: Clearly indicate "Weighted Avg $ per Pupil" for aggregates
+
+**Files Modified:**
+- `school_shared.py` - Fixed enrollment alignment in weighted aggregate function
+- `compose_pdf.py` - Added Total to baseline maps, updated subtitles
+- `nss_ch70_plots.py` - Updated y-axis label
+- Regenerated all plots and PDF (7.7 MB)
+
+---
+
+### Major NSS/Ch70 Enhancements - Weighted Per-Pupil Aggregates (Earlier Session)
+
+**Changes Made:**
+
+1. **Created Weighted Per-Pupil Aggregate Function** (`school_shared.py` lines 632-707):
+   - Added `prepare_aggregate_nss_ch70_weighted()` function
+   - Computes enrollment-weighted per-pupil NSS/Ch70 values for aggregates
+   - Formula: weighted_avg = sum(dollars) / sum(enrollment) for each year/component
+   - Enables proper comparison between different-sized aggregates
+
+2. **Updated All Aggregate Calls to Use Weighted Version**:
+   - **compose_pdf.py**: Changed 5 locations to use `prepare_aggregate_nss_ch70_weighted()`:
+     - Western MA baselines for district comparisons (lines 1011, 1019)
+     - Western MA aggregate pages in Appendix A (line 1168)
+     - ALPS Peers aggregate page in Appendix A (line 1230)
+     - ALPS PK-12 aggregate page (line 1250)
+   - **nss_ch70_main.py**: Updated 4 aggregate calls (lines 76, 83, 92, 100)
+
+3. **Moved ALPS PK-12 to Appendix A** (`compose_pdf.py`):
+   - Removed ALPS PK-12 NSS/Ch70 page from district section (line 1133)
+   - Added to Appendix A with other aggregates (lines 1248-1266)
+   - Ensures all aggregates are grouped together
+
+4. **Added raw_nss Data for Aggregates** (`compose_pdf.py`):
+   - Western MA aggregates now store raw_nss for Appendix B tables (line 1184)
+   - ALPS Peers stores raw_nss (line 1245)
+   - ALPS PK-12 stores raw_nss (line 1265)
+
+5. **Fixed Total Row Shading** (`compose_pdf.py` lines 550-586):
+   - Added shading logic for Total row in NSS/Ch70 comparison tables
+   - Shades start dollar (col 2), latest dollar (col 6), and all CAGR columns (cols 3-5)
+   - Uses same red/green shading rules as component rows
+
+6. **Limited NSS/Ch70 Plots to 2009-2025** (`nss_ch70_plots.py` lines 79-85):
+   - Plots now filter to 2009-2025 timeframe
+   - Tables remain at 2010-2025 per existing logic in Appendix B
+
+7. **Updated Plot Y-Axis Labels** (`nss_ch70_plots.py`):
+   - Added `per_pupil` parameter to `plot_nss_ch70()` function (line 59)
+   - Aggregates display "$ per pupil" label
+   - Individual districts display "Dollars ($)" label
+   - **nss_ch70_main.py** detects aggregates and sets flag (lines 132-133)
+
+8. **Updated Subtitles for Per-Pupil Aggregates** (`compose_pdf.py`):
+   - Western MA aggregates: "Funding components (per pupil)" (line 1176)
+   - ALPS Peers: "Funding components (per pupil)" (line 1237)
+   - ALPS PK-12: "Funding components (per pupil)" (line 1257)
+   - Individual districts keep original subtitle without "(per pupil)"
+
+**Impact:**
+- ✅ Western MA aggregates now show weighted per-pupil values (comparable across size groups)
+- ✅ ALPS Peers and ALPS PK-12 show weighted per-pupil values (proper comparison)
+- ✅ Individual districts show absolute dollars (appropriate for single entities)
+- ✅ Total row now has proper red/green shading in comparison tables
+- ✅ All aggregates grouped together in Appendix A
+- ✅ NSS/Ch70 data tables available for all aggregates in Appendix B
+- ✅ Plot labels correctly indicate per-pupil vs absolute dollars
+
+**Files Modified:**
+- `school_shared.py` - Added weighted per-pupil aggregate function
+- `compose_pdf.py` - Updated all aggregate calls, moved ALPS PK-12, fixed Total shading, added raw_nss
+- `nss_ch70_main.py` - Updated to use weighted aggregates, detect aggregate vs district
+- `nss_ch70_plots.py` - Added per_pupil parameter, limited date range to 2009-2025
+- Regenerated all NSS/Ch70 plots and PDF
+
+### Fixed NSS/Ch70 Plots to Display Absolute Dollars (Earlier Session)
+
+**Issue:** NSS/Ch70 plots were displaying values in the $13K-$24K range instead of millions, making it appear they were per-pupil values despite code claiming absolute dollars.
+
+**Root Cause:**
+- Data preparation functions (`prepare_district_nss_ch70`, `prepare_aggregate_nss_ch70`) were correctly returning absolute dollar values from profile_DataC70 sheet
+- However, `nss_ch70_main.py` was computing a single global y-axis limit across ALL districts using `compute_nss_ylim()`
+- This caused small districts (e.g., Shutesbury with ~$2.6M total NSS) to have invisible bars when plotted on the same scale as large aggregates (e.g., Western MA >500 with ~$300M+)
+- The result was a blank plot with an inappropriate y-axis scale (0 to 1.6 billion)
+
+**Fix Applied:**
+
+1. **nss_ch70_main.py** (lines 115-118, 137):
+   - Removed global y-limit computation with `compute_nss_ylim()`
+   - Changed `right_ylim=None` to enable matplotlib auto-scaling for each plot individually
+   - Updated console output to reflect auto-scaling approach
+
+2. **nss_ch70_plots.py**:
+   - Updated module docstring (line 9): Changed "per-pupil basis" to "absolute dollars (not per-pupil)"
+   - Updated `plot_nss_ch70()` docstring (line 72): Changed "per-pupil" to "absolute dollars (not per-pupil)"
+   - Deprecated `compute_nss_ylim()` function (line 147): Added note that it's deprecated for absolute dollar plots due to wide variance in district sizes
+
+**Verification:**
+- Shutesbury 2024 values now correctly display:
+  - Ch70 Aid (green): $645,986
+  - Req NSS (adj) (amber): $820,401
+  - Actual NSS (adj) (purple): $1,159,959
+  - **Total: $2,626,346** (matches source data exactly)
+- Plot y-axis appropriately ranges from $0 to ~$3.2M (auto-scaled to Shutesbury's size)
+- All three stacked components are now visible and correctly proportioned
+
+**Files Modified:**
+- `nss_ch70_main.py` - Removed global y-limit, enabled auto-scaling
+- `nss_ch70_plots.py` - Updated documentation, deprecated `compute_nss_ylim()`
+- Regenerated all NSS/Ch70 plots in `output/` directory
+- Regenerated `output/expenditures_series.pdf` with corrected plots

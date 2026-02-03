@@ -1,0 +1,75 @@
+## 2025-10-16 (Session 3) - Final Formatting and Appendix Reorganization
+
+
+### Comprehensive Figure/Table Formatting and Appendix Restructuring
+
+**Context:** User requested final formatting improvements including combined figure/table labels, appendix merging, and plot size corrections.
+
+**Files Modified:**
+- `western_enrollment_plots_individual.py` (line 148)
+- `executive_summary_plots.py` (lines 556, 677-679)
+- `compose_pdf.py` (lines 53-84, 125, 2522-2530, 2672-2679, 2704, 2728-2734, 2776-2781, 2791-2798, 2017-2443, 2483-2487, 2505-2507)
+
+**Changes Made:**
+
+1. **Scatterplot Size Correction**
+   - Increased figsize from `(11, 6)` to `(11, 8)` in western_enrollment_plots_individual.py:148
+   - Plot no longer appears as narrow rectangle despite wide 9-column legend
+   - Maintains full plot height while accommodating horizontal legend layout
+
+2. **Combined Figure and Table Numbers**
+   - Added `_PENDING_FIGURE_NUM` tracking system (lines 53-84 in compose_pdf.py)
+   - Created `style_fig_table_num` style for combined labels (line 125)
+   - Implemented `set_pending_figure()` and `get_and_clear_pending_figure()` functions
+   - Modified figure rendering to store pending figure numbers for non-graph_only pages (lines 2672-2679)
+   - Updated all table rendering locations to check for pending figures and combine labels:
+     - Threshold analysis table (lines 2522-2530)
+     - Scatterplot district table (lines 2728-2734)
+     - Data table pages (lines 2743-2748)
+     - NSS/Ch70 pages (lines 2776-2781)
+     - Regular district pages (lines 2791-2798)
+   - Format: "Figure # | Table #" when figure and table appear adjacent on same page
+   - Maintains separate labels when no figure precedes table
+
+3. **Appendix A Font Size Consistency**
+   - Modified KeepInFrame condition to include Appendix A (line 2704)
+   - Changed from: `if p.get("appendix_b") or p.get("section_id") == "appendix_c"`
+   - Changed to: `if p.get("appendix_b") or p.get("section_id") == "appendix_a"`
+   - Appendix A now flows naturally without shrinking, maintaining consistent 9pt font throughout
+
+4. **Merged Appendix B and Appendix C**
+   - Combined "Complete Calculations" (old Appendix C) with "Detailed Examples" (old Appendix B)
+   - New structure: "Appendix B. Calculations and Examples" (lines 2017-2443)
+   - Organized by figure/table order as requested
+   - Complete calculations appear first (systematic coverage of all figures/tables)
+   - Detailed worked examples follow (specific cases: Medium Cohort, Amherst-Pelham)
+   - Uses 12pt font for readability (appendix_b flag)
+   - Section ID: appendix_b
+
+5. **Renamed Appendix D → Appendix C**
+   - Updated all references to "Appendix D. Data Tables" → "Appendix C. Data Tables"
+   - Modified appendix_title (line 2483)
+   - Modified section_id from "appendix_d" to "appendix_c" (line 2487)
+   - Updated TOC entry (line 2507)
+   - Updated internal references in Appendix B content (line 2404)
+
+**Final Appendix Structure:**
+- **Appendix A**: Data Sources & Calculation Methodology (including Threshold Analysis)
+- **Appendix B**: Calculations and Examples (merged complete calculations + detailed examples)
+- **Appendix C**: Data Tables (raw data for all districts and regions)
+
+**Impact:**
+- ✅ Scatterplot restored to full size with optimized legend
+- ✅ Figure and table numbers combined on same line when adjacent
+- ✅ Appendix A font size now consistent throughout (no shrinking)
+- ✅ Appendices B and C merged into logical flow
+- ✅ Appendix D renamed to C, completing 3-appendix structure
+- ✅ All calculations and examples now in single location
+
+**Technical Notes:**
+- Pending figure tracking system allows PDF generator to defer figure number rendering until it knows if a table follows
+- Combined labels use pipe separator "|" with proper spacing in gray-shaded box
+- Appendix B synthesis maintains figure/table order for easy verification workflow
+- Data Tables (Appendix C) unaffected by merging of B/C calculation appendices
+
+---

@@ -1,0 +1,121 @@
+## 2025-10-06 - Final Formatting Polish and Consistency Updates
+
+
+### Comprehensive Formatting and Labeling Refinement (8-Point Update)
+
+**Change A: Enrollment Axis Spacing and K/M Abbreviations**
+- **Spacing improvements** (district_expend_pp_stack.py:167-169, nss_ch70_plots.py:153-166):
+  - Increased `pad=12` on y-axis tick labels (space between enrollment numbers and donut dots)
+  - Increased `labelpad=15` on y-axis label (prevents "Enrollment" text from overlapping donut dots)
+- **K/M abbreviations** for enrollment axis (matching dollar axis style):
+  - Created `enrollment_formatter()` function in both plot_one_simple() and plot_one()
+  - Format logic: ≥1M shows "X.XM", ≥1K shows "X.XK", <1K shows integer
+  - Applied to all PPE plots (district_expend_pp_stack.py:172-183, 316-327) and NSS/Ch70 plots (nss_ch70_plots.py:156-165)
+  - Examples: "1.5K" instead of "1500", "2.3M" instead of "2,300,000"
+- **Impact:** Cleaner axis formatting, no overlap between enrollment labels and donut ticks
+
+**Change B: Fixed Extra Donut Dot on Springfield Plot**
+- **Problem:** Springfield plot showed extra donut dot above labeled ticks (probably at 35,000 with no label)
+- **Root cause:** Matplotlib auto-adding tick beyond data range without assigning label
+- **Solution** (district_expend_pp_stack.py:233-237, nss_ch70_plots.py:213-217):
+  - Check if tick label exists and is non-empty before rendering donut
+  - Only render donut if `label_text and label_text.strip()`
+- **Impact:** No more floating donuts above the y-axis on any plots
+
+**Change C: K/M Abbreviations Applied to Enrollment Axis (Duplicate of A)**
+- See Change A above - this was the implementation of the K/M abbreviation formatter
+
+**Change D: Scatterplot Formatting with $ Signs and K/M Abbreviations**
+- **Added custom formatters** (western_enrollment_plots_individual.py:156-176):
+  - `enrollment_formatter()`: K/M abbreviations for x-axis (enrollment)
+  - `ppe_formatter()`: $ signs + K/M abbreviations for y-axis (PPE)
+  - Examples: "$45.0K" instead of "45000", "1.5K" instead of "1500"
+- **Applied to scatterplot axes:**
+  - X-axis (enrollment): Shows "1.0K", "2.0K" quartile markers
+  - Y-axis (PPE): Shows "$15.0K", "$20.0K", "$45.0K" values
+- **Impact:** Scatterplot matches formatting style of all other plots
+
+**Change E: Scatterplot Table Enhancements**
+- **Sort arrow indicator** (compose_pdf.py:224, 229):
+  - Added ▼ to "2024 PPE" column header: `<b>2024<br/>PPE ▼</b>`
+  - Shows table is sorted by 2024 PPE descending (highest to lowest)
+- **Cohort dividing lines** (compose_pdf.py:232-276, 306-310):
+  - Track cohort changes in both left and right columns during row building
+  - Store row indices where cohort transitions occur (TINY→SMALL→MEDIUM→LARGE)
+  - Add faint gray lines (0.3pt, colors.grey) above each transition row
+  - Applied to both left column (cols 0-3) and right column (cols 5-8) independently
+- **Impact:** Table visually groups districts by enrollment cohort, clear sort direction
+
+**Change F: Updated Weighted Average Subtitles**
+- **Changed subtitle** (compose_pdf.py:1195):
+  - OLD: "PPE vs Enrollment — Not including charters and vocationals"
+  - NEW: "PPE vs Enrollment — Weighted average per district"
+- **Rationale:** More accurate description of aggregate calculation method
+- **Applies to:** All Western MA cohort aggregate plots (Tiny, Small, Medium, Large)
+
+**Change G: Updated Weighted Average Y-Axis Labels**
+- **PPE plots y-axis** (district_expend_pp_stack.py:167-171, 312-316):
+  - Added dynamic label selection based on enrollment_label
+  - If enrollment_label contains "weighted avg": ylabel = "Weighted avg $ per pupil"
+  - Otherwise: ylabel = "$ per pupil"
+  - Applied to both plot_one_simple() and plot_one()
+- **NSS/Ch70 plots y-axis** (nss_ch70_plots.py:127):
+  - Changed from "Weighted Avg $ per District" to "Weighted avg $ per district"
+  - Changed from "$ per District" to "$ per district"
+  - Lowercase for consistency with other labels
+- **Impact:** Y-axis labels clearly indicate when values are weighted averages vs individual districts
+
+**Change H: Updated Enrollment Axis Labels**
+- **Enrollment label standardization** (district_expend_pp_stack.py:754, nss_ch70_main.py:152,157,162,167):
+  - OLD: "Enrollment per District (weighted avg)"
+  - NEW: "Weighted avg enrollment per district"
+  - Applied to all Western MA cohort aggregates (Tiny, Small, Medium, Large)
+- **Dollar axis label standardization** (see Change G):
+  - OLD: "Weighted Avg $ per District"
+  - NEW: "Weighted avg $ per district"
+- **Consistency:** All "weighted avg" labels now use lowercase and consistent word order
+
+### Files Modified
+- **western_enrollment_plots_individual.py** (lines 156-176):
+  - Added enrollment_formatter() and ppe_formatter() for scatterplot axes
+  - Applied K/M abbreviations and $ signs to scatterplot
+
+- **district_expend_pp_stack.py** (multiple locations):
+  - Added enrollment_formatter() to plot_one_simple() (lines 172-183)
+  - Added enrollment_formatter() to plot_one() (lines 316-327)
+  - Added dynamic ylabel selection for weighted avg (lines 167-171, 312-316)
+  - Increased spacing: pad=12, labelpad=15 (lines 167-169, 313-315)
+  - Fixed extra donut dot check (lines 233-237)
+  - Updated enrollment label to "Weighted avg enrollment per district" (line 754)
+
+- **nss_ch70_plots.py** (multiple locations):
+  - Added enrollment_formatter() function (lines 156-165)
+  - Increased spacing: pad=12, labelpad=15 (lines 153, 166)
+  - Fixed extra donut dot check (lines 213-217)
+  - Updated ylabel to lowercase (line 127)
+
+- **nss_ch70_main.py** (lines 152,157,162,167):
+  - Updated enrollment label to "Weighted avg enrollment per district"
+
+- **compose_pdf.py** (multiple locations):
+  - Added sort arrow ▼ to scatterplot table headers (lines 224, 229)
+  - Added cohort change tracking and dividing lines (lines 232-276, 306-310)
+  - Updated subtitle to "Weighted average per district" (line 1195)
+
+### Impact Summary
+- ✅ **Consistent formatting** across all plot types (PPE, NSS/Ch70, scatterplot, enrollment)
+- ✅ **K/M abbreviations** standardized on all axes (enrollment and dollars)
+- ✅ **Donut dots** only appear at labeled tick positions (no extras)
+- ✅ **Scatterplot table** clearly sorted and visually grouped by cohort
+- ✅ **Weighted average labels** consistently formatted and positioned
+- ✅ **Spacing improved** on enrollment axes to prevent label overlap
+- ✅ **Dollar signs** on all PPE/$ axes for clarity
+
+### Plots Regenerated
+- ✅ All enrollment distribution plots (scatterplot, histogram, grouping)
+- ✅ All PPE vs enrollment plots (5 cohorts + 5 individual districts × 2 versions = 20 plots)
+- ✅ All NSS/Ch70 plots (5 cohorts + 5 individual districts = 10 plots)
+- ✅ Western MA overview plot
+- ✅ Final PDF: `output/expenditures_series.pdf`
+
+---

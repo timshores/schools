@@ -1,0 +1,528 @@
+## 2025-10-02 - Session 7: Chapter 70 and Net School Spending (NSS) Analysis
+
+
+### Objective
+Integrate profile_DataC70 sheet data to analyze Chapter 70 state aid and Net School Spending on a per-pupil basis. Create stacked bar plots showing:
+1. Chapter 70 Aid (bottom stack)
+2. Required NSS minus Ch70 Aid (middle stack)
+3. Actual NSS minus Required NSS (top stack)
+
+### Implementation Details
+
+**1. Data Integration and Normalization** (school_shared.py:169-197)
+- Fixed district name mapping between sheets:
+  - C70 data uses ALL CAPS with spaces (e.g., "AMHERST PELHAM")
+  - Expenditure data uses Title Case with hyphens (e.g., "Amherst-Pelham")
+  - Solution: Applied `.str.title()` and `.str.replace(" ", "-")` to normalize C70 district names
+- Column mapping: C70 `fy` (fiscal year) → `YEAR` to match other sheets
+- All districts of interest now match correctly (verified: Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury)
+
+**2. Data Processing Functions** (school_shared.py:497-634)
+- Created `prepare_district_nss_ch70()`: Single district NSS/Ch70 data on per-pupil basis
+  - Joins C70 data with enrollment (In-District FTE) by year
+  - Calculates three stacking components:
+    - Ch70 Aid = c70aid / enrollment
+    - Req NSS (adj) = max(0, rqdnss2 - c70aid) / enrollment
+    - Actual NSS (adj) = (actualNSS - rqdnss2) / enrollment
+  - Handles edge case: Ch70 > Required NSS (sets middle stack to 0)
+- Created `prepare_aggregate_nss_ch70()`: Aggregate multiple districts
+  - Sums dollar amounts across districts by year
+  - Divides by total enrollment for per-pupil values
+  - Used for ALPS PK-12 virtual district
+
+**3. Plotting Functions** (nss_ch70_plots.py)
+- Created `plot_nss_ch70()`: Stacked bar plot with enrollment line overlay
+  - Twin axes: enrollment (left), $/pupil (right)
+  - Color palette (colorblind-friendly):
+    - Green (#4ade80): Chapter 70 Aid
+    - Amber (#fbbf24): Required NSS (adj)
+    - Purple (#a78bfa): Actual NSS (adj)
+  - Legend shows both stacks and enrollment line
+  - Figure size: 11.8 x 7.4 inches (matches expenditure plots)
+- Created `compute_nss_ylim()`: Global y-axis limit computation
+  - Computes max total (sum of all stacks) across all pivots
+  - Adds 5% padding and rounds to nearest $500
+
+**4. Table Generation Functions** (nss_ch70_plots.py:191-291)
+- Created `build_nss_category_data()`: Table data with CAGR calculations
+  - Returns category rows: (category, start_str, c15s, c10s, c5s, latest_str, color, latest_val)
+  - Column order (chronological left-to-right): 2009, CAGR 15y, CAGR 10y, CAGR 5y, 2024
+  - Computes total row: sum of all three stacks
+  - Returns start_map for red/green shading comparisons (future integration)
+- Helper functions:
+  - `compute_cagr_last()`: CAGR calculation over N years
+  - `fmt_pct()`: Percentage formatting with em-dash for NaN values
+
+**5. Main Generation Script** (nss_ch70_main.py)
+- Generates NSS/Ch70 plots for all districts of interest:
+  - ALPS PK-12 (aggregate)
+  - Amherst-Pelham
+  - Amherst
+  - Leverett
+  - Pelham
+  - Shutesbury
+- Computes shared y-axis limits for consistent comparison
+- Outputs PNG files to output/ directory
+- Preview table data for verification
+
+### Files Created/Modified
+**Created:**
+- `nss_ch70_plots.py` - Plotting and table generation functions (292 lines)
+- `nss_ch70_main.py` - Main generation script (132 lines)
+- `test_c70_data.py` - Data exploration and verification
+- `test_nss_ch70.py` - Data processing tests
+- `test_nss_plots.py` - Plot generation tests
+- `test_nss_tables.py` - Table data generation tests
+
+**Modified:**
+- `school_shared.py` - Added C70 normalization and processing functions (138 new lines)
+
+### Test Results
+✅ All 6 NSS/Ch70 plots generated successfully
+✅ District name mapping verified for all districts
+✅ Table data calculations verified (totals match sum of stacks)
+✅ Edge case handling confirmed (no Ch70 > Req NSS cases in our districts)
+✅ CAGR calculations verified across all timeframes (5y, 10y, 15y)
+
+### Output Files
+Generated 6 PNG files in output/ directory:
+- nss_ch70_ALPS_PK_12.png
+- nss_ch70_Amherst_Pelham.png
+- nss_ch70_Amherst.png
+- nss_ch70_Leverett.png
+- nss_ch70_Pelham.png
+- nss_ch70_Shutesbury.png
+
+### Data Insights (Amherst example, 2024)
+- Ch70 Aid: $6,271/pupil (22% of total NSS)
+- Req NSS (adj): $11,151/pupil (38% of total NSS)
+- Actual NSS (adj): $11,670/pupil (40% of total NSS)
+- Total NSS: $29,093/pupil
+- 15-year CAGR: 4.65% (total NSS growth rate)
+
+### PDF Integration (Completed)
+✅ **NSS/Ch70 section successfully integrated into compose_pdf.py:**
+1. Added NSS/Ch70 plots to PDF (6 districts: ALPS PK-12 + 5 individual districts)
+2. Created `_build_nss_ch70_table()` function for funding component tables
+3. Added new PDF section "Chapter 70 Aid and Net School Spending Analysis"
+4. Updated Table of Contents with clickable link to NSS/Ch70 section
+5. Each NSS/Ch70 page includes:
+   - Stacked bar chart (Ch70 Aid, Req NSS adj, Actual NSS adj)
+   - Table with funding components, CAGR values, and color swatches
+   - Chronological column order (2009, CAGR 15y/10y/5y, 2024)
+
+**PDF File Generated:**
+- Output: `output/expenditures_series.pdf` (6.9MB)
+- New section appears between individual district pages and Appendix A
+- Section includes 6 NSS/Ch70 pages (ALPS PK-12, Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury)
+
+### Session 7 Updates (2025-10-02 continued)
+
+**1. Removed enrollment from NSS/Ch70 plots** (per user request)
+- Removed enrollment line overlay from all NSS/Ch70 plots
+- Hidden left y-axis (was used for enrollment)
+- Simplified plots to focus on funding components only
+- Updated nss_ch70_plots.py:92-112
+
+**2. Reordered PDF pages - NSS/Ch70 grouped with districts**
+- Moved NSS/Ch70 pages from separate section to be grouped with each district
+- Each district now has 5 pages total:
+  1. Simple version (solid color)
+  2. Detailed version vs Western MA
+  3. Detailed version vs ALPS Peers
+  4. NSS/Ch70 vs Western MA (NEW position)
+  5. NSS/Ch70 vs ALPS Peers (NEW position)
+- NSS/Ch70 pages now appear immediately after expenditure pages for their district
+- Removed separate "Chapter 70 Aid and Net School Spending Analysis" section
+
+**3. Created NSS/Ch70 plots for aggregate districts**
+- Generated Western MA (≤500) aggregate NSS/Ch70 plot
+- Generated Western MA (>500) aggregate NSS/Ch70 plot
+- Generated ALPS Peers aggregate NSS/Ch70 plot
+- Added safe filename handling for special characters (≤, >, parentheses)
+- Updated nss_ch70_main.py to include aggregate plot generation
+
+**4. Added NSS/Ch70 aggregate pages to Appendix A**
+- Added NSS/Ch70 page after each Western aggregate's expenditure pages
+- Added NSS/Ch70 page after ALPS Peers aggregate's expenditure pages
+- Pre-computed Western district lists (≤500 and >500) at start of build_page_dicts()
+- Appendix A now shows both expenditure and NSS/Ch70 analysis for aggregates
+
+**5. Implemented red/green shading for NSS/Ch70 tables**
+- Created `_build_nss_ch70_baseline_map()` function (compose_pdf.py:551-578)
+  - Builds baseline map with DOLLAR, START_DOLLAR, and CAGR (5/10/15y) values
+  - Same structure as expenditure baseline maps
+- Updated `_build_nss_ch70_table()` to support baseline comparison (compose_pdf.py:427-559)
+  - Added baseline_map and baseline_title parameters
+  - Shades start year $/pupil (col 2): relative comparison (≥2% threshold)
+  - Shades latest $/pupil (col 6): relative comparison (≥2% threshold)
+  - Shades CAGR columns (cols 3-5): absolute pp delta (≥2pp threshold)
+  - Added legend rows with shading rules (same format as expenditure tables)
+  - Red shading: higher than baseline
+  - Green shading: lower than baseline
+- Each district now has TWO NSS/Ch70 pages with baseline comparison:
+  - One vs Western Traditional (≤500 or >500 bucket based on district size)
+  - One vs ALPS Peer Districts Aggregate
+- Computes baselines from aggregate NSS/Ch70 data for both Western and ALPS Peers
+- Moved Western district list computation to start of build_page_dicts() for early access
+
+**Code Changes:**
+- compose_pdf.py:551-578 - Added _build_nss_ch70_baseline_map() function
+- compose_pdf.py:427-559 - Updated _build_nss_ch70_table() with shading logic
+- compose_pdf.py:827-838 - Pre-compute Western district lists at start
+- compose_pdf.py:1005-1061 - Generate two NSS/Ch70 pages per district with baselines
+- compose_pdf.py:42 - Added latest_total_fte and N_THRESHOLD to imports
+
+**PDF Output:**
+- Each district now has 2 NSS/Ch70 comparison pages (vs Western and vs ALPS Peers)
+- Tables include red/green shading comparing to appropriate baseline
+- Shading uses same logic as expenditure tables (2% dollar threshold, 2pp CAGR threshold)
+- Aggregate NSS/Ch70 pages in Appendix A show baseline data for comparisons
+
+**6. Added NSS/Ch70 data tables to Appendix B**
+- Created `_build_nss_ch70_data_table()` function (compose_pdf.py:791-847)
+  - Builds data table showing NSS/Ch70 funding components by year
+  - Rows: Ch70 Aid, Req NSS (adj), Actual NSS (adj), Total NSS
+  - Columns: Years (2009-2024)
+  - Format: $/pupil with dollar formatting
+- Updated Appendix B data collection to gather NSS/Ch70 data (compose_pdf.py:1247-1292)
+  - Collects both EPP and NSS/Ch70 data for each district
+  - Deduplicates by district name
+  - Stores raw_nss in district_data map
+- Updated data_table page rendering (compose_pdf.py:1558-1566)
+  - Adds NSS/Ch70 data table section if raw_nss is available
+  - Includes section header "NSS/Ch70 Funding Components ($/pupil)"
+  - Table appears after EPP and FTE tables on each district's data page
+- Updated page dict to store raw_nss (compose_pdf.py:1060, 1075)
+  - District NSS/Ch70 pages now include raw_nss field
+  - Enables data tables in Appendix B
+- Updated Appendix B subtitle and note to mention NSS/Ch70 funding
+
+**7. Added NSS/Ch70 calculation methodology to Appendix C**
+- Created methodology_page3 with comprehensive NSS/Ch70 explanation (compose_pdf.py:1384-1426)
+  - Background: Chapter 70 and Net School Spending definitions
+  - Data Sources: c70aid, rqdnss2, actualNSS, In-District FTE
+  - Per-Pupil Calculation: Division by enrollment
+  - Stacked Components with formulas:
+    - Ch70 Aid ($/pupil) = c70aid / In-District FTE
+    - Req NSS (adj) = max(0, rqdnss2 − c70aid) / In-District FTE
+    - Actual NSS (adj) = (actualNSS − rqdnss2) / In-District FTE
+  - Total NSS = Sum of all three components
+  - Example Calculation using Amherst FY2024 data:
+    - Enrollment: 1,083 students
+    - Ch70 Aid: $6,791,000 / 1,083 = $6,271/pupil
+    - Req NSS (adj): ($18,859,000 − $6,791,000) / 1,083 = $11,151/pupil
+    - Actual NSS (adj): ($31,511,000 − $18,859,000) / 1,083 = $11,670/pupil
+    - Total NSS: $6,271 + $11,151 + $11,670 = $29,093/pupil
+  - Aggregate Calculation: Sum dollar amounts across districts, divide by total enrollment
+  - Shading: Same 2% dollar / 2pp CAGR thresholds as PPE tables
+- Added third methodology page to pages list (compose_pdf.py:1447-1454)
+- Appendix C now has 3 pages:
+  1. CAGR definition and aggregate calculations
+  2. Red/green shading logic
+  3. NSS/Ch70 calculations with example
+
+**PDF Output:**
+- Appendix B now includes NSS/Ch70 funding data tables for all districts
+- Appendix C includes complete NSS/Ch70 methodology with worked example
+- Each district's Appendix B page shows: PPE table, FTE table, NSS/Ch70 table
+
+**8. Changed NSS/Ch70 to absolute dollars instead of per-pupil**
+- Per user request based on DESE Researcher's Guide guidance about out-of-district costs
+- Updated school_shared.py functions:
+  - `prepare_district_nss_ch70()` (lines 498-564): Removed division by enrollment
+    - Now returns absolute dollar values: c70aid, max(0, rqdnss2 - c70aid), actualNSS - rqdnss2
+  - `prepare_aggregate_nss_ch70()` (lines 567-629): Removed per-pupil calculation
+    - Now sums dollar amounts across districts without dividing by enrollment
+- Updated nss_ch70_plots.py (line 105): Changed y-axis label from "$ per pupil" to "Dollars ($)"
+- Updated compose_pdf.py throughout:
+  - Narrowed Component column in NSS/Ch70 data table from 1.2" to 0.9" (line 828)
+  - Removed "per-pupil" references from all NSS/Ch70 page subtitles
+  - Updated Appendix B note to clarify "NSS/Ch70 funding components (in absolute dollars)"
+  - Updated data table label: "NSS/Ch70 Funding Components ($)" (line 1620)
+- Updated Appendix C methodology (lines 1396-1431):
+  - Added important note explaining absolute dollars vs per-pupil
+  - Updated all formulas to show absolute dollar calculations
+  - Updated example calculation for Amherst FY2024:
+    - Ch70 Aid: $6,791,000 (not per-pupil)
+    - Req NSS (adj): $12,068,000 (not per-pupil)
+    - Actual NSS (adj): $12,652,000 (not per-pupil)
+    - Total NSS: $31,511,000 (not per-pupil)
+  - Updated aggregate calculation: sum dollars across districts (no division)
+
+**9. Added PPE definition to Appendix C**
+- Added new section 1 to methodology_page1 (lines 1322-1327)
+- Includes DESE Researcher's Guide quote about out-of-district expenditures:
+  - "The out-of-district total cannot be properly reported as a per-pupil expenditure because the cost of tuitions varies greatly depending on the reason for going out of district."
+- Explains PPE is calculated using in-district FTE only
+- Renumbered subsequent sections (CAGR now #2, Aggregate Calculations now #3, etc.)
+
+**PDF Output:**
+- NSS/Ch70 plots now show absolute dollar amounts on y-axis
+- NSS/Ch70 tables show dollar values without per-pupil division
+- Plot scales are much larger (millions of dollars instead of thousands per pupil)
+- CAGR calculations remain valid (percentage growth rates independent of per-pupil vs absolute)
+- Red/green shading still works correctly for comparison to baselines
+
+**10. Additional NSS/Ch70 refinements and ALPS relocation**
+- Added ALPS PK-12 explanation to Appendix C (line 1342):
+  - "This simulates the four towns of the Amherst-Pelham Regional District as a PK-12 unified district to support comparison with other PK-12 unified districts."
+- Fixed NSS/Ch70 table headers (lines 438, 442):
+  - Changed from "$/pupil" to just "$" for absolute dollar clarity
+- Narrowed Component column in NSS/Ch70 summary tables (line 496):
+  - Set Component column to fixed 1.4" width (was flexible)
+  - Increased dollar columns to 1.0" for larger values (millions)
+- Relocated ALPS PK-12 section after Shutesbury (lines 1041-1135):
+  - Moved from page 2-3 position to after all individual districts
+  - New page order: Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury, ALPS PK-12
+  - Maintains all 3 pages per district structure (simple, vs Western, vs Peers, NSS/Ch70)
+- Added number abbreviations to Appendix B NSS/Ch70 tables (lines 805-814):
+  - Format function: ≥$1M shows as "$X.XM", ≥$1K shows as "$XK"
+  - Examples: $6,791,000 → $6.8M, $12,068,000 → $12.1M
+  - Prevents line wrapping for large aggregate values
+- Limited Appendix B NSS/Ch70 tables to 2009-2024 (lines 797-800):
+  - Filters years to 2009-2024 range only
+  - Reduces column count from 16 to 16 years (matches data availability)
+  - More horizontal space for each year column
+
+**PDF Output:**
+- NSS/Ch70 summary tables now accommodate $10M+ values without overflow
+- Appendix B NSS/Ch70 tables show abbreviated values (6.8M, 12.1M)
+- Table year range constrained to 2009-2024 for optimal layout
+- ALPS PK-12 now appears as final district section before Appendix A
+- Table of Contents reflects new ALPS PK-12 position
+
+### Future Enhancements (Optional)
+1. ✅ ~~Add red/green shading to NSS/Ch70 tables~~ (COMPLETED)
+2. ✅ ~~Add NSS/Ch70 data tables to Appendix B~~ (COMPLETED)
+3. ✅ ~~Create comparison baseline for NSS/Ch70~~ (COMPLETED - Western MA and ALPS Peers)
+4. ✅ ~~Convert NSS/Ch70 to absolute dollars~~ (COMPLETED - per DESE guidance)
+
+---
+
+## Session 2025-10-20
+
+**11. Created standalone legend for Executive Summary CAGR plots**
+- Added `plot_cagr_legend()` function (executive_summary_plots.py:491-581):
+  - Generates standalone legend PNG with same color scheme as CAGR plots
+  - Uses matplotlib.patches.Patch to create legend items
+  - Horizontal layout with 4 columns, 18pt font
+  - Includes cohort hatching pattern for visual consistency
+  - Figure size: 18x2 inches for wide horizontal layout
+- Modified `plot_cagr_grouped_bars()` (executive_summary_plots.py:584-695):
+  - Removed inline legend (was at top of plot with bbox_to_anchor)
+  - Removed plt.subplots_adjust(top=0.92) that made room for legend
+  - Plot now uses full vertical space without legend overhead
+- Updated main() function (executive_summary_plots.py:809-879):
+  - Changed step numbering from [1/5]-[5/5] to [1/6]-[6/6]
+  - Added step [6/6] to generate standalone legend
+  - Outputs: executive_summary_cagr_legend.png
+
+**Output:**
+- New file: output/executive_summary_cagr_legend.png
+- Modified: output/executive_summary_cagr_grouped.png (legend removed)
+- Legend can now be placed independently on page without affecting plot alignment
+
+**12. Updated compose_pdf.py to place legend and CAGR plots together**
+- Modified page definition (compose_pdf.py:1439-1451):
+  - Changed chart_paths to include legend as first element
+  - Added executive_summary_cagr_legend.png before the two CAGR plots
+  - Replaced two_charts_vertical and cagr_with_text flags with new cagr_with_legend flag
+- Added new layout rendering logic (compose_pdf.py:2627-2684):
+  - Detects cagr_with_legend flag and 3 chart_paths
+  - Places explanation text first (12pt spacer)
+  - Places legend at 8% of page height (8pt spacer after)
+  - Places 5-year CAGR grouped bars at 35% of page height (10pt spacer after)
+  - Places 15-year CAGR bars at 35% of page height
+  - All three images maintain full page width with proper aspect ratio
+- Maintained backward compatibility with two_charts_vertical flag for other pages
+
+**Page Layout:**
+- Executive Summary (continued) page now shows:
+  1. Title and subtitle
+  2. CAGR explanation text
+  3. Legend (horizontal, short height)
+  4. 5-year CAGR grouped bars (Figure N)
+  5. 15-year CAGR bars (Figure N+1)
+- Total vertical allocation: ~8% legend + 35% + 35% charts = ~78% of page height
+- Remaining space for title, text, figure captions, and spacing
+
+**13. Increased size of legend and CAGR charts on page**
+- Updated legend height allocation (compose_pdf.py:2644):
+  - Increased from 8% to 15% of page height for better visibility
+- Updated CAGR chart height allocations (compose_pdf.py:2658, 2673):
+  - Increased from 35% to 42% of page height for both charts
+- New total vertical allocation: 15% legend + 42% + 42% charts = 99% of page height
+- Images maintain full page width with proper aspect ratios
+- Both plots now display larger and more readable on the page
+
+**14. Further increased legend size and reduced bar gaps in 15-year CAGR plot**
+- Updated legend height allocation (compose_pdf.py:2644):
+  - Increased from 15% to 22% of page height for improved readability
+- Reduced bar gaps in 15-year CAGR plot (executive_summary_plots.py:766):
+  - Increased bar_width from 0.5 to 0.8
+  - Bars now wider with minimal whitespace between them
+  - Plot appears less wide with more compact bar arrangement
+- Legend and bars now more prominent on the page
+
+**15. Implemented data caching/checkpointing system**
+- Created cache_manager.py module (lines 1-175):
+  - `save_cache()`: Saves DataFrames as CSV files to data/cache/
+  - `load_from_cache()`: Loads DataFrames from cache CSVs
+  - `use_cache()`: Checks if cache exists and should be used
+  - `cache_exists()`: Validates all cache files are present
+  - `clear_cache()`: Deletes cache files
+  - Cache includes: expenditure_data.csv, regional_data.csv, chapter70_data.csv, cache_metadata.txt
+- Updated school_shared.py load_data() function (lines 459-550):
+  - Added `force_recompute` parameter (default False)
+  - Checks cache first before loading from Excel
+  - Automatically saves to cache after loading from Excel
+  - Gracefully falls back to Excel if cache load fails
+- Updated generate_report.py (lines 1-139):
+  - Added argparse support for --force-recompute flag
+  - Passes flag to all pipeline scripts
+  - Shows cache mode in output ("Using cache" vs "Force recompute")
+
+**Cache Behavior:**
+- First run: Loads from Excel, saves to data/cache/, ~30-60 seconds
+- Subsequent runs: Loads from cache CSVs, ~2-5 seconds
+- With --force-recompute: Bypasses cache, reloads from Excel
+- Cache automatically used if present and force flag not set
+
+**Next Steps:**
+- ~~Add --force-recompute support to individual pipeline scripts~~ ✅ COMPLETED
+- Test full pipeline with caching enabled
+- (Future) Move to PPE_project structure with PPE_ filename prefixes
+
+---
+
+## 16. Complete Pipeline Integration with Caching (2025-10-20)
+
+**Problem:** Individual pipeline scripts did not accept --force-recompute argument, preventing full integration with caching system.
+
+**Solution:** Updated all 6 pipeline scripts to accept and pass --force-recompute flag:
+
+**Changes Made:**
+1. **threshold_analysis.py:**
+   - Added `import argparse` at line 15
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+2. **executive_summary_plots.py:**
+   - Added `import argparse` at line 8
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+3. **district_expend_pp_stack.py:**
+   - Added `import argparse` at line 24
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+4. **nss_ch70_main.py:**
+   - Added `import argparse` at line 14
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+5. **western_map.py:**
+   - Added `import argparse` at line 35
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+6. **western_enrollment_plots_individual.py:**
+   - Added `import argparse` at line 13
+   - Added argument parser in main() to accept --force-recompute flag
+   - Updated load_data() call to pass force_recompute parameter
+
+**Pattern Applied (consistent across all scripts):**
+```python
+# 1. Import argparse at top
+import argparse
+
+# 2. Add argument parser in main()
+def main():
+    parser = argparse.ArgumentParser(description="[Script description]")
+    parser.add_argument("--force-recompute", action="store_true",
+                        help="Bypass cache and recompute from source")
+    args = parser.parse_args()
+
+    # 3. Pass flag to load_data()
+    df, reg, c70 = load_data(force_recompute=args.force_recompute)
+```
+
+**Result:** Complete end-to-end caching system is now fully operational:
+- Running `python generate_report.py` uses cache if available
+- Running `python generate_report.py --force-recompute` bypasses cache and reloads from Excel
+- Each individual script can also be run with --force-recompute flag independently
+- Cache reduces data loading time from ~30-60 seconds to ~2-5 seconds
+
+**Testing Recommendations:**
+1. Delete existing cache: Remove data/cache/ directory
+2. Run full pipeline: `python generate_report.py`
+   - Should create cache files in data/cache/
+   - Should complete successfully
+3. Run again without flag: `python generate_report.py`
+   - Should load from cache (fast)
+   - Should show "[Cache] Cache found - loading from cache"
+4. Force recompute: `python generate_report.py --force-recompute`
+   - Should bypass cache and reload from Excel
+   - Should show "[Cache] Force recompute requested - bypassing cache"
+
+---
+
+## 17. Add Red/Green Shading to Cohort Aggregate Tables (2025-10-20)
+
+**Problem:** Cohort aggregate tables (Tiny, Small, Medium, Large, X-Large, Springfield) and their NSS/Ch70 tables did not have red/green comparison shading, making it difficult to assess how each enrollment group compared to the regional average.
+
+**Question:** What should cohort aggregates be compared to? Since cohorts provide the basis of comparison for individual districts, comparing cohorts to themselves would be meaningless.
+
+**Solution:** Compare all cohort aggregates (including Springfield) to **Western MA weighted average (excluding Springfield)**. This provides meaningful regional context:
+- For individual districts: Compare to their cohort aggregate (existing behavior)
+- For cohort aggregates: Compare to overall Western MA average
+- For Springfield: Compare to overall Western MA average (excluding itself)
+
+**Implementation Details:**
+
+1. **Created Western MA baseline calculation functions** (compose_pdf.py):
+   - `_build_western_ma_baseline()` (lines 262-333): Calculates Western MA weighted average for PPE categories
+     - Gets all Western MA traditional districts
+     - Excludes Springfield (>10K FTE outlier)
+     - Uses `weighted_epp_aggregation()` to compute regional average
+     - Returns baseline_map with DOLLAR, START_DOLLAR, and CAGR values for all categories
+   - `_build_western_ma_nss_baseline()` (lines 336-368): Calculates Western MA weighted average for NSS/Ch70
+     - Similar exclusion logic
+     - Uses `prepare_aggregate_nss_ch70_weighted()`
+     - Returns baseline_map for Ch70 Aid, Required NSS, Actual NSS components
+
+2. **Updated cohort page creation** (compose_pdf.py lines 1625-1733):
+   - Calculate Western MA baseline once (shared across all cohort pages)
+   - Added `baseline_map` and `fte_baseline_map` to all cohort PPE pages
+   - Added `baseline_map` and `fte_baseline_map` to all cohort NSS/Ch70 pages
+   - Updated subtitles to indicate: "shaded by comparison to weighted average of all Western MA (excluding Springfield)"
+   - Set `baseline_title="All Western MA (excluding Springfield)"`
+
+3. **Modified shading logic** (compose_pdf.py):
+   - Line 684: Changed `if page.get("page_type") == "district"` to `if page.get("page_type") in ["district", "western", "nss_ch70"]`
+   - Line 776: Updated legend display condition to include "western" page type
+   - Line 811: Updated FTE shading condition to include "western" page type
+   - These changes enable red/green shading for cohort tables using the same thresholds as district tables
+
+4. **Updated legend text** (compose_pdf.py line 533):
+   - Modified `_abbr_bucket_suffix()` to detect "All Western MA (excluding Springfield)" baseline
+   - Returns "MA (excl. Springfield)" for cohort page legends
+   - Individual district legends still show their cohort label (e.g., "0-200 FTE")
+
+**Result:**
+- Cohort aggregate tables now show red/green shading comparing to Western MA average
+- Springfield comparison also uses Western MA average (excluding itself)
+- Legends correctly identify the comparison baseline
+- Same shading thresholds applied: 2.0% for $/pupil, 2.0pp for CAGR
+
+**Testing:**
+- Run `python compose_pdf.py` to regenerate PDF
+- Check cohort aggregate pages (Section 1): Tiny, Small, Medium, Large, X-Large, Springfield
+- Verify red/green shading appears in:
+  - PPE category tables
+  - Enrollment tables
+  - NSS/Ch70 funding component tables
+- Verify legend shows "Above Western MA (excl. Springfield)" and "Below Western MA (excl. Springfield)"
+- Verify individual district pages still compare to their cohort (no change)

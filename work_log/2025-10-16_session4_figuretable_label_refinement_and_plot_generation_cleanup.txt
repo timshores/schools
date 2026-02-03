@@ -1,0 +1,55 @@
+## 2025-10-16 (Session 4) - Figure/Table Label Refinement and Plot Generation Cleanup
+
+
+### Updated Label Layout and Removed Unused Plot Generation
+
+**Context:** User requested refinement of figure/table labels and removal of unused plot generation. Plot width changes were rolled back to original state.
+
+**Files Modified:**
+- `compose_pdf.py` (lines 86-103, 2563, 2756, 2776, 2834, 2857)
+- `executive_summary_plots.py` (lines 593-594, 732-767)
+- `western_enrollment_plots_individual.py` (lines 148, 220)
+
+**Changes Made:**
+
+1. **Refined Figure/Table Label Layout**
+   - Removed pipe separator "|" between Figure # and Table #
+   - Changed to left-justify Figure # and right-justify Table # on same line
+   - Created `build_combined_fig_table_label()` function (lines 86-103 in compose_pdf.py)
+   - Uses ReportLab Table with two columns to achieve split alignment
+   - Left column: Figure # (left-aligned with gray background)
+   - Right column: Table # (right-aligned with gray background)
+   - Applied to all 5 locations where figure/table appear adjacent:
+     - Threshold analysis table (line 2563)
+     - Scatterplot district table (line 2756)
+     - Data table pages (line 2776)
+     - NSS/Ch70 pages (line 2834)
+     - Regular district pages (line 2857)
+
+2. **Removed Unused YoY Growth Plot Generation**
+   - Deleted generation of executive_summary_yoy_growth.png (no longer used in PDF)
+   - Replaced plot generation call with inline data calculation (lines 732-767)
+   - Retained data calculation logic for use in other plots:
+     - YoY separate panes plot
+     - CAGR grouped bars plot
+     - CAGR 15-year bars plot
+   - Eliminated redundant file generation while preserving required data
+
+3. **Rolled Back Plot Width Changes**
+   - executive_summary_cagr_grouped.png: Reverted legend to ncol=4 (from ncol=5)
+   - enrollment_1_scatterplot_*.png: Reverted figsize to (11, 6) (from 30, 8) and legend to ncol=4 (from ncol=9)
+   - Both plots returned to original proportions before width problems began
+   - Maintains 2x enlarged legend font and swatches for CAGR plot
+
+**Impact:**
+- ✅ Figure # left-aligned, Table # right-aligned, no pipe separator
+- ✅ executive_summary_yoy_growth.png no longer generated (unused)
+- ✅ CAGR grouped plot and scatterplots at original dimensions
+- ✅ All plots render with original proportions
+
+**Technical Notes:**
+- Combined figure/table label uses ReportLab Table with zero padding for seamless appearance
+- Two-column table allows independent alignment (left/right) within same line
+- Plot dimensions returned to state before legend width experimentation
+
+---

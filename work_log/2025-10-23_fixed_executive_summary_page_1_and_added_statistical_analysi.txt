@@ -1,0 +1,201 @@
+## 2025-10-23 - Fixed Executive Summary Page 1 and Added Statistical Analysis
+
+
+### Fixed Executive Summary Introduction Page Content Display
+
+**Context:** User reported that Executive Summary page 1 was showing only a title with no content. Investigation revealed the text file was loading successfully but parsing returned 0 paragraphs due to Windows line ending issues.
+
+**Root Causes:**
+1. Windows line endings (`\r\n`) weren't handled by regex expecting Unix line endings (`\n`)
+2. Section name regex pattern `[A-Z_]+` didn't support digits (needed for `EXECUTIVE_SUMMARY_PAGE1`)
+
+**Files Modified:**
+- `ppe_report/report_text.txt` - Added EXECUTIVE_SUMMARY_PAGE1 and EXECUTIVE_SUMMARY_COHORT_EXPLANATION sections
+- `ppe_report/compose_pdf.py` (lines 283-328, 1730-1736, 2932-2950)
+
+**Changes Made:**
+
+1. **Fixed text file loading** (compose_pdf.py:283-328):
+   - Changed file path resolution to use `Path(__file__).parent / "report_text.txt"`
+   - Added line ending normalization: `content.replace('\r\n', '\n')`
+   - Updated regex pattern from `[A-Z_]+` to `[A-Z_0-9]+` to support digits in section names
+
+2. **Added Executive Summary page 1** (compose_pdf.py:1730-1736):
+   - Created new page dict with `text_only_page=True` flag
+   - Loads content from `EXECUTIVE_SUMMARY_PAGE1` section
+   - Contains PPE introduction, quick-start guide, and contact information
+
+3. **Added text-only page handler** (compose_pdf.py:2932-2950):
+   - Handles pages with `text_only_page=True` flag
+   - Renders title, subtitle, and text blocks without charts/tables
+   - Used for Executive Summary introduction and statistical analysis pages
+
+4. **Added EXECUTIVE_SUMMARY_PAGE1 section** to report_text.txt:
+   - Introduction explaining PPE as a "cloudy lens" for understanding education funding
+   - Quick-start guide with 3 steps
+   - Contact information
+
+5. **Added EXECUTIVE_SUMMARY_COHORT_EXPLANATION section** to report_text.txt:
+   - Cohort comparison explanation with table number substitution
+   - Methodology notes about enrollment-weighted averages
+   - Interpretation guidance
+
+### Fixed Section 1 Page Ordering
+
+**Context:** Section 1 was appearing as page 2, before Executive Summary content. User requested Section 1 appear after Executive Summary.
+
+**Files Modified:**
+- `ppe_report/compose_pdf.py` (lines 1919-1955)
+
+**Changes Made:**
+- Moved Section 1 code block (including omitted districts logic and Section 1 summary page) to appear AFTER all Executive Summary pages in `build_page_dicts()` function
+- Section 1 now follows Executive Summary as intended
+
+### Created Statistical Analysis Module
+
+**Context:** User requested a statistical model showing associations between enrollment cohorts, enrollment growth rates, and per-pupil expenditure patterns.
+
+**Files Created:**
+- `ppe_report/statistical_analysis.py` - New module for statistical analyses
+
+**Features:**
+
+1. **Data Extraction** (`get_district_metrics()`):
+   - Extracts metrics for each Western MA district
+   - Calculates enrollment (2024 and start year)
+   - Calculates enrollment CAGR (2009-2024)
+   - Calculates PPE (2024 and start year)
+   - Calculates PPE CAGR (2009-2024)
+   - Assigns cohort membership
+
+2. **Six Statistical Analyses:**
+   - **Analysis 1:** Cohort membership → 2024 $/pupil amount (ANOVA)
+     - F=3.70, p=0.006, η²=0.255 (strong evidence, large effect)
+   - **Analysis 2:** Cohort membership → $/pupil growth 2009-2024 (ANOVA)
+     - F=0.52, p=0.759 (no evidence of association)
+   - **Analysis 3:** Enrollment growth rate → 2024 $/pupil amount (regression)
+   - **Analysis 4:** Enrollment growth rate → $/pupil growth 2009-2024 (regression)
+   - **Analysis 5:** Combined model: Cohort + enrollment growth → 2024 $/pupil (ANCOVA)*
+   - **Analysis 6:** Combined model: Cohort + enrollment growth → $/pupil growth (ANCOVA)*
+   
+   *Requires statsmodels package (optional dependency)
+
+3. **Helper Functions:**
+   - `calculate_cagr()` - Compound Annual Growth Rate calculation
+   - `interpret_p_value()` - p-value interpretation (very strong/strong/moderate/weak/no evidence)
+   - `interpret_effect_size()` - eta-squared interpretation (negligible/small/medium/large)
+   - `interpret_correlation()` - Pearson r interpretation
+   - `format_results_for_report()` - Formats results as text blocks for PDF
+
+4. **Standalone Testing:**
+   - Module can be run directly: `python statistical_analysis.py`
+   - Prints summary of all analyses to console
+
+### Integrated Statistical Analysis into PDF Report
+
+**Context:** Add statistical analysis page to Executive Summary section of PDF report.
+
+**Files Modified:**
+- `ppe_report/compose_pdf.py` (lines 46, 1738-1754)
+
+**Changes Made:**
+
+1. **Added import** (line 46):
+   ```python
+   from statistical_analysis import run_all_analyses, format_results_for_report
+   ```
+
+2. **Added statistical analysis page** (lines 1738-1754):
+   - Runs all 6 statistical analyses during PDF generation
+   - Formats results as text blocks
+   - Creates new page in Executive Summary section
+   - Title: "Executive Summary (continued)"
+   - Subtitle: "Statistical Associations"
+   - Appears after Executive Summary introduction, before YoY charts
+
+3. **Error handling:**
+   - Wrapped in try/except to continue PDF generation if analysis fails
+   - Prints warning message if statsmodels not available
+
+**Result:**
+- Executive Summary now includes statistical analysis showing associations between cohorts and PPE
+- 11 text blocks added to report
+- Provides quantitative evidence for patterns observed in charts/tables
+
+**Testing:**
+- Run `python compose_pdf.py` to regenerate PDF
+- Verify Executive Summary page 1 shows full introduction text
+- Verify Statistical Associations page appears after introduction
+- Verify Section 1 appears after Executive Summary
+- Check for no errors/warnings (except optional statsmodels warning)
+
+
+### Reorganized Report Sections and Improved Table of Contents
+
+**Context:** User requested reorganizing the report into three clear sections with improved Table of Contents showing hierarchical structure.
+
+**Files Modified:**
+- `ppe_report/report_text.txt` (added SECTION1_SUMMARY)
+- `ppe_report/compose_pdf.py` (lines 1942-1952, 2015-2036, 2113-2141, 2890-2928, 2975-3013)
+
+**Changes Made:**
+
+1. **Added Section 1 summary content** to report_text.txt:
+   - Explains Section 1's purpose: regional PPE trends organized by enrollment cohorts
+   - Describes contents: scatterplot analysis and cohort aggregate trends
+   - Notes that this provides overview before diving into cohort details (Section 2) and individual districts (Section 3)
+
+2. **Simplified Section 1 structure** (compose_pdf.py:1942-2036):
+   - Updated summary page to load content from SECTION1_SUMMARY (replaced lorem ipsum)
+   - Kept: Summary page, PPE Overview chart, Histogram/Grouping plot, 2024 Scatterplot
+   - Removed: Multi-year scatterplots (2019, 2014, 2009) and choropleth maps
+   - Kept: Six cohort aggregate pages (Tiny, Small, Medium, Large, X-Large, Springfield)
+   - Result: Section 1 now focused on key 2024 overview data
+
+3. **Created Section 2: Western MA Cohort Details** (compose_pdf.py:2113-2141):
+   - New section inserted between Section 1 and former Section 2
+   - Six pages, one for each cohort (Tiny, Small, Medium, Large, X-Large, Springfield)
+   - Each page lists member districts and provides navigation:
+     - Lists all districts in the cohort
+     - References Section 1 for aggregate trends
+     - References Section 3 for individual district comparisons
+   - Uses `text_only_page=True` flag for simple text-based pages
+
+4. **Renamed Section 2 to Section 3** (compose_pdf.py:2143):
+   - Changed comment from "SECTION 2: INDIVIDUAL DISTRICTS" to "SECTION 3: SPECIFIC DISTRICTS COMPARED TO COHORTS"
+   - No changes to district page content, only section numbering
+
+5. **Improved Table of Contents** (compose_pdf.py:2890-2928, 2975-3013):
+   - **New hierarchical structure** with three-element tuples: (title, section_id, indent_level)
+   - **Main sections** (indent_level=0): Bold, larger spacing
+   - **Sub-sections** (indent_level=1): Indented with spacing, normal weight
+   - **Sub-sub-sections** (indent_level=2): More indented, smaller font
+   - **Updated content structure**:
+     - Executive Summary
+     - Section 1: Western MA Traditional District Trends
+       - Scatterplot of Enrollment vs. PPE (2024)
+       - Cohort Aggregate Trends (heading only)
+     - Section 2: Western MA Cohort Details
+       - Six cohort sub-sections (Tiny, Small, Medium, Large, X-Large, Springfield)
+     - Section 3: Specific Districts Compared to Cohorts
+       - Five district sub-sections (Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury)
+     - Appendices
+       - Three appendix sub-sections (A, B, C)
+   - **Maintained clickable links** for navigation
+   - **Backward compatible** with old two-element tuple format
+
+**Result:**
+- Clear three-section structure matching user requirements
+- Section 1: Regional overview and cohort aggregates
+- Section 2: Cohort membership details
+- Section 3: Individual district comparisons
+- Hierarchical TOC with visual indentation and bold for main sections
+- PDF generates successfully with no errors
+
+**Testing:**
+- Run `python compose_pdf.py` to regenerate PDF
+- Verify TOC shows hierarchical structure with proper indentation
+- Verify Section 1 includes summary, scatterplot, and six cohort pages
+- Verify Section 2 includes six cohort detail pages
+- Verify Section 3 includes individual district pages
+- Check all TOC links navigate correctly

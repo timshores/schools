@@ -1,19 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)",
-      "Bash(dir:*)",
-      "Bash(timeout:*)",
-      "Bash(..venvScriptspython.exe -m pip install scipy)",
-      "Bash(/dev/null)",
-      "Bash(find:*)",
-      "Bash(findstr:*)",
-      "Bash(..venvScriptspython.exe -m pip install geopandas)",
-      "Bash(echo \"Exit code: $?\")",
-      "Bash(awk:*)",
-      "Bash(cat:*)",
-      "Bash(....venvScriptspython.exe -m pip:*)",
-      "Bash(move appendix_c_text.txt appendix_b_text.txt)"
+      "WebSearch",
+      "Bash(python generate_district_cache.py:*)",
+      "Bash(del outputcategory_color_map.json)",
+      "Bash(python generate_report.py:*)",
+      "Bash(if exist nul del nul)",
+      "Bash(python find_ch70_district.py:*)",
+      "Bash(del find_ch70_district.py)",
+      "Bash(python split_worklog.py:*)",
+      "Bash(del \"C:\\\\Users\\\\townc\\\\OneDrive\\\\Documents\\\\Python Scripts\\\\schools\\\\split_worklog.py\")"
     ],
     "deny": [],
     "ask": []

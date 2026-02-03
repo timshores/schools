@@ -1,0 +1,78 @@
+## 2025-10-30 (Session 3) - Removed Appendix B and Renumbered Appendices
+
+
+### Eliminated "Calculations and Examples" Appendix and Renumbered Remaining Appendices
+
+**Context:** User requested removal of Appendix B (Calculations and Examples) and renumbering of remaining appendices: C (Data Tables) → B, D (Additional Visualizations) → C.
+
+**Files Modified:**
+- `compose_pdf.py` - Removed Appendix B code, renumbered C→B and D→C
+
+**Changes Made:**
+
+1. **Removed Appendix B: Calculations and Examples** (lines 3956-4380, ~425 lines deleted):
+   - Deleted appendix_b_examples_content loading from appendix_b_text.txt
+   - Deleted appendix_c_content (complete calculations section)
+   - Deleted combined_appendix_b merging logic
+   - Deleted page dictionary for Appendix B
+   - Removed all calculation examples, formulas, and worked examples
+
+2. **Renamed Appendix C → Appendix B (Data Tables)**:
+   - Updated comment: "APPENDIX B: DATA TABLES" (line 3956)
+   - Changed section_id: "appendix_c" → "appendix_b" (line 3991)
+   - Changed title: "Appendix C. Data Tables" → "Appendix B. Data Tables" (line 3995)
+   - Updated code comment reference (line 3601)
+
+3. **Renamed Appendix D → Appendix C (Additional Visualizations)**:
+   - Updated comment: "APPENDIX C: ADDITIONAL VISUALIZATIONS" (line 4003)
+   - Renamed variable: appendix_d_intro → appendix_c_intro (line 4017)
+   - Updated all page titles:
+     * "Appendix D. Additional Visualizations" → "Appendix C. Additional Visualizations" (line 4028)
+     * "Appendix D. Additional Visualizations (continued)" → "Appendix C. Additional Visualizations (continued)" (lines 4037, 4047, 4060, 4086)
+   - Changed all section_ids: "appendix_d" → "appendix_c" (lines 4033, 4043, 4053, 4066, 4091)
+   - Updated code comments throughout (line 4023)
+
+4. **Updated Table of Contents (TOC)**:
+   - Mini ToC for appendices-only PDF (lines 2653-2655):
+     * Removed "Appendix B: Calculations and Examples"
+     * Changed "Appendix C: Data Tables" → "Appendix B: Data Tables"
+     * Changed "Appendix D: Additional Visualizations" → "Appendix C: Additional Visualizations"
+   - Full ToC (lines 4153-4155):
+     * Same updates as mini ToC
+   - All section_id references updated to match new numbering
+
+5. **Legacy Code Note:**
+   - Line 4913 still references `p.get("appendix_b")` for natural flow logic
+   - This flag was used by old Appendix B, now never True
+   - Left in place for compatibility; Appendix A uses same natural flow logic
+
+**New Appendix Structure:**
+- **Appendix A:** Data Sources & Calculation Methodology (from appendix_a_text.txt)
+- **Appendix B:** Data Tables (formerly Appendix C) - All data values used in plots
+- **Appendix C:** Additional Visualizations (formerly Appendix D) - Historical scatterplots and maps (2019, 2014, 2009)
+
+**Removed Content:**
+- All calculation formulas and worked examples
+- Step-by-step calculation procedures
+- Detailed examples for specific districts (Amherst, Medium Cohort, etc.)
+- YoY, CAGR, cohort determination, weighted aggregation formulas
+- Shading threshold calculations
+- District comparison table methodology
+- NSS/Ch70 funding calculation examples
+
+**Impact:**
+- ✅ Simplified appendix structure (4 appendices → 3 appendices)
+- ✅ Removed ~425 lines of calculation documentation
+- ✅ All section_ids and TOC entries updated correctly
+- ✅ PageMarker tracking will work properly with new numbering
+- ✅ Hyperlinks from TOC will route to correct appendices
+- ✅ Cleaner, more focused appendix content
+
+**Testing:**
+- Run `python compose_pdf.py` to verify:
+  * PDF generates without errors
+  * TOC shows 3 appendices (A, B, C) with correct titles
+  * TOC page numbers link to correct appendices
+  * No references to old "Appendix D" in output
+
+---

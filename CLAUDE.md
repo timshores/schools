@@ -1,2 +1,2 @@
-- Always read work_log.md when I start a new session
-- Always update work_log.md with each change
+- Always read work_log/_index.txt when starting a new session to get context on past work
+- For each change, create or append to a session file in work_log/ following the naming pattern: YYYY-MM-DD_sessionN_short_description.txt
