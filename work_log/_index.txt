@@ -2,6 +2,9 @@
 
 Session files (newest first):
 
+  2026-02-05_session11_add_exec_summary_excerpt_pdf.txt
+    2026-02-05 (Session 11) - Add Standalone Executive Summary Excerpt PDF
+
   2025-10-30_session9_added_footnote_marker_for_worthington_ch70_cagr_anomaly.txt
     2025-10-30 (Session 9) - Added Footnote Marker for Worthington Ch70 CAGR Anomaly
 

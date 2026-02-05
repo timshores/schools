@@ -1,0 +1,35 @@
+2026-02-05 (Session 11) - Add Standalone Executive Summary Excerpt PDF
+
+Summary:
+Added a third PDF output: a standalone Executive Summary excerpt that can be
+shared independently of the full report.
+
+Changes:
+
+1. compose_pdf.py:
+   - Added FULL_REPORT_URL constant pointing to the full report on GitHub
+   - Added prepare_exec_excerpt_pages() function that injects report title,
+     subtitle, and a full-report link into the first exec page's text_blocks
+     (no separate cover page — content shares the page with exec summary text)
+   - Added __CENTERED__ marker support in text_only_page rendering for
+     centered paragraph alignment
+   - Modified main() to build the exec summary excerpt PDF after the existing
+     PDF build loop. The excerpt is generated when:
+       * Full build (default or --pdf-only): always
+       * --sections that include "exec": yes (also rebuilds full main PDF)
+       * --appendices-only: no
+       * --sections without "exec": no
+   - When --sections includes "exec", builds the full main report (not a
+     DRAFT) since the exec summary is part of the main PDF
+   - Changed build loop to use pdf_name=="draft" instead of is_partial to
+     decide single-pass vs two-pass build
+   - Excerpt uses two-pass build for page number resolution
+   - Output filename: "Western MA Per Pupil Expenditure Report - Executive Summary.pdf"
+
+2. generate_report.py:
+   - Updated success output to mention the exec summary excerpt PDF
+   - --sections exec now shows main PDF + excerpt in output summary
+
+Files modified:
+  - ppe_report/compose_pdf.py
+  - ppe_report/generate_report.py

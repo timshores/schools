@@ -191,7 +191,10 @@ def main():
     else:
         print("Status: SUCCESS")
         print("\nGenerated files:")
-        if args.sections:
+        if args.sections and "exec" in args.sections:
+            print("  - Main PDF: output/Western MA Per Pupil Expenditure Report.pdf")
+            print("  - Executive Summary excerpt: output/Western MA Per Pupil Expenditure Report - Executive Summary.pdf")
+        elif args.sections:
             print("  - DRAFT PDF (partial render) in output/ directory")
         elif args.appendices_only:
             print("  - Appendices PDF: output/WMPPE Appendices.pdf")
@@ -199,6 +202,7 @@ def main():
             if not args.pdf_only:
                 print("  - PNG plots in output/ directory")
             print("  - Main PDF: output/Western MA Per Pupil Expenditure Report.pdf")
+            print("  - Executive Summary excerpt: output/Western MA Per Pupil Expenditure Report - Executive Summary.pdf")
         print("\n[OK] Report generation complete!")
 
 

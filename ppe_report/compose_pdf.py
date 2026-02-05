@@ -56,6 +56,8 @@ SECTION_GROUPS = {
     "appendix_a", "appendix_b", "appendix_c", "appendix_d",
 }
 
+FULL_REPORT_URL = "https://github.com/timshores/schools/blob/main/ppe_report/output/Western%20MA%20Per%20Pupil%20Expenditure%20Report.pdf"
+
 def filter_pages(pages: list, groups: list) -> list:
     """Filter pages to only include those belonging to the requested groups."""
     if not groups:
@@ -4274,6 +4276,37 @@ def build_toc_page(include_main_sections=True, include_appendices=True, pages=No
         section_id="toc"
     )
 
+
+def prepare_exec_excerpt_pages(exec_pages):
+    """Prepare pages for the standalone Executive Summary excerpt PDF.
+
+    Instead of a separate cover page, this injects the report title, subtitle,
+    and a full-report link into the first exec page's text_blocks so everything
+    fits together without a mostly-blank cover page.
+
+    Returns a new list of page dicts (shallow-copies the first page).
+    """
+    import copy
+    pages = [copy.copy(exec_pages[0])] + exec_pages[1:]
+    first = pages[0]
+
+    # Replace the page title/subtitle for the excerpt
+    first["title"] = "Western MA Per Pupil Expenditure Report"
+    first["subtitle"] = "Executive Summary"
+
+    # Prepend link reference line before existing content
+    header = [
+        f'<i>This document contains only the Executive Summary. '
+        f'Full report available at: '
+        f'<a href="{FULL_REPORT_URL}" color="blue">View full report on GitHub</a>.</i>',
+        "",
+    ]
+
+    existing_blocks = first.get("text_blocks", [])
+    first["text_blocks"] = header + existing_blocks
+    return pages
+
+
 # ---- Build PDF ----
 def build_pdf(pages: List[dict], out_path: Path):
     # Reset figure and table counters at start of PDF generation
@@ -4637,6 +4670,10 @@ def build_pdf(pages: List[dict], out_path: Path):
                         elif heading_level == "H3":
                             story.append(Paragraph(heading_text, style_h3))
                         # Note: Headings have built-in spaceBefore/spaceAfter, no manual Spacer needed
+                    elif isinstance(block, str) and block.startswith("__CENTERED__"):
+                        centered_style = ParagraphStyle("centered_body", parent=style_body, alignment=TA_CENTER)
+                        story.append(Paragraph(block[len("__CENTERED__"):], centered_style))
+                        story.append(Spacer(0, 6))
                     elif isinstance(block, str):
                         story.append(Paragraph(block, style_body))
                         story.append(Spacer(0, 6))
@@ -5265,7 +5302,14 @@ def main(appendices_only=False, sections=None):
             appendix_pages.insert(0, toc_page)
             pdfs_to_build.append(("appendices", appendix_pages, "WMPPE Appendices.pdf"))
     else:
-        if is_partial:
+        if is_partial and "exec" in requested_groups:
+            # Exec is part of the main report, so rebuild the full main PDF
+            print("[INFO] Building main report (exec summary requested)")
+            all_main_pages = [p for p in all_pages if not p.get("section_id", "").startswith("appendix_")]
+            toc_page = build_toc_page(include_main_sections=True, include_appendices=False, pages=all_pages)
+            all_main_pages.insert(0, toc_page)
+            pdfs_to_build.append(("main", all_main_pages, "Western MA Per Pupil Expenditure Report.pdf"))
+        elif is_partial:
             # Partial: no TOC, draft filename, may include both main and appendix pages
             all_filtered = main_pages + appendix_pages
             if all_filtered:
@@ -5285,8 +5329,8 @@ def main(appendices_only=False, sections=None):
         print(f"\n[INFO] Generating {pdf_name} PDF: {filename}")
         final_pdf = OUTPUT_DIR / filename
 
-        if is_partial:
-            # Single-pass for partial renders (no TOC to populate)
+        if pdf_name == "draft":
+            # Single-pass for partial/draft renders (no TOC to populate)
             print(f"[INFO] Single-pass build ({len(pages)} pages, no TOC)...")
             clear_page_map()
             try:
@@ -5314,6 +5358,44 @@ def main(appendices_only=False, sections=None):
                 print(f"[INFO] Temporary PDF with page numbers is available at: {temp_pdf}")
                 print("[INFO] Please close the PDF viewer and run the script again, or manually rename the temp file.")
                 raise
+
+    # Build standalone Executive Summary excerpt PDF
+    # Generate when: full build, --pdf-only, or --sections that include "exec"
+    # Skip when: --appendices-only, or --sections without "exec"
+    build_exec_excerpt = (
+        not appendices_only
+        and (not is_partial or "exec" in requested_groups)
+    )
+
+    if build_exec_excerpt:
+        # Filter to only exec group pages from the unfiltered page list
+        exec_pages = [p for p in all_pages if p.get("group") == "exec"
+                      and not p.get("section_id", "").startswith("section1_")]
+        if exec_pages:
+            exec_excerpt_pages = prepare_exec_excerpt_pages(exec_pages)
+
+            exec_filename = "Western MA Per Pupil Expenditure Report - Executive Summary.pdf"
+            exec_pdf = OUTPUT_DIR / exec_filename
+            print(f"\n[INFO] Generating Executive Summary excerpt PDF: {exec_filename}")
+
+            # Two-pass build for page number resolution
+            print(f"[INFO] Pass 1: Building exec excerpt to capture page numbers...")
+            clear_page_map()
+            exec_temp = OUTPUT_DIR / "exec_excerpt_temp.pdf"
+            build_pdf(exec_excerpt_pages, exec_temp)
+
+            print(f"[INFO] Pass 2: Rebuilding exec excerpt with page numbers ({len(_PAGE_MAP)} sections tracked)...")
+            try:
+                build_pdf(exec_excerpt_pages, exec_pdf)
+                if exec_temp.exists():
+                    exec_temp.unlink()
+                print(f"[SUCCESS] Executive Summary excerpt PDF generated: {exec_pdf}")
+            except PermissionError:
+                print(f"[ERROR] Cannot write to {exec_pdf}: file is locked (probably open in PDF viewer)")
+                print(f"[INFO] Temporary PDF is available at: {exec_temp}")
+                raise
+        else:
+            print("[WARN] No exec pages found, skipping Executive Summary excerpt PDF")
 
 if __name__ == "__main__":
     import argparse

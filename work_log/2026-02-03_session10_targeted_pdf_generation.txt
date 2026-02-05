@@ -1,0 +1,46 @@
+## 2026-02-03 (Session 10) - Targeted PDF Generation and Work Log Restructuring
+
+### Restructured Work Log into Folder
+- Split monolithic WORK_LOG.md (4000+ lines) into 32 individual session files in work_log/
+- Created work_log/_index.txt as an index of all sessions
+- Updated WORK_LOG.md to a slim pointer file
+- Updated CLAUDE.md instructions to reference work_log/ folder
+
+### Added Targeted PDF Generation (--pdf-only and --sections flags)
+
+**Problem:** Regenerating the full PDF after a small text change (e.g., updating one sentence in the exec summary) required running all 7 pipeline steps and a two-pass PDF build. This was unnecessarily slow.
+
+**Solution:** Two new CLI flags for selective regeneration:
+
+**generate_report.py:**
+- `--pdf-only`: Skip plot generation steps 1-6, run only compose_pdf.py
+- `--sections`: Comma-separated section groups to render (forwarded to compose_pdf.py)
+
+**compose_pdf.py:**
+- `--sections`: Filter pages by group before rendering
+
+**Usage examples:**
+```
+python generate_report.py --pdf-only --sections exec    # Just the exec summary
+python generate_report.py --pdf-only                    # Full PDF, skip plots
+python compose_pdf.py --sections section3               # Just district pages
+python compose_pdf.py --sections appendix_a,appendix_b  # Just two appendices
+```
+
+**Section groups:** exec, section1, section2, section3, appendix_a, appendix_b, appendix_c, appendix_d
+
+**Design decisions:**
+1. build_page_dicts() always runs in full (data computation unaffected)
+2. Each page dict tagged with group= key for filtering
+3. Partial renders omit TOC and use single-pass build (faster)
+4. Partial renders write to ...(DRAFT).pdf to avoid overwriting production files
+5. No --sections flag = full render with TOC (unchanged behavior)
+
+**Files modified:**
+- compose_pdf.py: Added SECTION_GROUPS set, filter_pages() function, group= key on ~30 page dicts, updated main() with filtering/TOC-skip/single-pass/draft-filename logic, added --sections argparse
+- generate_report.py: Added --pdf-only and --sections flags, updated run_script() forwarding, updated pipeline selection and summary output
+
+### Updated Draft Status Text
+- Tightened exec summary draft status sentence for conciseness
+- Resolved ambiguity with "the" before "Fiscal Sustainability Subcommittee chair"
+- Dropped "other stakeholders" clause

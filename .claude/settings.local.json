@@ -9,7 +9,10 @@
       "Bash(python find_ch70_district.py:*)",
       "Bash(del find_ch70_district.py)",
       "Bash(python split_worklog.py:*)",
-      "Bash(del \"C:\\\\Users\\\\townc\\\\OneDrive\\\\Documents\\\\Python Scripts\\\\schools\\\\split_worklog.py\")"
+      "Bash(del \"C:\\\\Users\\\\townc\\\\OneDrive\\\\Documents\\\\Python Scripts\\\\schools\\\\split_worklog.py\")",
+      "Bash(python:*)",
+      "Bash(cd:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
