@@ -11,6 +11,9 @@ Changes:
    - Added prepare_exec_excerpt_pages() function that injects report title,
      subtitle, and a full-report link into the first exec page's text_blocks
      (no separate cover page — content shares the page with exec summary text)
+   - Excerpt first page overrides title to "Western MA Per Pupil Expenditure
+     Report" and subtitle to "Executive Summary" (only in excerpt, main report
+     unchanged)
    - Added __CENTERED__ marker support in text_only_page rendering for
      centered paragraph alignment
    - Modified main() to build the exec summary excerpt PDF after the existing
@@ -23,6 +26,8 @@ Changes:
      DRAFT) since the exec summary is part of the main PDF
    - Changed build loop to use pdf_name=="draft" instead of is_partial to
      decide single-pass vs two-pass build
+   - Excerpt filters out section1_* pages (e.g. PPE overview) that share
+     group="exec" but belong to Section 1
    - Excerpt uses two-pass build for page number resolution
    - Output filename: "Western MA Per Pupil Expenditure Report - Executive Summary.pdf"
 
