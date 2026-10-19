@@ -1219,7 +1219,8 @@ def calculate_cohort_nss_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: 
                 col_name = "Actual NSS (minus Req NSS)"
                 if col_name in nss_piv.columns:
                     actual_above_req = nss_piv.loc[year, col_name]
-                    nss_values.append(actual_above_req)
+                    if pd.notna(actual_above_req):  # unreported actual NSS is missing, not a district
+                        nss_values.append(actual_above_req)
 
         if nss_values:
             nss_series = pd.Series(nss_values)
@@ -1416,6 +1417,26 @@ def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohor
     plt.tight_layout(pad=0)
     plt.savefig(output_path, dpi=150, bbox_inches='tight', transparent=True)
     plt.close(fig)
+
+def tiny_local_effort_range(latest_df: pd.DataFrame, prior_df: pd.DataFrame | None) -> str:
+    """Tiny cohort's min-max Actual NSS above Required NSS, for the 'Local Effort Varies Widely' text.
+
+    Taken from the same per-district values as the distribution table beside it,
+    so the sentence and the table cannot disagree. Gives both years when the
+    edition has a PRIOR_YEAR.
+    """
+    def rng(dist_df):
+        row = dist_df[dist_df["cohort_name"] == "TINY"] if dist_df is not None and not dist_df.empty else None
+        if row is None or row.empty:
+            return None
+        usd = lambda v: f"{'-' if v < 0 else ''}${abs(v):,.0f}"
+        return f"{usd(row['min'].iloc[0])} to {usd(row['max'].iloc[0])}"
+
+    latest, prior = rng(latest_df), rng(prior_df)
+    if prior and latest:
+        return (f"ranged from {prior} per pupil above required minimums in {PRIOR_YEAR}, "
+                f"and from {latest} in {LATEST_YEAR}")
+    return f"ranges from {latest} per pupil above required minimums"
 
 def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, cohort_colors: dict, doc_width: float,
                                     prior_df: pd.DataFrame = None, prior_label: str = None,
@@ -3632,8 +3653,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         nss_cagr_dist_df = calculate_cohort_nss_cagr_distribution(df, reg, c70, start_year=START_YEAR, end_year=LATEST_YEAR)
 
         # Build Actual NSS tables
+        prior_nss_dist_df = calculate_cohort_nss_distribution(df, reg, c70, year=PRIOR_YEAR) if PRIOR_YEAR else None
         nss_table = build_cohort_distribution_table(nss_dist_df, f"{LATEST_YEAR} Actual NSS above Req NSS ($/foundation pupil)", cohort_colors, page_width,
-            prior_df=calculate_cohort_nss_distribution(df, reg, c70, year=PRIOR_YEAR) if PRIOR_YEAR else None,
+            prior_df=prior_nss_dist_df,
             prior_label=str(PRIOR_YEAR))
         nss_cagr_table = build_cohort_distribution_table(nss_cagr_dist_df, f"{START_YEAR}-{LATEST_YEAR} Actual NSS above Req NSS Growth Rate (%)", cohort_colors, page_width,
             prior_df=calculate_cohort_nss_cagr_distribution(df, reg, c70, start_year=START_YEAR, end_year=PRIOR_YEAR) if PRIOR_YEAR else None,
@@ -3655,6 +3677,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             "These box plots reveal whether districts of similar size increased local effort at similar rates (narrow boxes) or diverged over time (wide boxes). Comparing medians shows which cohorts increased spending above requirements faster or slower.",
             "__COHORT_NSS_CAGR_TABLE__"
         ])
+
+        nss_stat_text_blocks = fill_text_placeholders(nss_stat_text_blocks, {
+            "TINY_LOCAL_EFFORT_RANGE": tiny_local_effort_range(nss_dist_df, prior_nss_dist_df)})
 
         # Replace placeholders with tables
         nss_stat_text_blocks_with_tables = []

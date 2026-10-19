@@ -438,7 +438,7 @@ NSS_STATISTICAL_ASSOCIATIONS
 
 ##H1 Local Effort Varies Widely
 
-The widest variation appears in discretionary local spending above state requirements. Within the Tiny cohort alone, local effort ranges from $1,275 to $34,082 per pupil above required minimums. This suggests local wealth and priorities — not enrollment — drive spending variation.
+The widest variation appears in discretionary local spending above state requirements. Within the Tiny cohort alone, local effort {TINY_LOCAL_EFFORT_RANGE}. This suggests local wealth and priorities — not enrollment — drive spending variation.
 
 ##H3 {LATEST_YEAR} Actual NSS above Required NSS per foundation pupil by cohort
 

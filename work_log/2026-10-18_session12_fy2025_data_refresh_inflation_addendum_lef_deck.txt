@@ -350,3 +350,15 @@ Session 12, continued: Tim's review of the FY2025 build
      Tiny range "$1,275 to $34,082": right for FY2024 (Savoy to Rowe, also
      after the fix) but stale in the FY2025 edition, whose table shows
      $4,576 to $30,955. Left for the FY2024-era prose rewrite (Tim).
+
+26. "Local Effort Varies Widely" range computed, both years (Tim)
+   - report_text.txt: the hard-coded "$1,275 to $34,082" is now
+     {TINY_LOCAL_EFFORT_RANGE}, filled by compose_pdf.tiny_local_effort_range
+     from the same per-district values as the distribution table beside it.
+   - FY2025 edition: "...ranged from $1,275 to $34,082 per pupil above
+     required minimums in 2024, and from $4,576 to $30,955 in 2025."
+     FY2024 edition: unchanged wording ("ranges from $1,275 to $34,082...").
+   - calculate_cohort_nss_distribution no longer counts a district whose
+     actual NSS is unreported: FY2025 n is Tiny 19 (was 21, with Westhampton
+     and Williamsburg missing) and Small 13 (Southampton missing). The box
+     statistics already skipped those values; only n was off.
