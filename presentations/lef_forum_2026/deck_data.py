@@ -42,11 +42,9 @@ def main():
 
     cohorts = get_western_cohort_districts_for_year(df, reg, latest)
     western = [d for k, m in cohorts.items() if k != "SPRINGFIELD" for d in m]
-    # Peer group: the published report's Tiny cohort definition (0-200 in-district
-    # FTE), applied to latest-year enrollment. The report's quartile rule now
-    # rounds the Tiny bound to 100, which would drop Leverett, Pelham and
-    # Shutesbury from their peers; a fixed bound keeps the comparison the
-    # audience has seen.
+    # Peer group: the report's Tiny cohort (0-200 in-district FTE, the series
+    # standard set from FY2024 enrollment), applied to latest-year enrollment.
+    # Stated explicitly so the deck does not depend on PPE_COHORT_RULE.
     cohorts["TINY"] = [d for d in western
                        if 0 < get_indistrict_fte_for_year(df, d, latest) <= TINY_MAX_FTE]
 

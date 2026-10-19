@@ -63,8 +63,8 @@ pres.defineSlideMaster({
   objects: [
     { placeholder: { options: { name: "title", type: "title", x: 0.6, y: 0.35, w: 12.1, h: 1.05,
       fontSize: 32, bold: true, color: C.text2, valign: "middle", align: "left", margin: 0 }, text: "" } },
-    { text: { text: `Data: Massachusetts DESE, FY${F}–FY${L}. Analysis: Tim Shores.`,
-      options: { x: 0.6, y: 6.95, w: 9.0, h: 0.3, fontSize: 10, color: C.accent6, margin: 0 } } },
+    { text: { text: `Data: Massachusetts DESE, FY${F}–FY${L}. Analysis: Tim Shores, with Claude Code. Full report: timshores.com/portfolio`,
+      options: { x: 0.6, y: 6.95, w: 11.2, h: 0.3, fontSize: 10, color: C.accent6, margin: 0 } } },
   ],
   slideNumber: { x: 12.2, y: 6.95, w: 0.5, h: 0.3, fontSize: 10, color: C.accent6, align: "right" },
 });
@@ -119,6 +119,7 @@ pres.addSection({ title: "Opening" });
     "Per-pupil expenditure (PPE) is a flawed lens on school budgets: one number hides student needs, buildings, governance and history. It is also the standard the state reports and the public uses, so it is worth understanding in full.",
     `The comparison group is the ${D.tiny_cohort_size} Western MA traditional districts with 200 or fewer in-district students in FY${L}, the report's "Tiny" cohort definition. Leverett ranks ${levRank} of ${D.tiny_cohort_size} on FY${L} PPE.`,
     "Inflation uses the CPI-U for the Northeast, averaged over each July–June fiscal year.",
+    `Source: Western MA Per Pupil Expenditure Report, FY${F}–FY${L} edition. As its "How this report was made" statement says, Tim designed the analysis and is responsible for it; Claude Code helped write the code and draft the text. This deck was built the same way.`,
   ]);
 }
 
