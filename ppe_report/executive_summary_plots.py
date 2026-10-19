@@ -20,7 +20,7 @@ from school_shared import (
     weighted_epp_aggregation,
     get_western_cohort_districts,
     context_for_district,
-    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5, YEAR_15, WINDOW_YEARS,
+    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5, YEAR_15, WINDOW_YEARS, PRIOR_YEAR,
 )
 
 # Cohort colors (from western_map.py)
@@ -96,9 +96,9 @@ def calculate_cagr_chunks(series: pd.Series) -> pd.Series:
     return pd.Series(cagr_values)
 
 
-def calculate_cagr_15year(series: pd.Series) -> float:
+def calculate_cagr_15year(series: pd.Series, end_year: int = None) -> float:
     """
-    Calculate 15-year CAGR from START_YEAR to LATEST_YEAR.
+    Calculate the long-window CAGR from START_YEAR to end_year (default LATEST_YEAR).
 
     Args:
         series: Time series with years as index
@@ -106,7 +106,7 @@ def calculate_cagr_15year(series: pd.Series) -> float:
     Returns:
         CAGR value as percentage, or 0 if data not available
     """
-    start_year, end_year = START_YEAR, LATEST_YEAR
+    start_year, end_year = START_YEAR, (end_year or LATEST_YEAR)
     if start_year in series.index and end_year in series.index:
         start_val = series[start_year]
         end_val = series[end_year]
@@ -709,8 +709,9 @@ def plot_cagr_15year_bars(
     """
     print("\n[Executive Summary] Generating 15-year CAGR bars plot...")
 
-    # Calculate 15-year CAGR for all districts
-    district_cagr_15y = {}
+    # Long-window CAGR for all districts (and, in later editions, the previous
+    # edition's window START_YEAR..PRIOR_YEAR for the paired lighter bar)
+    district_cagr_15y, district_cagr_prior = {}, {}
     for dist in DISTRICTS_OF_INTEREST:
         epp_pivot, _ = prepare_district_epp_lines(df, dist)
         if not epp_pivot.empty:
@@ -718,9 +719,11 @@ def plot_cagr_15year_bars(
             cagr = calculate_cagr_15year(total_ppe)
             if cagr > 0:
                 district_cagr_15y[dist] = cagr
+                if PRIOR_YEAR is not None:
+                    district_cagr_prior[dist] = calculate_cagr_15year(total_ppe, PRIOR_YEAR)
 
-    # Calculate 15-year CAGR for cohort aggregates
-    cohort_cagr_15y = {}
+    # Long-window CAGR for cohort aggregates
+    cohort_cagr_15y, cohort_cagr_prior = {}, {}
     for cohort, dists in cohort_districts.items():
         all_cohort_districts = cohorts[cohort]
         epp_pivot, _, _ = weighted_epp_aggregation(df, all_cohort_districts)
@@ -729,6 +732,8 @@ def plot_cagr_15year_bars(
             cagr = calculate_cagr_15year(total_ppe)
             if cagr > 0:
                 cohort_cagr_15y[cohort] = cagr
+                if PRIOR_YEAR is not None:
+                    cohort_cagr_prior[cohort] = calculate_cagr_15year(total_ppe, PRIOR_YEAR)
 
     # Organize plot items by cohort and assign colors
     plot_items = []  # (name, cagr_value, color, is_cohort)
@@ -739,12 +744,13 @@ def plot_cagr_15year_bars(
 
         # Add cohort aggregate first
         if cohort in cohort_cagr_15y:
-            cohort_items.append((f"{cohort.title()} Cohort", cohort_cagr_15y[cohort], True))
+            cohort_items.append((f"{cohort.title()} Cohort", cohort_cagr_15y[cohort], True,
+                                 cohort_cagr_prior.get(cohort)))
 
         # Add districts in this cohort
         for dist in cohort_districts[cohort]:
             if dist in district_cagr_15y:
-                cohort_items.append((dist, district_cagr_15y[dist], False))
+                cohort_items.append((dist, district_cagr_15y[dist], False, district_cagr_prior.get(dist)))
 
         # Generate shades for this cohort's items
         n_items = len(cohort_items)
@@ -754,8 +760,8 @@ def plot_cagr_15year_bars(
             shades = [base_color]
 
         # Assign colors to items
-        for (name, cagr_value, is_cohort), color in zip(cohort_items, shades):
-            plot_items.append((name, cagr_value, color, is_cohort))
+        for (name, cagr_value, is_cohort, prior_value), color in zip(cohort_items, shades):
+            plot_items.append((name, cagr_value, color, is_cohort, prior_value))
 
     # Set up the figure
     n_items = len(plot_items)
@@ -767,24 +773,37 @@ def plot_cagr_15year_bars(
     bar_width = 0.8
 
     # Extract values and colors
-    names = [name for name, _, _, _ in plot_items]
-    cagr_values = [cagr for _, cagr, _, _ in plot_items]
-    colors = [color for _, _, color, _ in plot_items]
-    is_cohorts = [is_cohort for _, _, _, is_cohort in plot_items]
+    names = [item[0] for item in plot_items]
+    cagr_values = [item[1] for item in plot_items]
+    colors = [item[2] for item in plot_items]
+    is_cohorts = [item[3] for item in plot_items]
+    prior_values = [item[4] for item in plot_items]
+    paired = PRIOR_YEAR is not None
 
-    # Plot bars
-    for i, (x, cagr_val, color, is_cohort) in enumerate(zip(x_positions, cagr_values, colors, is_cohorts)):
-        if is_cohort:
-            ax.bar(x, cagr_val, bar_width,
-                   color=color, alpha=0.8, edgecolor='white', linewidth=3.5,
-                   hatch='////')
-        else:
-            ax.bar(x, cagr_val, bar_width,
-                   color=color, alpha=0.9, edgecolor='white', linewidth=1.2)
+    # Plot bars. Later editions pair each bar with the previous edition's window
+    # (START_YEAR..PRIOR_YEAR, lighter, left) beside the current one (darker, right).
+    for i, (x, cagr_val, color, is_cohort, prior_val) in enumerate(
+            zip(x_positions, cagr_values, colors, is_cohorts, prior_values)):
+        style = (dict(alpha=0.8, edgecolor='white', linewidth=3.5, hatch='////') if is_cohort
+                 else dict(alpha=0.9, edgecolor='white', linewidth=1.2))
+        if not paired:
+            ax.bar(x, cagr_val, bar_width, color=color, **style)
+            continue
+        half = bar_width / 2
+        if prior_val is not None:
+            ax.bar(x - half / 2, prior_val, half, color=color, **{**style, "alpha": 0.4})
+        ax.bar(x + half / 2, cagr_val, half, color=color, **style)
+    if paired:
+        from matplotlib.patches import Patch
+        ax.legend(handles=[Patch(facecolor="#777777", alpha=0.4, label=f"{START_YEAR}-{PRIOR_YEAR}"),
+                           Patch(facecolor="#777777", alpha=0.9, label=f"{START_YEAR}-{LATEST_YEAR}")],
+                  loc="upper right", fontsize=15, frameon=False)
 
     # Customize axes
     ax.set_xlabel('District / Cohort', fontsize=20, fontweight='bold')
-    ax.set_ylabel(f'{WINDOW_YEARS}-Year CAGR (%) of PPE\n{START_YEAR}-{LATEST_YEAR}', fontsize=20, fontweight='bold')
+    ylabel = (f'{WINDOW_YEARS}-Year CAGR (%) of PPE\n{START_YEAR}-{LATEST_YEAR}' if not paired
+              else f'Long-run CAGR (%) of PPE\nfrom {START_YEAR}')
+    ax.set_ylabel(ylabel, fontsize=20, fontweight='bold')
     ax.set_xticks(x_positions)
     ax.set_xticklabels(names, rotation=45, ha='right', fontsize=14)
     ax.tick_params(axis='y', labelsize=17)

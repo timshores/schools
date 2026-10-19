@@ -29,7 +29,7 @@ from school_shared import (
     get_cohort_ylim,
     get_western_cohort_districts,
     make_safe_filename,
-    LATEST_YEAR, START_YEAR, WINDOW_YEARS,
+    LATEST_YEAR, START_YEAR, WINDOW_YEARS, compute_report_dollar_ylim,
 )
 from nss_ch70_plots import (
     plot_nss_ch70,
@@ -53,6 +53,8 @@ def main():
     # Load data
     print("\n[1/4] Loading data...")
     df, reg, c70 = load_data(force_recompute=args.force_recompute)
+    report_dollar_ylim = compute_report_dollar_ylim(df, reg, c70)
+    print(f"  Dollar axis limit (shared with PPE charts): ${report_dollar_ylim:,.0f}")
 
     if c70.empty:
         print("[ERROR] No C70 data found. Cannot generate NSS/Ch70 plots.")
@@ -217,7 +219,7 @@ def main():
             nss_pivot=nss_piv,
             enrollment=enroll,
             title=title,
-            right_ylim=30000,  # Match PPE plot y-axis range (0-$30K)
+            right_ylim=report_dollar_ylim,  # Same dollar scale as every PPE chart
             per_pupil=is_aggregate,
             foundation_enrollment=foundation,  # CR08: Restored foundation enrollment line
             left_ylim=left_ylim,  # CR08: Restored left y-axis for enrollment

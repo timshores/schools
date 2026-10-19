@@ -57,7 +57,7 @@ from school_shared import (
     get_cohort_short_label,
     initialize_cohort_definitions,
     EXCLUDE_DISTRICTS,
-    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5,
+    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5, PRIOR_YEAR,
     prepare_district_epp_lines,
     weighted_epp_aggregation,
 )
@@ -1368,7 +1368,7 @@ def main():
     shapes = load_shapefiles(force_recompute=args.force_recompute)
 
     # Years to generate maps for, latest first (2024, 2019, 2014, 2009 when latest is 2024)
-    years = [LATEST_YEAR, YEAR_5, YEAR_10, START_YEAR]
+    years = [LATEST_YEAR] + ([PRIOR_YEAR] if PRIOR_YEAR else []) + [YEAR_5, YEAR_10, START_YEAR]
 
     # Get ALL Western MA districts across all years (for base gray layer)
     print("\n[2b] Getting all Western MA district geometries...")

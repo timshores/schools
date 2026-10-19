@@ -239,3 +239,58 @@ What the FY2025 build shows about the open cohort decision:
      executive summary's Table 3 still compares them with Tiny. With
      PPE_COHORT_RULE=published all of this matches the first edition's
      structure. Recommend deciding this before any prose rewrite.
+
+--------------------------------------------------------------------------------
+Session 12, continued: Tim's review of the FY2025 build
+--------------------------------------------------------------------------------
+
+16. One dollar scale for every chart
+   - Pelham's NSS/Ch70 bars were clipped at the hard-coded $30K limit
+     (FY2025 actual NSS $34,721 per foundation pupil), while PPE charts
+     computed their own limit. school_shared.compute_report_dollar_ylim()
+     takes the max of total PPE and actual NSS per foundation pupil over
+     START_YEAR..LATEST_YEAR for the districts of interest, every cohort and
+     the Western MA aggregate (pad 1.06, $500 step): $37,000 for FY2025,
+     $36,500 when rebuilding FY2024. Both chart families use it.
+
+17. PPE charts keep the right-hand axis line, matching the NSS/Ch70 charts
+    (axL's right spine is no longer hidden).
+
+18. Cohort standard (Tim): the FY2024 boundaries are the standard for the
+    report series. PPE_COHORT_RULE now defaults to "published" (Tiny 0-200,
+    Small 201-800, Medium 801-1600, Large 1601-10K), districts assigned by
+    the edition's latest-year FTE. Later editions reuse the first edition's
+    distribution charts (output/enrollment_3_histogram.png,
+    enrollment_4_grouping.png), since recomputing FY2024 statistics from
+    DESE's revised data no longer reproduces those boundaries; the page is
+    titled "Distribution of 2024 enrollment...". The FY2025 scatterplot marks
+    the standard boundaries instead of 2025 quartiles. report_text gains
+    {COHORT_YEAR} and one new sentence stating the standard (line 473; Tim
+    to review the wording).
+
+19. DESE data error, FY2023 Chapter 70 (found via item 16's limit)
+   - DESE's profile.xlsx dated 2026-03-26 assigns FY2023 required and
+     actual NSS for about 90 regional districts to the wrong districts
+     (e.g. Gill-Montague's FY2023 required NSS is Hawlemont's; Amherst-
+     Pelham's FY2023 values are another district's). FY2009-2022 match the
+     August 2025 download exactly. update_dese_data.py now restores FY2023
+     rqdnss/rqdnss2/actualNSS from data/dese_c70_fy2023_reference.csv (the
+     August 2025 values; 178 values replaced) and warns on implausible
+     required-NSS jumps (none remain). Worth reporting to DESE.
+
+20. No DRAFT watermark in later editions (Tim); the first edition keeps it.
+
+21. Two-year history (Tim's choices: all recommended options)
+   - PRIOR_YEAR (2024 in the FY2025 edition, None in the first).
+   - Executive summary Tables 1-9, Section 2/3 category, enrollment and
+     NSS/Ch70 tables: a PRIOR_YEAR column before LATEST_YEAR, shaded against
+     the baseline's PRIOR_YEAR value ("PRIOR_DOLLAR"/"PRIOR_FTE" added to
+     all nine baseline maps). Values "as revised": recomputed from current
+     DESE data with the latest edition's cohort membership; a note
+     ({PRIOR_YEAR_NOTE}) says so under the executive summary tables.
+   - Five-number-summary tables: mini box plots paired (PRIOR_YEAR light
+     above, latest dark below, shared scale) and a "Median vs PRIOR_YEAR"
+     column; CAGR tables compare 2009-2024 with 2009-2025.
+   - Long-window CAGR chart: paired bars, 2009-2024 (light) and 2009-2025.
+   - Section 1 stays on the latest year; Appendix D starts with the
+     PRIOR_YEAR scatterplot and maps, then YEAR_5, YEAR_10, START_YEAR.

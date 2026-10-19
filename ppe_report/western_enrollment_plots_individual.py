@@ -23,7 +23,7 @@ from school_shared import (
     OUTPUT_DIR, load_data, DISTRICTS_OF_INTEREST,
     latest_indistrict_fte, get_indistrict_fte_for_year, get_enrollment_group, get_cohort_label,
     get_outlier_threshold, EXCLUDE_DISTRICTS,
-    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5,
+    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5, EDITION, PUBLISHED_COHORT_BOUNDS, PRIOR_YEAR,
 )
 
 # Cache directory for storing intermediate results
@@ -198,13 +198,19 @@ def plot_scatterplot(data: dict, out_path: Path):
                       edgecolors='white', linewidth=1.5,
                       label=cohort_label, zorder=3)
 
-    # Add quartile and percentile vertical lines
-    ax.axvline(q1, color='purple', linestyle=':', linewidth=2,
-               label=f'Q1: {q1:.0f} FTE', zorder=2, alpha=0.7)
-    ax.axvline(q2, color='purple', linestyle='--', linewidth=2,
-               label=f'Median: {q2:.0f} FTE', zorder=2, alpha=0.7)
-    ax.axvline(q3, color='purple', linestyle=':', linewidth=2,
-               label=f'Q3: {q3:.0f} FTE', zorder=2, alpha=0.7)
+    if not EDITION:
+        # First edition: the year's own quartiles, which set the cohort boundaries
+        ax.axvline(q1, color='purple', linestyle=':', linewidth=2,
+                   label=f'Q1: {q1:.0f} FTE', zorder=2, alpha=0.7)
+        ax.axvline(q2, color='purple', linestyle='--', linewidth=2,
+                   label=f'Median: {q2:.0f} FTE', zorder=2, alpha=0.7)
+        ax.axvline(q3, color='purple', linestyle=':', linewidth=2,
+                   label=f'Q3: {q3:.0f} FTE', zorder=2, alpha=0.7)
+    else:
+        # Later editions: the standard boundaries set from FY2024 enrollment
+        for bound, style in zip(PUBLISHED_COHORT_BOUNDS, (':', '--', ':')):
+            ax.axvline(bound, color='purple', linestyle=style, linewidth=2,
+                       label=f'Cohort boundary: {bound:,} FTE', zorder=2, alpha=0.7)
 
     # Note: P90 line removed as Large cohort now extends to 10K FTE
 
@@ -485,7 +491,7 @@ def main():
     print(f"  Latest year: {latest_year}")
 
     # Years to generate plots for, latest first (2024, 2019, 2014, 2009 when latest is 2024)
-    years = [LATEST_YEAR, YEAR_5, YEAR_10, START_YEAR]
+    years = [LATEST_YEAR] + ([PRIOR_YEAR] if PRIOR_YEAR else []) + [YEAR_5, YEAR_10, START_YEAR]
 
     for year in years:
         print(f"\n{'='*70}")
@@ -502,8 +508,10 @@ def main():
         print(f"\n[2/3] Creating scatterplot for {year}...")
         plot_scatterplot(data, OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png")
 
-        # Histogram and grouping only for latest year
-        if year == latest_year:
+        # Histogram and grouping only for latest year, and only in the first
+        # edition: later editions reuse its charts, since its FY2024 statistics
+        # set the standard cohort boundaries.
+        if year == latest_year and not EDITION:
             print("\n[3/3] Creating histogram and grouping (latest year only)...")
             plot_histogram(data, OUTPUT_DIR / "enrollment_3_histogram.png")
             plot_grouping(data, OUTPUT_DIR / "enrollment_4_grouping.png")

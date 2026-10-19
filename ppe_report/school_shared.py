@@ -29,16 +29,21 @@ WINDOW_YEARS = LATEST_YEAR - START_YEAR   # long-window CAGR length ("CAGR 16y" 
 YEAR_10 = LATEST_YEAR - 10                # 10-year window start
 YEAR_5 = LATEST_YEAR - 5                  # 5-year window start
 YEAR_15 = LATEST_YEAR - 15                # start of the three trailing 5-year chunks
+# PRIOR_YEAR is the previous edition's latest year: editions after the first
+# show it next to LATEST_YEAR (2024 next to 2025). None in the first edition.
+PRIOR_YEAR = LATEST_YEAR - 1 if LATEST_YEAR > 2024 else None
 
-# Cohort boundaries. "quartile" (the default) rounds the 25th percentile,
-# median and 75th percentile of Western MA in-district FTE to the nearest 100
-# each edition. "published" freezes the first edition's boundaries
-# (Tiny 0-200, Small 201-800, Medium 801-1600) so cohorts stay comparable
-# across editions. With the revised and FY2025 data, the quartile rule gives
-# Tiny 0-100 / Small 101-700 / Medium 701-1400, which moves Leverett, Pelham
-# and Shutesbury from Tiny to Small. Tim's decision; set PPE_COHORT_RULE.
-COHORT_BOUNDARY_RULE = _os.environ.get("PPE_COHORT_RULE", "quartile")
+# Cohort boundaries. "published" (the default) uses the boundaries the first
+# edition set from FY2024 enrollment (Tiny 0-200, Small 201-800, Medium
+# 801-1600, Large 1601-10K) as the standard for the report series (Tim,
+# 2026-10-18), assigning districts by each edition's latest-year FTE.
+# "quartile" recomputes them each edition by rounding the 25th percentile,
+# median and 75th percentile of Western MA in-district FTE to the nearest
+# 100; on the revised and FY2025 data that gives Tiny 0-100 / Small 101-700 /
+# Medium 701-1400. PPE_COHORT_RULE overrides.
+COHORT_BOUNDARY_RULE = _os.environ.get("PPE_COHORT_RULE", "published")
 PUBLISHED_COHORT_BOUNDS = (200, 800, 1600)  # Tiny/Small, Small/Medium, Medium/Large upper bounds
+COHORT_STANDARD_YEAR = 2024                 # enrollment year the standard boundaries came from
 
 # ---------------- Editions ----------------
 # Each data year is its own edition with its own output folder, so a new
@@ -82,6 +87,12 @@ YEAR_PLACEHOLDERS = {
     "{YEAR_5}": str(YEAR_5),
     "{YEAR_15}": str(YEAR_15),
     "{WINDOW_YEARS}": str(WINDOW_YEARS),
+    "{COHORT_YEAR}": str(COHORT_STANDARD_YEAR),
+    # Empty in the first edition; later editions explain the previous-year column
+    "{PRIOR_YEAR_NOTE}": "" if PRIOR_YEAR is None else (
+        f" The {PRIOR_YEAR} column is recomputed from DESE's current data with the same cohort "
+        f"membership as {LATEST_YEAR}, so it can differ from the first edition where DESE has "
+        f"since revised its figures."),
     "{APPENDICES_URL}": edition_url(edition_pdf_name("WMPPE Appendices")),
     "{DESE_LAST_UPDATED}": DESE_LAST_UPDATED,
 }
@@ -1075,6 +1086,40 @@ def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str, 
 def _nice_ceiling(x: float, step: int) -> float:
     if x <= 0: return step
     return math.ceil(x / step) * step
+
+def compute_report_dollar_ylim(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame,
+                               pad: float = 1.06, step: int = 500) -> float:
+    """One right-axis limit for every PPE and Chapter 70/NSS chart, so they share a scale.
+
+    Covers the districts of interest, each Western MA cohort and the Western MA
+    aggregate over START_YEAR..LATEST_YEAR: total PPE per in-district FTE, and
+    actual NSS per foundation pupil (the top of the NSS/Ch70 stack). Before
+    FY2025 the NSS charts were fixed at $30K, which clipped Pelham's FY2023-25
+    bars, while the PPE charts computed their own limit.
+    """
+    cohorts = get_western_cohort_districts(df, reg)
+    groups = [[d] for d in DISTRICTS_OF_INTEREST]
+    groups += [members for members in cohorts.values() if members]
+    groups.append([d for key, members in cohorts.items() if key != "SPRINGFIELD" for d in members])
+    tops = []
+    for members in groups:
+        piv, _, _ = weighted_epp_aggregation(df, members)
+        if not piv.empty:
+            piv = piv[(piv.index >= START_YEAR) & (piv.index <= LATEST_YEAR)]
+            if not piv.empty:
+                tops.append(float(piv.sum(axis=1).max()))
+        if c70 is not None and not c70.empty:
+            names = {m.lower() for m in members}
+            sub = c70[c70["DIST_NAME"].str.lower().isin(names)
+                      & (c70["YEAR"] >= START_YEAR) & (c70["YEAR"] <= LATEST_YEAR)]
+            g = sub.groupby("YEAR")[["actualNSS", "distfoundenro"]].sum()
+            g = g[g["distfoundenro"] > 0]
+            if not g.empty:
+                tops.append(float((g["actualNSS"] / g["distfoundenro"]).max()))
+    if not tops:
+        return step
+    return _nice_ceiling(max(tops) * pad, step)
+
 
 def compute_global_dollar_ylim(pivots: List[pd.DataFrame], pad: float = 1.05, step: int = 500) -> float:
     tops = []

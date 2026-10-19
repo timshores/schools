@@ -46,6 +46,13 @@ EXPEND_OUT = DATA_DIR / "dese_expenditures.csv"
 C70_XLSX = DATA_DIR / "dese_c70_profile.xlsx"
 C70_OUT = DATA_DIR / "dese_c70_profile.csv"
 SOURCES_JSON = DATA_DIR / "dese_sources.json"
+# DESE's profile.xlsx dated 2026-03-26 assigns FY2023 required and actual NSS
+# for regional districts to the wrong districts (about 90 rows; e.g. Gill-
+# Montague's FY2023 required NSS is Hawlemont's, and Amherst-Pelham's is
+# another district's). FY2009-FY2022 match the August 2025 download exactly.
+# Until DESE corrects the file, FY2023 rqdnss/rqdnss2/actualNSS come from the
+# August 2025 download, saved here.
+C70_FY2023_REFERENCE = DATA_DIR / "dese_c70_fy2023_reference.csv"
 DOWNLOADED_BY = "update_dese_data.py"
 
 
@@ -124,10 +131,47 @@ def refresh_c70() -> str:
         "c70aid.1": data["c70aid.1"],
         "Source": C70_SOURCE,
     })
+    out = restore_fy2023(out)
+    warn_on_jumps(out)
     out.to_csv(C70_OUT, index=False)
     print(f"  {C70_OUT}: {len(out):,} rows, fiscal years {out.fy.min()}-{out.fy.max()}, "
           f"profile dated {profile_date}")
     return profile_date
+
+
+def restore_fy2023(out: pd.DataFrame) -> pd.DataFrame:
+    """Replace FY2023 required/actual NSS with the August 2025 values (see C70_FY2023_REFERENCE)."""
+    ref = pd.read_csv(C70_FY2023_REFERENCE, dtype={"Org4Code": str}).set_index("Org4Code")
+    fields = ["rqdnss", "rqdnss2", "actualNSS"]
+    rows = out.index[out["fy"] == 2023]
+    changed = 0
+    for i in rows:
+        code = out.at[i, "Org4Code"]
+        if code not in ref.index:
+            continue
+        for f in fields:
+            new, old = float(out.at[i, f] or 0), float(ref.at[code, f])
+            if abs(new - old) > 1:
+                out.at[i, f] = old
+                changed += 1
+    print(f"  FY2023 required/actual NSS restored from {C70_FY2023_REFERENCE.name}: {changed} values")
+    return out
+
+
+def warn_on_jumps(out: pd.DataFrame, min_enrollment: int = 50) -> None:
+    """Print districts whose required NSS per foundation pupil jumps >2.5x against
+    the median of the surrounding years, the signature of the FY2023 misalignment."""
+    d = out[(out["fy"] >= 2009) & (pd.to_numeric(out["distfoundenro"], errors="coerce") >= min_enrollment)].copy()
+    d["req_pp"] = pd.to_numeric(d["rqdnss2"], errors="coerce") / pd.to_numeric(d["distfoundenro"], errors="coerce")
+    flagged = []
+    for name, g in d.sort_values("fy").groupby("District"):
+        s = g.set_index("fy")["req_pp"]
+        ratio = s / s.rolling(5, center=True, min_periods=3).median()
+        flagged += [f"{name.strip()} FY{y} ({r:.1f}x)" for y, r in ratio.items() if r > 2.5 or r < 0.4]
+    if flagged:
+        print(f"  [WARN] {len(flagged)} implausible required-NSS jumps: " + "; ".join(flagged[:10]))
+    else:
+        print("  Required NSS per pupil: no implausible jumps")
 
 
 def main():

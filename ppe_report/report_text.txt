@@ -100,18 +100,18 @@ This section provides a regional overview before diving into cohort-specific det
 • <b>Per-pupil expenditure and growth {START_YEAR}-{LATEST_YEAR}</b> compares {START_YEAR} to {LATEST_YEAR} PPE for Western MA districts.<br />
 • <b>Year-over-Year (YoY) growth rates</b> shows the rate of PPE change from {START_YEAR}-{LATEST_YEAR} for Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury, and their cohorts.<br />
 • <b>5-year and {WINDOW_YEARS}-year CAGR by district and cohort</b> shows how compound annual growth rate (CAGR) smooths out the volatility of YoY rates of change, making it easier to understand and compare change in PPE over time.<br />
-• <b>Distribution of {LATEST_YEAR} enrollment and proposed cohort grouping</b> shows a histogram of Western MA districts by enrollment with cohorts determined by statistics visualized by the histogram.<br />
+• <b>Distribution of {COHORT_YEAR} enrollment and proposed cohort grouping</b> shows a histogram of Western MA districts by enrollment with cohorts determined by statistics visualized by the histogram.<br />
 • <b>Scatterplot analysis</b> shows the relationship between district enrollment and PPE for {LATEST_YEAR}, with a table of cohort members. <br />
 • <b>Maps</b> of district locations and {LATEST_YEAR} enrollment cohorts, {LATEST_YEAR} PPE vs enrollment cohort baseline, and PPE growth ({START_YEAR}-{LATEST_YEAR}) vs enrollment cohort baseline.<br />
 • <b>Statistical associations</b> between enrollment and PPE.<br />
 
-All districts are grouped into enrollment cohorts based on {LATEST_YEAR} in-district FTE using IQR (Interquartile Range) analysis. This grouping enables meaningful peer comparisons while acknowledging that enrollment size is just one factor influencing costs. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance—all of which shape costs and outcomes.
+All districts are grouped into enrollment cohorts by {LATEST_YEAR} in-district FTE, using boundaries set by IQR (Interquartile Range) analysis of {COHORT_YEAR} enrollment. This grouping enables meaningful peer comparisons while acknowledging that enrollment size is just one factor influencing costs. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance—all of which shape costs and outcomes.
 
 ================================================================================
 EXECUTIVE_SUMMARY_COHORT_EXPLANATION
 ================================================================================
 
-<b>Table {N}</b> compares PPE and cost growth of Western MA school district cohorts with the benchmark of all Western MA districts. <b>Tables {N+1} and {N+2}</b> benchmark districts against their cohort averages. 
+<b>Table {N}</b> compares PPE and cost growth of Western MA school district cohorts with the benchmark of all Western MA districts. <b>Tables {N+1} and {N+2}</b> benchmark districts against their cohort averages.{PRIOR_YEAR_NOTE} 
 
 Cohorts are organized by enrollment size. Grouping districts by enrollment size enables more meaningful cost comparisons—districts of similar size face similar challenges with administration, staffing, facilities, and program requirements. Detailed information about cohorts follow in <b>sections 1 and 2</b>. Detailed comparisons of individual districts to cohorts follow in <b>sections 2 and 3</b>.
 <br /><br />
@@ -470,7 +470,7 @@ Compound annual growth rates (CAGR) smooth out YoY volatility to reveal long-ter
 SECTION1_DISTRIBUTION_EXPLANATION
 ================================================================================
 
-District enrollment cohorts need clear boundaries. To avoid arbitrary cutoffs, this approach uses the natural spread of enrollments. The histogram (top) shows a right-skewed distribution of {LATEST_YEAR} enrollments with a long tail of larger districts. Based on interquartile range analysis, districts are grouped into four cohorts (bottom): Tiny (0-200 FTE), Small (201-800 FTE), Medium (801-1600 FTE), and Large (1601-10,000 FTE). Springfield, with an in-district enrollment of 23,723 in 2024, is omitted as an outlier. These cohorts enable comparison by scale to discover financial norms, but are not meant to imply what spending should or should not be for schools of different sizes.
+District enrollment cohorts need clear boundaries. To avoid arbitrary cutoffs, this approach uses the natural spread of enrollments. The histogram (top) shows a right-skewed distribution of {COHORT_YEAR} enrollments with a long tail of larger districts. Based on interquartile range analysis, districts are grouped into four cohorts (bottom): Tiny (0-200 FTE), Small (201-800 FTE), Medium (801-1600 FTE), and Large (1601-10,000 FTE). Springfield, with an in-district enrollment of 23,723 in 2024, is omitted as an outlier. These cohorts enable comparison by scale to discover financial norms, but are not meant to imply what spending should or should not be for schools of different sizes. The {COHORT_YEAR} boundaries are the standard for this report series, so each edition compares districts in the same size bands.
 <br /><br />
 The next page presents each district's enrollment and PPE in both scatterplot and reference table format.
 

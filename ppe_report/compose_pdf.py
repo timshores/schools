@@ -28,7 +28,7 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import Flowable, HRFlowable, Image, KeepInFrame, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import CondPageBreak, Flowable, HRFlowable, Image, KeepInFrame, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from school_shared import (
     OUTPUT_DIR, load_data, create_or_load_color_map, color_for,
@@ -45,6 +45,7 @@ from school_shared import (
     make_safe_filename,
     LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5, WINDOW_YEARS, EDITION,
     edition_pdf_name, edition_url, fill_year_placeholders, DESE_LAST_UPDATED,
+    BASE_OUTPUT_DIR, COHORT_STANDARD_YEAR, PUBLISHED_COHORT_BOUNDS, PRIOR_YEAR,
 )
 from nss_ch70_plots import build_nss_category_data, NSS_CH70_COLORS, NSS_CH70_STACK_ORDER
 from statistical_analysis import run_all_analyses, format_results_for_report
@@ -160,7 +161,10 @@ def get_cross_reference_footer(page_dict: dict) -> list:
 
     # Check if this is a district page (PPE or NSS/Ch70)
     for district_name, cohort in DISTRICT_COHORT_MAP.items():
-        if district_name in subtitle:
+        # Match the name at the start of the subtitle ("Amherst-Pelham Regional — ...").
+        # A substring test matched "Pelham" inside "Amherst-Pelham" and linked
+        # Amherst-Pelham's pages to the Tiny cohort.
+        if subtitle.startswith(district_name + " "):
             # This is a district page - add link to cohort page
             cohort_label = get_cohort_label(cohort)
 
@@ -338,21 +342,26 @@ style_num_neg    = ParagraphStyle("num_neg", parent=style_num, textColor=NEG_COL
 SOURCE_LINE1 = f"Source: DESE District Expenditures by Spending Category, Last updated: {DESE_LAST_UPDATED}"
 SOURCE_LINE2 = "https://educationtocareer.data.mass.gov/Finance-and-Budget/District-Expenditures-by-Spending-Category/er3w-dyti/"
 
+# The first edition was published with a DRAFT watermark; later editions are not
+# watermarked (Tim, 2026-10-18).
+SHOW_DRAFT_WATERMARK = not EDITION
+
+
 def draw_footer(canvas, doc):
     canvas.saveState()
 
-    # Draw watermark
-    canvas.setFont("Helvetica-Bold", 120)
-    canvas.setFillGray(0.95)
-    canvas.setStrokeGray(0.95)
-    # Center the watermark on the page
-    page_width = doc.pagesize[0]
-    page_height = doc.pagesize[1]
-    canvas.translate(page_width / 2, page_height / 2)
-    canvas.rotate(45)
-    canvas.drawCentredString(0, 0, "DRAFT")
-    canvas.rotate(-45)
-    canvas.translate(-page_width / 2, -page_height / 2)
+    if SHOW_DRAFT_WATERMARK:
+        canvas.setFont("Helvetica-Bold", 120)
+        canvas.setFillGray(0.95)
+        canvas.setStrokeGray(0.95)
+        # Center the watermark on the page
+        page_width = doc.pagesize[0]
+        page_height = doc.pagesize[1]
+        canvas.translate(page_width / 2, page_height / 2)
+        canvas.rotate(45)
+        canvas.drawCentredString(0, 0, "DRAFT")
+        canvas.rotate(-45)
+        canvas.translate(-page_width / 2, -page_height / 2)
 
     # Draw footer (reset to black for page numbers)
     canvas.setFont("Helvetica", 8)
@@ -687,6 +696,7 @@ def _build_western_ma_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.Data
                 "10": compute_cagr_last(s, 10),
                 "15": compute_cagr_last(s, WINDOW_YEARS),
                 "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
+                "PRIOR_DOLLAR": _value_at(s, PRIOR_YEAR),
                 "START_DOLLAR": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
             }
 
@@ -697,6 +707,7 @@ def _build_western_ma_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.Data
             "10": compute_cagr_last(total_series, 10),
             "15": compute_cagr_last(total_series, WINDOW_YEARS),
             "DOLLAR": (float(total_series.loc[latest_year]) if latest_year in total_series.index else float("nan")),
+            "PRIOR_DOLLAR": _value_at(total_series, PRIOR_YEAR),
             "START_DOLLAR": (float(total_series.loc[start_year]) if start_year in total_series.index else float("nan")),
         }
 
@@ -715,6 +726,7 @@ def _build_western_ma_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.Data
                     "10": compute_cagr_last(s, 10),
                     "15": compute_cagr_last(s, WINDOW_YEARS),
                     "FTE": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
+                    "PRIOR_FTE": _value_at(s, PRIOR_YEAR),
                     "START_FTE": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
                 }
 
@@ -1337,7 +1349,8 @@ def calculate_cohort_nss_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, 
 
     return pd.DataFrame(results)
 
-def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohort_colors: dict, xlim: tuple = None) -> None:
+def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohort_colors: dict, xlim: tuple = None,
+                        prior_values: dict = None) -> None:
     """
     Create a horizontal mini box-and-whisker plot for a cohort.
 
@@ -1352,31 +1365,33 @@ def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohor
     import matplotlib.pyplot as plt
     import matplotlib.patches as patches
 
-    fig, ax = plt.subplots(figsize=(2.0, 0.35))
+    paired = prior_values is not None
+    fig, ax = plt.subplots(figsize=(2.0, 0.5 if paired else 0.35))
 
     # Get cohort color
     color = cohort_colors.get(cohort_name, "#888888")
 
-    # Draw box-and-whisker horizontally
-    y_pos = 0.5
-    min_val, q1, median, q3, max_val = values["min"], values["q1"], values["median"], values["q3"], values["max"]
+    def draw(v, y_pos, half_h, alpha, lw):
+        min_val, q1, median, q3, max_val = v["min"], v["q1"], v["median"], v["q3"], v["max"]
+        # Whisker lines (min to q1, q3 to max)
+        ax.plot([min_val, q1], [y_pos, y_pos], color=color, linewidth=lw, alpha=max(alpha, 0.5))
+        ax.plot([q3, max_val], [y_pos, y_pos], color=color, linewidth=lw, alpha=max(alpha, 0.5))
+        # Box (q1 to q3)
+        ax.add_patch(patches.Rectangle((q1, y_pos - half_h), q3 - q1, 2 * half_h, linewidth=1.5,
+                                       edgecolor=color, facecolor=color, alpha=alpha))
+        # Median line
+        ax.plot([median, median], [y_pos - half_h, y_pos + half_h], color='black', linewidth=lw)
+        # Min/max markers
+        ax.plot(min_val, y_pos, '|', color=color, markersize=8 if paired else 10, markeredgewidth=lw)
+        ax.plot(max_val, y_pos, '|', color=color, markersize=8 if paired else 10, markeredgewidth=lw)
 
-    # Whisker lines (min to q1, q3 to max)
-    ax.plot([min_val, q1], [y_pos, y_pos], color=color, linewidth=2)
-    ax.plot([q3, max_val], [y_pos, y_pos], color=color, linewidth=2)
-
-    # Box (q1 to q3)
-    box_width = q3 - q1
-    rect = patches.Rectangle((q1, y_pos - 0.15), box_width, 0.3, linewidth=1.5,
-                             edgecolor=color, facecolor=color, alpha=0.6)
-    ax.add_patch(rect)
-
-    # Median line
-    ax.plot([median, median], [y_pos - 0.15, y_pos + 0.15], color='black', linewidth=2)
-
-    # Min/max markers
-    ax.plot(min_val, y_pos, '|', color=color, markersize=10, markeredgewidth=2)
-    ax.plot(max_val, y_pos, '|', color=color, markersize=10, markeredgewidth=2)
+    min_val, max_val = values["min"], values["max"]
+    if paired:
+        # Previous edition's year above (light), latest below (as before)
+        draw(prior_values, 0.73, 0.12, 0.25, 1.5)
+        draw(values, 0.3, 0.13, 0.6, 2)
+    else:
+        draw(values, 0.5, 0.15, 0.6, 2)
 
     # Clean up axes
     ax.set_ylim(0, 1)
@@ -1402,7 +1417,8 @@ def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohor
     plt.savefig(output_path, dpi=150, bbox_inches='tight', transparent=True)
     plt.close(fig)
 
-def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, cohort_colors: dict, doc_width: float) -> Table:
+def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, cohort_colors: dict, doc_width: float,
+                                    prior_df: pd.DataFrame = None, prior_label: str = None) -> Table:
     """
     Build table showing five-number summary with embedded mini boxplots for each cohort.
 
@@ -1432,12 +1448,16 @@ def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, coh
         Paragraph("<b>Median</b>", style_hdr_right),
         Paragraph("<b>Q3</b>", style_hdr_right),
         Paragraph("<b>Max</b>", style_hdr_right),
-        Paragraph("<b>Distribution</b>", style_legend_center),
+    ] + ([Paragraph(f"<b>Median vs {prior_label}</b>", style_hdr_right)] if prior_df is not None else []) + [
+        Paragraph("<b>Distribution</b>" + (f"<br/><font size=7>{prior_label} light, latest dark</font>"
+                                           if prior_df is not None else ""), style_legend_center),
     ]]
+    prior_by_cohort = ({r["cohort_name"]: r for _, r in prior_df.iterrows()}
+                       if prior_df is not None and not prior_df.empty else {})
 
     # CR 1999: Calculate global min/max across all cohorts for consistent x-axis scale
-    global_min = dist_df["min"].min()
-    global_max = dist_df["max"].max()
+    global_min = min([dist_df["min"].min()] + ([prior_df["min"].min()] if prior_by_cohort else []))
+    global_max = max([dist_df["max"].max()] + ([prior_df["max"].max()] if prior_by_cohort else []))
     # Add 5% padding on each side
     range_span = global_max - global_min
     if range_span > 0:
@@ -1481,16 +1501,20 @@ def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, coh
         # Create mini boxplot (sanitize metric_name for filename)
         safe_metric_name = metric_name.replace("/", "_per_").replace("$", "").replace(" ", "_")
         boxplot_path = boxplot_dir / f"cohort_{cohort_name}_{safe_metric_name}.png"
+        prior_row = prior_by_cohort.get(cohort_name)
+        prior_vals = ({k: prior_row[k] for k in ("min", "q1", "median", "q3", "max")}
+                      if prior_row is not None else None)
         create_mini_boxplot(
             {"min": row["min"], "q1": row["q1"], "median": row["median"], "q3": row["q3"], "max": row["max"]},
             cohort_name,
             boxplot_path,
             cohort_colors,
-            xlim=xlim  # CR 1999: Use shared x-axis scale
+            xlim=xlim,  # CR 1999: Use shared x-axis scale
+            prior_values=prior_vals if prior_df is not None else None,
         )
 
         # Create table row
-        data.append([
+        row_cells = [
             Paragraph(cohort_label, style_body),
             Paragraph(str(row["n"]), style_num),
             Paragraph(min_str, style_num),
@@ -1498,8 +1522,20 @@ def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, coh
             Paragraph(med_str, style_num),
             Paragraph(q3_str, style_num),
             Paragraph(max_str, style_num),
-            Image(str(boxplot_path), width=2.0*inch, height=0.35*inch)
-        ])
+        ]
+        if prior_df is not None:
+            if prior_row is None:
+                delta_str = "—"
+            elif is_percentage_metric:
+                delta_str = f"{row['median'] - prior_row['median']:+.1f}pp"
+            else:
+                d = row['median'] - prior_row['median']
+                delta_str = f"+${d:,.0f}" if d >= 0 else f"-${abs(d):,.0f}"
+            row_cells.append(Paragraph(delta_str, style_num))
+        box_h = 0.5*inch if prior_df is not None else 0.35*inch
+        box_w = 1.75*inch if prior_df is not None else 2.0*inch
+        row_cells.append(Image(str(boxplot_path), width=box_w, height=box_h))
+        data.append(row_cells)
 
     # Column widths - adjusted to fit within ~7 inch page width
     cohort_width = 1.1*inch
@@ -1508,6 +1544,10 @@ def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, coh
     boxplot_width = 2.0*inch
     col_widths = [cohort_width, n_width, stat_width, stat_width, stat_width, stat_width, stat_width, boxplot_width]
     # Total: 1.1 + 0.3 + 0.65*5 + 2.0 = 6.65 inches
+    if prior_df is not None:
+        # + "Median vs prior" column; narrower stats and boxplot: 1.1 + 0.3 + 0.62*5 + 0.75 + 1.85 = 7.1 inches
+        stat_width = 0.62*inch
+        col_widths = [cohort_width, n_width] + [stat_width] * 5 + [0.75*inch, 1.85*inch]
 
     # Build table
     table = Table(data, colWidths=col_widths)
@@ -1549,9 +1589,23 @@ def _build_category_table(page: dict) -> Table:
         Paragraph(f"CAGR {WINDOW_YEARS}y", style_hdr_right),
         Paragraph("CAGR 10y", style_hdr_right),
         Paragraph("CAGR 5y", style_hdr_right),
-        Paragraph(f"{latest_year} $/pupil", style_hdr_right),
     ]
+    # Editions after the first add the previous edition's year before the latest
+    raw_epp = page.get("raw_epp")
+    show_prior = PRIOR_YEAR is not None and raw_epp is not None and not raw_epp.empty
+    if show_prior:
+        header.append(Paragraph(f"{PRIOR_YEAR} $/pupil", style_hdr_right))
+    header.append(Paragraph(f"{latest_year} $/pupil", style_hdr_right))
+    latest_col = 7 if show_prior else 6
     data: List[List] = [header]
+
+    def prior_of(sc):
+        if not show_prior or sc not in raw_epp.columns:
+            return float("nan")
+        return _value_at(raw_epp[sc], PRIOR_YEAR)
+
+    def money(v):
+        return f"${v:,.0f}" if v == v and v > 0 else "—"
 
     # Category rows - reordered: start (15y ago), CAGR 15y, 10y, 5y, latest
     for (sc, latest_str, c5s, c10s, c15s, col, latest_val) in rows_in:
@@ -1559,33 +1613,44 @@ def _build_category_table(page: dict) -> Table:
         start_val = page.get("cat_start_map", {}).get(sc, 0.0)
         start_str = f"${start_val:,.0f}" if start_val > 0 else "—"
 
-        data.append([
+        row = [
             "",  # swatch painted via TableStyle
             Paragraph(sc, style_body),
             Paragraph(start_str, style_num),
             Paragraph(c15s, style_num),
             Paragraph(c10s, style_num),
             Paragraph(c5s, style_num),
-            Paragraph(latest_str, style_num),
-        ])
+        ]
+        if show_prior:
+            row.append(Paragraph(money(prior_of(sc)), style_num))
+        row.append(Paragraph(latest_str, style_num))
+        data.append(row)
 
     # TOTAL row directly after categories - reordered
     start_total_str = total[5] if len(total) > 5 else "—"  # start year total
-    data.append([
+    total_row = [
         "", Paragraph(total[0], style_body),
         Paragraph(start_total_str, style_num),  # start year total (2009)
-        Paragraph(total[4], style_num),  # CAGR 15y
+        Paragraph(total[4], style_num),  # CAGR long window
         Paragraph(total[3], style_num),  # CAGR 10y
         Paragraph(total[2], style_num),  # CAGR 5y
-        Paragraph(total[1], style_num),  # Latest total (2024)
-    ])
+    ]
+    prior_total_val = _value_at(raw_epp.sum(axis=1), PRIOR_YEAR) if show_prior else float("nan")
+    if show_prior:
+        total_row.append(Paragraph(money(prior_total_val), style_num))
+    total_row.append(Paragraph(total[1], style_num))  # Latest total
+    data.append(total_row)
     total_row_idx = len(data) - 1
 
     # Legend removed from category table - now shown only after enrollment table
 
     # Column widths: flexible Category column, wider first/last dollar columns for large values
     # Swatch, Category, t0 $, CAGR15y, CAGR10y, CAGR5y, Latest $
-    tbl = Table(data, colWidths=[0.22*inch, None, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch])
+    if show_prior:
+        col_widths = [0.22*inch, None, 0.88*inch, 0.68*inch, 0.68*inch, 0.68*inch, 0.88*inch, 0.88*inch]
+    else:
+        col_widths = [0.22*inch, None, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch]
+    tbl = Table(data, colWidths=col_widths)
 
     # Table style
     ts = TableStyle([
@@ -1622,13 +1687,19 @@ def _build_category_table(page: dict) -> Table:
             if bg is not None:
                 ts.add("BACKGROUND", (2, i), (2, i), bg)
 
-        # --- Latest $/pupil shading (col 6, 2024) - relative vs Western baseline ---
+        # --- Latest $/pupil shading (last col) and prior-year shading (col 6) vs baseline ---
         base_dollar = base_map.get("DOLLAR", float("nan"))
         if base_dollar == base_dollar and base_dollar > 0 and latest_val == latest_val:
             delta_rel = (latest_val - float(base_dollar)) / float(base_dollar)
             bg = _shade_for_dollar_rel(delta_rel)
             if bg is not None:
-                ts.add("BACKGROUND", (6, i), (6, i), bg)
+                ts.add("BACKGROUND", (latest_col, i), (latest_col, i), bg)
+        if show_prior:
+            prior_val, base_prior = prior_of(sc), base_map.get("PRIOR_DOLLAR", float("nan"))
+            if base_prior == base_prior and base_prior > 0 and prior_val == prior_val:
+                bg = _shade_for_dollar_rel((prior_val - float(base_prior)) / float(base_prior))
+                if bg is not None:
+                    ts.add("BACKGROUND", (6, i), (6, i), bg)
 
         # --- CAGR shading (absolute pp delta vs Western baseline) ---
         # Columns 3, 4, 5 = CAGR 15y, 10y, 5y
@@ -1665,13 +1736,19 @@ def _build_category_table(page: dict) -> Table:
             if bg is not None:
                 ts.add("BACKGROUND", (2, total_row_idx), (2, total_row_idx), bg)
 
-        # --- Latest $/pupil shading for Total (col 6) ---
+        # --- Latest $/pupil shading for Total (last col) and prior year (col 6) ---
         base_dollar = total_base_map.get("DOLLAR", float("nan"))
         if base_dollar == base_dollar and base_dollar > 0 and latest_total_val == latest_total_val:
             delta_rel = (latest_total_val - float(base_dollar)) / float(base_dollar)
             bg = _shade_for_dollar_rel(delta_rel)
             if bg is not None:
-                ts.add("BACKGROUND", (6, total_row_idx), (6, total_row_idx), bg)
+                ts.add("BACKGROUND", (latest_col, total_row_idx), (latest_col, total_row_idx), bg)
+        if show_prior:
+            base_prior = total_base_map.get("PRIOR_DOLLAR", float("nan"))
+            if base_prior == base_prior and base_prior > 0 and prior_total_val == prior_total_val:
+                bg = _shade_for_dollar_rel((prior_total_val - float(base_prior)) / float(base_prior))
+                if bg is not None:
+                    ts.add("BACKGROUND", (6, total_row_idx), (6, total_row_idx), bg)
 
         # --- CAGR shading for Total (cols 3, 4, 5) ---
         # Columns 3, 4, 5 = CAGR 15y, 10y, 5y
@@ -1715,8 +1792,12 @@ def _build_fte_table(page: dict) -> Table:
         Paragraph(f"CAGR {WINDOW_YEARS}y", style_hdr_right),
         Paragraph("CAGR 10y", style_hdr_right),
         Paragraph("CAGR 5y", style_hdr_right),
-        Paragraph(f"{latest_year_fte}", style_hdr_right),
     ]
+    show_prior = PRIOR_YEAR is not None
+    if show_prior:
+        header.append(Paragraph(f"{PRIOR_YEAR}", style_hdr_right))
+    header.append(Paragraph(f"{latest_year_fte}", style_hdr_right))
+    latest_col = 7 if show_prior else 6
     data: List[List] = [header]
 
     # Data rows - reordered: t0, CAGR 15y, 10y, 5y, latest
@@ -1727,12 +1808,16 @@ def _build_fte_table(page: dict) -> Table:
         if s is not None and not s.empty and t0_year_fte in s.index:
             t0_str = f"{float(s.loc[t0_year_fte]):,.0f}"
 
-        data.append([LineSwatch(color), Paragraph(label, style_body),
-                     Paragraph(t0_str, style_num),
-                     Paragraph(r15s, style_num),
-                     Paragraph(r10s, style_num),
-                     Paragraph(r5s, style_num),
-                     Paragraph(latest_str, style_num)])
+        row = [LineSwatch(color), Paragraph(label, style_body),
+               Paragraph(t0_str, style_num),
+               Paragraph(r15s, style_num),
+               Paragraph(r10s, style_num),
+               Paragraph(r5s, style_num)]
+        if show_prior:
+            prior_val = _value_at(s, PRIOR_YEAR) if s is not None and not s.empty else float("nan")
+            row.append(Paragraph(f"{prior_val:,.0f}" if prior_val == prior_val else "—", style_num))
+        row.append(Paragraph(latest_str, style_num))
+        data.append(row)
 
     # Total FTE removed - enrollment groups overlap, so sum is meaningless
     total_row_idx = None
@@ -1760,9 +1845,10 @@ def _build_fte_table(page: dict) -> Table:
             f"|ΔEnrollment| ≥ {DOLLAR_THRESHOLD_REL*100:.1f}%, |ΔCAGR| ≥ {MATERIAL_DELTA_PCTPTS*100:.1f}pp"
         )
         cagr_def = "CAGR = (End/Start)^(1/years) − 1"
+        pad = [""] if show_prior else []
         legend_rows = [
-            [Paragraph(shade_rule, style_legend_right), "", "", "", Paragraph(above_text, style_legend_center), "", ""],  # Col 0-3 merged for text
-            [Paragraph(cagr_def, style_legend_right), "", "", "", Paragraph(below_text, style_legend_center), "", ""],  # Col 0-3 merged for text
+            [Paragraph(shade_rule, style_legend_right), "", "", "", Paragraph(above_text, style_legend_center), "", "", *pad],  # Col 0-3 merged for text
+            [Paragraph(cagr_def, style_legend_right), "", "", "", Paragraph(below_text, style_legend_center), "", "", *pad],  # Col 0-3 merged for text
         ]
     data.extend(legend_rows)
     leg1_idx = len(rows_in) + 1 if legend_rows else None
@@ -1770,7 +1856,11 @@ def _build_fte_table(page: dict) -> Table:
 
     # Column widths: flexible Enrollment column, wider first/last FTE columns
     # Swatch, Series (flex), t0 FTE, CAGR15y, CAGR10y, CAGR5y, Latest FTE
-    tbl = Table(data, colWidths=[0.45*inch, None, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch])
+    if show_prior:
+        col_widths = [0.45*inch, None, 0.88*inch, 0.68*inch, 0.68*inch, 0.68*inch, 0.88*inch, 0.88*inch]
+    else:
+        col_widths = [0.45*inch, None, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch]
+    tbl = Table(data, colWidths=col_widths)
     ts = TableStyle([
         ("VALIGN",(0,0), (-1,-1), "MIDDLE"),
         ("ALIGN", (2,1), (-1,-1), "RIGHT"),  # All numeric columns right-aligned
@@ -1806,13 +1896,20 @@ def _build_fte_table(page: dict) -> Table:
                 if bg is not None:
                     ts.add("BACKGROUND", (2, i), (2, i), bg)
 
-            # --- Latest FTE shading (col 6, 2024) - relative vs Western baseline ---
+            # --- Latest FTE shading (last col) and prior year (col 6) - relative vs baseline ---
             base_fte = base_map.get("FTE", float("nan"))
             if base_fte == base_fte and base_fte > 0 and latest_val == latest_val:
                 delta_rel = (latest_val - float(base_fte)) / float(base_fte)
                 bg = _shade_for_dollar_rel(delta_rel)  # reuse same function (5% threshold)
                 if bg is not None:
-                    ts.add("BACKGROUND", (6, i), (6, i), bg)
+                    ts.add("BACKGROUND", (latest_col, i), (latest_col, i), bg)
+            if show_prior:
+                prior_val = _value_at(s, PRIOR_YEAR) if s is not None and not s.empty else float("nan")
+                base_prior = base_map.get("PRIOR_FTE", float("nan"))
+                if base_prior == base_prior and base_prior > 0 and prior_val == prior_val:
+                    bg = _shade_for_dollar_rel((prior_val - float(base_prior)) / float(base_prior))
+                    if bg is not None:
+                        ts.add("BACKGROUND", (6, i), (6, i), bg)
 
             # --- CAGR shading (absolute pp delta vs Western baseline) ---
             # Columns 3, 4, 5 = CAGR 15y, 10y, 5y
@@ -1834,17 +1931,17 @@ def _build_fte_table(page: dict) -> Table:
 
         ts.add("SPAN", (0, leg1_idx), (3, leg1_idx))
         ts.add("SPAN", (0, leg2_idx), (3, leg2_idx))
-        ts.add("SPAN", (4, leg1_idx), (6, leg1_idx))
-        ts.add("SPAN", (4, leg2_idx), (6, leg2_idx))
+        ts.add("SPAN", (4, leg1_idx), (latest_col, leg1_idx))
+        ts.add("SPAN", (4, leg2_idx), (latest_col, leg2_idx))
         # Align legend text to right in the merged left cells
         ts.add("ALIGN", (0, leg1_idx), (3, leg1_idx), "RIGHT")
         ts.add("ALIGN", (0, leg2_idx), (3, leg2_idx), "RIGHT")
         # Center the swatch labels
-        ts.add("ALIGN", (4, leg1_idx), (6, leg1_idx), "CENTER")
-        ts.add("ALIGN", (4, leg2_idx), (6, leg2_idx), "CENTER")
+        ts.add("ALIGN", (4, leg1_idx), (latest_col, leg1_idx), "CENTER")
+        ts.add("ALIGN", (4, leg2_idx), (latest_col, leg2_idx), "CENTER")
         sw_above = HexColor(ABOVE_SHADES[1]); sw_below = HexColor(BELOW_SHADES[1])
-        ts.add("BACKGROUND", (4, leg1_idx), (6, leg1_idx), sw_above)
-        ts.add("BACKGROUND", (4, leg2_idx), (6, leg2_idx), sw_below)
+        ts.add("BACKGROUND", (4, leg1_idx), (latest_col, leg1_idx), sw_above)
+        ts.add("BACKGROUND", (4, leg2_idx), (latest_col, leg2_idx), sw_below)
 
     if total_row_idx is not None:
         ts.add("LINEABOVE", (0,total_row_idx), (-1,total_row_idx), 0.5, colors.black)
@@ -1866,30 +1963,52 @@ def _build_nss_ch70_table(page: dict) -> Table:
            Paragraph(f"{start_year}<br/>$/pupil", style_hdr_right),
            Paragraph(f"CAGR<br/>{WINDOW_YEARS}y", style_hdr_right),
            Paragraph("CAGR<br/>10y", style_hdr_right),
-           Paragraph("CAGR<br/>5y", style_hdr_right),
-           Paragraph(f"{latest_year}<br/>$/pupil", style_hdr_right)]
+           Paragraph("CAGR<br/>5y", style_hdr_right)]
+    raw_nss = page.get("raw_nss")
+    show_prior = PRIOR_YEAR is not None and raw_nss is not None and not raw_nss.empty
+    if show_prior:
+        hdr.append(Paragraph(f"{PRIOR_YEAR}<br/>$/pupil", style_hdr_right))
+    hdr.append(Paragraph(f"{latest_year}<br/>$/pupil", style_hdr_right))
+    latest_col = 7 if show_prior else 6
     data = [hdr]
+
+    def prior_of(sc):
+        if not show_prior or sc not in raw_nss.columns:
+            return float("nan")
+        return _value_at(raw_nss[sc], PRIOR_YEAR)
+
+    def money(v):
+        if v != v:
+            return "—"
+        return f"${v:,.0f}" if v >= 0 else f"-${abs(v):,.0f}"
 
     # Category rows (top to bottom: Actual NSS (adj), Req NSS (adj), Ch70 Aid)
     # Note: rows_in format is (sc, start_str, c15s, c10s, c5s, latest_str, hex_color, latest_val)
     for (sc, start_str, c15s, c10s, c5s, latest_str, hex_color, _latest_val) in rows_in:
-        data.append(["",  # swatch painted via TableStyle
-                     Paragraph(sc, style_body),
-                     Paragraph(start_str, style_num),
-                     Paragraph(c15s, style_num),
-                     Paragraph(c10s, style_num),
-                     Paragraph(c5s, style_num),
-                     Paragraph(latest_str, style_num)])
+        row = ["",  # swatch painted via TableStyle
+               Paragraph(sc, style_body),
+               Paragraph(start_str, style_num),
+               Paragraph(c15s, style_num),
+               Paragraph(c10s, style_num),
+               Paragraph(c5s, style_num)]
+        if show_prior:
+            row.append(Paragraph(money(prior_of(sc)), style_num))
+        row.append(Paragraph(latest_str, style_num))
+        data.append(row)
 
     # Total row
     total_label, start_total, c15_total, c10_total, c5_total, latest_total = total
-    data.append(["",
+    total_row = ["",
                  Paragraph(total_label, style_body),
                  Paragraph(start_total, style_num),
                  Paragraph(c15_total, style_num),
                  Paragraph(c10_total, style_num),
-                 Paragraph(c5_total, style_num),
-                 Paragraph(latest_total, style_num)])
+                 Paragraph(c5_total, style_num)]
+    prior_total_val = _value_at(raw_nss.sum(axis=1), PRIOR_YEAR) if show_prior else float("nan")
+    if show_prior:
+        total_row.append(Paragraph(money(prior_total_val), style_num))
+    total_row.append(Paragraph(latest_total, style_num))
+    data.append(total_row)
     total_row_idx = len(data) - 1
 
     # Add legend rows (restored per user request)
@@ -1914,15 +2033,19 @@ def _build_nss_ch70_table(page: dict) -> Table:
         )
         cagr_def = "CAGR = (End/Start)^(1/years) − 1"
         legend_rows = [
-            ["", Paragraph(shade_rule, style_legend_right), "", "", "", Paragraph(above_text, style_legend_center), ""],  # Col 1-4 merged for text
-            ["", Paragraph(cagr_def, style_legend_right), "", "", "", Paragraph(below_text, style_legend_center), ""],  # Col 1-4 merged for text
+            ["", Paragraph(shade_rule, style_legend_right), "", "", "", Paragraph(above_text, style_legend_center), ""] + ([""] if show_prior else []),  # Col 1-4 merged for text
+            ["", Paragraph(cagr_def, style_legend_right), "", "", "", Paragraph(below_text, style_legend_center), ""] + ([""] if show_prior else []),  # Col 1-4 merged for text
         ]
     data.extend(legend_rows)
     leg1_idx = len(data) - 2 if legend_rows else None
     leg2_idx = len(data) - 1 if legend_rows else None
 
     # Column widths (flexible Component column, match FTE table dollar column widths)
-    tbl = Table(data, colWidths=[0.45*inch, None, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch])
+    if show_prior:
+        col_widths = [0.45*inch, None, 0.88*inch, 0.68*inch, 0.68*inch, 0.68*inch, 0.88*inch, 0.88*inch]
+    else:
+        col_widths = [0.45*inch, None, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch]
+    tbl = Table(data, colWidths=col_widths)
 
     # Table style
     ts = TableStyle([
@@ -1958,13 +2081,19 @@ def _build_nss_ch70_table(page: dict) -> Table:
                 if bg is not None:
                     ts.add("BACKGROUND", (2, i), (2, i), bg)
 
-            # --- Latest $/pupil shading (col 6) - relative vs baseline ---
+            # --- Latest $/pupil shading (last col) and prior year (col 6) - relative vs baseline ---
             base_dollar = base_map.get("DOLLAR", float("nan"))
             if base_dollar == base_dollar and base_dollar > 0 and latest_val == latest_val:
                 delta_rel = (latest_val - float(base_dollar)) / float(base_dollar)
                 bg = _shade_for_dollar_rel(delta_rel)
                 if bg is not None:
-                    ts.add("BACKGROUND", (6, i), (6, i), bg)
+                    ts.add("BACKGROUND", (latest_col, i), (latest_col, i), bg)
+            if show_prior:
+                prior_val, base_prior = prior_of(sc), base_map.get("PRIOR_DOLLAR", float("nan"))
+                if base_prior == base_prior and base_prior > 0 and prior_val == prior_val:
+                    bg = _shade_for_dollar_rel((prior_val - float(base_prior)) / float(base_prior))
+                    if bg is not None:
+                        ts.add("BACKGROUND", (6, i), (6, i), bg)
 
             # --- CAGR shading (absolute pp delta vs baseline) ---
             # Columns 3, 4, 5 = CAGR 15y, 10y, 5y
@@ -1997,13 +2126,19 @@ def _build_nss_ch70_table(page: dict) -> Table:
                 if bg is not None:
                     ts.add("BACKGROUND", (2, total_row_idx), (2, total_row_idx), bg)
 
-            # Shade latest dollar (col 6)
+            # Shade latest dollar (last col) and prior year (col 6)
             base_dollar = base_total.get("DOLLAR", float("nan"))
             if base_dollar == base_dollar and base_dollar > 0 and total_latest_val == total_latest_val:
                 delta_rel = (total_latest_val - float(base_dollar)) / float(base_dollar)
                 bg = _shade_for_dollar_rel(delta_rel)
                 if bg is not None:
-                    ts.add("BACKGROUND", (6, total_row_idx), (6, total_row_idx), bg)
+                    ts.add("BACKGROUND", (latest_col, total_row_idx), (latest_col, total_row_idx), bg)
+            if show_prior:
+                base_prior = base_total.get("PRIOR_DOLLAR", float("nan"))
+                if base_prior == base_prior and base_prior > 0 and prior_total_val == prior_total_val:
+                    bg = _shade_for_dollar_rel((prior_total_val - float(base_prior)) / float(base_prior))
+                    if bg is not None:
+                        ts.add("BACKGROUND", (6, total_row_idx), (6, total_row_idx), bg)
 
             # Shade CAGR columns (cols 3, 4, 5)
             for col, (cstr, key) in zip((3, 4, 5), [(c15_total, "15"), (c10_total, "10"), (c5_total, "5")]):
@@ -2020,13 +2155,13 @@ def _build_nss_ch70_table(page: dict) -> Table:
     if leg1_idx is not None and leg2_idx is not None:
         # Merge cells for legend text spans (cols 1-4) and swatch spans (cols 5-6)
         ts.add("SPAN", (1, leg1_idx), (4, leg1_idx))  # Shade rule text
-        ts.add("SPAN", (5, leg1_idx), (6, leg1_idx))  # "Above baseline" swatch
+        ts.add("SPAN", (5, leg1_idx), (latest_col, leg1_idx))  # "Above baseline" swatch
         ts.add("SPAN", (1, leg2_idx), (4, leg2_idx))  # CAGR definition text
-        ts.add("SPAN", (5, leg2_idx), (6, leg2_idx))  # "Below baseline" swatch
+        ts.add("SPAN", (5, leg2_idx), (latest_col, leg2_idx))  # "Below baseline" swatch
 
         # Add color swatches for Above/Below baseline
-        ts.add("BACKGROUND", (5, leg1_idx), (6, leg1_idx), HexColor(ABOVE_SHADES[2]))  # Mid-range above color
-        ts.add("BACKGROUND", (5, leg2_idx), (6, leg2_idx), HexColor(BELOW_SHADES[2]))  # Mid-range below color
+        ts.add("BACKGROUND", (5, leg1_idx), (latest_col, leg1_idx), HexColor(ABOVE_SHADES[2]))  # Mid-range above color
+        ts.add("BACKGROUND", (5, leg2_idx), (latest_col, leg2_idx), HexColor(BELOW_SHADES[2]))  # Mid-range below color
 
         # Add line above legend to separate from data
         ts.add("LINEABOVE", (0, leg1_idx), (-1, leg1_idx), 0.5, colors.lightgrey)
@@ -2135,6 +2270,7 @@ def _build_nss_ch70_baseline_map(nss_data: pd.DataFrame, latest_year: int, found
 
         baseline_map[comp] = {
             "DOLLAR": latest_val,
+            "PRIOR_DOLLAR": _value_at(nss_data[comp], PRIOR_YEAR),
             "START_DOLLAR": start_val,
             "5": c5,
             "10": c10,
@@ -2148,6 +2284,7 @@ def _build_nss_ch70_baseline_map(nss_data: pd.DataFrame, latest_year: int, found
 
     baseline_map["Total"] = {
         "DOLLAR": latest_total,
+        "PRIOR_DOLLAR": _value_at(total_series, PRIOR_YEAR),
         "START_DOLLAR": start_total,
         "5": compute_cagr_last(total_series, 5),
         "10": compute_cagr_last(total_series, 10),
@@ -2162,6 +2299,7 @@ def _build_nss_ch70_baseline_map(nss_data: pd.DataFrame, latest_year: int, found
 
         baseline_map["Foundation Enrollment"] = {
             "FTE": latest_fte,
+            "PRIOR_FTE": _value_at(foundation_series, PRIOR_YEAR),
             "START_FTE": start_fte,
             "5": compute_cagr_last(foundation_series, 5),
             "10": compute_cagr_last(foundation_series, 10),
@@ -2373,6 +2511,18 @@ def _build_nss_ch70_data_table(nss_pivot: pd.DataFrame, title: str, doc_width: f
 
     return tbl
 
+# Summary rows: (start, cagr_long, cagr10, cagr5, latest, prior). prior is the
+# PRIOR_YEAR value, NaN in the first edition.
+NO_SUMMARY_ROW = (0.0, 0.0, 0.0, 0.0, 0.0, float("nan"))
+
+
+def _value_at(series: pd.Series, year) -> float:
+    """series[year] as a float, or NaN when year is None or missing."""
+    if year is None or series is None or year not in series.index:
+        return float("nan")
+    return float(series.loc[year])
+
+
 def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = None, apply_shading: bool = True, skip_shading_rows: set = None, highlight_baseline_rows: set = None) -> Table:
     """
     Build cohort summary table showing Total PPE metrics across cohorts.
@@ -2391,17 +2541,23 @@ def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = 
     highlight_baseline_rows = highlight_baseline_rows or set()
 
     # Header
-    summary_data = [[
+    show_prior = PRIOR_YEAR is not None
+    header = [
         Paragraph("<b>Cohort/District</b>", style_hdr_left),
         Paragraph(f"<b>{START_YEAR} $/pupil</b>", style_hdr_right),
         Paragraph(f"<b>CAGR {WINDOW_YEARS}y</b>", style_hdr_right),
         Paragraph("<b>CAGR 10y</b>", style_hdr_right),
         Paragraph("<b>CAGR 5y</b>", style_hdr_right),
-        Paragraph(f"<b>{LATEST_YEAR} $/pupil</b>", style_hdr_right),
-    ]]
+    ]
+    if show_prior:
+        header.append(Paragraph(f"<b>{PRIOR_YEAR} $/pupil</b>", style_hdr_right))
+    header.append(Paragraph(f"<b>{LATEST_YEAR} $/pupil</b>", style_hdr_right))
+    summary_data = [header]
+    latest_col = 6 if show_prior else 5
 
     # Data rows
-    for label, start_dollar, cagr15, cagr10, cagr5, latest_dollar in cohort_rows:
+    for label, start_dollar, cagr15, cagr10, cagr5, latest_dollar, *rest in cohort_rows:
+        prior_dollar = rest[0] if rest else float("nan")
         # Format dollar values: allow negative values (e.g., Springfield NSS below required levels)
         # Only show "—" if value is exactly 0 (missing data) or NaN
         def format_dollar(val):
@@ -2409,16 +2565,23 @@ def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = 
                 return "—"
             return f"${val:,.0f}" if val > 0 else f"-${abs(val):,.0f}"
 
-        summary_data.append([
+        row = [
             Paragraph(label, style_body),
             Paragraph(format_dollar(start_dollar), style_num),
             Paragraph(fmt_pct(cagr15), style_num),
             Paragraph(fmt_pct(cagr10), style_num),
             Paragraph(fmt_pct(cagr5), style_num),
-            Paragraph(format_dollar(latest_dollar), style_num),
-        ])
+        ]
+        if show_prior:
+            row.append(Paragraph(format_dollar(prior_dollar), style_num))
+        row.append(Paragraph(format_dollar(latest_dollar), style_num))
+        summary_data.append(row)
 
-    summary_table = Table(summary_data, colWidths=[2.4*inch, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch])
+    if show_prior:
+        col_widths = [2.25*inch, 0.95*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.95*inch, 0.95*inch]
+    else:
+        col_widths = [2.4*inch, 1.05*inch, 0.85*inch, 0.85*inch, 0.85*inch, 1.05*inch]
+    summary_table = Table(summary_data, colWidths=col_widths)
     ts = TableStyle([
         ('LINEBELOW', (0,0), (-1,0), 0.5, colors.black),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -2437,9 +2600,11 @@ def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = 
 
     # Apply shading if requested and baseline is provided
     if apply_shading and baseline_row is not None:
-        base_label, base_start, base_c15, base_c10, base_c5, base_latest = baseline_row
+        base_label, base_start, base_c15, base_c10, base_c5, base_latest, *base_rest = baseline_row
+        base_prior = base_rest[0] if base_rest else float("nan")
 
-        for i, (label, start_dollar, cagr15, cagr10, cagr5, latest_dollar) in enumerate(cohort_rows, start=1):
+        for i, (label, start_dollar, cagr15, cagr10, cagr5, latest_dollar, *rest) in enumerate(cohort_rows, start=1):
+            prior_dollar = rest[0] if rest else float("nan")
             # Skip shading for specified rows
             if (i - 1) in skip_shading_rows:
                 continue
@@ -2452,13 +2617,15 @@ def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = 
                 if bg is not None:
                     ts.add("BACKGROUND", (1, i), (1, i), bg)
 
-            # Shade 2024 $/pupil (col 5)
+            # Shade the latest $/pupil (and the prior year's, when shown)
             # Allow negative values for NSS (e.g., Springfield spending below requirements)
-            if base_latest != 0 and latest_dollar == latest_dollar:  # Check for non-zero baseline and non-NaN
-                delta_rel = (latest_dollar - base_latest) / abs(base_latest)
-                bg = _shade_for_dollar_rel(delta_rel)
-                if bg is not None:
-                    ts.add("BACKGROUND", (5, i), (5, i), bg)
+            for col, val, base in ((latest_col, latest_dollar, base_latest), (5, prior_dollar, base_prior)):
+                if col == 5 and not show_prior:
+                    continue
+                if base == base and base != 0 and val == val:  # non-NaN, non-zero baseline; non-NaN value
+                    bg = _shade_for_dollar_rel((val - base) / abs(base))
+                    if bg is not None:
+                        ts.add("BACKGROUND", (col, i), (col, i), bg)
 
             # Shade CAGR columns (2, 3, 4 = 15y, 10y, 5y)
             for col, (cagr_val, base_cagr) in zip([2, 3, 4], [(cagr15, base_c15), (cagr10, base_c10), (cagr5, base_c5)]):
@@ -2767,14 +2934,14 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             Tuple of (start_dollar, cagr15, cagr10, cagr5, latest_dollar)
         """
         if not district_list:
-            return (0.0, 0.0, 0.0, 0.0, 0.0)
+            return NO_SUMMARY_ROW
 
         try:
             if bucket_key in ["tiny", "small", "medium", "large", "springfield", "all_western"]:
                 # Cohort aggregate: use prepare_western_epp_lines
                 title, epp, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket_key, c70, districts=district_list)
                 if epp.empty:
-                    return (0.0, 0.0, 0.0, 0.0, 0.0)
+                    return NO_SUMMARY_ROW
                 latest_year_local = get_latest_year(df, epp)
                 context = context_for_western(bucket_key)
             else:
@@ -2782,18 +2949,18 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 dist_name = district_list[0]
                 epp, lines = prepare_district_epp_lines(df, dist_name)
                 if epp.empty:
-                    return (0.0, 0.0, 0.0, 0.0, 0.0)
+                    return NO_SUMMARY_ROW
                 latest_year_local = get_latest_year(df, epp)
                 context = context_for_district(df, dist_name)
 
             # Build category data (common for both cohorts and districts)
             rows, total, start_map = _build_category_data(epp, latest_year_local, context, cmap_exec)
-            return _extract_total_from_cat_total(total)
+            return (*_extract_total_from_cat_total(total), _value_at(epp.sum(axis=1), PRIOR_YEAR))
 
         except Exception as e:
             # Log error but continue - return zeros for this cohort/district
             print(f"Warning: Failed to build data for {bucket_key} ({district_list}): {e}")
-            return (0.0, 0.0, 0.0, 0.0, 0.0)
+            return NO_SUMMARY_ROW
 
     # Helper function to build Ch70 Aid data for Executive Summary (CR09)
     def build_ch70_aid_data(bucket_key: str, district_list: List[str]) -> tuple:
@@ -2808,7 +2975,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             Tuple of (start_dollar, cagr15, cagr10, cagr5, latest_dollar) for Ch70 Aid per pupil
         """
         if not district_list or c70 is None or c70.empty:
-            return (0.0, 0.0, 0.0, 0.0, 0.0)
+            return NO_SUMMARY_ROW
 
         try:
             if bucket_key in ["tiny", "small", "medium", "large", "springfield", "all_western"]:
@@ -2820,7 +2987,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 nss_piv, _, _ = prepare_district_nss_ch70(df, c70, dist_name)
 
             if nss_piv.empty or "Ch70 Aid" not in nss_piv.columns:
-                return (0.0, 0.0, 0.0, 0.0, 0.0)
+                return NO_SUMMARY_ROW
 
             # Extract Ch70 Aid series
             ch70_series = nss_piv["Ch70 Aid"]
@@ -2828,7 +2995,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             start_year = latest_year_local - WINDOW_YEARS
 
             if start_year not in ch70_series.index or latest_year_local not in ch70_series.index:
-                return (0.0, 0.0, 0.0, 0.0, 0.0)
+                return NO_SUMMARY_ROW
 
             start_val = float(ch70_series.loc[start_year])
             latest_val = float(ch70_series.loc[latest_year_local])
@@ -2836,11 +3003,11 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             cagr10 = compute_cagr_last(ch70_series, 10) if len(ch70_series) >= 10 else 0.0
             cagr15 = compute_cagr_last(ch70_series, WINDOW_YEARS) if len(ch70_series) >= WINDOW_YEARS else 0.0
 
-            return (start_val, cagr15, cagr10, cagr5, latest_val)
+            return (start_val, cagr15, cagr10, cagr5, latest_val, _value_at(ch70_series, PRIOR_YEAR))
 
         except Exception as e:
             print(f"Warning: Failed to build Ch70 Aid data for {bucket_key} ({district_list}): {e}")
-            return (0.0, 0.0, 0.0, 0.0, 0.0)
+            return NO_SUMMARY_ROW
 
     # Helper function to build Actual NSS (above Req NSS) data for Executive Summary (CR10)
     def build_actual_nss_data(bucket_key: str, district_list: List[str]) -> tuple:
@@ -2855,7 +3022,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             Tuple of (start_dollar, cagr15, cagr10, cagr5, latest_dollar) for Actual NSS above Req NSS per pupil
         """
         if not district_list or c70 is None or c70.empty:
-            return (0.0, 0.0, 0.0, 0.0, 0.0)
+            return NO_SUMMARY_ROW
 
         try:
             if bucket_key in ["tiny", "small", "medium", "large", "springfield", "all_western"]:
@@ -2867,19 +3034,19 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 nss_piv, _, _ = prepare_district_nss_ch70(df, c70, dist_name)
 
             if nss_piv.empty:
-                return (0.0, 0.0, 0.0, 0.0, 0.0)
+                return NO_SUMMARY_ROW
 
             # The column is already "Actual NSS (minus Req NSS)" - it's the difference
             col_name = "Actual NSS (minus Req NSS)"
             if col_name not in nss_piv.columns:
-                return (0.0, 0.0, 0.0, 0.0, 0.0)
+                return NO_SUMMARY_ROW
 
             actual_minus_req_series = nss_piv[col_name]
             latest_year_local = int(actual_minus_req_series.index.max())
             start_year = latest_year_local - WINDOW_YEARS
 
             if start_year not in actual_minus_req_series.index or latest_year_local not in actual_minus_req_series.index:
-                return (0.0, 0.0, 0.0, 0.0, 0.0)
+                return NO_SUMMARY_ROW
 
             start_val = float(actual_minus_req_series.loc[start_year])
             latest_val = float(actual_minus_req_series.loc[latest_year_local])
@@ -2887,11 +3054,11 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             cagr10 = compute_cagr_last(actual_minus_req_series, 10) if len(actual_minus_req_series) >= 10 else 0.0
             cagr15 = compute_cagr_last(actual_minus_req_series, WINDOW_YEARS) if len(actual_minus_req_series) >= WINDOW_YEARS else 0.0
 
-            return (start_val, cagr15, cagr10, cagr5, latest_val)
+            return (start_val, cagr15, cagr10, cagr5, latest_val, _value_at(actual_minus_req_series, PRIOR_YEAR))
 
         except Exception as e:
             print(f"Warning: Failed to build Actual NSS data for {bucket_key} ({district_list}): {e}")
-            return (0.0, 0.0, 0.0, 0.0, 0.0)
+            return NO_SUMMARY_ROW
 
     # Build all Western MA cohort districts (excluding Springfield)
     # Note: Large cohort label will be dynamically determined based on actual cohort boundaries
@@ -2915,7 +3082,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     # Helper to build table rows from cohort names
     def make_table_rows(cohort_names: List[str]) -> List[tuple]:
         """Build table rows from cohort/district names."""
-        return [(name, *cohort_summary_data.get(name, (0, 0, 0, 0, 0))) for name in cohort_names]
+        return [(name, *cohort_summary_data.get(name, NO_SUMMARY_ROW)) for name in cohort_names]
 
     # TABLE 1: All Western MA cohorts with shading (all rows shaded vs Western MA baseline)
     table1_names = [
@@ -3012,7 +3179,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
         def make_ch70_table_rows(cohort_names: List[str]) -> List[tuple]:
             """Build Ch70 Aid table rows from cohort/district names."""
-            return [(name, *ch70_aid_summary_data.get(name, (0, 0, 0, 0, 0))) for name in cohort_names]
+            return [(name, *ch70_aid_summary_data.get(name, NO_SUMMARY_ROW)) for name in cohort_names]
 
         # Ch70 TABLE 1: All Western MA cohorts (with Western MA baseline)
         ch70_table1_rows = make_ch70_table_rows(table1_names)
@@ -3102,7 +3269,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
         def make_nss_table_rows(cohort_names: List[str]) -> List[tuple]:
             """Build Actual NSS table rows from cohort/district names."""
-            return [(name, *actual_nss_summary_data.get(name, (0, 0, 0, 0, 0))) for name in cohort_names]
+            return [(name, *actual_nss_summary_data.get(name, NO_SUMMARY_ROW)) for name in cohort_names]
 
         # NSS TABLE 1: All Western MA cohorts (with Western MA baseline)
         nss_table1_rows = make_nss_table_rows(table1_names)
@@ -3230,10 +3397,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
-        subtitle=f"Distribution of {LATEST_YEAR} enrollment and proposed cohort grouping",
+        # The cohort boundaries are the series standard set from FY2024 enrollment,
+        # so every edition shows the first edition's distribution charts.
+        subtitle=f"Distribution of {COHORT_STANDARD_YEAR} enrollment and proposed cohort grouping",
         chart_paths=[
-            str(OUTPUT_DIR / "enrollment_3_histogram.png"),
-            str(OUTPUT_DIR / "enrollment_4_grouping.png")
+            str(BASE_OUTPUT_DIR / "enrollment_3_histogram.png"),
+            str(BASE_OUTPUT_DIR / "enrollment_4_grouping.png")
         ],
         text_blocks=[enrollment_dist_explanation],
         graph_only=True,
@@ -3247,12 +3416,19 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         "This scatterplot shows the relationship between district enrollment (x-axis) and per-pupil "
         f"expenditure (y-axis) for Western Massachusetts traditional districts in {LATEST_YEAR}. Each point represents "
         "one district, colored by enrollment cohort. Horizontal lines show quartile boundaries used to define cohorts."
+    ) if not EDITION else (
+        "This scatterplot shows the relationship between district enrollment (x-axis) and per-pupil "
+        f"expenditure (y-axis) for Western Massachusetts traditional districts in {LATEST_YEAR}. Each point represents "
+        "one district, colored by enrollment cohort. Vertical lines mark the cohort boundaries "
+        f"({PUBLISHED_COHORT_BOUNDS[0]:,}, {PUBLISHED_COHORT_BOUNDS[1]:,} and {PUBLISHED_COHORT_BOUNDS[2]:,} FTE) "
+        f"set from {COHORT_STANDARD_YEAR} enrollment."
     )
+    scatter_subtitle_tail = "quartile boundaries" if not EDITION else "cohort boundaries"
 
     scatterplot_table_data = _build_scatterplot_district_table(df, reg, LATEST_YEAR)
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
-        subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({LATEST_YEAR})",
+        subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with {scatter_subtitle_tail} ({LATEST_YEAR})",
         chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{LATEST_YEAR}.png"),
         text_blocks=[scatterplot_explanation_2024],
         graph_only=False,  # Includes table
@@ -3328,8 +3504,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         cagr_dist_df = calculate_cohort_cagr_distribution(df, reg, start_year=START_YEAR, end_year=LATEST_YEAR)
 
         # Build tables
-        ppe_table = build_cohort_distribution_table(ppe_dist_df, "PPE", cohort_colors, page_width)
-        cagr_table = build_cohort_distribution_table(cagr_dist_df, "CAGR", cohort_colors, page_width)
+        ppe_table = build_cohort_distribution_table(ppe_dist_df, "PPE", cohort_colors, page_width,
+            prior_df=calculate_cohort_ppe_distribution(df, reg, year=PRIOR_YEAR) if PRIOR_YEAR else None,
+            prior_label=str(PRIOR_YEAR))
+        cagr_table = build_cohort_distribution_table(cagr_dist_df, "CAGR", cohort_colors, page_width,
+            prior_df=calculate_cohort_cagr_distribution(df, reg, start_year=START_YEAR, end_year=PRIOR_YEAR) if PRIOR_YEAR else None,
+            prior_label=f"{START_YEAR}-{PRIOR_YEAR}")
 
         # Keep all content on one page but replace placeholders with tables
         stat_text_blocks_with_tables = []
@@ -3386,8 +3566,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         ch70_cagr_dist_df = calculate_cohort_ch70_cagr_distribution(df, reg, c70, start_year=START_YEAR, end_year=LATEST_YEAR)
 
         # Build Ch70 Aid tables
-        ch70_table = build_cohort_distribution_table(ch70_dist_df, f"{LATEST_YEAR} Ch70 Aid ($/foundation pupil)", cohort_colors, page_width)
-        ch70_cagr_table = build_cohort_distribution_table(ch70_cagr_dist_df, f"{START_YEAR}-{LATEST_YEAR} Ch70 Aid Growth Rate (%)", cohort_colors, page_width)
+        ch70_table = build_cohort_distribution_table(ch70_dist_df, f"{LATEST_YEAR} Ch70 Aid ($/foundation pupil)", cohort_colors, page_width,
+            prior_df=calculate_cohort_ch70_distribution(df, reg, c70, year=PRIOR_YEAR) if PRIOR_YEAR else None,
+            prior_label=str(PRIOR_YEAR))
+        ch70_cagr_table = build_cohort_distribution_table(ch70_cagr_dist_df, f"{START_YEAR}-{LATEST_YEAR} Ch70 Aid Growth Rate (%)", cohort_colors, page_width,
+            prior_df=calculate_cohort_ch70_cagr_distribution(df, reg, c70, start_year=START_YEAR, end_year=PRIOR_YEAR) if PRIOR_YEAR else None,
+            prior_label=f"{START_YEAR}-{PRIOR_YEAR}")
 
         # Get text blocks for Ch70 Aid (with default content)
         ch70_stat_text_blocks = report_text.get("CH70_STATISTICAL_ASSOCIATIONS", [
@@ -3447,8 +3631,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         nss_cagr_dist_df = calculate_cohort_nss_cagr_distribution(df, reg, c70, start_year=START_YEAR, end_year=LATEST_YEAR)
 
         # Build Actual NSS tables
-        nss_table = build_cohort_distribution_table(nss_dist_df, f"{LATEST_YEAR} Actual NSS above Req NSS ($/foundation pupil)", cohort_colors, page_width)
-        nss_cagr_table = build_cohort_distribution_table(nss_cagr_dist_df, f"{START_YEAR}-{LATEST_YEAR} Actual NSS above Req NSS Growth Rate (%)", cohort_colors, page_width)
+        nss_table = build_cohort_distribution_table(nss_dist_df, f"{LATEST_YEAR} Actual NSS above Req NSS ($/foundation pupil)", cohort_colors, page_width,
+            prior_df=calculate_cohort_nss_distribution(df, reg, c70, year=PRIOR_YEAR) if PRIOR_YEAR else None,
+            prior_label=str(PRIOR_YEAR))
+        nss_cagr_table = build_cohort_distribution_table(nss_cagr_dist_df, f"{START_YEAR}-{LATEST_YEAR} Actual NSS above Req NSS Growth Rate (%)", cohort_colors, page_width,
+            prior_df=calculate_cohort_nss_cagr_distribution(df, reg, c70, start_year=START_YEAR, end_year=PRIOR_YEAR) if PRIOR_YEAR else None,
+            prior_label=f"{START_YEAR}-{PRIOR_YEAR}")
 
         # Get text blocks for Actual NSS (with default content)
         nss_stat_text_blocks = report_text.get("NSS_STATISTICAL_ASSOCIATIONS", [
@@ -3839,6 +4027,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                     "10":compute_cagr_last(s,10),
                     "15":compute_cagr_last(s, WINDOW_YEARS),
                     "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
+                    "PRIOR_DOLLAR": _value_at(s, PRIOR_YEAR),
                     "START_DOLLAR": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
                 }
 
@@ -3849,6 +4038,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                 "10": compute_cagr_last(total_series, 10),
                 "15": compute_cagr_last(total_series, WINDOW_YEARS),
                 "DOLLAR": (float(total_series.loc[latest_year]) if latest_year in total_series.index else float("nan")),
+                "PRIOR_DOLLAR": _value_at(total_series, PRIOR_YEAR),
                 "START_DOLLAR": (float(total_series.loc[start_year]) if start_year in total_series.index else float("nan")),
             }
 
@@ -3862,6 +4052,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                         "10": compute_cagr_last(s, 10),
                         "15": compute_cagr_last(s, WINDOW_YEARS),
                         "FTE": (float(s.loc[latest_fte_year]) if latest_fte_year in s.index else float("nan")),
+                        "PRIOR_FTE": _value_at(s, PRIOR_YEAR),
                         "START_FTE": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
                     }
 
@@ -4123,8 +4314,22 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     # ===== APPENDIX D: MAPS FROM PREVIOUS YEARS =====
     # Multi-year choropleth maps (YEAR_5, YEAR_10, START_YEAR: 2019, 2014, 2009 when latest is 2024)
     # NO EXPLANATORY TEXT - just maps with subtitles
-    for idx, year in enumerate([YEAR_5, YEAR_10, START_YEAR]):
-        # SCATTERPLOTS REMOVED - Only choropleth maps in Appendix D
+    # Later editions put the previous edition's year first, with its scatterplot,
+    # so Section 1 can stay on the latest year.
+    appendix_d_years = ([PRIOR_YEAR] if PRIOR_YEAR else []) + [YEAR_5, YEAR_10, START_YEAR]
+    for idx, year in enumerate(appendix_d_years):
+        if year == PRIOR_YEAR:
+            pages.append(dict(
+                title="Appendix D. Maps from previous years",
+                subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure ({year})",
+                chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{year}.png"),
+                text_blocks=[],
+                graph_only=True,
+                section_id="appendix_d",
+                group="appendix_d"
+            ))
+            idx = 1  # the map page that follows is a continuation
+        # Earlier years: choropleth maps only in Appendix D
 
         # Add choropleth map for this year - First page gets title, others get "continued"
         if idx == 0:
@@ -4199,8 +4404,8 @@ def build_toc_page(include_main_sections=True, include_appendices=True, pages=No
             (f"    Per-pupil expenditure and growth: {START_YEAR} PPE to {LATEST_YEAR} PPE", "section1_ppe_overview", 1),
             ("    Year-over-Year (YoY) growth rates by district and cohort", "section1_yoy", 1),
             (f"    5-year and {WINDOW_YEARS}-year CAGR by district and cohort", "section1_cagr", 1),
-            (f"    Distribution of {LATEST_YEAR} enrollment and proposed cohort grouping", "section1_distribution", 1),
-            (f"    Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({LATEST_YEAR})", "section1_scatter", 1),
+            (f"    Distribution of {COHORT_STANDARD_YEAR} enrollment and proposed cohort grouping", "section1_distribution", 1),
+            (f"    Scatterplot of enrollment vs. per-pupil expenditure with {'quartile' if not EDITION else 'cohort'} boundaries ({LATEST_YEAR})", "section1_scatter", 1),
             (f"    Geographic map showing district locations and enrollment cohorts ({LATEST_YEAR})", "section1_map", 1),
             (f"    Geographic map showing {LATEST_YEAR} PPE vs enrollment cohort baseline", "section1_ppe_comparison", 1),
             (f"    Geographic map showing {WINDOW_YEARS}-year PPE growth ({START_YEAR}-{LATEST_YEAR}) vs enrollment cohort baseline", "section1_cagr_comparison", 1),
@@ -4660,6 +4865,10 @@ def build_pdf(pages: List[dict], out_path: Path):
                         if heading_level == "H1":
                             story.append(Paragraph(heading_text, style_h1))
                         elif heading_level == "H2":
+                            # Keep an H2 off the bottom of a page: with less than
+                            # 0.6 inch left it moves to the next page with its text
+                            # (the FY2025 distribution page stranded one).
+                            story.append(CondPageBreak(0.6*inch))
                             story.append(Paragraph(heading_text, style_h2))
                         elif heading_level == "H3":
                             story.append(Paragraph(heading_text, style_h3))

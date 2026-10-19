@@ -36,7 +36,7 @@ from school_shared import (
     context_for_district, context_for_western,
     prepare_district_epp_lines, prepare_western_epp_lines,
     DISTRICTS_OF_INTEREST, ENROLL_KEYS,
-    compute_global_dollar_ylim, compute_districts_fte_ylim,
+    compute_global_dollar_ylim, compute_districts_fte_ylim, compute_report_dollar_ylim,
     canonical_order_bottom_to_top,
     EXCLUDE_SUBCATS, EXCLUDE_DISTRICTS, aggregate_to_canonical,
     FTE_LINE_COLORS, PPE_PEERS_YMAX, PPE_PEERS_REMOVE_SPINES, PPE_PEERS_BAR_EDGES,
@@ -45,7 +45,7 @@ from school_shared import (
     get_cohort_ylim,
     get_western_cohort_districts,
     make_safe_filename,
-    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5, WINDOW_YEARS,
+    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5, WINDOW_YEARS, PRIOR_YEAR,
 )
 
 # ===== version footer for images =====
@@ -258,7 +258,7 @@ def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd
     # Remove top, left, right borders - keep only bottom
     axL.spines['top'].set_visible(False)
     axL.spines['left'].set_visible(False)
-    axL.spines['right'].set_visible(False)
+    # Right-hand axis line kept, matching the NSS/Ch70 charts
     axR.spines['top'].set_visible(False)
     axR.spines['left'].set_visible(False)
     axR.spines['right'].set_visible(False)
@@ -405,7 +405,7 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
     # Remove top, left, right borders - keep only bottom
     axL.spines['top'].set_visible(False)
     axL.spines['left'].set_visible(False)
-    axL.spines['right'].set_visible(False)
+    # Right-hand axis line kept, matching the NSS/Ch70 charts
     axR.spines['top'].set_visible(False)
     axR.spines['left'].set_visible(False)
     axR.spines['right'].set_visible(False)
@@ -750,7 +750,8 @@ if __name__ == "__main__":
         if not piv.empty: pivots_all.append(piv)
         district_lines_all.append(lines)
 
-    right_ylim = compute_global_dollar_ylim(pivots_all, pad=1.06, step=500)
+    # One dollar scale for every PPE and NSS/Ch70 chart (see compute_report_dollar_ylim)
+    right_ylim = compute_report_dollar_ylim(df, reg, c70)
     left_ylim_districts = compute_districts_fte_ylim(district_lines_all, pad=1.06, step=50)
 
     # Western plots - 5 enrollment groups
@@ -795,7 +796,7 @@ if __name__ == "__main__":
     try:
         from western_map import load_shapefiles, match_districts_to_geometries, create_western_ma_map
         shapes = load_shapefiles()
-        years_for_maps = [LATEST_YEAR, YEAR_5, YEAR_10, START_YEAR]
+        years_for_maps = [LATEST_YEAR] + ([PRIOR_YEAR] if PRIOR_YEAR else []) + [YEAR_5, YEAR_10, START_YEAR]
         for year in years_for_maps:
             print(f"[MAPS] Generating map for {year}...")
             matched_gdf = match_districts_to_geometries(df, reg, shapes, year=year)
