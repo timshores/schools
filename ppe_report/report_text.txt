@@ -105,7 +105,7 @@ This section provides a regional overview before diving into cohort-specific det
 • <b>Maps</b> of district locations and 2024 enrollment cohorts, 2024 PPE vs enrollment cohort baseline, and PPE growth (2009-2024) vs enrollment cohort baseline.<br />
 • <b>Statistical associations</b> between enrollment and PPE.<br />
 
-All districts are grouped into enrollment cohorts based on 2024 in-district FTE using IQR (Interquartile Range) analysis. This grouping enables meaningful peer comparisons while acknowledging that enrollment size is just one factor influencing costs. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance—all of which shape costs and outcomes.
+All districts are grouped into enrollment cohorts based on 2024 in-district FTE using IQR (Interquartile Range) analysis. This grouping enables meaningful peer comparisons while acknowledging that enrollment size is just one factor influencing costs. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance — all of which shape costs and outcomes.
 
 ================================================================================
 EXECUTIVE_SUMMARY_COHORT_EXPLANATION
@@ -113,7 +113,7 @@ EXECUTIVE_SUMMARY_COHORT_EXPLANATION
 
 <b>Table {N}</b> compares PPE and cost growth of Western MA school district cohorts with the benchmark of all Western MA districts. <b>Tables {N+1} and {N+2}</b> benchmark districts against their cohort averages. 
 
-Cohorts are organized by enrollment size. Grouping districts by enrollment size enables more meaningful cost comparisons—districts of similar size face similar challenges with administration, staffing, facilities, and program requirements. Detailed information about cohorts follow in <b>sections 1 and 2</b>. Detailed comparisons of individual districts to cohorts follow in <b>sections 2 and 3</b>.
+Cohorts are organized by enrollment size. Grouping districts by enrollment size enables more meaningful cost comparisons — districts of similar size face similar challenges with administration, staffing, facilities, and program requirements. Detailed information about cohorts follow in <b>sections 1 and 2</b>. Detailed comparisons of individual districts to cohorts follow in <b>sections 2 and 3</b>.
 <br /><br />
 ##BOX_START
 ##H3 Why the CAGR threshold is more sensitive
@@ -158,6 +158,11 @@ EXECUTIVE_SUMMARY_NSS_EXPLANATION
 ================================================================================
 
 Tables {N}-{N+2} compare Actual NSS above Required NSS (per foundation pupil) - showing local funding effort beyond state requirements.
+
+##BOX_START
+##H3 How this report was made
+Tim Shores designed this analysis and is responsible for its content. Claude Code, Anthropic's AI coding assistant, helped write the Python code that builds the report and helped draft its text, working from his direction; he reviewed and revised both. Appendix A, section 7, has the details. The code, data and full history of changes are public at github.com/timshores/schools.
+##BOX_END
 
 ================================================================================
 METHODOLOGY_PPE_DEFINITION
@@ -375,7 +380,6 @@ This map shows each district's 15-year spending growth rate (CAGR, 2009-2024) co
 See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c" color="blue">MassGIS map of Public School Districts.</a><br />
 https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c
 
-### CLAUDE THIS IS WHERE THE NEW APPENDIX B WILL BEGIN ###
 ================================================================================
 PPE_STATISTICAL_ASSOCIATIONS
 ================================================================================
