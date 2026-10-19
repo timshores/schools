@@ -159,6 +159,8 @@ EXECUTIVE_SUMMARY_NSS_EXPLANATION
 
 Tables {N}-{N+2} compare Actual NSS above Required NSS (per foundation pupil) - showing local funding effort beyond state requirements.
 
+<br />
+
 ##BOX_START
 ##H3 How this report was made
 Tim Shores designed this analysis and is responsible for its content. Claude Code, Anthropic's AI coding assistant, helped write the Python code that builds the report and helped draft its text, working from his direction; he reviewed and revised both. Appendix A, section 7, has the details. The code, data and full history of changes are public at github.com/timshores/schools.
