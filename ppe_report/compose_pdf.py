@@ -1418,7 +1418,8 @@ def create_mini_boxplot(values: dict, cohort_name: str, output_path: Path, cohor
     plt.close(fig)
 
 def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, cohort_colors: dict, doc_width: float,
-                                    prior_df: pd.DataFrame = None, prior_label: str = None) -> Table:
+                                    prior_df: pd.DataFrame = None, prior_label: str = None,
+                                    latest_label: str = None) -> Table:
     """
     Build table showing five-number summary with embedded mini boxplots for each cohort.
 
@@ -1449,7 +1450,7 @@ def build_cohort_distribution_table(dist_df: pd.DataFrame, metric_name: str, coh
         Paragraph("<b>Q3</b>", style_hdr_right),
         Paragraph("<b>Max</b>", style_hdr_right),
     ] + ([Paragraph(f"<b>Median vs {prior_label}</b>", style_hdr_right)] if prior_df is not None else []) + [
-        Paragraph("<b>Distribution</b>" + (f"<br/><font size=7>{prior_label} light, latest dark</font>"
+        Paragraph("<b>Distribution</b>" + (f"<br/><font size=7>{prior_label} light, {latest_label or LATEST_YEAR} dark</font>"
                                            if prior_df is not None else ""), style_legend_center),
     ]]
     prior_by_cohort = ({r["cohort_name"]: r for _, r in prior_df.iterrows()}
@@ -3509,7 +3510,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             prior_label=str(PRIOR_YEAR))
         cagr_table = build_cohort_distribution_table(cagr_dist_df, "CAGR", cohort_colors, page_width,
             prior_df=calculate_cohort_cagr_distribution(df, reg, start_year=START_YEAR, end_year=PRIOR_YEAR) if PRIOR_YEAR else None,
-            prior_label=f"{START_YEAR}-{PRIOR_YEAR}")
+            prior_label=f"{START_YEAR}-{PRIOR_YEAR}", latest_label=f"{START_YEAR}-{LATEST_YEAR}")
 
         # Keep all content on one page but replace placeholders with tables
         stat_text_blocks_with_tables = []
@@ -3571,7 +3572,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             prior_label=str(PRIOR_YEAR))
         ch70_cagr_table = build_cohort_distribution_table(ch70_cagr_dist_df, f"{START_YEAR}-{LATEST_YEAR} Ch70 Aid Growth Rate (%)", cohort_colors, page_width,
             prior_df=calculate_cohort_ch70_cagr_distribution(df, reg, c70, start_year=START_YEAR, end_year=PRIOR_YEAR) if PRIOR_YEAR else None,
-            prior_label=f"{START_YEAR}-{PRIOR_YEAR}")
+            prior_label=f"{START_YEAR}-{PRIOR_YEAR}", latest_label=f"{START_YEAR}-{LATEST_YEAR}")
 
         # Get text blocks for Ch70 Aid (with default content)
         ch70_stat_text_blocks = report_text.get("CH70_STATISTICAL_ASSOCIATIONS", [
@@ -3636,7 +3637,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             prior_label=str(PRIOR_YEAR))
         nss_cagr_table = build_cohort_distribution_table(nss_cagr_dist_df, f"{START_YEAR}-{LATEST_YEAR} Actual NSS above Req NSS Growth Rate (%)", cohort_colors, page_width,
             prior_df=calculate_cohort_nss_cagr_distribution(df, reg, c70, start_year=START_YEAR, end_year=PRIOR_YEAR) if PRIOR_YEAR else None,
-            prior_label=f"{START_YEAR}-{PRIOR_YEAR}")
+            prior_label=f"{START_YEAR}-{PRIOR_YEAR}", latest_label=f"{START_YEAR}-{LATEST_YEAR}")
 
         # Get text blocks for Actual NSS (with default content)
         nss_stat_text_blocks = report_text.get("NSS_STATISTICAL_ASSOCIATIONS", [

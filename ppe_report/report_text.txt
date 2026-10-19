@@ -9,7 +9,7 @@ EXECUTIVE_SUMMARY_PAGE1
 "By the time it can be captured in numbers, it's too late."<br />
 — Peter Drucker, 'The Effective Executive', 1967
 <br /><br />
-<b>Draft Status:</b> As of <b>{TODAY_DATE}</b>, this report has been reviewed by the ARPS Budget & Audit Subcommittee and the Fiscal Sustainability Subcommittee chair, and shared with the chairs of the Leverett School Committee, Finance Committee, and Selectboard. Contact the author: Tim Shores at shorest@arps.org.
+<b>History:</b> This 2025 edition, released October 2026, updates the 2024 edition of this report. Contact the author: Tim Shores at shorest@arps.org.
 
 ##H1 How to use this report
 The report is organized from broad regional patterns down to district-level details. As a descriptive report, it makes no forecasts and offers no recommendations. One way to use it would be as a companion to discussions that depend on meaningful cost comparisons. You could read straight through to build understanding from high-level trends to selected district details. Or you could use this <b>quick-start guide</b> to answer specific questions: 
@@ -105,7 +105,7 @@ This section provides a regional overview before diving into cohort-specific det
 • <b>Maps</b> of district locations and {LATEST_YEAR} enrollment cohorts, {LATEST_YEAR} PPE vs enrollment cohort baseline, and PPE growth ({START_YEAR}-{LATEST_YEAR}) vs enrollment cohort baseline.<br />
 • <b>Statistical associations</b> between enrollment and PPE.<br />
 
-All districts are grouped into enrollment cohorts by {LATEST_YEAR} in-district FTE, using boundaries set by IQR (Interquartile Range) analysis of {COHORT_YEAR} enrollment. This grouping enables meaningful peer comparisons while acknowledging that enrollment size is just one factor influencing costs. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance—all of which shape costs and outcomes.
+All districts are grouped into enrollment cohorts by {LATEST_YEAR} in-district FTE, using boundaries set by IQR (Interquartile Range) analysis of {COHORT_YEAR} enrollment. This grouping enables meaningful peer comparisons while acknowledging that enrollment size is just one factor influencing costs. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance — all of which shape costs and outcomes.
 
 ================================================================================
 EXECUTIVE_SUMMARY_COHORT_EXPLANATION
@@ -113,7 +113,7 @@ EXECUTIVE_SUMMARY_COHORT_EXPLANATION
 
 <b>Table {N}</b> compares PPE and cost growth of Western MA school district cohorts with the benchmark of all Western MA districts. <b>Tables {N+1} and {N+2}</b> benchmark districts against their cohort averages.{PRIOR_YEAR_NOTE} 
 
-Cohorts are organized by enrollment size. Grouping districts by enrollment size enables more meaningful cost comparisons—districts of similar size face similar challenges with administration, staffing, facilities, and program requirements. Detailed information about cohorts follow in <b>sections 1 and 2</b>. Detailed comparisons of individual districts to cohorts follow in <b>sections 2 and 3</b>.
+Cohorts are organized by enrollment size. Grouping districts by enrollment size enables more meaningful cost comparisons — districts of similar size face similar challenges with administration, staffing, facilities, and program requirements. Detailed information about cohorts follow in <b>sections 1 and 2</b>. Detailed comparisons of individual districts to cohorts follow in <b>sections 2 and 3</b>.
 <br /><br />
 ##BOX_START
 ##H3 Why the CAGR threshold is more sensitive
@@ -375,7 +375,6 @@ This map shows each district's {WINDOW_YEARS}-year spending growth rate (CAGR, {
 See also the <a href="https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c" color="blue">MassGIS map of Public School Districts.</a><br />
 https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ecabc5aa96ef53641c
 
-### CLAUDE THIS IS WHERE THE NEW APPENDIX B WILL BEGIN ###
 ================================================================================
 PPE_STATISTICAL_ASSOCIATIONS
 ================================================================================
