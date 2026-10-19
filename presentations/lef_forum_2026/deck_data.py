@@ -84,6 +84,8 @@ def main():
     def c70_per_pupil(districts, year):
         sub = c70[(c70["DIST_NAME"].str.lower().isin([d.lower() for d in districts]))
                   & (c70["YEAR"] == year)]
+        # Districts DESE has not reported actual NSS for drop out of every component
+        sub = sub.dropna(subset=["distfoundenro", "c70aid", "rqdnss2", "actualNSS"])
         fe = sub["distfoundenro"].sum()
         return {"aid": float(sub["c70aid"].sum() / fe),
                 "required_nss": float(sub["rqdnss2"].sum() / fe),

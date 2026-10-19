@@ -535,30 +535,30 @@
  "c70": {
   "Western MA": {
    "2009": {
-    "aid": 5239,
-    "required_nss": 8798,
-    "actual_nss": 10150,
-    "above_required": 1352
+    "aid": 5069,
+    "required_nss": 8801,
+    "actual_nss": 10237,
+    "above_required": 1436
    },
    "2025": {
-    "aid": 9292,
-    "required_nss": 16404,
-    "actual_nss": 19629,
-    "above_required": 3225
+    "aid": 8997,
+    "required_nss": 16255,
+    "actual_nss": 19836,
+    "above_required": 3581
    }
   },
   "Western MA Tiny": {
    "2009": {
-    "aid": 3376,
-    "required_nss": 8806,
-    "actual_nss": 13130,
-    "above_required": 4324
+    "aid": 3311,
+    "required_nss": 8911,
+    "actual_nss": 13113,
+    "above_required": 4203
    },
    "2025": {
-    "aid": 5729,
-    "required_nss": 16057,
-    "actual_nss": 24869,
-    "above_required": 8811
+    "aid": 5560,
+    "required_nss": 15755,
+    "actual_nss": 27597,
+    "above_required": 11843
    }
   },
   "Amherst-Pelham Regional": {

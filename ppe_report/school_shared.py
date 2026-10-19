@@ -543,6 +543,33 @@ def coalesce_year_column(df: pd.DataFrame) -> pd.DataFrame:
     df["YEAR"] = df["YEAR"].astype(int)
     return df
 
+def clean_c70(df: pd.DataFrame, c70: pd.DataFrame) -> pd.DataFrame:
+    """
+    Align Chapter 70 rows with the expenditure data and mark unreported values.
+
+    Names: join on DESE code, because name matching misses districts whose
+    names differ between the two sources. The C70 profile hyphenates every
+    space ("North-Adams" vs "North Adams"), shortens some ("Pioneer" vs
+    "Pioneer Valley") and keeps former names ("Adams-Cheshire" for Hoosac
+    Valley Regional). Expenditure DIST_CODE is the C70 Org4Code times 10000.
+
+    Actual NSS: DESE fills 0 where a district's actual net school spending is
+    not yet reported (e.g. Westhampton and Williamsburg FY2025). An operating
+    district never spends nothing, so 0 becomes missing rather than a deficit.
+    """
+    if c70 is None or c70.empty:
+        return c70
+    c70 = c70.copy()
+    if "Org4Code" in c70.columns and "DIST_CODE" in df.columns:
+        codes = df[["DIST_CODE", "DIST_NAME"]].drop_duplicates("DIST_CODE")
+        org4 = pd.to_numeric(codes["DIST_CODE"], errors="coerce") // 10000
+        by_code = dict(zip(org4, codes["DIST_NAME"]))
+        mapped = pd.to_numeric(c70["Org4Code"], errors="coerce").map(by_code)
+        c70["DIST_NAME"] = mapped.fillna(c70["DIST_NAME"])
+    if "actualNSS" in c70.columns:
+        c70.loc[c70["actualNSS"] <= 0, "actualNSS"] = np.nan
+    return c70
+
 def load_data(force_recompute: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Load school district data from Excel or cache.
@@ -560,7 +587,7 @@ def load_data(force_recompute: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame
             df, reg, profile_c70 = cache_manager.load_from_cache()
             # Initialize cohort definitions with cached data
             initialize_cohort_definitions(df, reg)
-            return df, reg, profile_c70
+            return df, reg, clean_c70(df, profile_c70)
         except Exception as e:
             print(f"[Cache] Error loading cache: {e}")
             print("[Cache] Falling back to Excel source")
@@ -642,7 +669,7 @@ def load_data(force_recompute: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame
     import cache_manager
     cache_manager.save_cache(df, reg, profile_c70)
 
-    return df, reg, profile_c70
+    return df, reg, clean_c70(df, profile_c70)
 
 # ---------------- Canonical aggregation ----------------
 def canonical_order_bottom_to_top(cols_present: List[str]) -> List[str]:
@@ -1459,8 +1486,10 @@ def prepare_aggregate_nss_ch70_weighted(
     # Rename for clarity
     merged = merged.rename(columns={"distfoundenro": "foundation_enrollment"})
 
-    # Drop rows with missing or zero foundation enrollment
-    merged = merged[merged["foundation_enrollment"] > 0].copy()
+    # Drop rows with missing or zero foundation enrollment, and districts missing
+    # any NSS figure that year, so all three components cover the same pupils
+    merged = merged[merged["foundation_enrollment"] > 0].dropna(
+        subset=["actualNSS", "rqdnss2", "c70aid"]).copy()
 
     if merged.empty:
         return pd.DataFrame(), enroll_series, foundation_series

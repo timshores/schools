@@ -294,3 +294,59 @@ Session 12, continued: Tim's review of the FY2025 build
    - Long-window CAGR chart: paired bars, 2009-2024 (light) and 2009-2025.
    - Section 1 stays on the latest year; Appendix D starts with the
      PRIOR_YEAR scatterplot and maps, then YEAR_5, YEAR_10, START_YEAR.
+
+--- 2026-10-19 ---
+
+22. Chapter 70 district names joined on DESE code (school_shared.clean_c70)
+   - Found while exporting the explorer data: 15 of 65 Western MA districts
+     had no Chapter 70 / NSS series. The loader turns every space in a C70
+     name into a hyphen ("North-Adams"), which suits Amherst-Pelham but not
+     North Adams, South Hadley, Mohawk Trail, etc.; others differ outright
+     (Pioneer vs Pioneer Valley, Farmington-River vs Farmington River Reg,
+     Adams-Cheshire vs Hoosac Valley Regional). Present since at least
+     a9ef7ac (2025-10-21), so the published FY2024 edition has it too.
+   - Fix: load_data() renames C70 rows to the expenditure DIST_NAME by code
+     (expenditure DIST_CODE = C70 Org4Code x 10000; one name per code in
+     both files). All 65 match; districts that already matched are unchanged.
+   - Effect: cohort and Western MA NSS aggregates now include every member.
+     FY2024 edition, FY2024 values (old -> fixed): Western MA covered 44 of
+     59 districts; Ch70 aid $8,919 -> $8,600, above required $3,161 -> $3,351;
+     Medium covered 8 of 15, above required $3,838 -> $4,207. Reissuing the
+     FY2024 edition is Tim's call.
+
+23. Unreported actual NSS is missing, not zero
+   - DESE fills actualNSS = 0 where it has not reported actual spending
+     (Westhampton, Williamsburg and Southampton FY2025; Worthington FY2011
+     and FY2015). Treated as a deficit, Westhampton FY2025 showed -$17,100
+     per pupil "above required" and pulled the Tiny average down.
+   - clean_c70 sets actualNSS <= 0 to NaN. prepare_aggregate_nss_ch70_weighted
+     drops a district-year missing any of actualNSS / rqdnss2 / c70aid, so
+     all three components cover the same pupils (before, the numerator
+     skipped NaN while the foundation-enrollment denominator kept it).
+   - Deck (deck_data.py): same rule in c70_per_pupil. Tiny FY2025 changes:
+     aid $5,729 -> $5,560, above required $8,811 -> $11,843 (Leverett
+     $10,788 is now below the peer average, not above). Slide 5's visible
+     claim rests on aid and still holds; the notes sentence carries no
+     direction word. Deck rebuilt.
+
+24. Explorer data export (ppe_report/export_explorer_data.py, new)
+   - Writes the JSON behind timshores.com/massppe (mywebsite branch
+     massppe): 65 districts, four cohort averages and the Western MA average,
+     FY2009-LATEST_YEAR; PPE by the nine categories, three enrollment
+     measures, NSS components per foundation pupil, CPI-U Northeast.
+   - Uses the report's own prepare_* functions so the explorer and the
+     report agree.
+     python export_explorer_data.py ../../mywebsite/public/massppe/data/explorer.json
+
+25. FY2025 edition rebuilt with items 22-23 (main report 44 pp, executive
+    summary 5 pp, appendices rebuilt with --appendices-only)
+   - The pre-fix build showed the Tiny cohort's spending above required
+     falling from $11,377 (FY2024) to $8,811 (FY2025), a 5-year CAGR of
+     -1.4%. That drop was the zero-filled FY2025 actual NSS; corrected it
+     rises to $11,843 (+5.2%). Small: $4,678 -> $7,063 for FY2025.
+   - Distribution tables now count every member (Medium 9 -> 16 districts
+     with NSS data, Small 11 -> 14, Large 10 -> 13, Tiny 19 -> 21).
+   - No rendered sentence changed. report_text.txt line 441 hard-codes the
+     Tiny range "$1,275 to $34,082": right for FY2024 (Savoy to Rowe, also
+     after the fix) but stale in the FY2025 edition, whose table shows
+     $4,576 to $30,955. Left for the FY2024-era prose rewrite (Tim).
