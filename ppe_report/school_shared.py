@@ -11,6 +11,10 @@ import pandas as pd
 DATA_DIR = Path("./data")
 OUTPUT_DIR = Path("./output")
 EXCEL_FILE = DATA_DIR / "E2C_Hub_MA_DESE_Data.xlsx"
+# Refreshed DESE sources written by update_dese_data.py; preferred over the
+# workbook's sheets when present.
+REFRESH_EXPEND_CSV = DATA_DIR / "dese_expenditures.csv"
+REFRESH_C70_CSV = DATA_DIR / "dese_c70_profile.csv"
 COLOR_MAP_PATH = OUTPUT_DIR / "category_color_map.json"
 COLOR_MAP_VERSION = 5  # unified, colorblind-safe palette + Guidance/Counseling separated
 
@@ -469,7 +473,11 @@ def load_data(force_recompute: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame
     # Load from Excel
     xls = pd.ExcelFile(EXCEL_FILE)
 
-    df = pd.read_excel(xls, sheet_name=find_sheet_name(xls, SHEET_EXPEND))
+    if REFRESH_EXPEND_CSV.exists():
+        print(f"[Data] Expenditures from {REFRESH_EXPEND_CSV}")
+        df = pd.read_csv(REFRESH_EXPEND_CSV, dtype={"DIST_CODE": str})
+    else:
+        df = pd.read_excel(xls, sheet_name=find_sheet_name(xls, SHEET_EXPEND))
     df.columns = [str(c).strip() for c in df.columns]
     ren = {}
     for c in df.columns:
@@ -489,8 +497,12 @@ def load_data(force_recompute: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame
     # Load profile_DataC70 sheet if available
     profile_c70 = pd.DataFrame()
     try:
-        if "profile_DataC70" in xls.sheet_names:
+        if REFRESH_C70_CSV.exists():
+            print(f"[Data] Chapter 70 profiles from {REFRESH_C70_CSV}")
+            profile_c70 = pd.read_csv(REFRESH_C70_CSV)
+        elif "profile_DataC70" in xls.sheet_names:
             profile_c70 = pd.read_excel(xls, sheet_name="profile_DataC70")
+        if not profile_c70.empty:
             # Filter out header rows (Org4Code == 0)
             profile_c70 = profile_c70[profile_c70["Org4Code"] > 0].copy()
             # Normalize column names

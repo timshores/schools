@@ -2,6 +2,9 @@
 
 Session files (newest first):
 
+  2026-10-18_session12_fy2025_data_refresh_inflation_addendum_lef_deck.txt
+    2026-10-18 (Session 12) - FY2025 Data Refresh (data layer), Inflation Addendum Draft, LEF Forum Deck
+
   2026-02-05_session11_add_exec_summary_excerpt_pdf.txt
     2026-02-05 (Session 11) - Add Standalone Executive Summary Excerpt PDF
 

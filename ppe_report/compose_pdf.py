@@ -4971,7 +4971,12 @@ def build_pdf(pages: List[dict], out_path: Path):
                             else:
                                 max_chart_h = doc.height * 0.62
                         else:
-                            max_chart_h = doc.height * 0.40
+                            # 0.395 binds for the standard district/cohort chart shape, so
+                            # the drawn height no longer follows a few pixels of image
+                            # height. At 0.40 it did not bind, and a Linux matplotlib build
+                            # (charts ~0.2% taller than the Windows build) pushed the full
+                            # Tiny cohort page into a blank overflow page.
+                            max_chart_h = doc.height * 0.395
                         if im.drawHeight > max_chart_h:
                             im.drawHeight = max_chart_h; im.drawWidth = im.drawHeight / ratio
                         story.append(im)

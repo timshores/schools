@@ -1,0 +1,124 @@
+2026-10-18 (Session 12) - FY2025 Data Refresh (data layer), Inflation Addendum Draft, LEF Forum Deck
+
+Branch: fy2025-refresh (local). Work by Claude Code (Seahag) while Tim was away;
+nothing here has been reviewed by Tim yet.
+
+Summary:
+Brought FY2025 DESE data into the pipeline's data layer without touching the
+hand-built Excel workbook, drafted a standalone inflation addendum against the
+published FY2009-FY2024 report, and built a five-slide PowerPoint for the
+Leverett Education Foundation Education Forum (November 2026). The report
+itself is NOT yet regenerated for FY2025: years are still hard-coded (see
+"Open decisions" and "Remaining work"). Do not publish from this branch
+until that is done.
+
+Changes:
+
+1. ppe_report/update_dese_data.py (new)
+   - Downloads DESE District Expenditures by Spending Category (E2C er3w-dyti,
+     all years) to data/dese_expenditures.csv, in the layout of the workbook's
+     "District Expend by Category" sheet.
+   - Downloads the Chapter 70 District Profiles workbook (profile.xlsx, dated
+     2026-03-26) to data/dese_c70_profile.xlsx and writes its DataC70 sheet to
+     data/dese_c70_profile.csv in the layout of "profile_DataC70", with
+     district names from the sheet's own code table.
+
+2. ppe_report/school_shared.py
+   - load_data() prefers data/dese_expenditures.csv and
+     data/dese_c70_profile.csv when present; otherwise reads the workbook as
+     before. Regions still come from the workbook.
+
+3. ppe_report/data/cache/* rebuilt with --force-recompute semantics from the
+   refreshed sources: expenditures 176,328 rows (SY2009-2025), Chapter 70
+   14,810 rows (FY1993-2026).
+
+4. ppe_report/update_inflation_data.py (new) -> data/inflation_indices.csv
+   - Fiscal-year (July-June) averages of BLS CPI-U Northeast (CUUR0100SA0),
+     CPI-U U.S. (CUUR0000SA0), and BEA's state and local government implicit
+     price deflator (A829RD, the series Chapter 70's foundation inflation
+     index uses, M.G.L. c.70 s.2, capped at 4.5%).
+   - The old data/cpi_annual.csv is CPI-U Northeast calendar-year averages
+     (matches BLS to 3 decimals). Fiscal-year averaging matches DESE's school
+     year. BLS published no October 2025 CPI (federal shutdown), so FY2026
+     CPI is blank.
+
+5. ppe_report/inflation_addendum.py (new) -> output/WMPPE Inflation Addendum.pdf
+   - Draft mini-report restating PPE levels and CAGRs in real terms against
+     CPI-U Northeast and the S&L deflator; two figures and one table.
+   - The committed PDF was generated with --latest-year 2024 from the
+     PRE-refresh cache, so it reproduces the published tables exactly
+     (e.g. Western MA $12,234 -> $22,065, Tiny $14,738 -> $27,504). Rerunning
+     it now uses the refreshed data and the recomputed cohorts (see below),
+     so its cohort rows will differ.
+
+6. ppe_report/compose_pdf.py
+   - District/cohort page chart cap 0.40 -> 0.395 of frame height. At 0.40
+     the cap did not bind, so drawn height followed the image's pixel aspect.
+     A Linux build (matplotlib 3.11.2) makes charts ~0.2% taller than the
+     Windows build, which pushed the full Tiny cohort page (p.20) into a blank
+     overflow page and renumbered everything after it. 0.395 binds for the
+     standard chart shape on both builds.
+
+7. presentations/lef_forum_2026/ (new)
+   - deck_data.py -> deck_data.json: every number in the deck.
+   - build_deck.js (pptxgenjs 3.12.0, npm install in that folder) ->
+     "Leverett school spending in context - LEF forum 2026-11.pptx".
+   - Peer group = Western MA traditional districts with <= 200 in-district FTE
+     in FY2025 (the published report's Tiny definition): 21 districts.
+
+Verification:
+   - Baseline: the unchanged pipeline, run on Linux against the pre-refresh
+     cache, reproduced the published Executive Summary text exactly (only the
+     date differs) and the main report's pages 1-19; page 20 overflowed as
+     described in item 6. Baseline outputs were discarded (git checkout), not
+     committed.
+   - Refreshed Chapter 70 data matches the old cache on all 14,372 old rows
+     except DESE's finalized FY2023-2025 required/actual NSS. FY2025 actual
+     NSS is now final (Leverett $2,624,506, vs the $3,124,734 budget figure
+     the old file carried).
+   - DESE revised 744 overlapping expenditure values (602 in SY2024) and added
+     15 late-reporting districts to SY2024. Among the districts of interest
+     only Shutesbury changed (SY2024 PPE $26,908 -> $27,383; average teacher
+     salary $60,221 -> $63,176).
+
+Findings that need Tim's decision:
+
+   A. Cohort boundaries are fragile. calculate_cohort_boundaries() rounds the
+      25th-percentile enrollment to the nearest 100. With the revised data
+      (incl. the 15 late reporters) that percentile falls just under 150, so
+      the Tiny bound rounds to 100 instead of 200, even for 2024: cohorts
+      become 0-100 / 101-700 / 701-1400 / 1401-10K instead of the published
+      0-200 / 201-800 / 801-1600 / 1601-10K. Leverett, Pelham and Shutesbury
+      would move from Tiny to Small. Options: freeze the published boundaries,
+      or keep the rule and explain the change.
+
+   B. Window. With FY2025 the "15-year" columns become FY2010-FY2025 (keeps
+      the labels honest) unless the baseline stays at 2009 (16 years).
+
+   C. Prose. report_text.txt and the appendices state findings with numbers
+      ("grown 3-6% from 2009-2024"); those need Tim's rewrite once the
+      refreshed numbers exist, not find-and-replace.
+
+Remaining work for the FY2025 report:
+   - Replace hard-coded years (about 300 literals: compose_pdf.py 103,
+     statistical_analysis.py 56, threshold_analysis.py 52, western_map.py 28,
+     report text files ~70, plus executive_summary_plots.py,
+     district_expend_pp_stack.py, nss_ch70_*.py, generate_district_cache.py)
+     with a LATEST_YEAR setting; the "c70 YEAR <= 2024" caps in
+     school_shared.py exist because FY2025 used to be a projection and can now
+     move to 2025.
+   - Hard-coded data values to recompute: compose_pdf.py ppe_mean = 24237;
+     SOURCE_LINE1 "Last updated: August 12, 2025".
+   - Regression check: with LATEST_YEAR = 2024 and the pre-refresh cache, the
+     parametrized code should reproduce the published text exactly.
+
+Files added:
+  - ppe_report/update_dese_data.py, update_inflation_data.py, inflation_addendum.py
+  - ppe_report/data/dese_expenditures.csv, dese_c70_profile.csv,
+    dese_c70_profile.xlsx, inflation_indices.csv
+  - ppe_report/output/WMPPE Inflation Addendum.pdf, inflation_*.png,
+    inflation_addendum_table.csv
+  - presentations/lef_forum_2026/*
+Files modified:
+  - ppe_report/school_shared.py, ppe_report/compose_pdf.py
+  - ppe_report/data/cache/*
