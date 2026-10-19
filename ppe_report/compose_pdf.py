@@ -4513,7 +4513,12 @@ def build_pdf(pages: List[dict], out_path: Path):
     reset_counters()
 
     doc = SimpleDocTemplate(str(out_path), pagesize=A4,
-        leftMargin=0.5*inch, rightMargin=0.5*inch, topMargin=0.5*inch, bottomMargin=0.5*inch)
+        leftMargin=0.5*inch, rightMargin=0.5*inch, topMargin=0.5*inch, bottomMargin=0.5*inch,
+        # Document properties: who made it and how (see Appendix A, section 7)
+        title=Path(out_path).stem, author="Tim Shores",
+        subject=f"Per-pupil expenditure in Western Massachusetts school districts, FY{START_YEAR}-FY{LATEST_YEAR}",
+        keywords="per-pupil expenditure, Massachusetts DESE, Chapter 70, AI-assisted: Claude Code (Anthropic)",
+        creator="github.com/timshores/schools ppe_report (Python, ReportLab), written with Claude Code")
 
     story: List = []
     first_cohort_table_num = None  # Track first cohort table number for substitution

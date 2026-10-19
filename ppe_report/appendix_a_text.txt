@@ -282,3 +282,9 @@ CAGR calculation:
 
 • Enrollment decline: The Medium cohort's total enrollment dropped from ~22,000 to ~17,000 students (-22%) over 15 years<br />
 • Weighting impact: Central Berkshire (1,586 FTE) has nearly twice the influence of Mohawk Trail (805 FTE) in the weighted average<br />
+
+##H1 7. How this report was made
+
+This report was made by a person working with an AI coding assistant. Tim Shores designed the analysis: the questions it asks, the data sources, the enrollment cohorts, the growth-rate and shading methods, and the conclusions. Claude Code, an AI coding assistant made by Anthropic, wrote much of the Python code that downloads the DESE data, computes every figure and table, and lays out these pages, and helped draft and revise the report's text, working from Tim's instructions. Tim reviewed and edited the code and the text, and is responsible for the report's content.
+
+Every number in the report is computed from public DESE data by the code in github.com/timshores/schools. The repository also holds the data files, the report's text, and a log of each working session, so the figures can be reproduced and every change traced.
