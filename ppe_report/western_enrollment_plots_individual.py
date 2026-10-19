@@ -22,7 +22,8 @@ from scipy.interpolate import make_interp_spline
 from school_shared import (
     OUTPUT_DIR, load_data, DISTRICTS_OF_INTEREST,
     latest_indistrict_fte, get_indistrict_fte_for_year, get_enrollment_group, get_cohort_label,
-    get_outlier_threshold, EXCLUDE_DISTRICTS
+    get_outlier_threshold, EXCLUDE_DISTRICTS,
+    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5,
 )
 
 # Cache directory for storing intermediate results
@@ -483,8 +484,8 @@ def main():
     latest_year = int(df["YEAR"].max())
     print(f"  Latest year: {latest_year}")
 
-    # Years to generate plots for (in reverse order: 2024, 2019, 2014, 2009)
-    years = [2024, 2019, 2014, 2009]
+    # Years to generate plots for, latest first (2024, 2019, 2014, 2009 when latest is 2024)
+    years = [LATEST_YEAR, YEAR_5, YEAR_10, START_YEAR]
 
     for year in years:
         print(f"\n{'='*70}")

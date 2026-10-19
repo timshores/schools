@@ -21,6 +21,7 @@ the same file.
 
 import datetime as dt
 import io
+import json
 import urllib.request
 from pathlib import Path
 
@@ -31,6 +32,7 @@ EXPEND_URL = (
     "https://educationtocareer.data.mass.gov/resource/er3w-dyti.csv"
     "?$limit=500000&$order=sy,dist_code,ind_cat,ind_subcat"
 )
+EXPEND_META_URL = "https://educationtocareer.data.mass.gov/api/views/er3w-dyti.json"
 EXPEND_SOURCE = (
     "https://educationtocareer.data.mass.gov/Finance-and-Budget/"
     "District-Expenditures-by-Spending-Category/er3w-dyti/about_data"
@@ -43,6 +45,7 @@ C70_SOURCE = (
 EXPEND_OUT = DATA_DIR / "dese_expenditures.csv"
 C70_XLSX = DATA_DIR / "dese_c70_profile.xlsx"
 C70_OUT = DATA_DIR / "dese_c70_profile.csv"
+SOURCES_JSON = DATA_DIR / "dese_sources.json"
 DOWNLOADED_BY = "update_dese_data.py"
 
 
@@ -52,7 +55,10 @@ def fetch(url: str) -> bytes:
         return r.read()
 
 
-def refresh_expenditures(today: dt.date) -> pd.DataFrame:
+def refresh_expenditures(today: dt.date) -> str:
+    """Download the dataset; return DESE's rows-updated date (YYYY-MM-DD)."""
+    meta = json.loads(fetch(EXPEND_META_URL))
+    last_updated = dt.date.fromtimestamp(meta["rowsUpdatedAt"]).isoformat()
     raw = pd.read_csv(io.BytesIO(fetch(EXPEND_URL)), dtype={"dist_code": str})
     df = pd.DataFrame({
         "SY": raw["sy"].astype(int),
@@ -64,16 +70,21 @@ def refresh_expenditures(today: dt.date) -> pd.DataFrame:
         "IND_VALUE_TYPE": raw["ind_value_type"],
     })
     df["Source_and_Data_Dictionary"] = EXPEND_SOURCE
-    df["Last_Updated"] = ""  # the API does not expose the dataset's update date per row
+    df["Last_Updated"] = last_updated  # DESE's rowsUpdatedAt for the whole dataset
     df["Download_Date"] = today.isoformat()
     df["Download_By"] = DOWNLOADED_BY
     df.to_csv(EXPEND_OUT, index=False)
-    print(f"  {EXPEND_OUT}: {len(df):,} rows, school years {df.SY.min()}-{df.SY.max()}")
-    return df
+    print(f"  {EXPEND_OUT}: {len(df):,} rows, school years {df.SY.min()}-{df.SY.max()}, "
+          f"DESE last updated {last_updated}")
+    return last_updated
 
 
-def refresh_c70() -> pd.DataFrame:
+def refresh_c70() -> str:
+    """Download the profiles workbook; return the date on its Summary sheet (YYYY-MM-DD)."""
     C70_XLSX.write_bytes(fetch(C70_URL))
+    summary = pd.read_excel(C70_XLSX, sheet_name="Summary", header=None, nrows=3)
+    stamps = [v for v in summary.values.ravel() if isinstance(v, (dt.datetime, pd.Timestamp))]
+    profile_date = pd.Timestamp(stamps[0]).date().isoformat() if stamps else ""
     sheet = pd.read_excel(C70_XLSX, sheet_name="DataC70", header=None, dtype=object)
 
     # Rows 0-3 are DESE's notes and column headers; data starts at row 4.
@@ -114,16 +125,23 @@ def refresh_c70() -> pd.DataFrame:
         "Source": C70_SOURCE,
     })
     out.to_csv(C70_OUT, index=False)
-    print(f"  {C70_OUT}: {len(out):,} rows, fiscal years {out.fy.min()}-{out.fy.max()}")
-    return out
+    print(f"  {C70_OUT}: {len(out):,} rows, fiscal years {out.fy.min()}-{out.fy.max()}, "
+          f"profile dated {profile_date}")
+    return profile_date
 
 
 def main():
     today = dt.date.today()
     print("[DESE] Downloading expenditures by spending category...")
-    refresh_expenditures(today)
+    expend_updated = refresh_expenditures(today)
     print("[DESE] Downloading Chapter 70 district profiles...")
-    refresh_c70()
+    c70_dated = refresh_c70()
+    SOURCES_JSON.write_text(json.dumps({
+        "expenditures_last_updated": expend_updated,
+        "c70_profile_date": c70_dated,
+        "downloaded": today.isoformat(),
+    }, indent=1) + "\n")
+    print(f"  {SOURCES_JSON}")
     print("[DESE] Done. Rebuild with: python generate_report.py --force-recompute")
 
 

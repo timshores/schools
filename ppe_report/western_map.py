@@ -57,6 +57,7 @@ from school_shared import (
     get_cohort_short_label,
     initialize_cohort_definitions,
     EXCLUDE_DISTRICTS,
+    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5,
     prepare_district_epp_lines,
     weighted_epp_aggregation,
 )
@@ -494,7 +495,7 @@ def match_districts_to_geometries(
 def create_western_ma_map(
     matched_gdf: gpd.GeoDataFrame,
     output_path: Path,
-    year: int = 2024,
+    year: int = LATEST_YEAR,
     title: str = "Western Massachusetts Traditional School Districts",
     shapes: gpd.GeoDataFrame = None
 ) -> None:
@@ -760,7 +761,7 @@ def create_ppe_comparison_map(
     matched_gdf: gpd.GeoDataFrame,
     ppe_comparisons: Dict[str, float],
     output_path: Path,
-    year: int = 2024,
+    year: int = LATEST_YEAR,
     title: str = "PPE vs Cohort Baseline",
     shapes: gpd.GeoDataFrame = None
 ) -> None:
@@ -993,8 +994,8 @@ def create_cagr_comparison_map(
     matched_gdf: gpd.GeoDataFrame,
     cagr_comparisons: Dict[str, float],
     output_path: Path,
-    start_year: int = 2009,
-    end_year: int = 2024,
+    start_year: int = START_YEAR,
+    end_year: int = LATEST_YEAR,
     title: str = "CAGR vs Cohort Baseline",
     shapes: gpd.GeoDataFrame = None
 ) -> None:
@@ -1366,8 +1367,8 @@ def main():
     print("\n[2/3] Loading shapefiles...")
     shapes = load_shapefiles(force_recompute=args.force_recompute)
 
-    # Years to generate maps for (in reverse order: 2024, 2019, 2014, 2009)
-    years = [2024, 2019, 2014, 2009]
+    # Years to generate maps for, latest first (2024, 2019, 2014, 2009 when latest is 2024)
+    years = [LATEST_YEAR, YEAR_5, YEAR_10, START_YEAR]
 
     # Get ALL Western MA districts across all years (for base gray layer)
     print("\n[2b] Getting all Western MA district geometries...")
@@ -1396,44 +1397,23 @@ def main():
             matched_gdf_copy = matched_gdf.copy()
             create_ppe_comparison_map(matched_gdf_copy, ppe_comparisons, output_path_ppe, year=year, shapes=all_western_districts_gdf)
 
-        # Generate CAGR comparison maps for different periods
-        # For 2024: 15-year CAGR (2009-2024)
-        # For 2019: 10-year CAGR (2009-2019)
-        # For 2014: 5-year CAGR (2009-2014)
-        # For 2009: No CAGR map (it's the starting year)
-        if year == 2024:
-            print(f"\n[3d] Generating CAGR comparison map (2009-2024)...")
-            cagr_comparisons = calculate_cagr_comparison_to_cohort(df, reg, 2009, 2024)
+        # Generate CAGR comparison maps from the window start to this year:
+        # 15-year for the latest year, 10-year and 5-year for the earlier map years.
+        # No CAGR map for START_YEAR (it is the baseline).
+        if year != START_YEAR:
+            print(f"\n[3d] Generating CAGR comparison map ({START_YEAR}-{year})...")
+            cagr_comparisons = calculate_cagr_comparison_to_cohort(df, reg, START_YEAR, year)
             if cagr_comparisons:
-                output_path_cagr = OUTPUT_DIR / f"western_ma_cagr_comparison_2009_2024.png"
+                output_path_cagr = OUTPUT_DIR / f"western_ma_cagr_comparison_{START_YEAR}_{year}.png"
                 matched_gdf_copy = matched_gdf.copy()
-                create_cagr_comparison_map(matched_gdf_copy, cagr_comparisons, output_path_cagr, 2009, 2024, shapes=all_western_districts_gdf)
-        elif year == 2019:
-            print(f"\n[3d] Generating CAGR comparison map (2009-2019)...")
-            cagr_comparisons = calculate_cagr_comparison_to_cohort(df, reg, 2009, 2019)
-            if cagr_comparisons:
-                output_path_cagr = OUTPUT_DIR / f"western_ma_cagr_comparison_2009_2019.png"
-                matched_gdf_copy = matched_gdf.copy()
-                create_cagr_comparison_map(matched_gdf_copy, cagr_comparisons, output_path_cagr, 2009, 2019, shapes=all_western_districts_gdf)
-        elif year == 2014:
-            print(f"\n[3d] Generating CAGR comparison map (2009-2014)...")
-            cagr_comparisons = calculate_cagr_comparison_to_cohort(df, reg, 2009, 2014)
-            if cagr_comparisons:
-                output_path_cagr = OUTPUT_DIR / f"western_ma_cagr_comparison_2009_2014.png"
-                matched_gdf_copy = matched_gdf.copy()
-                create_cagr_comparison_map(matched_gdf_copy, cagr_comparisons, output_path_cagr, 2009, 2014, shapes=all_western_districts_gdf)
-        # No CAGR map for 2009 (baseline year)
+                create_cagr_comparison_map(matched_gdf_copy, cagr_comparisons, output_path_cagr, START_YEAR, year, shapes=all_western_districts_gdf)
 
         print(f"\n[SUCCESS] Maps for {year} generated!")
         print(f"  Enrollment cohort map: {OUTPUT_DIR / f'western_ma_choropleth_{year}.png'}")
         if ppe_comparisons:
             print(f"  PPE comparison map: {OUTPUT_DIR / f'western_ma_ppe_comparison_{year}.png'}")
-        if year == 2024:
-            print(f"  CAGR comparison map: {OUTPUT_DIR / 'western_ma_cagr_comparison_2009_2024.png'}")
-        elif year == 2019:
-            print(f"  CAGR comparison map: {OUTPUT_DIR / 'western_ma_cagr_comparison_2009_2019.png'}")
-        elif year == 2014:
-            print(f"  CAGR comparison map: {OUTPUT_DIR / 'western_ma_cagr_comparison_2009_2014.png'}")
+        if year != START_YEAR:
+            print(f"  CAGR comparison map: {OUTPUT_DIR / f'western_ma_cagr_comparison_{START_YEAR}_{year}.png'}")
 
         print(f"\nDistricts mapped: {len(matched_gdf)}")
         print(f"  Non-regional (solid fill): {len(matched_gdf[~matched_gdf['is_regional']])}")

@@ -45,6 +45,7 @@ from school_shared import (
     get_cohort_ylim,
     get_western_cohort_districts,
     make_safe_filename,
+    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5, WINDOW_YEARS,
 )
 
 # ===== version footer for images =====
@@ -55,16 +56,16 @@ CODE_VERSION = "v2025.09.29-REFACTORED"
 SPACING_FACTOR = 0.95  # Horizontal spacing multiplier (not used in barh plots)
 BAR_WIDTH = 0.75       # Bar width for vertical bar plots (not used in barh)
 DOT_OFFSET_FACTOR = 0.45  # multiplied by BAR_WIDTH for dot position
-YEAR_LAG_DEFAULT = 5   # Default years for PPE change comparison (2019→2024)
+YEAR_LAG_DEFAULT = 5   # Default years for PPE change comparison (YEAR_5 to LATEST_YEAR)
 
 # Color Palettes:
 # NOTE: Blue palette for individual districts/peers, Gray palette for aggregates
 # This visual distinction helps readers quickly identify aggregate vs individual data
 
 # Peer/District colors (blue palette)
-BLUE_BASE = "#8fbcd4"   # Light blue for t0 (2019) base PPE
-BLUE_DELTA = "#1b6ca8"  # Dark blue for positive change (2019→2024 increase)
-PURP_DECL = "#955196"   # Purple for negative change (2019→2024 decrease)
+BLUE_BASE = "#8fbcd4"   # Light blue for t0 base PPE
+BLUE_DELTA = "#1b6ca8"  # Dark blue for positive change over the period
+PURP_DECL = "#955196"   # Purple for negative change over the period
 
 # Aggregate colors (gray palette) - visually distinct from peer blue
 AGG_BASE = "#b3c3c9"    # Light gray for t0 aggregate base PPE
@@ -155,8 +156,8 @@ def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd
     total_ppe = _total_ppe_series_from_pivot(epp_pivot) if (epp_pivot is not None and not epp_pivot.empty) else pd.Series(dtype=float)
     years = (total_ppe.index.tolist() if not total_ppe.empty
              else sorted(set().union(*(set(s.index) for s in lines.values() if s is not None))))
-    # Filter years to 2009 onwards
-    years = [yr for yr in years if yr >= 2009]
+    # Filter years to the analysis window (matches the CAGR tables)
+    years = [yr for yr in years if START_YEAR <= yr <= LATEST_YEAR]
 
     fig, axL = plt.subplots(figsize=(11.8, 7.4))
     axR = axL.twinx()
@@ -203,8 +204,8 @@ def plot_one_simple(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd
     if right_ylim is not None: axR.set_ylim(0, right_ylim)
 
     # Check if enrollment data exceeds upper limit and extend with faded ticks if needed
-    # Only add faded overflow range if EARLY years (2009-2011) exceed the cohort bound
-    early_years_range = [yr for yr in years if 2009 <= yr <= 2011]
+    # Only add faded overflow range if EARLY years (first three of the window) exceed the cohort bound
+    early_years_range = [yr for yr in years if START_YEAR <= yr <= START_YEAR + 2]
     max_early_enrollment = 0
     for s in lines.values():
         if s is not None and not s.empty:
@@ -300,8 +301,8 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
     sub_order_bottom_top = canonical_order_bottom_to_top(cols)
     years = (epp_pivot.index.tolist() if cols
              else sorted(set().union(*(set(s.index) for s in lines.values() if s is not None))))
-    # Filter years to 2009 onwards
-    years = [yr for yr in years if yr >= 2009]
+    # Filter years to the analysis window (matches the CAGR tables)
+    years = [yr for yr in years if START_YEAR <= yr <= LATEST_YEAR]
 
     fig, axL = plt.subplots(figsize=(11.8, 7.4))
     axR = axL.twinx()
@@ -350,8 +351,8 @@ def plot_one(out_path: Path, epp_pivot: pd.DataFrame, lines: Dict[str, pd.Series
     if right_ylim is not None: axR.set_ylim(0, right_ylim)
 
     # Check if enrollment data exceeds upper limit and extend with faded ticks if needed
-    # Only add faded overflow range if EARLY years (2009-2011) exceed the cohort bound
-    early_years_range = [yr for yr in years if 2009 <= yr <= 2011]
+    # Only add faded overflow range if EARLY years (first three of the window) exceed the cohort bound
+    early_years_range = [yr for yr in years if START_YEAR <= yr <= START_YEAR + 2]
     max_early_enrollment = 0
     for s in lines.values():
         if s is not None and not s.empty:
@@ -489,7 +490,7 @@ def plot_all_western_overview(out_path: Path, df: pd.DataFrame, reg: pd.DataFram
     edge = "white" if PPE_PEERS_BAR_EDGES else None
 
     # Plot horizontal bars (base + delta segments)
-    # NOTE: Uses stacked bars to show 2019 base + change to 2024
+    # NOTE: Uses stacked bars to show the base year + change to the latest year
     pos = np.clip(delta_all, 0, None)
     neg = np.clip(delta_all, None, 0)
     ax_main.barh(y_pos, dist_p0, height=bar_height, color=BLUE_BASE, edgecolor=edge, linewidth=0.0, zorder=1)
@@ -786,15 +787,15 @@ if __name__ == "__main__":
             plot_one(out_all, piv_all, lines_mean_all, context_all, right_ylim, left_ylim_all, FTE_LINE_COLORS, cmap_all, enrollment_label_all)
 
     # Western MA overview plot (all districts as horizontal bars)
-    # Changed year_lag from 5 to 15 for cr07 (2009-2024 instead of 2019-2024)
-    plot_all_western_overview(OUTPUT_DIR / "ppe_overview_all_western.png", df, reg, c70, year_lag=15)
+    # year_lag 15 (cr07): START_YEAR to LATEST_YEAR
+    plot_all_western_overview(OUTPUT_DIR / "ppe_overview_all_western.png", df, reg, c70, year_lag=WINDOW_YEARS)
 
-    # Generate choropleth maps for multiple years (2024, 2019, 2014, 2009)
+    # Generate choropleth maps for the window's marker years (latest, -5, -10, -15)
     print("\n[MAPS] Generating Western MA choropleth maps for multiple years...")
     try:
         from western_map import load_shapefiles, match_districts_to_geometries, create_western_ma_map
         shapes = load_shapefiles()
-        years_for_maps = [2024, 2019, 2014, 2009]
+        years_for_maps = [LATEST_YEAR, YEAR_5, YEAR_10, START_YEAR]
         for year in years_for_maps:
             print(f"[MAPS] Generating map for {year}...")
             matched_gdf = match_districts_to_geometries(df, reg, shapes, year=year)

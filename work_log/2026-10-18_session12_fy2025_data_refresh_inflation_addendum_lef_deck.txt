@@ -122,3 +122,120 @@ Files added:
 Files modified:
   - ppe_report/school_shared.py, ppe_report/compose_pdf.py
   - ppe_report/data/cache/*
+
+--------------------------------------------------------------------------------
+Session 12, continued (same evening): year settings and separate editions
+--------------------------------------------------------------------------------
+
+Tim's request mid-session: the updated report should come out as separate
+files, not overwrite the published version (history is in git, but separate
+files are easier to work with).
+
+8. Year settings (school_shared.py)
+   - LATEST_YEAR (default 2025; PPE_LATEST_YEAR overrides), WINDOW_YEARS = 15,
+     START_YEAR, YEAR_10, YEAR_5, FIRST_DATA_YEAR = 2009.
+   - Replaced the hard-coded 2009/2014/2019/2024 in every pipeline script:
+     school_shared.py (Chapter 70 caps "YEAR <= 2024" -> LATEST_YEAR; cohort
+     label), executive_summary_plots.py, district_expend_pp_stack.py,
+     nss_ch70_plots.py, nss_ch70_main.py, western_enrollment_plots_individual.py,
+     generate_district_cache.py, western_map.py (per-year CAGR map blocks
+     collapsed into one generic block), threshold_analysis.py (ppe_2009 etc.
+     renamed ppe_start/ppe_latest/ppe_y10/ppe_y5; threshold_sds.csv columns
+     renamed to match), statistical_analysis.py (defaults and report text;
+     internal key names unchanged), compose_pdf.py (defaults, chart year
+     filters, table headers, page subtitles, TOC entries, Appendix D loop,
+     PDF names).
+   - Chart and appendix-table year ranges now span START_YEAR..LATEST_YEAR.
+     At LATEST_YEAR = 2024 that is exactly the old 2009..2024; at 2025 the
+     appendix tables keep 16 year columns, so their layout should not shift.
+   - Remaining literal years in compose_pdf.py are comments, variable names,
+     and the unused build_threshold_analysis_page() (its stored statistics
+     live in appendix_a_text.txt).
+
+9. Report text placeholders
+   - load_report_text_sections() fills {LATEST_YEAR}, {START_YEAR},
+     {YEAR_10}, {YEAR_5}, {APPENDICES_URL}, {DESE_LAST_UPDATED} in all three
+     text files.
+   - Replaced only labels and method descriptions (headings, chart and table
+     descriptions, section contents, the source date, Appendix A links).
+   - Left as written, because they state findings with numbers that will
+     change: report_text.txt lines 61 (3-6% growth 2009-2024), 427
+     (Worthington), 449, 453 (Amherst-Pelham 24% above cohort, 3.77% vs
+     4.09%), 459 (no clear signal over 2009-2024), 473 (cohort ranges and
+     Springfield's 2024 enrollment); appendix_a_text.txt worked example (2024
+     Medium cohort, $7,431 Teachers PPE, n=59, PPE mean $24,237 etc.);
+     appendix_b_text.txt (all test results, "59 Western MA traditional
+     districts"). These need Tim's rewrite for the FY2025 edition.
+
+10. Editions (separate files)
+   - EDITION = "" when LATEST_YEAR == 2024 (the published first edition:
+     output/, original file names, so its GitHub links still resolve);
+     otherwise "FY2025" -> output/fy2025/ and file names ending
+     "(FY2025 data).pdf". FULL_REPORT_URL and the Appendix A links point at
+     the edition's own files. category_color_map.json stays shared in output/
+     so colors match across editions.
+   - generate_report.py prints the edition's actual paths;
+     inflation_addendum.py follows LATEST_YEAR and writes into the edition
+     folder.
+
+11. DESE source dates
+   - update_dese_data.py now records DESE's rowsUpdatedAt for the
+     expenditure dataset (2026-08-07) and the profile workbook date
+     (2026-03-26) in data/dese_sources.json, and fills Last_Updated in
+     dese_expenditures.csv. The footer source line and the "Last updated"
+     text use it for later editions; the first edition keeps
+     "August 12, 2025".
+
+12. Cohort boundary setting
+   - PPE_COHORT_RULE = "quartile" (default, existing behavior) or "published"
+     (freezes Tiny 0-200 / Small 201-800 / Medium 801-1600). On FY2025 data:
+     quartile -> Tiny 8 districts, Leverett in Small; published -> Tiny 21,
+     Leverett in Tiny (the deck's peer group). Tim's decision.
+
+13. Window: 2009 stays the baseline (Tim's decision, same evening)
+   - Tim: "the updated version should not shift the window, it should
+     include 2009-2025". START_YEAR = FIRST_DATA_YEAR = 2009 for every
+     edition; WINDOW_YEARS = LATEST_YEAR - 2009 (15 for FY2024, 16 for
+     FY2025). The 10y and 5y columns count back from the latest year
+     (2015-2025, 2020-2025); the three 5-year chunks end at the latest year
+     (YEAR_15 = LATEST_YEAR - 15: 2010-15, 2015-20, 2020-25).
+   - Every hard-coded 15 in the pipeline (compute_cagr_last(..., 15),
+     latest_year - 15, "CAGR 15y", "15-Year CAGR", year_lag=15, the
+     threshold CAGRs, the inflation addendum) now uses WINDOW_YEARS. Report
+     text uses {WINDOW_YEARS} where it names the window; the illustrative
+     "after 15 years" compounding examples are unchanged.
+   - Not changed: district_cache.py / generate_district_cache.py (their
+     CAGR_15yr columns feed only ppe_report/cache/, which the pipeline does
+     not read).
+
+14. Blank-page fix, general version (compose_pdf.build_pdf)
+   - Spacers immediately before a PageBreak are dropped before doc.build.
+     The FY2025 scatterplot page (chart plus a two-column table of all 64
+     districts) filled the page exactly and its trailing Spacer made a blank
+     page 13. Together with item 6 this removes both overflow pages.
+
+15. Executive summary cohort labels
+   - The 24 hard-coded labels "Western MA Tiny (0-200 FTE)", "Small
+     (201-800 FTE)", "Medium (801-1600 FTE)" now come from
+     get_cohort_label(), so the FY2025 tables name the cohorts they
+     actually use. The table structure still assumes Leverett, Pelham and
+     Shutesbury are Tiny and Amherst and Amherst-Pelham are Medium.
+
+Verification (final code):
+   - Regression: PPE_LATEST_YEAR=2024 against the pre-refresh cache (da43528
+     data/cache and cache/), full pipeline and --pdf-only after the last
+     two fixes. Main report 42 pages and Executive Summary 5 pages, as
+     published; text identical to the published PDFs except the "Draft
+     Status: As of <date>" line.
+   - FY2025 edition (PPE_COHORT_RULE=quartile, the default): output/fy2025/,
+     main report 42 pages, Executive Summary 5 pages, inflation addendum 2
+     pages; published output/ files untouched.
+
+What the FY2025 build shows about the open cohort decision:
+   - Under the quartile rule Leverett, Pelham and Shutesbury are Small
+     (101-700 FTE), so their Section 3 enrollment axes run to 700 and the
+     lines sit at the bottom of the chart, their shading compares them with
+     Small, and the Section 3 links point to "Tiny (0-100 FTE)". The
+     executive summary's Table 3 still compares them with Tiny. With
+     PPE_COHORT_RULE=published all of this matches the first edition's
+     structure. Recommend deciding this before any prose rewrite.

@@ -29,6 +29,7 @@ from school_shared import (
     get_cohort_ylim,
     get_western_cohort_districts,
     make_safe_filename,
+    LATEST_YEAR, START_YEAR, WINDOW_YEARS,
 )
 from nss_ch70_plots import (
     plot_nss_ch70,
@@ -236,8 +237,8 @@ def main():
         cat_rows, cat_total, _ = build_nss_category_data(nss_piv, latest_year)
 
         print("\n  Category Data:")
-        print("  " + "Category".ljust(22) + "2009".rjust(10) + "CAGR 15y".rjust(10) +
-              "CAGR 10y".rjust(10) + "CAGR 5y".rjust(10) + "2024".rjust(10))
+        print("  " + "Category".ljust(22) + str(START_YEAR).rjust(10) + f"CAGR {WINDOW_YEARS}y".rjust(10) +
+              "CAGR 10y".rjust(10) + "CAGR 5y".rjust(10) + str(LATEST_YEAR).rjust(10))
         print("  " + "-" * 72)
         for row in cat_rows:
             print(f"  {row[0]:20s} {row[1]:>10s} {row[2]:>10s} {row[3]:>10s} {row[4]:>10s} {row[5]:>10s}")

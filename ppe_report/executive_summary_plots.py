@@ -20,6 +20,7 @@ from school_shared import (
     weighted_epp_aggregation,
     get_western_cohort_districts,
     context_for_district,
+    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5, YEAR_15, WINDOW_YEARS,
 )
 
 # Cohort colors (from western_map.py)
@@ -65,7 +66,7 @@ def calculate_yoy_growth(series: pd.Series) -> pd.Series:
 
 def calculate_cagr_chunks(series: pd.Series) -> pd.Series:
     """
-    Calculate CAGR for 5-year chunks: 2009-2014, 2014-2019, 2019-2024.
+    Calculate CAGR for 5-year chunks ending at LATEST_YEAR (2009-2014, 2014-2019, 2019-2024 when latest is 2024).
 
     CAGR = (End_Value / Start_Value)^(1 / Years) - 1
 
@@ -76,9 +77,9 @@ def calculate_cagr_chunks(series: pd.Series) -> pd.Series:
         Series with CAGR values indexed by end year of each period
     """
     periods = [
-        (2009, 2014),
-        (2014, 2019),
-        (2019, 2024)
+        (YEAR_15, YEAR_10),
+        (YEAR_10, YEAR_5),
+        (YEAR_5, LATEST_YEAR)
     ]
 
     cagr_values = {}
@@ -97,7 +98,7 @@ def calculate_cagr_chunks(series: pd.Series) -> pd.Series:
 
 def calculate_cagr_15year(series: pd.Series) -> float:
     """
-    Calculate 15-year CAGR from 2009 to 2024.
+    Calculate 15-year CAGR from START_YEAR to LATEST_YEAR.
 
     Args:
         series: Time series with years as index
@@ -105,7 +106,7 @@ def calculate_cagr_15year(series: pd.Series) -> float:
     Returns:
         CAGR value as percentage, or 0 if data not available
     """
-    start_year, end_year = 2009, 2024
+    start_year, end_year = START_YEAR, LATEST_YEAR
     if start_year in series.index and end_year in series.index:
         start_val = series[start_year]
         end_val = series[end_year]
@@ -253,7 +254,7 @@ def plot_cagr_chunks_districts_of_interest(
     output_path: Path
 ):
     """
-    Plot CAGR for 5-year chunks (2009-2014, 2014-2019, 2019-2024).
+    Plot CAGR for 5-year chunks ending at LATEST_YEAR.
 
     Shows:
     - Each district of interest as a line
@@ -342,8 +343,8 @@ def plot_cagr_chunks_districts_of_interest(
     # Formatting
     ax.set_xlabel('Period End Year', fontsize=14)
     ax.set_ylabel('5-Year CAGR (%)', fontsize=14)
-    ax.set_xticks([2014, 2019, 2024])
-    ax.set_xticklabels(['2009-2014', '2014-2019', '2019-2024'])
+    ax.set_xticks([YEAR_10, YEAR_5, LATEST_YEAR])
+    ax.set_xticklabels([f'{YEAR_15}-{YEAR_10}', f'{YEAR_10}-{YEAR_5}', f'{YEAR_5}-{LATEST_YEAR}'])
     ax.grid(True, alpha=0.3)
     ax.legend(loc='best', fontsize=16, framealpha=0.9)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.1f}%'))
@@ -641,8 +642,8 @@ def plot_cagr_grouped_bars(
             plot_items.append((name, cagr_data, color, is_cohort))
 
     # Set up the figure
-    periods = [2014, 2019, 2024]
-    period_labels = ['2009-2014', '2014-2019', '2019-2024']
+    periods = [YEAR_10, YEAR_5, LATEST_YEAR]
+    period_labels = [f'{YEAR_15}-{YEAR_10}', f'{YEAR_10}-{YEAR_5}', f'{YEAR_5}-{LATEST_YEAR}']
     n_periods = len(periods)
     n_items = len(plot_items)
 
@@ -702,7 +703,7 @@ def plot_cagr_15year_bars(
     output_path: Path
 ):
     """
-    Plot 15-year CAGR (2009-2024) as a single group of vertical bars.
+    Plot 15-year CAGR (START_YEAR to LATEST_YEAR) as a single group of vertical bars.
     Colors are cohort-based with shades for different districts.
     Cohorts shown with thicker diagonal white hatching.
     """
@@ -783,7 +784,7 @@ def plot_cagr_15year_bars(
 
     # Customize axes
     ax.set_xlabel('District / Cohort', fontsize=20, fontweight='bold')
-    ax.set_ylabel('15-Year CAGR (%) of PPE\n2009-2024', fontsize=20, fontweight='bold')
+    ax.set_ylabel(f'{WINDOW_YEARS}-Year CAGR (%) of PPE\n{START_YEAR}-{LATEST_YEAR}', fontsize=20, fontweight='bold')
     ax.set_xticks(x_positions)
     ax.set_xticklabels(names, rotation=45, ha='right', fontsize=14)
     ax.tick_params(axis='y', labelsize=17)

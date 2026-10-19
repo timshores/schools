@@ -34,7 +34,8 @@ except ImportError:
 from school_shared import (
     load_data, get_enrollment_group, get_cohort_label,
     get_western_cohort_districts, IN_DISTRICT_FTE_KEY,
-    EXCLUDE_DISTRICTS
+    EXCLUDE_DISTRICTS,
+    LATEST_YEAR, START_YEAR,
 )
 
 
@@ -46,7 +47,7 @@ def calculate_cagr(start_value: float, end_value: float, years: int) -> float:
 
 
 def get_district_metrics(df: pd.DataFrame, reg: pd.DataFrame,
-                         start_year: int = 2009, end_year: int = 2024) -> pd.DataFrame:
+                         start_year: int = START_YEAR, end_year: int = LATEST_YEAR) -> pd.DataFrame:
     """
     Extract key metrics for each Western MA district.
 
@@ -444,7 +445,7 @@ def interpret_correlation(r: float) -> str:
         return "Strong correlation"
 
 
-def run_all_analyses(start_year: int = 2009, end_year: int = 2024) -> Dict:
+def run_all_analyses(start_year: int = START_YEAR, end_year: int = LATEST_YEAR) -> Dict:
     """
     Run all statistical analyses and return results.
     """
@@ -485,7 +486,7 @@ def format_results_for_report(results: Dict) -> List[str]:
     text_blocks.append(
         "This section examines statistical associations between district characteristics "
         "(enrollment cohort, enrollment growth rate) and per-pupil expenditure patterns "
-        "(2024 amounts and 2009-2024 growth rates). These analyses help identify whether "
+        f"({LATEST_YEAR} amounts and {START_YEAR}-{LATEST_YEAR} growth rates). These analyses help identify whether "
         "certain district characteristics are systematically associated with spending levels "
         "or growth rates."
     )
@@ -494,7 +495,7 @@ def format_results_for_report(results: Dict) -> List[str]:
     a1 = results['analysis_1_cohort_vs_ppe_2024']
     if 'error' not in a1:
         text_blocks.append(
-            f"<b>1. Enrollment Cohort and 2024 Per-Pupil Expenditure</b>"
+            f"<b>1. Enrollment Cohort and {LATEST_YEAR} Per-Pupil Expenditure</b>"
         )
         text_blocks.append(
             f"ANOVA test: F = {a1['f_statistic']:.2f}, p = {a1['p_value']:.4f}. "
@@ -506,7 +507,7 @@ def format_results_for_report(results: Dict) -> List[str]:
     a2 = results['analysis_2_cohort_vs_ppe_growth']
     if 'error' not in a2:
         text_blocks.append(
-            f"<b>2. Enrollment Cohort and Per-Pupil Expenditure Growth (2009-2024)</b>"
+            f"<b>2. Enrollment Cohort and Per-Pupil Expenditure Growth ({START_YEAR}-{LATEST_YEAR})</b>"
         )
         text_blocks.append(
             f"ANOVA test: F = {a2['f_statistic']:.2f}, p = {a2['p_value']:.4f}. "
@@ -518,7 +519,7 @@ def format_results_for_report(results: Dict) -> List[str]:
     a3 = results['analysis_3_enrollment_growth_vs_ppe_2024']
     if 'error' not in a3:
         text_blocks.append(
-            f"<b>3. Enrollment Growth Rate and 2024 Per-Pupil Expenditure</b>"
+            f"<b>3. Enrollment Growth Rate and {LATEST_YEAR} Per-Pupil Expenditure</b>"
         )
         text_blocks.append(
             f"Linear regression: r = {a3['correlation']:.3f}, R² = {a3['r_squared']:.3f}, "
@@ -531,7 +532,7 @@ def format_results_for_report(results: Dict) -> List[str]:
     a4 = results['analysis_4_enrollment_growth_vs_ppe_growth']
     if 'error' not in a4:
         text_blocks.append(
-            f"<b>4. Enrollment Growth Rate and Per-Pupil Expenditure Growth (2009-2024)</b>"
+            f"<b>4. Enrollment Growth Rate and Per-Pupil Expenditure Growth ({START_YEAR}-{LATEST_YEAR})</b>"
         )
         text_blocks.append(
             f"Linear regression: r = {a4['correlation']:.3f}, R² = {a4['r_squared']:.3f}, "
@@ -544,7 +545,7 @@ def format_results_for_report(results: Dict) -> List[str]:
     a5 = results['analysis_5_combined_ppe_2024']
     if 'error' not in a5:
         text_blocks.append(
-            f"<b>5. Combined Model: Cohort + Enrollment Growth → 2024 Per-Pupil Expenditure</b>"
+            f"<b>5. Combined Model: Cohort + Enrollment Growth → {LATEST_YEAR} Per-Pupil Expenditure</b>"
         )
         text_blocks.append(
             f"ANCOVA: R² = {a5['r_squared']:.3f}, Adjusted R² = {a5['adj_r_squared']:.3f}, "
@@ -555,7 +556,7 @@ def format_results_for_report(results: Dict) -> List[str]:
     a6 = results['analysis_6_combined_ppe_growth']
     if 'error' not in a6:
         text_blocks.append(
-            f"<b>6. Combined Model: Cohort + Enrollment Growth → PPE Growth (2009-2024)</b>"
+            f"<b>6. Combined Model: Cohort + Enrollment Growth → PPE Growth ({START_YEAR}-{LATEST_YEAR})</b>"
         )
         text_blocks.append(
             f"ANCOVA: R² = {a6['r_squared']:.3f}, Adjusted R² = {a6['adj_r_squared']:.3f}, "

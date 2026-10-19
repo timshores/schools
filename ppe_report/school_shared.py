@@ -9,13 +9,93 @@ import pandas as pd
 
 # ---------------- Paths ----------------
 DATA_DIR = Path("./data")
-OUTPUT_DIR = Path("./output")
 EXCEL_FILE = DATA_DIR / "E2C_Hub_MA_DESE_Data.xlsx"
 # Refreshed DESE sources written by update_dese_data.py; preferred over the
 # workbook's sheets when present.
 REFRESH_EXPEND_CSV = DATA_DIR / "dese_expenditures.csv"
 REFRESH_C70_CSV = DATA_DIR / "dese_c70_profile.csv"
-COLOR_MAP_PATH = OUTPUT_DIR / "category_color_map.json"
+
+# ---------------- Analysis years ----------------
+# LATEST_YEAR is the most recent school year with final (not budgeted) data in
+# both DESE sources. The CAGR windows count back from it. PPE_LATEST_YEAR
+# overrides it, e.g. PPE_LATEST_YEAR=2024 to rebuild the FY2009-FY2024 report.
+import os as _os
+LATEST_YEAR = int(_os.environ.get("PPE_LATEST_YEAR", 2025))
+FIRST_DATA_YEAR = 2009                    # earliest school year in the expenditure dataset
+# Every edition keeps 2009 as its baseline, so the long window grows with each
+# edition: 15 years for FY2009-FY2024, 16 for FY2009-FY2025 (Tim, 2026-10-18).
+START_YEAR = FIRST_DATA_YEAR
+WINDOW_YEARS = LATEST_YEAR - START_YEAR   # long-window CAGR length ("CAGR 16y" at FY2025)
+YEAR_10 = LATEST_YEAR - 10                # 10-year window start
+YEAR_5 = LATEST_YEAR - 5                  # 5-year window start
+YEAR_15 = LATEST_YEAR - 15                # start of the three trailing 5-year chunks
+
+# Cohort boundaries. "quartile" (the default) rounds the 25th percentile,
+# median and 75th percentile of Western MA in-district FTE to the nearest 100
+# each edition. "published" freezes the first edition's boundaries
+# (Tiny 0-200, Small 201-800, Medium 801-1600) so cohorts stay comparable
+# across editions. With the revised and FY2025 data, the quartile rule gives
+# Tiny 0-100 / Small 101-700 / Medium 701-1400, which moves Leverett, Pelham
+# and Shutesbury from Tiny to Small. Tim's decision; set PPE_COHORT_RULE.
+COHORT_BOUNDARY_RULE = _os.environ.get("PPE_COHORT_RULE", "quartile")
+PUBLISHED_COHORT_BOUNDS = (200, 800, 1600)  # Tiny/Small, Small/Medium, Medium/Large upper bounds
+
+# ---------------- Editions ----------------
+# Each data year is its own edition with its own output folder, so a new
+# edition never overwrites a published one. The first edition (FY2024 data,
+# published 2025-26) keeps the original output/ folder and file names, so its
+# GitHub links stay valid.
+FIRST_EDITION_YEAR = 2024
+BASE_OUTPUT_DIR = Path("./output")
+EDITION = "" if LATEST_YEAR == FIRST_EDITION_YEAR else f"FY{LATEST_YEAR}"
+OUTPUT_DIR = BASE_OUTPUT_DIR / EDITION.lower() if EDITION else BASE_OUTPUT_DIR
+GITHUB_OUTPUT_URL = "https://github.com/timshores/schools/blob/main/ppe_report/" + OUTPUT_DIR.as_posix().lstrip("./")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def edition_pdf_name(stem: str) -> str:
+    """'Western MA Per Pupil Expenditure Report' -> '... (FY2025 data).pdf' for later editions."""
+    return f"{stem}.pdf" if not EDITION else f"{stem} ({EDITION} data).pdf"
+
+
+def edition_url(filename: str) -> str:
+    from urllib.parse import quote
+    return f"{GITHUB_OUTPUT_URL}/{quote(filename)}"
+
+
+def _dese_last_updated() -> str:
+    """DESE's last-updated date for the expenditure dataset, as 'August 12, 2025'."""
+    if not EDITION:
+        return "August 12, 2025"  # the date recorded for the first edition's download
+    import json, datetime as _dt
+    meta = json.loads((DATA_DIR / "dese_sources.json").read_text())
+    d = _dt.date.fromisoformat(meta["expenditures_last_updated"])
+    return f"{d:%B} {d.day}, {d.year}"
+
+
+DESE_LAST_UPDATED = _dese_last_updated()
+
+YEAR_PLACEHOLDERS = {
+    "{LATEST_YEAR}": str(LATEST_YEAR),
+    "{START_YEAR}": str(START_YEAR),
+    "{YEAR_10}": str(YEAR_10),
+    "{YEAR_5}": str(YEAR_5),
+    "{YEAR_15}": str(YEAR_15),
+    "{WINDOW_YEARS}": str(WINDOW_YEARS),
+    "{APPENDICES_URL}": edition_url(edition_pdf_name("WMPPE Appendices")),
+    "{DESE_LAST_UPDATED}": DESE_LAST_UPDATED,
+}
+
+
+def fill_year_placeholders(text: str) -> str:
+    """Replace the {LATEST_YEAR}-style placeholders listed in YEAR_PLACEHOLDERS in report text."""
+    for key, value in YEAR_PLACEHOLDERS.items():
+        text = text.replace(key, value)
+    return text
+
+
+# Shared across editions so category colors match from one edition to the next.
+COLOR_MAP_PATH = BASE_OUTPUT_DIR / "category_color_map.json"
 COLOR_MAP_VERSION = 5  # unified, colorblind-safe palette + Guidance/Counseling separated
 
 # Windows reserved device names (case-insensitive)
@@ -191,6 +271,10 @@ def calculate_cohort_boundaries(df: pd.DataFrame, reg: pd.DataFrame, year: int =
     q1_rounded = round_100(q1)
     median_rounded = round_100(median)
     q3_rounded = round_100(q3)
+    if COHORT_BOUNDARY_RULE == "published":
+        q1_rounded, median_rounded, q3_rounded = PUBLISHED_COHORT_BOUNDS
+    elif COHORT_BOUNDARY_RULE != "quartile":
+        raise ValueError(f"PPE_COHORT_RULE must be 'quartile' or 'published', not {COHORT_BOUNDARY_RULE!r}")
     p90_rounded = round_1000(p90)  # Round to nearest 1000 for Large upper boundary
 
     # Build dynamic cohort definitions (6 tiers)
@@ -677,9 +761,11 @@ def get_cohort_short_label(group: str) -> str:
     return COHORT_DEFINITIONS.get(group, {}).get("short_label", group)
 
 def get_cohort_2024_label(group: str) -> str:
-    """Get the 2024 cohort label for PPE/CH70/NSS comparisons (e.g., '2024 Medium cohort')."""
+    """Get the latest-year cohort label for PPE/CH70/NSS comparisons (e.g., '2024 Medium cohort').
+
+    The name predates LATEST_YEAR; the year now follows it."""
     short_label = COHORT_DEFINITIONS.get(group, {}).get("short_label", group)
-    return f"2024 {short_label} cohort"
+    return f"{LATEST_YEAR} {short_label} cohort"
 
 def get_cohort_ylim(group: str) -> int | None:
     """Get the y-axis limit for a cohort's enrollment plots."""
@@ -848,9 +934,9 @@ def prepare_district_epp_lines(df: pd.DataFrame, dist: str, c70: pd.DataFrame = 
     enroll = ddf[ddf["IND_CAT"].str.lower() == "student enrollment"].copy()
     for key, label in ENROLL_KEYS:
         if key == "foundation enrollment":
-            # Get foundation enrollment from c70 DataFrame (cap at 2024 since 2025 is projection)
+            # Foundation enrollment from c70, capped at LATEST_YEAR (later fiscal years are budget projections)
             if c70 is not None:
-                c70_dist = c70[(c70["DIST_NAME"].str.lower() == dist.lower()) & (c70["YEAR"] <= 2024)].copy()
+                c70_dist = c70[(c70["DIST_NAME"].str.lower() == dist.lower()) & (c70["YEAR"] <= LATEST_YEAR)].copy()
                 if not c70_dist.empty:
                     ser = c70_dist[["YEAR", "distfoundenro"]].dropna()
                     if not ser.empty:
@@ -967,9 +1053,9 @@ def prepare_western_epp_lines(df: pd.DataFrame, reg: pd.DataFrame, bucket: str, 
     lines_sum, lines_mean = {}, {}
     for key, label in ENROLL_KEYS:
         if key == "foundation enrollment":
-            # Get foundation enrollment from c70 DataFrame (cap at 2024 since 2025 is projection)
+            # Foundation enrollment from c70, capped at LATEST_YEAR (later fiscal years are budget projections)
             if c70 is not None:
-                c70_members = c70[(c70["DIST_NAME"].str.lower().isin(members)) & (c70["YEAR"] <= 2024)].copy()
+                c70_members = c70[(c70["DIST_NAME"].str.lower().isin(members)) & (c70["YEAR"] <= LATEST_YEAR)].copy()
                 if not c70_members.empty:
                     ser = c70_members[["YEAR", "distfoundenro"]].dropna()
                     if not ser.empty:
@@ -1116,7 +1202,7 @@ def prepare_district_nss_ch70(
         - nss_pivot: DataFrame with years as index, columns: ['Ch70 Aid', 'Req NSS (adj)', 'Actual NSS (adj)']
           All values are in dollars per pupil (divided by Foundation Enrollment)
         - enrollment_series: In-District FTE enrollment by year (from expenditure data)
-        - foundation_enrollment: Foundation enrollment by year (from c70 distfoundenro, capped at 2024)
+        - foundation_enrollment: Foundation enrollment by year (from c70 distfoundenro, capped at LATEST_YEAR)
 
     Notes:
         Ch70 financial data uses Foundation Enrollment (distfoundenro) as denominator
@@ -1145,7 +1231,7 @@ def prepare_district_nss_ch70(
         enroll_series = enr_data.set_index("YEAR")["IND_VALUE"].sort_index()
 
     # Get C70 data for this district (including foundation enrollment)
-    c70_dist = c70[(c70["DIST_NAME"].str.lower() == dist.lower()) & (c70["YEAR"] <= 2024)][
+    c70_dist = c70[(c70["DIST_NAME"].str.lower() == dist.lower()) & (c70["YEAR"] <= LATEST_YEAR)][
         ["YEAR", "actualNSS", "rqdnss2", "c70aid", "distfoundenro"]
     ].copy()
 
@@ -1271,7 +1357,7 @@ def prepare_aggregate_nss_ch70_weighted(
         - nss_pivot: DataFrame with years as index, columns: ['Ch70 Aid', 'Req NSS (adj)', 'Actual NSS (adj)']
           All values are weighted average dollars per pupil
         - enrollment_series: Total in-district FTE enrollment sum by year
-        - foundation_enrollment: Total foundation enrollment sum by year (from c70 distfoundenro, capped at 2024)
+        - foundation_enrollment: Total foundation enrollment sum by year (from c70 distfoundenro, capped at LATEST_YEAR)
 
     Notes:
         Aggregation method:
@@ -1303,8 +1389,8 @@ def prepare_aggregate_nss_ch70_weighted(
     enroll_series = (enroll_sum / district_count).sort_index()
 
     # Get C70 data for all districts
-    # Get C70 data for all districts (including foundation enrollment, capped at 2024)
-    c70_agg = c70[(c70["DIST_NAME"].str.lower().isin(names_low)) & (c70["YEAR"] <= 2024)][
+    # Get C70 data for all districts (including foundation enrollment, capped at LATEST_YEAR)
+    c70_agg = c70[(c70["DIST_NAME"].str.lower().isin(names_low)) & (c70["YEAR"] <= LATEST_YEAR)][
         ["DIST_NAME", "YEAR", "actualNSS", "rqdnss2", "c70aid", "distfoundenro"]
     ].copy()
 

@@ -8,7 +8,7 @@ METHODOLOGY_DATA_SOURCES
 
 Massachusetts Department of Elementary and Secondary Education (DESE)<br />
 District Expenditures by Spending Category<br />
-Last updated: August 12, 2025<br />
+Last updated: {DESE_LAST_UPDATED}<br />
 URL: https://educationtocareer.data.mass.gov/Finance-and-Budget/District-Expenditures-by-Spending-Category/er3w-dyti/ <br />
 
 This dataset provides:
@@ -134,7 +134,7 @@ To visualize meaningful differences while filtering statistical noise, we use gr
 • Blue: District below baseline <br />
 • White: Within threshold (not meaningfully different) <br />
 
-##H2 Test 1: Dollar amounts (2024 values)
+##H2 Test 1: Dollar amounts ({LATEST_YEAR} values)
 
 • Threshold: ≥{DOLLAR_THRESHOLD_PERCENT}% difference from baseline <br />
 • Calculation: (District − Baseline) / Baseline <br />

@@ -43,6 +43,8 @@ from school_shared import (
     get_cohort_label, get_cohort_short_label, get_cohort_2024_label,
     get_western_cohort_districts, get_omitted_western_districts,
     make_safe_filename,
+    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5, WINDOW_YEARS, EDITION,
+    edition_pdf_name, edition_url, fill_year_placeholders, DESE_LAST_UPDATED,
 )
 from nss_ch70_plots import build_nss_category_data, NSS_CH70_COLORS, NSS_CH70_STACK_ORDER
 from statistical_analysis import run_all_analyses, format_results_for_report
@@ -56,7 +58,7 @@ SECTION_GROUPS = {
     "appendix_a", "appendix_b", "appendix_c", "appendix_d",
 }
 
-FULL_REPORT_URL = "https://github.com/timshores/schools/blob/main/ppe_report/output/Western%20MA%20Per%20Pupil%20Expenditure%20Report.pdf"
+FULL_REPORT_URL = edition_url(edition_pdf_name("Western MA Per Pupil Expenditure Report"))
 
 def filter_pages(pages: list, groups: list) -> list:
     """Filter pages to only include those belonging to the requested groups."""
@@ -333,7 +335,7 @@ NEG_COLOR        = HexColor("#3F51B5")
 style_num_neg    = ParagraphStyle("num_neg", parent=style_num, textColor=NEG_COLOR)
 
 # Footer
-SOURCE_LINE1 = "Source: DESE District Expenditures by Spending Category, Last updated: August 12, 2025"
+SOURCE_LINE1 = f"Source: DESE District Expenditures by Spending Category, Last updated: {DESE_LAST_UPDATED}"
 SOURCE_LINE2 = "https://educationtocareer.data.mass.gov/Finance-and-Budget/District-Expenditures-by-Spending-Category/er3w-dyti/"
 
 def draw_footer(canvas, doc):
@@ -502,6 +504,8 @@ def load_report_text_sections(text_file: Path = None) -> dict:
     content = text_file.read_text(encoding='utf-8')
     # Normalize line endings (Windows \r\n -> Unix \n)
     content = content.replace('\r\n', '\n')
+    # Fill {LATEST_YEAR}, {START_YEAR}, {YEAR_10}, {YEAR_5}, {APPENDICES_URL}
+    content = fill_year_placeholders(content)
 
     # Parse sections using regex to handle the double-separator format:
     # ========...========
@@ -675,13 +679,13 @@ def _build_western_ma_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.Data
     # Build PPE baseline map
     base_map = {}
     if not epp_western.empty:
-        start_year = latest_year - 15  # 15 years before latest for START_DOLLAR
+        start_year = latest_year - WINDOW_YEARS  # 15 years before latest for START_DOLLAR
         for sc in epp_western.columns:
             s = epp_western[sc]
             base_map[sc] = {
                 "5": compute_cagr_last(s, 5),
                 "10": compute_cagr_last(s, 10),
-                "15": compute_cagr_last(s, 15),
+                "15": compute_cagr_last(s, WINDOW_YEARS),
                 "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
                 "START_DOLLAR": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
             }
@@ -691,7 +695,7 @@ def _build_western_ma_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.Data
         base_map["Total"] = {
             "5": compute_cagr_last(total_series, 5),
             "10": compute_cagr_last(total_series, 10),
-            "15": compute_cagr_last(total_series, 15),
+            "15": compute_cagr_last(total_series, WINDOW_YEARS),
             "DOLLAR": (float(total_series.loc[latest_year]) if latest_year in total_series.index else float("nan")),
             "START_DOLLAR": (float(total_series.loc[start_year]) if start_year in total_series.index else float("nan")),
         }
@@ -705,11 +709,11 @@ def _build_western_ma_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.Data
         for key, label in ENROLL_KEYS:
             s = lines_western.get(label)
             if s is not None and not s.empty:
-                start_year = latest_year - 15
+                start_year = latest_year - WINDOW_YEARS
                 fte_base_map[label] = {
                     "5": compute_cagr_last(s, 5),
                     "10": compute_cagr_last(s, 10),
-                    "15": compute_cagr_last(s, 15),
+                    "15": compute_cagr_last(s, WINDOW_YEARS),
                     "FTE": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
                     "START_FTE": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
                 }
@@ -756,7 +760,7 @@ def _build_western_ma_nss_baseline(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.
     return _build_nss_ch70_baseline_map(nss_western, latest_year, foundation_western)
 
 
-def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, str, str]], doc_width: float, style_body, style_num, year: int = 2024):
+def _build_scatterplot_table(district_data: List[Tuple[str, str, float, float, str, str]], doc_width: float, style_body, style_num, year: int = LATEST_YEAR):
     """Build compact 3-column table showing all districts with cohort colors, enrollment, and year-specific PPE."""
     if not district_data:
         return None
@@ -1030,7 +1034,7 @@ def _shade_for_dollar_rel(delta_rel: float):
     return HexColor(ABOVE_SHADES[idx]) if delta_rel > 0 else HexColor(BELOW_SHADES[idx])
 
 # ---- Cohort Distribution Statistics (CR 1005) ----
-def calculate_cohort_ppe_distribution(df: pd.DataFrame, reg: pd.DataFrame, year: int = 2024) -> pd.DataFrame:
+def calculate_cohort_ppe_distribution(df: pd.DataFrame, reg: pd.DataFrame, year: int = LATEST_YEAR) -> pd.DataFrame:
     """
     Calculate five-number summary of PPE distribution for each cohort.
 
@@ -1074,7 +1078,7 @@ def calculate_cohort_ppe_distribution(df: pd.DataFrame, reg: pd.DataFrame, year:
 
     return pd.DataFrame(results)
 
-def calculate_cohort_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, start_year: int = 2009, end_year: int = 2024) -> pd.DataFrame:
+def calculate_cohort_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, start_year: int = START_YEAR, end_year: int = LATEST_YEAR) -> pd.DataFrame:
     """
     Calculate five-number summary of CAGR distribution for each cohort.
 
@@ -1123,7 +1127,7 @@ def calculate_cohort_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, star
 
     return pd.DataFrame(results)
 
-def calculate_cohort_ch70_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, year: int = 2024) -> pd.DataFrame:
+def calculate_cohort_ch70_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, year: int = LATEST_YEAR) -> pd.DataFrame:
     """
     Calculate five-number summary of Ch70 Aid (per pupil) distribution for each cohort (CR11).
 
@@ -1171,7 +1175,7 @@ def calculate_cohort_ch70_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70:
 
     return pd.DataFrame(results)
 
-def calculate_cohort_nss_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, year: int = 2024) -> pd.DataFrame:
+def calculate_cohort_nss_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, year: int = LATEST_YEAR) -> pd.DataFrame:
     """
     Calculate five-number summary of Actual NSS (above Req NSS, per pupil) distribution for each cohort (CR11).
 
@@ -1220,7 +1224,7 @@ def calculate_cohort_nss_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: 
 
     return pd.DataFrame(results)
 
-def calculate_cohort_ch70_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, start_year: int = 2009, end_year: int = 2024) -> pd.DataFrame:
+def calculate_cohort_ch70_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, start_year: int = START_YEAR, end_year: int = LATEST_YEAR) -> pd.DataFrame:
     """
     Calculate five-number summary of Ch70 Aid CAGR distribution for each cohort.
 
@@ -1274,7 +1278,7 @@ def calculate_cohort_ch70_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame,
 
     return pd.DataFrame(results)
 
-def calculate_cohort_nss_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, start_year: int = 2009, end_year: int = 2024) -> pd.DataFrame:
+def calculate_cohort_nss_cagr_distribution(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, start_year: int = START_YEAR, end_year: int = LATEST_YEAR) -> pd.DataFrame:
     """
     Calculate five-number summary of Actual NSS (above Req NSS) CAGR distribution for each cohort.
 
@@ -1535,14 +1539,14 @@ def _build_category_table(page: dict) -> Table:
     total   = page.get("cat_total", ("Total","—","—","—","—"))
     base    = page.get("baseline_map", {}) or {}
     latest_year = page.get('latest_year', 'Latest')
-    start_year = latest_year - 15 if isinstance(latest_year, int) else 2009  # 15 years before latest
+    start_year = latest_year - WINDOW_YEARS if isinstance(latest_year, int) else START_YEAR  # 15 years before latest
 
     # Header cells - reordered chronologically
     header = [
         Paragraph("", style_hdr_left),  # Swatch column, no header text
         Paragraph("Category", style_hdr_left),
         Paragraph(f"{start_year} $/pupil", style_hdr_right),
-        Paragraph("CAGR 15y", style_hdr_right),
+        Paragraph(f"CAGR {WINDOW_YEARS}y", style_hdr_right),
         Paragraph("CAGR 10y", style_hdr_right),
         Paragraph("CAGR 5y", style_hdr_right),
         Paragraph(f"{latest_year} $/pupil", style_hdr_right),
@@ -1693,7 +1697,7 @@ def _build_fte_table(page: dict) -> Table:
     """
     rows_in = page.get("fte_rows", [])
     latest_year_fte = page.get("latest_year_fte", page.get("latest_year","Latest"))
-    t0_year_fte = latest_year_fte - 15 if isinstance(latest_year_fte, int) else 2009
+    t0_year_fte = latest_year_fte - WINDOW_YEARS if isinstance(latest_year_fte, int) else START_YEAR
     fte_base = page.get("fte_baseline_map", {}) or {}
 
     # Determine enrollment label based on page type (CR08)
@@ -1708,7 +1712,7 @@ def _build_fte_table(page: dict) -> Table:
         Paragraph("", style_hdr_left),  # Swatch column, no header text
         Paragraph(enrollment_header, style_hdr_left),
         Paragraph(f"{t0_year_fte}", style_hdr_right),
-        Paragraph("CAGR 15y", style_hdr_right),
+        Paragraph(f"CAGR {WINDOW_YEARS}y", style_hdr_right),
         Paragraph("CAGR 10y", style_hdr_right),
         Paragraph("CAGR 5y", style_hdr_right),
         Paragraph(f"{latest_year_fte}", style_hdr_right),
@@ -1853,14 +1857,14 @@ def _build_nss_ch70_table(page: dict) -> Table:
     rows_in = page.get("cat_rows", [])
     total = page.get("cat_total", ("Total", "$0", "—", "—", "—", "$0"))
     base = page.get("baseline_map", {}) or {}
-    latest_year = page.get("latest_year", 2024)
-    start_year = latest_year - 15
+    latest_year = page.get("latest_year", LATEST_YEAR)
+    start_year = latest_year - WINDOW_YEARS
 
     # Header row (reordered chronologically)
     hdr = [Paragraph("", style_hdr_left),  # Swatch column
            Paragraph("Component", style_hdr_left),
            Paragraph(f"{start_year}<br/>$/pupil", style_hdr_right),
-           Paragraph("CAGR<br/>15y", style_hdr_right),
+           Paragraph(f"CAGR<br/>{WINDOW_YEARS}y", style_hdr_right),
            Paragraph("CAGR<br/>10y", style_hdr_right),
            Paragraph("CAGR<br/>5y", style_hdr_right),
            Paragraph(f"{latest_year}<br/>$/pupil", style_hdr_right)]
@@ -2045,7 +2049,7 @@ def _build_category_data(epp_pivot: pd.DataFrame, latest_year: int, context: str
 
     bottom_top = canonical_order_bottom_to_top(epp_pivot.columns.tolist())
     top_bottom = list(reversed(bottom_top))
-    start_year = latest_year - 15  # 15 years before latest (2009 if latest is 2024)
+    start_year = latest_year - WINDOW_YEARS  # 15 years before latest (2009 if latest is 2024)
 
     cat_rows = []
     cat_start_map = {}
@@ -2055,7 +2059,7 @@ def _build_category_data(epp_pivot: pd.DataFrame, latest_year: int, context: str
         cat_start_map[sc] = start_val
         c5 = compute_cagr_last(epp_pivot[sc], 5)
         c10 = compute_cagr_last(epp_pivot[sc], 10)
-        c15 = compute_cagr_last(epp_pivot[sc], 15)
+        c15 = compute_cagr_last(epp_pivot[sc], WINDOW_YEARS)
         cat_rows.append((sc, f"${latest_val:,.0f}", fmt_pct(c5), fmt_pct(c10), fmt_pct(c15),
                         color_for(cmap_all, context, sc), latest_val))
 
@@ -2066,7 +2070,7 @@ def _build_category_data(epp_pivot: pd.DataFrame, latest_year: int, context: str
     cat_total = ("Total", f"${latest_total:,.0f}",
                  fmt_pct(compute_cagr_last(total_series, 5)),
                  fmt_pct(compute_cagr_last(total_series, 10)),
-                 fmt_pct(compute_cagr_last(total_series, 15)),
+                 fmt_pct(compute_cagr_last(total_series, WINDOW_YEARS)),
                  f"${start_total:,.0f}")
 
     return cat_rows, cat_total, cat_start_map
@@ -2085,7 +2089,7 @@ def _build_fte_data(lines: Dict[str, pd.Series], latest_year: int) -> tuple:
         fte_map[label] = s
         r5 = compute_cagr_last(s, 5)
         r10 = compute_cagr_last(s, 10)
-        r15 = compute_cagr_last(s, 15)
+        r15 = compute_cagr_last(s, WINDOW_YEARS)
         latest_str = "—" if latest_fte_year not in s.index else f"{float(s.loc[latest_fte_year]):,.0f}"
         fte_rows.append((FTE_LINE_COLORS[label], label, latest_str, fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
 
@@ -2104,7 +2108,7 @@ def _build_nss_fte_data(foundation_series: pd.Series, latest_year: int) -> tuple
     fte_map[label] = foundation_series
     r5 = compute_cagr_last(foundation_series, 5)
     r10 = compute_cagr_last(foundation_series, 10)
-    r15 = compute_cagr_last(foundation_series, 15)
+    r15 = compute_cagr_last(foundation_series, WINDOW_YEARS)
     latest_str = "—" if latest_fte_year not in foundation_series.index else f"{float(foundation_series.loc[latest_fte_year]):,.0f}"
     fte_rows.append((FTE_LINE_COLORS[label], label, latest_str, fmt_pct(r5), fmt_pct(r10), fmt_pct(r15)))
 
@@ -2120,14 +2124,14 @@ def _build_nss_ch70_baseline_map(nss_data: pd.DataFrame, latest_year: int, found
         - "5", "10", "15": CAGR values as floats
     """
     baseline_map = {}
-    start_year = latest_year - 15
+    start_year = latest_year - WINDOW_YEARS
 
     for comp in nss_data.columns:
         latest_val = float(nss_data.loc[latest_year, comp]) if (latest_year in nss_data.index and comp in nss_data.columns) else float("nan")
         start_val = float(nss_data.loc[start_year, comp]) if (start_year in nss_data.index and comp in nss_data.columns) else float("nan")
         c5 = compute_cagr_last(nss_data[comp], 5)
         c10 = compute_cagr_last(nss_data[comp], 10)
-        c15 = compute_cagr_last(nss_data[comp], 15)
+        c15 = compute_cagr_last(nss_data[comp], WINDOW_YEARS)
 
         baseline_map[comp] = {
             "DOLLAR": latest_val,
@@ -2147,7 +2151,7 @@ def _build_nss_ch70_baseline_map(nss_data: pd.DataFrame, latest_year: int, found
         "START_DOLLAR": start_total,
         "5": compute_cagr_last(total_series, 5),
         "10": compute_cagr_last(total_series, 10),
-        "15": compute_cagr_last(total_series, 15)
+        "15": compute_cagr_last(total_series, WINDOW_YEARS)
     }
 
     # Add Foundation Enrollment if provided
@@ -2161,7 +2165,7 @@ def _build_nss_ch70_baseline_map(nss_data: pd.DataFrame, latest_year: int, found
             "START_FTE": start_fte,
             "5": compute_cagr_last(foundation_series, 5),
             "10": compute_cagr_last(foundation_series, 10),
-            "15": compute_cagr_last(foundation_series, 15)
+            "15": compute_cagr_last(foundation_series, WINDOW_YEARS)
         }
 
     return baseline_map
@@ -2172,8 +2176,8 @@ def _build_epp_data_table(epp_pivot: pd.DataFrame, title: str, doc_width: float)
     if epp_pivot.empty:
         return None
 
-    # Get years and categories in order - filter to 2009 and later
-    years = sorted([y for y in epp_pivot.index.tolist() if y >= 2009])
+    # Get years and categories in order - the analysis window (16 columns)
+    years = sorted([y for y in epp_pivot.index.tolist() if START_YEAR <= y <= LATEST_YEAR])
     if not years:
         return None
     categories = canonical_order_bottom_to_top(epp_pivot.columns.tolist())
@@ -2232,11 +2236,11 @@ def _build_fte_data_table(lines: Dict[str, pd.Series], title: str, doc_width: fl
     if not lines:
         return None
 
-    # Collect all years across all series - filter to 2009-2024 to match CAGR tables
+    # Collect all years across all series - filter to the analysis window to match CAGR tables
     all_years = set()
     for s in lines.values():
         if s is not None and not s.empty:
-            all_years.update([y for y in s.index.tolist() if 2009 <= y <= 2024])
+            all_years.update([y for y in s.index.tolist() if START_YEAR <= y <= LATEST_YEAR])
 
     if not all_years:
         return None
@@ -2301,9 +2305,9 @@ def _build_nss_ch70_data_table(nss_pivot: pd.DataFrame, title: str, doc_width: f
     if nss_pivot.empty:
         return None
 
-    # Get years and components in order - limit to 2009-2024
+    # Get years and components in order - limit to the analysis window
     all_years = sorted(nss_pivot.index.tolist())
-    years = [yr for yr in all_years if 2009 <= yr <= 2024]
+    years = [yr for yr in all_years if START_YEAR <= yr <= LATEST_YEAR]
     if not years:
         years = all_years  # Fallback if no years in range
 
@@ -2389,11 +2393,11 @@ def _build_cohort_summary_table(cohort_rows: List[tuple], baseline_row: tuple = 
     # Header
     summary_data = [[
         Paragraph("<b>Cohort/District</b>", style_hdr_left),
-        Paragraph("<b>2009 $/pupil</b>", style_hdr_right),
-        Paragraph("<b>CAGR 15y</b>", style_hdr_right),
+        Paragraph(f"<b>{START_YEAR} $/pupil</b>", style_hdr_right),
+        Paragraph(f"<b>CAGR {WINDOW_YEARS}y</b>", style_hdr_right),
         Paragraph("<b>CAGR 10y</b>", style_hdr_right),
         Paragraph("<b>CAGR 5y</b>", style_hdr_right),
-        Paragraph("<b>2024 $/pupil</b>", style_hdr_right),
+        Paragraph(f"<b>{LATEST_YEAR} $/pupil</b>", style_hdr_right),
     ]]
 
     # Data rows
@@ -2654,7 +2658,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     # Note: Threshold Analysis moved to Appendix A
 
     latest = int(df["YEAR"].max())
-    t0 = latest - 15  # Changed from 5 to 15 for cr07 (2009-2024 instead of 2019-2024)
+    t0 = latest - WINDOW_YEARS  # cr07: long-window comparison (START_YEAR to LATEST_YEAR)
 
     # ===== EXECUTIVE SUMMARY =====
     # PAGE 0: Executive Summary - Introduction
@@ -2714,7 +2718,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     # Prepare this data early since we need it for Executive Summary
     omitted_districts = get_omitted_western_districts(df, reg)
     western_explanation = report_text.get("PPE_OVERVIEW_EXPLANATION", [
-        "Each bar represents a district's per-pupil expenditures (PPE) in 2024, with growth from 2019 shown by a darker color."
+        f"Each bar represents a district's per-pupil expenditures (PPE) in {LATEST_YEAR}, with growth from {START_YEAR} shown by a darker color."
     ])[0]  # Get first paragraph from list
 
     # Add omitted districts note if any
@@ -2821,7 +2825,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             # Extract Ch70 Aid series
             ch70_series = nss_piv["Ch70 Aid"]
             latest_year_local = int(ch70_series.index.max())
-            start_year = latest_year_local - 15
+            start_year = latest_year_local - WINDOW_YEARS
 
             if start_year not in ch70_series.index or latest_year_local not in ch70_series.index:
                 return (0.0, 0.0, 0.0, 0.0, 0.0)
@@ -2830,7 +2834,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             latest_val = float(ch70_series.loc[latest_year_local])
             cagr5 = compute_cagr_last(ch70_series, 5) if len(ch70_series) >= 5 else 0.0
             cagr10 = compute_cagr_last(ch70_series, 10) if len(ch70_series) >= 10 else 0.0
-            cagr15 = compute_cagr_last(ch70_series, 15) if len(ch70_series) >= 15 else 0.0
+            cagr15 = compute_cagr_last(ch70_series, WINDOW_YEARS) if len(ch70_series) >= WINDOW_YEARS else 0.0
 
             return (start_val, cagr15, cagr10, cagr5, latest_val)
 
@@ -2872,7 +2876,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
             actual_minus_req_series = nss_piv[col_name]
             latest_year_local = int(actual_minus_req_series.index.max())
-            start_year = latest_year_local - 15
+            start_year = latest_year_local - WINDOW_YEARS
 
             if start_year not in actual_minus_req_series.index or latest_year_local not in actual_minus_req_series.index:
                 return (0.0, 0.0, 0.0, 0.0, 0.0)
@@ -2881,7 +2885,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             latest_val = float(actual_minus_req_series.loc[latest_year_local])
             cagr5 = compute_cagr_last(actual_minus_req_series, 5) if len(actual_minus_req_series) >= 5 else 0.0
             cagr10 = compute_cagr_last(actual_minus_req_series, 10) if len(actual_minus_req_series) >= 10 else 0.0
-            cagr15 = compute_cagr_last(actual_minus_req_series, 15) if len(actual_minus_req_series) >= 15 else 0.0
+            cagr15 = compute_cagr_last(actual_minus_req_series, WINDOW_YEARS) if len(actual_minus_req_series) >= WINDOW_YEARS else 0.0
 
             return (start_val, cagr15, cagr10, cagr5, latest_val)
 
@@ -2896,9 +2900,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
     cohort_summary_data = {
         "Western MA (all, excl. Springfield)": build_cohort_total_data("all_western", western_all_excl_springfield),
-        "Western MA Tiny (0-200 FTE)": build_cohort_total_data("tiny", cohorts_exec.get("TINY", [])),
-        "Western MA Small (201-800 FTE)": build_cohort_total_data("small", cohorts_exec.get("SMALL", [])),
-        "Western MA Medium (801-1600 FTE)": build_cohort_total_data("medium", cohorts_exec.get("MEDIUM", [])),
+        f"Western MA {get_cohort_label('TINY')}": build_cohort_total_data("tiny", cohorts_exec.get("TINY", [])),
+        f"Western MA {get_cohort_label('SMALL')}": build_cohort_total_data("small", cohorts_exec.get("SMALL", [])),
+        f"Western MA {get_cohort_label('MEDIUM')}": build_cohort_total_data("medium", cohorts_exec.get("MEDIUM", [])),
         f"Western MA {large_label}": build_cohort_total_data("large", cohorts_exec.get("LARGE", [])),
         "Outliers (Springfield)": build_cohort_total_data("springfield", cohorts_exec.get("SPRINGFIELD", [])),
         "Amherst-Pelham Regional": build_cohort_total_data("district", ["Amherst-Pelham"]),  # Note: actual district name is "Amherst-Pelham"
@@ -2916,9 +2920,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     # TABLE 1: All Western MA cohorts with shading (all rows shaded vs Western MA baseline)
     table1_names = [
         "Western MA (all, excl. Springfield)",
-        "Western MA Tiny (0-200 FTE)",
-        "Western MA Small (201-800 FTE)",
-        "Western MA Medium (801-1600 FTE)",
+        f"Western MA {get_cohort_label('TINY')}",
+        f"Western MA {get_cohort_label('SMALL')}",
+        f"Western MA {get_cohort_label('MEDIUM')}",
         f"Western MA {large_label}",
         "Outliers (Springfield)",
     ]
@@ -2942,12 +2946,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     ))
 
     # TABLE 2: The Mediums (baseline row not shaded, districts shaded vs Medium cohort)
-    table2_names = ["Western MA Medium (801-1600 FTE)", "Amherst-Pelham Regional", "Amherst"]
+    table2_names = [f"Western MA {get_cohort_label('MEDIUM')}", "Amherst-Pelham Regional", "Amherst"]
     cohort_table2_rows = make_table_rows(table2_names)
     baseline_medium = cohort_table2_rows[0][1:]
     cohort_table2 = _build_cohort_summary_table(
         cohort_table2_rows,
-        baseline_row=("Western MA Medium (801-1600 FTE)", *baseline_medium),
+        baseline_row=(f"Western MA {get_cohort_label('MEDIUM')}", *baseline_medium),
         apply_shading=True,
         skip_shading_rows={0},  # Don't shade the comparison baseline
         highlight_baseline_rows={0}  # Highlight baseline row in yellow
@@ -2963,12 +2967,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     ))
 
     # TABLE 3: The Tinies (baseline row not shaded, districts shaded vs Tiny cohort)
-    table3_names = ["Western MA Tiny (0-200 FTE)", "Leverett", "Pelham", "Shutesbury"]
+    table3_names = [f"Western MA {get_cohort_label('TINY')}", "Leverett", "Pelham", "Shutesbury"]
     cohort_table3_rows = make_table_rows(table3_names)
     baseline_tiny = cohort_table3_rows[0][1:]
     cohort_table3 = _build_cohort_summary_table(
         cohort_table3_rows,
-        baseline_row=("Western MA Tiny (0-200 FTE)", *baseline_tiny),
+        baseline_row=(f"Western MA {get_cohort_label('TINY')}", *baseline_tiny),
         apply_shading=True,
         skip_shading_rows={0},  # Don't shade the comparison baseline
         highlight_baseline_rows={0}  # Highlight baseline row in yellow
@@ -2994,9 +2998,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         # Build Ch70 Aid summary data for cohorts and districts
         ch70_aid_summary_data = {
             "Western MA (all, excl. Springfield)": build_ch70_aid_data("all_western", western_all_excl_springfield),
-            "Western MA Tiny (0-200 FTE)": build_ch70_aid_data("tiny", cohorts_exec.get("TINY", [])),
-            "Western MA Small (201-800 FTE)": build_ch70_aid_data("small", cohorts_exec.get("SMALL", [])),
-            "Western MA Medium (801-1600 FTE)": build_ch70_aid_data("medium", cohorts_exec.get("MEDIUM", [])),
+            f"Western MA {get_cohort_label('TINY')}": build_ch70_aid_data("tiny", cohorts_exec.get("TINY", [])),
+            f"Western MA {get_cohort_label('SMALL')}": build_ch70_aid_data("small", cohorts_exec.get("SMALL", [])),
+            f"Western MA {get_cohort_label('MEDIUM')}": build_ch70_aid_data("medium", cohorts_exec.get("MEDIUM", [])),
             f"Western MA {large_label}": build_ch70_aid_data("large", cohorts_exec.get("LARGE", [])),
             "Outliers (Springfield)": build_ch70_aid_data("springfield", cohorts_exec.get("SPRINGFIELD", [])),
             "Amherst-Pelham Regional": build_ch70_aid_data("district", ["Amherst-Pelham"]),
@@ -3032,12 +3036,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         ))
 
         # Ch70 TABLE 2: The Mediums (baseline row not shaded, districts shaded vs Medium cohort)
-        table2_names_ch70 = ["Western MA Medium (801-1600 FTE)", "Amherst-Pelham Regional", "Amherst"]
+        table2_names_ch70 = [f"Western MA {get_cohort_label('MEDIUM')}", "Amherst-Pelham Regional", "Amherst"]
         ch70_table2_rows = make_ch70_table_rows(table2_names_ch70)
         baseline_medium_ch70 = ch70_table2_rows[0][1:]
         ch70_table2 = _build_cohort_summary_table(
             ch70_table2_rows,
-            baseline_row=("Western MA Medium (801-1600 FTE)", *baseline_medium_ch70),
+            baseline_row=(f"Western MA {get_cohort_label('MEDIUM')}", *baseline_medium_ch70),
             apply_shading=True,
             skip_shading_rows={0},  # Don't shade the comparison baseline
             highlight_baseline_rows={0}  # Highlight baseline row in yellow
@@ -3053,12 +3057,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         ))
 
         # Ch70 TABLE 3: The Tinies (baseline row not shaded, districts shaded vs Tiny cohort)
-        table3_names_ch70 = ["Western MA Tiny (0-200 FTE)", "Leverett", "Pelham", "Shutesbury"]
+        table3_names_ch70 = [f"Western MA {get_cohort_label('TINY')}", "Leverett", "Pelham", "Shutesbury"]
         ch70_table3_rows = make_ch70_table_rows(table3_names_ch70)
         baseline_tiny_ch70 = ch70_table3_rows[0][1:]
         ch70_table3 = _build_cohort_summary_table(
             ch70_table3_rows,
-            baseline_row=("Western MA Tiny (0-200 FTE)", *baseline_tiny_ch70),
+            baseline_row=(f"Western MA {get_cohort_label('TINY')}", *baseline_tiny_ch70),
             apply_shading=True,
             skip_shading_rows={0},  # Don't shade the comparison baseline
             highlight_baseline_rows={0}  # Highlight baseline row in yellow
@@ -3084,9 +3088,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         # Build Actual NSS summary data for cohorts and districts
         actual_nss_summary_data = {
             "Western MA (all, excl. Springfield)": build_actual_nss_data("all_western", western_all_excl_springfield),
-            "Western MA Tiny (0-200 FTE)": build_actual_nss_data("tiny", cohorts_exec.get("TINY", [])),
-            "Western MA Small (201-800 FTE)": build_actual_nss_data("small", cohorts_exec.get("SMALL", [])),
-            "Western MA Medium (801-1600 FTE)": build_actual_nss_data("medium", cohorts_exec.get("MEDIUM", [])),
+            f"Western MA {get_cohort_label('TINY')}": build_actual_nss_data("tiny", cohorts_exec.get("TINY", [])),
+            f"Western MA {get_cohort_label('SMALL')}": build_actual_nss_data("small", cohorts_exec.get("SMALL", [])),
+            f"Western MA {get_cohort_label('MEDIUM')}": build_actual_nss_data("medium", cohorts_exec.get("MEDIUM", [])),
             f"Western MA {large_label}": build_actual_nss_data("large", cohorts_exec.get("LARGE", [])),
             "Outliers (Springfield)": build_actual_nss_data("springfield", cohorts_exec.get("SPRINGFIELD", [])),
             "Amherst-Pelham Regional": build_actual_nss_data("district", ["Amherst-Pelham"]),
@@ -3122,12 +3126,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         ))
 
         # NSS TABLE 2: The Mediums (baseline row not shaded, districts shaded vs Medium cohort)
-        table2_names_nss = ["Western MA Medium (801-1600 FTE)", "Amherst-Pelham Regional", "Amherst"]
+        table2_names_nss = [f"Western MA {get_cohort_label('MEDIUM')}", "Amherst-Pelham Regional", "Amherst"]
         nss_table2_rows = make_nss_table_rows(table2_names_nss)
         baseline_medium_nss = nss_table2_rows[0][1:]
         nss_table2 = _build_cohort_summary_table(
             nss_table2_rows,
-            baseline_row=("Western MA Medium (801-1600 FTE)", *baseline_medium_nss),
+            baseline_row=(f"Western MA {get_cohort_label('MEDIUM')}", *baseline_medium_nss),
             apply_shading=True,
             skip_shading_rows={0},  # Don't shade the comparison baseline
             highlight_baseline_rows={0}  # Highlight baseline row in yellow
@@ -3143,12 +3147,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         ))
 
         # NSS TABLE 3: The Tinies (baseline row not shaded, districts shaded vs Tiny cohort)
-        table3_names_nss = ["Western MA Tiny (0-200 FTE)", "Leverett", "Pelham", "Shutesbury"]
+        table3_names_nss = [f"Western MA {get_cohort_label('TINY')}", "Leverett", "Pelham", "Shutesbury"]
         nss_table3_rows = make_nss_table_rows(table3_names_nss)
         baseline_tiny_nss = nss_table3_rows[0][1:]
         nss_table3 = _build_cohort_summary_table(
             nss_table3_rows,
-            baseline_row=("Western MA Tiny (0-200 FTE)", *baseline_tiny_nss),
+            baseline_row=(f"Western MA {get_cohort_label('TINY')}", *baseline_tiny_nss),
             apply_shading=True,
             skip_shading_rows={0},  # Don't shade the comparison baseline
             highlight_baseline_rows={0}  # Highlight baseline row in yellow
@@ -3208,7 +3212,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     # PAGE 2: 5-year CAGR (moved from Executive Summary)
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
-        subtitle="5-year and 15-year CAGR by district and cohort",
+        subtitle=f"5-year and {WINDOW_YEARS}-year CAGR by district and cohort",
         chart_paths=[
             str(OUTPUT_DIR / "executive_summary_cagr_legend.png"),
             str(OUTPUT_DIR / "executive_summary_cagr_grouped.png"),
@@ -3221,12 +3225,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         group="section1"
     ))
 
-    # PAGE 3: Distribution of 2024 enrollment and proposed cohort grouping (text from report_text.txt)
+    # PAGE 3: Distribution of latest-year enrollment and proposed cohort grouping (text from report_text.txt)
     enrollment_dist_explanation = "\n".join(report_text.get("SECTION1_DISTRIBUTION_EXPLANATION", []))
 
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
-        subtitle="Distribution of 2024 enrollment and proposed cohort grouping",
+        subtitle=f"Distribution of {LATEST_YEAR} enrollment and proposed cohort grouping",
         chart_paths=[
             str(OUTPUT_DIR / "enrollment_3_histogram.png"),
             str(OUTPUT_DIR / "enrollment_4_grouping.png")
@@ -3241,19 +3245,19 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
     # PAGE 4: 2024 Scatterplot with district table
     scatterplot_explanation_2024 = (
         "This scatterplot shows the relationship between district enrollment (x-axis) and per-pupil "
-        "expenditure (y-axis) for Western Massachusetts traditional districts in 2024. Each point represents "
+        f"expenditure (y-axis) for Western Massachusetts traditional districts in {LATEST_YEAR}. Each point represents "
         "one district, colored by enrollment cohort. Horizontal lines show quartile boundaries used to define cohorts."
     )
 
-    scatterplot_table_data = _build_scatterplot_district_table(df, reg, 2024)
+    scatterplot_table_data = _build_scatterplot_district_table(df, reg, LATEST_YEAR)
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
-        subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries (2024)",
-        chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_2024.png"),
+        subtitle=f"Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({LATEST_YEAR})",
+        chart_path=str(OUTPUT_DIR / f"enrollment_1_scatterplot_{LATEST_YEAR}.png"),
         text_blocks=[scatterplot_explanation_2024],
         graph_only=False,  # Includes table
         scatterplot_districts=scatterplot_table_data,
-        year=2024,
+        year=LATEST_YEAR,
         section_id="section1_scatter",
         group="section1"
     ))
@@ -3265,8 +3269,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
-        subtitle=f"Geographic map showing district locations and enrollment cohorts (2024)",
-        chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_2024.png"),
+        subtitle=f"Geographic map showing district locations and enrollment cohorts ({LATEST_YEAR})",
+        chart_path=str(OUTPUT_DIR / f"western_ma_choropleth_{LATEST_YEAR}.png"),
         text_blocks=choropleth_explanation_2024,
         graph_only=True,
         section_id="section1_map",
@@ -3280,8 +3284,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
-        subtitle=f"Geographic map showing 2024 PPE vs enrollment cohort baseline",
-        chart_path=str(OUTPUT_DIR / f"western_ma_ppe_comparison_2024.png"),
+        subtitle=f"Geographic map showing {LATEST_YEAR} PPE vs enrollment cohort baseline",
+        chart_path=str(OUTPUT_DIR / f"western_ma_ppe_comparison_{LATEST_YEAR}.png"),
         text_blocks=ppe_comparison_explanation_2024,
         graph_only=True,
         section_id="section1_ppe_comparison",
@@ -3295,8 +3299,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
     pages.append(dict(
         title="Section 1 — Western MA traditional public school district trends",
-        subtitle=f"Geographic map showing 15-year PPE growth (2009-2024) vs enrollment cohort baseline",
-        chart_path=str(OUTPUT_DIR / f"western_ma_cagr_comparison_2009_2024.png"),
+        subtitle=f"Geographic map showing {WINDOW_YEARS}-year PPE growth ({START_YEAR}-{LATEST_YEAR}) vs enrollment cohort baseline",
+        chart_path=str(OUTPUT_DIR / f"western_ma_cagr_comparison_{START_YEAR}_{LATEST_YEAR}.png"),
         text_blocks=cagr_comparison_explanation_2024,
         graph_only=True,
         section_id="section1_cagr_comparison",
@@ -3320,8 +3324,8 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         page_width = A4[0] / inch - 1.0*inch  # A4[0] is in points, convert to inches and subtract 1" for margins
 
         # Calculate distributions
-        ppe_dist_df = calculate_cohort_ppe_distribution(df, reg, year=2024)
-        cagr_dist_df = calculate_cohort_cagr_distribution(df, reg, start_year=2009, end_year=2024)
+        ppe_dist_df = calculate_cohort_ppe_distribution(df, reg, year=LATEST_YEAR)
+        cagr_dist_df = calculate_cohort_cagr_distribution(df, reg, start_year=START_YEAR, end_year=LATEST_YEAR)
 
         # Build tables
         ppe_table = build_cohort_distribution_table(ppe_dist_df, "PPE", cohort_colors, page_width)
@@ -3378,12 +3382,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
         # === Ch70 Aid Statistical Analysis ===
         # Calculate distributions for Ch70 Aid (both current and growth)
-        ch70_dist_df = calculate_cohort_ch70_distribution(df, reg, c70, year=2024)
-        ch70_cagr_dist_df = calculate_cohort_ch70_cagr_distribution(df, reg, c70, start_year=2009, end_year=2024)
+        ch70_dist_df = calculate_cohort_ch70_distribution(df, reg, c70, year=LATEST_YEAR)
+        ch70_cagr_dist_df = calculate_cohort_ch70_cagr_distribution(df, reg, c70, start_year=START_YEAR, end_year=LATEST_YEAR)
 
         # Build Ch70 Aid tables
-        ch70_table = build_cohort_distribution_table(ch70_dist_df, "2024 Ch70 Aid ($/foundation pupil)", cohort_colors, page_width)
-        ch70_cagr_table = build_cohort_distribution_table(ch70_cagr_dist_df, "2009-2024 Ch70 Aid Growth Rate (%)", cohort_colors, page_width)
+        ch70_table = build_cohort_distribution_table(ch70_dist_df, f"{LATEST_YEAR} Ch70 Aid ($/foundation pupil)", cohort_colors, page_width)
+        ch70_cagr_table = build_cohort_distribution_table(ch70_cagr_dist_df, f"{START_YEAR}-{LATEST_YEAR} Ch70 Aid Growth Rate (%)", cohort_colors, page_width)
 
         # Get text blocks for Ch70 Aid (with default content)
         ch70_stat_text_blocks = report_text.get("CH70_STATISTICAL_ASSOCIATIONS", [
@@ -3391,13 +3395,13 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             "District size and enrollment cohort show associations with Chapter 70 Aid patterns. This section examines the distribution of Chapter 70 state aid (per foundation pupil) across Western Massachusetts traditional districts organized by enrollment size.",
             "",
             "<b>Distribution of Chapter 70 Aid by Enrollment Cohort</b>",
-            "The five-number summaries below show two dimensions: current aid levels (2024 Ch70 Aid) and how they grew over time (2009-2024 growth rates).",
+            f"The five-number summaries below show two dimensions: current aid levels ({LATEST_YEAR} Ch70 Aid) and how they grew over time ({START_YEAR}-{LATEST_YEAR} growth rates).",
             "",
-            "<b>2024 Chapter 70 Aid per Foundation Pupil by Cohort</b>",
+            f"<b>{LATEST_YEAR} Chapter 70 Aid per Foundation Pupil by Cohort</b>",
             "Box plots show the spread of state aid within each size cohort. The median line shows typical aid levels for each cohort. Note: Foundation enrollment includes weighted adjustments for low-income, ELL, and special education students.",
             "__COHORT_CH70_TABLE__",
             "",
-            "<b>2009-2024 Chapter 70 Aid Growth Rates by Cohort</b>",
+            f"<b>{START_YEAR}-{LATEST_YEAR} Chapter 70 Aid Growth Rates by Cohort</b>",
             "These box plots reveal whether districts of similar size received similar aid growth (narrow boxes) or diverged over time (wide boxes). Comparing medians shows which cohorts experienced faster or slower aid increases.",
             "__COHORT_CH70_CAGR_TABLE__"
         ])
@@ -3439,12 +3443,12 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
 
         # === Actual NSS Statistical Analysis ===
         # Calculate distributions for Actual NSS (both current and growth)
-        nss_dist_df = calculate_cohort_nss_distribution(df, reg, c70, year=2024)
-        nss_cagr_dist_df = calculate_cohort_nss_cagr_distribution(df, reg, c70, start_year=2009, end_year=2024)
+        nss_dist_df = calculate_cohort_nss_distribution(df, reg, c70, year=LATEST_YEAR)
+        nss_cagr_dist_df = calculate_cohort_nss_cagr_distribution(df, reg, c70, start_year=START_YEAR, end_year=LATEST_YEAR)
 
         # Build Actual NSS tables
-        nss_table = build_cohort_distribution_table(nss_dist_df, "2024 Actual NSS above Req NSS ($/foundation pupil)", cohort_colors, page_width)
-        nss_cagr_table = build_cohort_distribution_table(nss_cagr_dist_df, "2009-2024 Actual NSS above Req NSS Growth Rate (%)", cohort_colors, page_width)
+        nss_table = build_cohort_distribution_table(nss_dist_df, f"{LATEST_YEAR} Actual NSS above Req NSS ($/foundation pupil)", cohort_colors, page_width)
+        nss_cagr_table = build_cohort_distribution_table(nss_cagr_dist_df, f"{START_YEAR}-{LATEST_YEAR} Actual NSS above Req NSS Growth Rate (%)", cohort_colors, page_width)
 
         # Get text blocks for Actual NSS (with default content)
         nss_stat_text_blocks = report_text.get("NSS_STATISTICAL_ASSOCIATIONS", [
@@ -3452,13 +3456,13 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             "District size and enrollment cohort show associations with local funding effort patterns. This section examines Actual Net School Spending above Required NSS (per foundation pupil) - a measure of spending beyond state-mandated minimums.",
             "",
             "<b>Distribution of Actual NSS above Required NSS by Enrollment Cohort</b>",
-            "The five-number summaries below show: current local funding effort (2024 values) and how this effort changed over time (2009-2024 growth rates).",
+            f"The five-number summaries below show: current local funding effort ({LATEST_YEAR} values) and how this effort changed over time ({START_YEAR}-{LATEST_YEAR} growth rates).",
             "",
-            "<b>2024 Actual NSS above Required NSS per Foundation Pupil by Cohort</b>",
+            f"<b>{LATEST_YEAR} Actual NSS above Required NSS per Foundation Pupil by Cohort</b>",
             "Box plots show the spread of spending above requirements within each size cohort. Positive values indicate spending above the state-required minimum; negative values indicate spending below required levels. The median line shows typical local effort for each cohort.",
             "__COHORT_NSS_TABLE__",
             "",
-            "<b>2009-2024 Actual NSS above Required NSS Growth Rates by Cohort</b>",
+            f"<b>{START_YEAR}-{LATEST_YEAR} Actual NSS above Required NSS Growth Rates by Cohort</b>",
             "These box plots reveal whether districts of similar size increased local effort at similar rates (narrow boxes) or diverged over time (wide boxes). Comparing medians shows which cohorts increased spending above requirements faster or slower.",
             "__COHORT_NSS_CAGR_TABLE__"
         ])
@@ -3827,13 +3831,13 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         district_list = cohorts[context]
         title_w, epp_w, lines_sum, lines_mean = prepare_western_epp_lines(df, reg, bucket, c70, districts=district_list)
         if not epp_w.empty:
-            start_year = latest_year - 15  # 15 years before latest for START_DOLLAR
+            start_year = latest_year - WINDOW_YEARS  # 15 years before latest for START_DOLLAR
             for sc in epp_w.columns:
                 s=epp_w[sc]
                 base_map[sc]={
                     "5": compute_cagr_last(s,5),
                     "10":compute_cagr_last(s,10),
-                    "15":compute_cagr_last(s,15),
+                    "15":compute_cagr_last(s, WINDOW_YEARS),
                     "DOLLAR": (float(s.loc[latest_year]) if latest_year in s.index else float("nan")),
                     "START_DOLLAR": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
                 }
@@ -3843,7 +3847,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             base_map["Total"] = {
                 "5": compute_cagr_last(total_series, 5),
                 "10": compute_cagr_last(total_series, 10),
-                "15": compute_cagr_last(total_series, 15),
+                "15": compute_cagr_last(total_series, WINDOW_YEARS),
                 "DOLLAR": (float(total_series.loc[latest_year]) if latest_year in total_series.index else float("nan")),
                 "START_DOLLAR": (float(total_series.loc[start_year]) if start_year in total_series.index else float("nan")),
             }
@@ -3856,7 +3860,7 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
                     fte_base_map[label] = {
                         "5": compute_cagr_last(s, 5),
                         "10": compute_cagr_last(s, 10),
-                        "15": compute_cagr_last(s, 15),
+                        "15": compute_cagr_last(s, WINDOW_YEARS),
                         "FTE": (float(s.loc[latest_fte_year]) if latest_fte_year in s.index else float("nan")),
                         "START_FTE": (float(s.loc[start_year]) if start_year in s.index else float("nan")),
                     }
@@ -4117,11 +4121,9 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
         pages.append(page_dict)
 
     # ===== APPENDIX D: MAPS FROM PREVIOUS YEARS =====
-    # Multi-year choropleth maps (2019, 2014, 2009)
-
-    # Add Appendix D pages for years 2019, 2014, 2009
+    # Multi-year choropleth maps (YEAR_5, YEAR_10, START_YEAR: 2019, 2014, 2009 when latest is 2024)
     # NO EXPLANATORY TEXT - just maps with subtitles
-    for idx, year in enumerate([2019, 2014, 2009]):
+    for idx, year in enumerate([YEAR_5, YEAR_10, START_YEAR]):
         # SCATTERPLOTS REMOVED - Only choropleth maps in Appendix D
 
         # Add choropleth map for this year - First page gets title, others get "continued"
@@ -4157,18 +4159,10 @@ def build_page_dicts(df: pd.DataFrame, reg: pd.DataFrame, c70: pd.DataFrame, app
             group="appendix_d"
         ))
 
-        # Add CAGR comparison map for this year (only if not 2009, the baseline year)
-        if year != 2009:
-            # Determine period description based on year
-            if year == 2019:
-                period_desc = "10-year PPE growth (2009-2019)"
-                filename = "western_ma_cagr_comparison_2009_2019.png"
-            elif year == 2014:
-                period_desc = "5-year PPE growth (2009-2014)"
-                filename = "western_ma_cagr_comparison_2009_2014.png"
-            else:
-                period_desc = f"{year-2009}-year PPE growth (2009-{year})"
-                filename = f"western_ma_cagr_comparison_2009_{year}.png"
+        # Add CAGR comparison map for this year (not for START_YEAR, the baseline year)
+        if year != START_YEAR:
+            period_desc = f"{year - START_YEAR}-year PPE growth ({START_YEAR}-{year})"
+            filename = f"western_ma_cagr_comparison_{START_YEAR}_{year}.png"
 
             pages.append(dict(
                 title="Appendix D. Maps from previous years (continued)",
@@ -4202,14 +4196,14 @@ def build_toc_page(include_main_sections=True, include_appendices=True, pages=No
             ("    Total PPE comparison: Western MA enrollment cohorts and selected districts", "exec_summary_cohort_comparison", 1),
 
             ("Section 1: Western MA Traditional District Trends", "section1_summary", 0),
-            ("    Per-pupil expenditure and growth: 2009 PPE to 2024 PPE", "section1_ppe_overview", 1),
+            (f"    Per-pupil expenditure and growth: {START_YEAR} PPE to {LATEST_YEAR} PPE", "section1_ppe_overview", 1),
             ("    Year-over-Year (YoY) growth rates by district and cohort", "section1_yoy", 1),
-            ("    5-year and 15-year CAGR by district and cohort", "section1_cagr", 1),
-            ("    Distribution of 2024 enrollment and proposed cohort grouping", "section1_distribution", 1),
-            ("    Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries (2024)", "section1_scatter", 1),
-            ("    Geographic map showing district locations and enrollment cohorts (2024)", "section1_map", 1),
-            ("    Geographic map showing 2024 PPE vs enrollment cohort baseline", "section1_ppe_comparison", 1),
-            ("    Geographic map showing 15-year PPE growth (2009-2024) vs enrollment cohort baseline", "section1_cagr_comparison", 1),
+            (f"    5-year and {WINDOW_YEARS}-year CAGR by district and cohort", "section1_cagr", 1),
+            (f"    Distribution of {LATEST_YEAR} enrollment and proposed cohort grouping", "section1_distribution", 1),
+            (f"    Scatterplot of enrollment vs. per-pupil expenditure with quartile boundaries ({LATEST_YEAR})", "section1_scatter", 1),
+            (f"    Geographic map showing district locations and enrollment cohorts ({LATEST_YEAR})", "section1_map", 1),
+            (f"    Geographic map showing {LATEST_YEAR} PPE vs enrollment cohort baseline", "section1_ppe_comparison", 1),
+            (f"    Geographic map showing {WINDOW_YEARS}-year PPE growth ({START_YEAR}-{LATEST_YEAR}) vs enrollment cohort baseline", "section1_cagr_comparison", 1),
             ("    Statistical Associations between Enrollment and Per-Pupil Expenditures", "section1_statistical", 1),
 
             ("Section 2: Western MA Cohort Details", "section2_tiny", 0),
@@ -5093,7 +5087,7 @@ def build_pdf(pages: List[dict], out_path: Path):
         # Scatterplot district table: compact table with cohort colors
         if p.get("scatterplot_districts"):
             story.append(Spacer(0, 12))
-            page_year = p.get("year", 2024)  # Get year from page dict, default to 2024
+            page_year = p.get("year", LATEST_YEAR)  # Get year from page dict, default to LATEST_YEAR
             scatterplot_table = _build_scatterplot_table(p.get("scatterplot_districts"), doc.width, style_body, style_num, page_year)
             if scatterplot_table:
                 # Check for pending figure
@@ -5167,7 +5161,7 @@ def build_pdf(pages: List[dict], out_path: Path):
             # Add cohort info at bottom of cohort pages
             if p.get("is_cohort") and p.get("cohort_info_lines"):
                 story.append(Spacer(0, 12))
-                story.append(Paragraph("<b>Cohort Composition (FY2024):</b>", style_body))
+                story.append(Paragraph(f"<b>Cohort Composition (FY{LATEST_YEAR}):</b>", style_body))
                 story.append(Spacer(0, 6))
 
                 # Get cohort info text from page dict
@@ -5242,6 +5236,17 @@ def build_pdf(pages: List[dict], out_path: Path):
         if idx < len(pages)-1:
             story.append(PageBreak())
 
+    # A Spacer just before a PageBreak only pads the bottom of a page. When the page
+    # is already full it cannot fit, so it moves to a page of its own and leaves that
+    # page blank (seen on the FY2025 scatterplot page). Drop them.
+    cleaned = []
+    for item in story:
+        if isinstance(item, PageBreak):
+            while cleaned and isinstance(cleaned[-1], Spacer):
+                cleaned.pop()
+        cleaned.append(item)
+    story = cleaned
+
     doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
 
 # ---- Main ----
@@ -5300,12 +5305,12 @@ def main(appendices_only=False, sections=None):
     if appendices_only:
         if is_partial:
             print("[INFO] Building partial appendices (--sections filter active)")
-            pdfs_to_build.append(("appendices", appendix_pages, "WMPPE Appendices (DRAFT).pdf"))
+            pdfs_to_build.append(("appendices", appendix_pages, edition_pdf_name("WMPPE Appendices (DRAFT)")))
         else:
             print("[INFO] Building appendices only (--appendices-only flag)")
             toc_page = build_toc_page(include_main_sections=False, include_appendices=True, pages=appendix_pages)
             appendix_pages.insert(0, toc_page)
-            pdfs_to_build.append(("appendices", appendix_pages, "WMPPE Appendices.pdf"))
+            pdfs_to_build.append(("appendices", appendix_pages, edition_pdf_name("WMPPE Appendices")))
     else:
         if is_partial and "exec" in requested_groups:
             # Exec is part of the main report, so rebuild the full main PDF
@@ -5313,17 +5318,17 @@ def main(appendices_only=False, sections=None):
             all_main_pages = [p for p in all_pages if not p.get("section_id", "").startswith("appendix_")]
             toc_page = build_toc_page(include_main_sections=True, include_appendices=False, pages=all_pages)
             all_main_pages.insert(0, toc_page)
-            pdfs_to_build.append(("main", all_main_pages, "Western MA Per Pupil Expenditure Report.pdf"))
+            pdfs_to_build.append(("main", all_main_pages, edition_pdf_name("Western MA Per Pupil Expenditure Report")))
         elif is_partial:
             # Partial: no TOC, draft filename, may include both main and appendix pages
             all_filtered = main_pages + appendix_pages
             if all_filtered:
-                pdfs_to_build.append(("draft", all_filtered, "Western MA Per Pupil Expenditure Report (DRAFT).pdf"))
+                pdfs_to_build.append(("draft", all_filtered, edition_pdf_name("Western MA Per Pupil Expenditure Report (DRAFT)")))
         else:
             print("[INFO] Building main report only")
             toc_page = build_toc_page(include_main_sections=True, include_appendices=False, pages=all_pages)
             main_pages.insert(0, toc_page)
-            pdfs_to_build.append(("main", main_pages, "Western MA Per Pupil Expenditure Report.pdf"))
+            pdfs_to_build.append(("main", main_pages, edition_pdf_name("Western MA Per Pupil Expenditure Report")))
 
     # Build each PDF
     for pdf_name, pages, filename in pdfs_to_build:
@@ -5379,7 +5384,7 @@ def main(appendices_only=False, sections=None):
         if exec_pages:
             exec_excerpt_pages = prepare_exec_excerpt_pages(exec_pages)
 
-            exec_filename = "Western MA Per Pupil Expenditure Report - Executive Summary.pdf"
+            exec_filename = edition_pdf_name("Western MA Per Pupil Expenditure Report - Executive Summary")
             exec_pdf = OUTPUT_DIR / exec_filename
             print(f"\n[INFO] Generating Executive Summary excerpt PDF: {exec_filename}")
 

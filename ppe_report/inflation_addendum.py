@@ -13,11 +13,11 @@ fiscal-year averages, from update_inflation_data.py):
 - CPI-U U.S. city average: shown for reference.
 
 Usage:
-    python inflation_addendum.py                    # latest year in the data
-    python inflation_addendum.py --latest-year 2024 # the published report's window
+    python inflation_addendum.py                      # the current edition (LATEST_YEAR)
+    PPE_LATEST_YEAR=2024 python inflation_addendum.py # the first edition's window, in output/
 
-Outputs (in output/):
-    WMPPE Inflation Addendum.pdf
+Outputs (in the edition's output folder, OUTPUT_DIR):
+    WMPPE Inflation Addendum.pdf (or "... (FY2025 data).pdf" for later editions)
     inflation_indices_vs_ppe.png
     inflation_real_ppe_districts.png
     inflation_addendum_table.csv
@@ -41,13 +41,14 @@ from reportlab.lib.units import inch
 from reportlab.platypus import (Image, PageBreak, Paragraph, SimpleDocTemplate,
                                 Spacer, Table, TableStyle)
 
-from school_shared import (DISTRICTS_OF_INTEREST, OUTPUT_DIR, load_data,
+from school_shared import (DISTRICTS_OF_INTEREST, LATEST_YEAR, OUTPUT_DIR, START_YEAR, WINDOW_YEARS,
+                           edition_pdf_name, load_data,
                            get_western_cohort_districts_for_year,
                            weighted_epp_aggregation)
 
 DATA_DIR = Path("./data")
 INDEX_CSV = DATA_DIR / "inflation_indices.csv"
-PDF_NAME = "WMPPE Inflation Addendum.pdf"
+PDF_NAME = edition_pdf_name("WMPPE Inflation Addendum")
 
 INDEXES = {
     "cpi_u_northeast": "CPI-U Northeast",
@@ -88,18 +89,18 @@ def build_series(df, reg, latest):
 
 
 def build_table(series, idx, latest):
-    start = latest - 15
+    start = START_YEAR
     rows = []
     for name, s in series.items():
         if start not in s.index or latest not in s.index:
             continue
         row = {"group": name, "start_nominal": s[start], "latest_nominal": s[latest]}
-        for n in (15, 10, 5):
+        for n in (WINDOW_YEARS, 10, 5):
             row[f"nominal_{n}y"] = cagr(s[latest - n], s[latest], n)
         for key in INDEXES:
             ratio = idx.loc[latest, key] / idx.loc[start, key]
             row[f"start_real_{key}"] = s[start] * ratio  # start-year PPE in latest-year dollars
-            for n in (15, 10, 5):
+            for n in (WINDOW_YEARS, 10, 5):
                 i_ratio = idx.loc[latest, key] / idx.loc[latest - n, key]
                 row[f"real_{key}_{n}y"] = ((s[latest] / s[latest - n]) / i_ratio) ** (1 / n) - 1
             row[f"real_change_{key}"] = s[latest] / row[f"start_real_{key}"] - 1
@@ -108,7 +109,7 @@ def build_table(series, idx, latest):
 
 
 def plot_indexes(series, idx, latest, path):
-    start = latest - 15
+    start = START_YEAR
     years = list(range(start, latest + 1))
     fig, ax = plt.subplots(figsize=(10, 5.5))
     ppe = series["Western MA (all, excl. Springfield)"].reindex(years)
@@ -131,7 +132,7 @@ def plot_indexes(series, idx, latest, path):
 
 
 def plot_real_districts(series, idx, latest, path):
-    start = latest - 15
+    start = START_YEAR
     years = list(range(start, latest + 1))
     key = "cpi_u_northeast"
     fig, ax = plt.subplots(figsize=(10, 5.5))
@@ -165,7 +166,7 @@ def pct(v):
 
 
 def compose_pdf(table, idx, latest, sizes, out_pdf, fig1, fig2):
-    start = latest - 15
+    start = START_YEAR
     ss = getSampleStyleSheet()
     body = ParagraphStyle("body", parent=ss["BodyText"], fontSize=10, leading=14)
     small = ParagraphStyle("small", parent=body, fontSize=8, leading=10)
@@ -176,7 +177,7 @@ def compose_pdf(table, idx, latest, sizes, out_pdf, fig1, fig2):
     hdr_r = ParagraphStyle("hdr_r", parent=hdr, alignment=TA_RIGHT)
 
     infl = {k: idx.loc[latest, k] / idx.loc[start, k] - 1 for k in INDEXES}
-    infl_cagr = {k: cagr(idx.loc[start, k], idx.loc[latest, k], 15) for k in INDEXES}
+    infl_cagr = {k: cagr(idx.loc[start, k], idx.loc[latest, k], WINDOW_YEARS) for k in INDEXES}
     wm = table.set_index("group").loc["Western MA (all, excl. Springfield)"]
 
     story = [
@@ -192,9 +193,9 @@ def compose_pdf(table, idx, latest, sizes, out_pdf, fig1, fig2):
             f"restates the report's PPE levels and growth rates against both.", body),
         Spacer(1, 6),
         Paragraph(
-            f"Western MA PPE grew {wm['nominal_15y'] * 100:.1f}% a year in nominal terms. After "
-            f"Northeast consumer inflation, that is {wm['real_cpi_u_northeast_15y'] * 100:.1f}% a year; "
-            f"after state and local government inflation, {wm['real_sl_gov_deflator_15y'] * 100:.1f}% "
+            f"Western MA PPE grew {wm[f'nominal_{WINDOW_YEARS}y'] * 100:.1f}% a year in nominal terms. After "
+            f"Northeast consumer inflation, that is {wm[f'real_cpi_u_northeast_{WINDOW_YEARS}y'] * 100:.1f}% a year; "
+            f"after state and local government inflation, {wm[f'real_sl_gov_deflator_{WINDOW_YEARS}y'] * 100:.1f}% "
             f"a year.", body),
         Spacer(1, 10),
         Paragraph("Which price index", h2),
@@ -215,8 +216,8 @@ def compose_pdf(table, idx, latest, sizes, out_pdf, fig1, fig2):
     ]
 
     cols = ["Cohort/District", f"FY{start} $/pupil", f"FY{start} in FY{latest} $",
-            f"FY{latest} $/pupil", "Nominal 15y", "Real 15y (CPI-NE)",
-            "Real 15y (S&L defl.)", "Real 10y (CPI-NE)", "Real 5y (CPI-NE)"]
+            f"FY{latest} $/pupil", f"Nominal {WINDOW_YEARS}y", f"Real {WINDOW_YEARS}y (CPI-NE)",
+            f"Real {WINDOW_YEARS}y (S&L defl.)", "Real 10y (CPI-NE)", "Real 5y (CPI-NE)"]
     data = [[Paragraph(f"<b>{c}</b>", hdr if i == 0 else hdr_r) for i, c in enumerate(cols)]]
     for _, r in table.iterrows():
         label = r["group"]
@@ -226,9 +227,9 @@ def compose_pdf(table, idx, latest, sizes, out_pdf, fig1, fig2):
                      Paragraph(money(r["start_nominal"]), num),
                      Paragraph(money(r["start_real_cpi_u_northeast"]), num),
                      Paragraph(money(r["latest_nominal"]), num),
-                     Paragraph(pct(r["nominal_15y"]), num),
-                     Paragraph(pct(r["real_cpi_u_northeast_15y"]), num),
-                     Paragraph(pct(r["real_sl_gov_deflator_15y"]), num),
+                     Paragraph(pct(r[f"nominal_{WINDOW_YEARS}y"]), num),
+                     Paragraph(pct(r[f"real_cpi_u_northeast_{WINDOW_YEARS}y"]), num),
+                     Paragraph(pct(r[f"real_sl_gov_deflator_{WINDOW_YEARS}y"]), num),
                      Paragraph(pct(r["real_cpi_u_northeast_10y"]), num),
                      Paragraph(pct(r["real_cpi_u_northeast_5y"]), num)])
     t = Table(data, colWidths=[1.55 * inch] + [0.74 * inch] * 8, repeatRows=1)
@@ -263,12 +264,10 @@ def compose_pdf(table, idx, latest, sizes, out_pdf, fig1, fig2):
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--latest-year", type=int, default=None)
-    args = ap.parse_args()
+    argparse.ArgumentParser(description=__doc__.split("\n\n")[0]).parse_args()
 
     df, reg, c70 = load_data()
-    latest = args.latest_year or int(df["YEAR"].max())
+    latest = LATEST_YEAR
     df = df[df["YEAR"] <= latest].copy()
 
     idx = pd.read_csv(INDEX_CSV).set_index("fiscal_year")
@@ -286,7 +285,7 @@ def main():
     plot_real_districts(series, idx, latest, fig2)
     out_pdf = OUTPUT_DIR / PDF_NAME
     compose_pdf(table, idx, latest, sizes, out_pdf, fig1, fig2)
-    print(f"[Inflation addendum] FY{latest - 15}-FY{latest}: {out_pdf}")
+    print(f"[Inflation addendum] FY{START_YEAR}-FY{latest}: {out_pdf}")
 
 
 if __name__ == "__main__":

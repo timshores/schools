@@ -23,6 +23,7 @@ from school_shared import (
     get_western_cohort_districts,
     prepare_district_epp_lines,
     get_indistrict_fte_for_year,
+    LATEST_YEAR, START_YEAR, YEAR_10, YEAR_5, WINDOW_YEARS,
     OUTPUT_DIR
 )
 
@@ -40,9 +41,9 @@ def collect_all_district_metrics(df: pd.DataFrame, reg: pd.DataFrame) -> pd.Data
 
     Returns DataFrame with columns:
     - district
-    - ppe_2009, ppe_2024
+    - ppe_start, ppe_latest
     - cagr_15y, cagr_10y, cagr_5y
-    - enroll_2009, enroll_2024
+    - enroll_start, enroll_latest
     - enroll_cagr_15y, enroll_cagr_10y, enroll_cagr_5y
     """
     print("\n[Threshold Analysis] Collecting metrics for all districts...")
@@ -68,36 +69,36 @@ def collect_all_district_metrics(df: pd.DataFrame, reg: pd.DataFrame) -> pd.Data
             total_ppe = epp_pivot.sum(axis=1)  # Sum across all categories
 
             # PPE values
-            ppe_2009 = total_ppe.get(2009, np.nan)
-            ppe_2024 = total_ppe.get(2024, np.nan)
-            ppe_2014 = total_ppe.get(2014, np.nan)
-            ppe_2019 = total_ppe.get(2019, np.nan)
+            ppe_start = total_ppe.get(START_YEAR, np.nan)
+            ppe_latest = total_ppe.get(LATEST_YEAR, np.nan)
+            ppe_y10 = total_ppe.get(YEAR_10, np.nan)
+            ppe_y5 = total_ppe.get(YEAR_5, np.nan)
 
             # PPE CAGRs
-            cagr_15y = calculate_cagr(ppe_2009, ppe_2024, 15)
-            cagr_10y = calculate_cagr(ppe_2014, ppe_2024, 10)
-            cagr_5y = calculate_cagr(ppe_2019, ppe_2024, 5)
+            cagr_15y = calculate_cagr(ppe_start, ppe_latest, WINDOW_YEARS)
+            cagr_10y = calculate_cagr(ppe_y10, ppe_latest, 10)
+            cagr_5y = calculate_cagr(ppe_y5, ppe_latest, 5)
 
             # Enrollment values
-            enroll_2009 = get_indistrict_fte_for_year(df, dist, 2009)
-            enroll_2024 = get_indistrict_fte_for_year(df, dist, 2024)
-            enroll_2014 = get_indistrict_fte_for_year(df, dist, 2014)
-            enroll_2019 = get_indistrict_fte_for_year(df, dist, 2019)
+            enroll_start = get_indistrict_fte_for_year(df, dist, START_YEAR)
+            enroll_latest = get_indistrict_fte_for_year(df, dist, LATEST_YEAR)
+            enroll_y10 = get_indistrict_fte_for_year(df, dist, YEAR_10)
+            enroll_y5 = get_indistrict_fte_for_year(df, dist, YEAR_5)
 
             # Enrollment CAGRs
-            enroll_cagr_15y = calculate_cagr(enroll_2009, enroll_2024, 15)
-            enroll_cagr_10y = calculate_cagr(enroll_2014, enroll_2024, 10)
-            enroll_cagr_5y = calculate_cagr(enroll_2019, enroll_2024, 5)
+            enroll_cagr_15y = calculate_cagr(enroll_start, enroll_latest, WINDOW_YEARS)
+            enroll_cagr_10y = calculate_cagr(enroll_y10, enroll_latest, 10)
+            enroll_cagr_5y = calculate_cagr(enroll_y5, enroll_latest, 5)
 
             metrics.append({
                 'district': dist,
-                'ppe_2009': ppe_2009,
-                'ppe_2024': ppe_2024,
+                'ppe_start': ppe_start,
+                'ppe_latest': ppe_latest,
                 'cagr_15y': cagr_15y,
                 'cagr_10y': cagr_10y,
                 'cagr_5y': cagr_5y,
-                'enroll_2009': enroll_2009,
-                'enroll_2024': enroll_2024,
+                'enroll_start': enroll_start,
+                'enroll_latest': enroll_latest,
                 'enroll_cagr_15y': enroll_cagr_15y,
                 'enroll_cagr_10y': enroll_cagr_10y,
                 'enroll_cagr_5y': enroll_cagr_5y
@@ -119,8 +120,8 @@ def calculate_global_sds(metrics_df: pd.DataFrame) -> Dict[str, float]:
     sds = {}
 
     # PPE standard deviations
-    sds['ppe_2009_sd'] = metrics_df['ppe_2009'].std()
-    sds['ppe_2024_sd'] = metrics_df['ppe_2024'].std()
+    sds['ppe_start_sd'] = metrics_df['ppe_start'].std()
+    sds['ppe_latest_sd'] = metrics_df['ppe_latest'].std()
 
     # PPE CAGR standard deviations
     sds['cagr_15y_sd'] = metrics_df['cagr_15y'].std()
@@ -128,8 +129,8 @@ def calculate_global_sds(metrics_df: pd.DataFrame) -> Dict[str, float]:
     sds['cagr_5y_sd'] = metrics_df['cagr_5y'].std()
 
     # Enrollment standard deviations
-    sds['enroll_2009_sd'] = metrics_df['enroll_2009'].std()
-    sds['enroll_2024_sd'] = metrics_df['enroll_2024'].std()
+    sds['enroll_start_sd'] = metrics_df['enroll_start'].std()
+    sds['enroll_latest_sd'] = metrics_df['enroll_latest'].std()
 
     # Enrollment CAGR standard deviations
     sds['enroll_cagr_15y_sd'] = metrics_df['enroll_cagr_15y'].std()
@@ -137,13 +138,13 @@ def calculate_global_sds(metrics_df: pd.DataFrame) -> Dict[str, float]:
     sds['enroll_cagr_5y_sd'] = metrics_df['enroll_cagr_5y'].std()
 
     # Also calculate means for context
-    sds['ppe_2009_mean'] = metrics_df['ppe_2009'].mean()
-    sds['ppe_2024_mean'] = metrics_df['ppe_2024'].mean()
+    sds['ppe_start_mean'] = metrics_df['ppe_start'].mean()
+    sds['ppe_latest_mean'] = metrics_df['ppe_latest'].mean()
     sds['cagr_15y_mean'] = metrics_df['cagr_15y'].mean()
     sds['cagr_10y_mean'] = metrics_df['cagr_10y'].mean()
     sds['cagr_5y_mean'] = metrics_df['cagr_5y'].mean()
-    sds['enroll_2009_mean'] = metrics_df['enroll_2009'].mean()
-    sds['enroll_2024_mean'] = metrics_df['enroll_2024'].mean()
+    sds['enroll_start_mean'] = metrics_df['enroll_start'].mean()
+    sds['enroll_latest_mean'] = metrics_df['enroll_latest'].mean()
     sds['enroll_cagr_15y_mean'] = metrics_df['enroll_cagr_15y'].mean()
     sds['enroll_cagr_10y_mean'] = metrics_df['enroll_cagr_10y'].mean()
     sds['enroll_cagr_5y_mean'] = metrics_df['enroll_cagr_5y'].mean()
@@ -169,25 +170,25 @@ def calculate_threshold_options(sds: Dict[str, float]) -> pd.DataFrame:
 
     # PPE thresholds (as % of mean)
     for factor in sd_factors:
-        ppe_2009_threshold = (sds['ppe_2009_sd'] * factor / sds['ppe_2009_mean']) * 100
-        ppe_2024_threshold = (sds['ppe_2024_sd'] * factor / sds['ppe_2024_mean']) * 100
+        ppe_start_threshold = (sds['ppe_start_sd'] * factor / sds['ppe_start_mean']) * 100
+        ppe_latest_threshold = (sds['ppe_latest_sd'] * factor / sds['ppe_latest_mean']) * 100
 
         threshold_data.append({
             'SD_Factor': f"{factor} SD",
-            'Metric_Type': 'PPE 2009',
-            'SD_Value': sds['ppe_2009_sd'],
-            'Mean_Value': sds['ppe_2009_mean'],
-            'Threshold_Pct': ppe_2009_threshold,
-            'Threshold_Abs': sds['ppe_2009_sd'] * factor
+            'Metric_Type': f'PPE {START_YEAR}',
+            'SD_Value': sds['ppe_start_sd'],
+            'Mean_Value': sds['ppe_start_mean'],
+            'Threshold_Pct': ppe_start_threshold,
+            'Threshold_Abs': sds['ppe_start_sd'] * factor
         })
 
         threshold_data.append({
             'SD_Factor': f"{factor} SD",
-            'Metric_Type': 'PPE 2024',
-            'SD_Value': sds['ppe_2024_sd'],
-            'Mean_Value': sds['ppe_2024_mean'],
-            'Threshold_Pct': ppe_2024_threshold,
-            'Threshold_Abs': sds['ppe_2024_sd'] * factor
+            'Metric_Type': f'PPE {LATEST_YEAR}',
+            'SD_Value': sds['ppe_latest_sd'],
+            'Mean_Value': sds['ppe_latest_mean'],
+            'Threshold_Pct': ppe_latest_threshold,
+            'Threshold_Abs': sds['ppe_latest_sd'] * factor
         })
 
     # CAGR thresholds (as absolute pp)
@@ -210,25 +211,25 @@ def calculate_threshold_options(sds: Dict[str, float]) -> pd.DataFrame:
 
     # Enrollment thresholds (as % of mean)
     for factor in sd_factors:
-        enroll_2009_threshold = (sds['enroll_2009_sd'] * factor / sds['enroll_2009_mean']) * 100
-        enroll_2024_threshold = (sds['enroll_2024_sd'] * factor / sds['enroll_2024_mean']) * 100
+        enroll_start_threshold = (sds['enroll_start_sd'] * factor / sds['enroll_start_mean']) * 100
+        enroll_latest_threshold = (sds['enroll_latest_sd'] * factor / sds['enroll_latest_mean']) * 100
 
         threshold_data.append({
             'SD_Factor': f"{factor} SD",
-            'Metric_Type': 'Enrollment 2009',
-            'SD_Value': sds['enroll_2009_sd'],
-            'Mean_Value': sds['enroll_2009_mean'],
-            'Threshold_Pct': enroll_2009_threshold,
-            'Threshold_Abs': sds['enroll_2009_sd'] * factor
+            'Metric_Type': f'Enrollment {START_YEAR}',
+            'SD_Value': sds['enroll_start_sd'],
+            'Mean_Value': sds['enroll_start_mean'],
+            'Threshold_Pct': enroll_start_threshold,
+            'Threshold_Abs': sds['enroll_start_sd'] * factor
         })
 
         threshold_data.append({
             'SD_Factor': f"{factor} SD",
-            'Metric_Type': 'Enrollment 2024',
-            'SD_Value': sds['enroll_2024_sd'],
-            'Mean_Value': sds['enroll_2024_mean'],
-            'Threshold_Pct': enroll_2024_threshold,
-            'Threshold_Abs': sds['enroll_2024_sd'] * factor
+            'Metric_Type': f'Enrollment {LATEST_YEAR}',
+            'SD_Value': sds['enroll_latest_sd'],
+            'Mean_Value': sds['enroll_latest_mean'],
+            'Threshold_Pct': enroll_latest_threshold,
+            'Threshold_Abs': sds['enroll_latest_sd'] * factor
         })
 
     # Enrollment CAGR thresholds
@@ -306,8 +307,8 @@ def main():
     print("SUMMARY OF GLOBAL STANDARD DEVIATIONS")
     print("=" * 70)
     print("\nPPE Standard Deviations:")
-    print(f"  2009: ${sds['ppe_2009_sd']:,.2f} (mean: ${sds['ppe_2009_mean']:,.2f})")
-    print(f"  2024: ${sds['ppe_2024_sd']:,.2f} (mean: ${sds['ppe_2024_mean']:,.2f})")
+    print(f"  {START_YEAR}: ${sds['ppe_start_sd']:,.2f} (mean: ${sds['ppe_start_mean']:,.2f})")
+    print(f"  {LATEST_YEAR}: ${sds['ppe_latest_sd']:,.2f} (mean: ${sds['ppe_latest_mean']:,.2f})")
 
     print("\nPPE CAGR Standard Deviations:")
     print(f"  15-year: {sds['cagr_15y_sd']:.2f}pp (mean: {sds['cagr_15y_mean']:.2f}%)")
@@ -315,8 +316,8 @@ def main():
     print(f"  5-year:  {sds['cagr_5y_sd']:.2f}pp (mean: {sds['cagr_5y_mean']:.2f}%)")
 
     print("\nEnrollment Standard Deviations:")
-    print(f"  2009: {sds['enroll_2009_sd']:.1f} FTE (mean: {sds['enroll_2009_mean']:.1f})")
-    print(f"  2024: {sds['enroll_2024_sd']:.1f} FTE (mean: {sds['enroll_2024_mean']:.1f})")
+    print(f"  {START_YEAR}: {sds['enroll_start_sd']:.1f} FTE (mean: {sds['enroll_start_mean']:.1f})")
+    print(f"  {LATEST_YEAR}: {sds['enroll_latest_sd']:.1f} FTE (mean: {sds['enroll_latest_mean']:.1f})")
 
     print("\nEnrollment CAGR Standard Deviations:")
     print(f"  15-year: {sds['enroll_cagr_15y_sd']:.2f}pp (mean: {sds['enroll_cagr_15y_mean']:.2f}%)")

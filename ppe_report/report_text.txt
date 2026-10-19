@@ -85,7 +85,7 @@ https://www.repblais.org/ruralschools <br />
 https://www.ruralschoolsma.org/<br />
 https://go.boarddocs.com/ma/arps/Board.nsf/goto?open&id=DMQPEL64432C<br />
 <br />
-All data in this report comes from the Massachusetts Department of Elementary and Secondary Education (DESE). See <a href="https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf" color="blue">Appendix A</a> for detailed source information (https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf).
+All data in this report comes from the Massachusetts Department of Elementary and Secondary Education (DESE). See <a href="{APPENDICES_URL}" color="blue">Appendix A</a> for detailed source information ({APPENDICES_URL}).
 
 ================================================================================
 SECTION1_SUMMARY
@@ -97,15 +97,15 @@ This section provides a regional overview before diving into cohort-specific det
 
 ##H2 Contents
 
-• <b>Per-pupil expenditure and growth 2009-2024</b> compares 2009 to 2024 PPE for Western MA districts.<br />
-• <b>Year-over-Year (YoY) growth rates</b> shows the rate of PPE change from 2009-2024 for Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury, and their cohorts.<br />
-• <b>5-year and 15-year CAGR by district and cohort</b> shows how compound annual growth rate (CAGR) smooths out the volatility of YoY rates of change, making it easier to understand and compare change in PPE over time.<br />
-• <b>Distribution of 2024 enrollment and proposed cohort grouping</b> shows a histogram of Western MA districts by enrollment with cohorts determined by statistics visualized by the histogram.<br />
-• <b>Scatterplot analysis</b> shows the relationship between district enrollment and PPE for 2024, with a table of cohort members. <br />
-• <b>Maps</b> of district locations and 2024 enrollment cohorts, 2024 PPE vs enrollment cohort baseline, and PPE growth (2009-2024) vs enrollment cohort baseline.<br />
+• <b>Per-pupil expenditure and growth {START_YEAR}-{LATEST_YEAR}</b> compares {START_YEAR} to {LATEST_YEAR} PPE for Western MA districts.<br />
+• <b>Year-over-Year (YoY) growth rates</b> shows the rate of PPE change from {START_YEAR}-{LATEST_YEAR} for Amherst-Pelham, Amherst, Leverett, Pelham, Shutesbury, and their cohorts.<br />
+• <b>5-year and {WINDOW_YEARS}-year CAGR by district and cohort</b> shows how compound annual growth rate (CAGR) smooths out the volatility of YoY rates of change, making it easier to understand and compare change in PPE over time.<br />
+• <b>Distribution of {LATEST_YEAR} enrollment and proposed cohort grouping</b> shows a histogram of Western MA districts by enrollment with cohorts determined by statistics visualized by the histogram.<br />
+• <b>Scatterplot analysis</b> shows the relationship between district enrollment and PPE for {LATEST_YEAR}, with a table of cohort members. <br />
+• <b>Maps</b> of district locations and {LATEST_YEAR} enrollment cohorts, {LATEST_YEAR} PPE vs enrollment cohort baseline, and PPE growth ({START_YEAR}-{LATEST_YEAR}) vs enrollment cohort baseline.<br />
 • <b>Statistical associations</b> between enrollment and PPE.<br />
 
-All districts are grouped into enrollment cohorts based on 2024 in-district FTE using IQR (Interquartile Range) analysis. This grouping enables meaningful peer comparisons while acknowledging that enrollment size is just one factor influencing costs. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance—all of which shape costs and outcomes.
+All districts are grouped into enrollment cohorts based on {LATEST_YEAR} in-district FTE using IQR (Interquartile Range) analysis. This grouping enables meaningful peer comparisons while acknowledging that enrollment size is just one factor influencing costs. Districts in the same cohort can differ significantly in wealth, demographics, geography, facility age, and governance—all of which shape costs and outcomes.
 
 ================================================================================
 EXECUTIVE_SUMMARY_COHORT_EXPLANATION
@@ -230,13 +230,13 @@ District pages include tables comparing each district's per-pupil expenditures (
 
 <b>Two independent tests determine shading:</b>
 
-<b>Test 1 - Dollar Amount (2024 $/pupil column):</b>
-Compares the district's 2024 PPE to the baseline's 2024 PPE using relative difference: (District − Baseline) / Baseline
+<b>Test 1 - Dollar Amount ({LATEST_YEAR} $/pupil column):</b>
+Compares the district's {LATEST_YEAR} PPE to the baseline's {LATEST_YEAR} PPE using relative difference: (District − Baseline) / Baseline
 • <b>Orange shading:</b> District spending is ≥{DOLLAR_THRESHOLD_PERCENT}% higher than baseline
 • <b>Blue shading:</b> District spending is ≥{DOLLAR_THRESHOLD_PERCENT}% lower than baseline
 • <b>No shading:</b> Difference is less than {DOLLAR_THRESHOLD_PERCENT}%
 
-<b>Test 2 - CAGR (5y, 10y, 15y columns):</b>
+<b>Test 2 - CAGR (5y, 10y, {WINDOW_YEARS}y columns):</b>
 Compares the district's CAGR to the baseline's CAGR using absolute percentage point difference: District_CAGR − Baseline_CAGR
 • <b>Orange shading:</b> District CAGR is ≥{CAGR_THRESHOLD_PP} percentage points higher than baseline
 • <b>Blue shading:</b> District CAGR is ≥{CAGR_THRESHOLD_PP} percentage points lower than baseline
@@ -246,8 +246,8 @@ Compares the district's CAGR to the baseline's CAGR using absolute percentage po
 • PPE/Enrollment bins: {DOLLAR_BIN_1}% (lightest), {DOLLAR_BIN_2}%, {DOLLAR_BIN_3}%, {DOLLAR_BIN_4}%+ (darkest)
 • CAGR bins: {CAGR_BIN_1}pp (lightest), {CAGR_BIN_2}pp, {CAGR_BIN_3}pp, {CAGR_BIN_4}pp+ (darkest)
 
-<b>Key insight:</b> The tests are independent. An orange 2024 $/pupil with unshaded CAGRs typically means:
-• The district started at a higher baseline 15 years ago, AND
+<b>Key insight:</b> The tests are independent. An orange {LATEST_YEAR} $/pupil with unshaded CAGRs typically means:
+• The district started at a higher baseline {WINDOW_YEARS} years ago, AND
 • The district has been growing at roughly the same rate as peers
 • Therefore it remains higher in absolute dollars but isn't growing faster
 
@@ -310,7 +310,7 @@ METHODOLOGY_DATA_SOURCES
 
 <b>District Expenditures by Spending Category:</b>
 Source: Massachusetts Department of Elementary and Secondary Education (DESE)
-Last updated: August 12, 2025
+Last updated: {DESE_LAST_UPDATED}
 URL: https://educationtocareer.data.mass.gov/Finance-and-Budget/District-Expenditures-by-Spending-Category/er3w-dyti/
 
 This dataset provides detailed expenditure data by category for all Massachusetts school districts, including:
@@ -340,7 +340,7 @@ Source: DESE district profiles and regional service mappings
 PPE_OVERVIEW_EXPLANATION
 ================================================================================
 
-Each bar represents a district's per-pupil expenditures (PPE) in 2024, with growth from 2009 shown by a darker color. Districts are sorted by 2024 spending. While the spread is visible, this alone is nearly meaningless: we don't know to what degree the difference between $15K and $30K per student reflects demographic change, education quality, cost-of-living adjustments, special education demand, economies of scale, administrative decisions, ballot box decisions, or legacy cost structures. The next page zeroes in on rates of change in selected districts.
+Each bar represents a district's per-pupil expenditures (PPE) in {LATEST_YEAR}, with growth from {START_YEAR} shown by a darker color. Districts are sorted by {LATEST_YEAR} spending. While the spread is visible, this alone is nearly meaningless: we don't know to what degree the difference between $15K and $30K per student reflects demographic change, education quality, cost-of-living adjustments, special education demand, economies of scale, administrative decisions, ballot box decisions, or legacy cost structures. The next page zeroes in on rates of change in selected districts.
 
 ================================================================================
 SECTION1_CHOROPLETH_EXPLANATION
@@ -357,7 +357,7 @@ https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ec
 SECTION1_PPE_COMPARISON_EXPLANATION
 ================================================================================
 
-This map shows each district's 2024 per-pupil spending compared to its enrollment cohort baseline (weighted average of all Western MA districts in that cohort). This helps identify which districts are operating above or below the typical spending level for their enrollment size, accounting for the well-documented relationship between district size and per-pupil costs.
+This map shows each district's {LATEST_YEAR} per-pupil spending compared to its enrollment cohort baseline (weighted average of all Western MA districts in that cohort). This helps identify which districts are operating above or below the typical spending level for their enrollment size, accounting for the well-documented relationship between district size and per-pupil costs.
 
 <b>Color coding:</b> Dark green indicates districts spending more than 10% below their cohort average (most cost-efficient). Light green shows 0-10% below average. Light red shows 0-10% above average. Dark red indicates districts spending more than 10% above their cohort average (highest relative cost).
 
@@ -368,7 +368,7 @@ https://massgis.maps.arcgis.com/apps/webappviewer/index.html?id=5b652451857f41ec
 SECTION1_CAGR_COMPARISON_EXPLANATION
 ================================================================================
 
-This map shows each district's 15-year spending growth rate (CAGR, 2009-2024) compared to its enrollment cohort baseline growth rate. This helps identify which districts experienced faster or slower spending growth than similar-sized districts, revealing local policy decisions and cost pressures beyond typical enrollment cohort trends.
+This map shows each district's {WINDOW_YEARS}-year spending growth rate (CAGR, {START_YEAR}-{LATEST_YEAR}) compared to its enrollment cohort baseline growth rate. This helps identify which districts experienced faster or slower spending growth than similar-sized districts, revealing local policy decisions and cost pressures beyond typical enrollment cohort trends.
 
 <b>Color coding:</b> Dark blue indicates districts with growth more than 0.5 percentage points slower than their cohort average. Light blue shows 0-0.5 pp slower. Light orange shows 0-0.5 pp faster. Dark orange indicates districts with growth more than 0.5 pp faster than their cohort average.
 
@@ -382,18 +382,18 @@ PPE_STATISTICAL_ASSOCIATIONS
 
 ##H1 District Size: A Factor, Not the Factor
 
-The five-number summaries and box plots below show two critical dimensions: where districts are now (2024 PPE) and how they got there (2009-2024 PPE growth rates). Box plots show the spread of current spending within each size cohort. Wide boxes indicate greater spending variation; narrow boxes suggest similar spending patterns. The median line shows typical spending for each cohort.
+The five-number summaries and box plots below show two critical dimensions: where districts are now ({LATEST_YEAR} PPE) and how they got there ({START_YEAR}-{LATEST_YEAR} PPE growth rates). Box plots show the spread of current spending within each size cohort. Wide boxes indicate greater spending variation; narrow boxes suggest similar spending patterns. The median line shows typical spending for each cohort.
 
 ##H2 Key finding
 
 Size doesn't tell us much: Enrollment cohort membership explains only 22% of spending variation.
 
-##H3 2024 PPE by cohort
+##H3 {LATEST_YEAR} PPE by cohort
 
 __COHORT_PPE_TABLE__
 <br />
 
-##H3 2009-2024 PPE growth rates by cohort
+##H3 {START_YEAR}-{LATEST_YEAR} PPE growth rates by cohort
 
 __COHORT_CAGR_TABLE__
 
@@ -408,18 +408,18 @@ CH70_STATISTICAL_ASSOCIATIONS
 
 ##H1 State Aid Doesn't Equalize
 
-This section examines the distribution of Chapter 70 state aid (per foundation pupil) across Western Massachusetts traditional districts organized by enrollment size. The five-number summaries below show two dimensions: current aid levels (2024 Ch70 Aid) and how they grew over time (2009-2024 growth rates).
+This section examines the distribution of Chapter 70 state aid (per foundation pupil) across Western Massachusetts traditional districts organized by enrollment size. The five-number summaries below show two dimensions: current aid levels ({LATEST_YEAR} Ch70 Aid) and how they grew over time ({START_YEAR}-{LATEST_YEAR} growth rates).
 
 ##H2 Key finding
 
 Chapter 70 aid shows a pattern: Medium and Large cohorts receive comparable or higher per-pupil state aid than Tiny districts. Despite this, smaller districts still have higher total PPE — a difference that may be caused by state aid formulas that don't offset enrollment-based cost differences.
 
-##H3 2024 Chapter 70 aid per foundation pupil by cohort
+##H3 {LATEST_YEAR} Chapter 70 aid per foundation pupil by cohort
 
 __COHORT_CH70_TABLE__
 <br />
 
-##H3 2009-2024 Chapter 70 Aid growth rates per by cohort
+##H3 {START_YEAR}-{LATEST_YEAR} Chapter 70 Aid growth rates per by cohort
 
 __COHORT_CH70_CAGR_TABLE__
 <br />
@@ -434,12 +434,12 @@ NSS_STATISTICAL_ASSOCIATIONS
 
 The widest variation appears in discretionary local spending above state requirements. Within the Tiny cohort alone, local effort ranges from $1,275 to $34,082 per pupil above required minimums. This suggests local wealth and priorities — not enrollment — drive spending variation.
 
-##H3 2024 Actual NSS above Required NSS per foundation pupil by cohort
+##H3 {LATEST_YEAR} Actual NSS above Required NSS per foundation pupil by cohort
 
 __COHORT_NSS_TABLE__
 <br />
 
-##H3 2009-2024 Actual NSS above Required NSS growth rates by cohort
+##H3 {START_YEAR}-{LATEST_YEAR} Actual NSS above Required NSS growth rates by cohort
 
 __COHORT_NSS_CAGR_TABLE__
 <br />
@@ -456,21 +456,21 @@ Amherst-Pelham exemplifies this: 24% above cohort in 2009, growing slower than p
 SECTION1_YOY_EXPLANATION
 ================================================================================
 
-These plots show year-over-year (YoY) growth rates in per-pupil expenditure (PPE) for districts of interest and their enrollment cohorts. Thicker lines represent cohort aggregates, thinner lines show individual districts. Cohort determination is detailed in <a href="https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf" color="blue">Appendix A</a>.<sup>1</sup> While patterns emerge, no clear, actionable signal appears across all districts and cohorts over the 2009-2024 period. On the next page, we'll see how a compound growth calculation makes it easier to see similarities and differences between districts.
+These plots show year-over-year (YoY) growth rates in per-pupil expenditure (PPE) for districts of interest and their enrollment cohorts. Thicker lines represent cohort aggregates, thinner lines show individual districts. Cohort determination is detailed in <a href="{APPENDICES_URL}" color="blue">Appendix A</a>.<sup>1</sup> While patterns emerge, no clear, actionable signal appears across all districts and cohorts over the 2009-2024 period. On the next page, we'll see how a compound growth calculation makes it easier to see similarities and differences between districts.
 <br /><br />
-1. https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf
+1. {APPENDICES_URL}
 
 ================================================================================
 SECTION1_CAGR_EXPLANATION
 ================================================================================
 
-Compound annual growth rates (CAGR) smooth out YoY volatility to reveal long-term trends. Below, districts are color-coded by enrollment cohort (blues for Tiny, golds for Medium), with white diagonal lines marking cohort baselines. Comparing three 5-year periods (2009-2014, 2014-2019, 2019-2024) shows how growth rates have shifted over time. The second chart displays overall 15-year CAGR from 2009 to 2024.
+Compound annual growth rates (CAGR) smooth out YoY volatility to reveal long-term trends. Below, districts are color-coded by enrollment cohort (blues for Tiny, golds for Medium), with white diagonal lines marking cohort baselines. Comparing three 5-year periods ({YEAR_15}-{YEAR_10}, {YEAR_10}-{YEAR_5}, {YEAR_5}-{LATEST_YEAR}) shows how growth rates have shifted over time. The second chart displays overall {WINDOW_YEARS}-year CAGR from {START_YEAR} to {LATEST_YEAR}.
 
 ================================================================================
 SECTION1_DISTRIBUTION_EXPLANATION
 ================================================================================
 
-District enrollment cohorts need clear boundaries. To avoid arbitrary cutoffs, this approach uses the natural spread of enrollments. The histogram (top) shows a right-skewed distribution of 2024 enrollments with a long tail of larger districts. Based on interquartile range analysis, districts are grouped into four cohorts (bottom): Tiny (0-200 FTE), Small (201-800 FTE), Medium (801-1600 FTE), and Large (1601-10,000 FTE). Springfield, with an in-district enrollment of 23,723 in 2024, is omitted as an outlier. These cohorts enable comparison by scale to discover financial norms, but are not meant to imply what spending should or should not be for schools of different sizes.
+District enrollment cohorts need clear boundaries. To avoid arbitrary cutoffs, this approach uses the natural spread of enrollments. The histogram (top) shows a right-skewed distribution of {LATEST_YEAR} enrollments with a long tail of larger districts. Based on interquartile range analysis, districts are grouped into four cohorts (bottom): Tiny (0-200 FTE), Small (201-800 FTE), Medium (801-1600 FTE), and Large (1601-10,000 FTE). Springfield, with an in-district enrollment of 23,723 in 2024, is omitted as an outlier. These cohorts enable comparison by scale to discover financial norms, but are not meant to imply what spending should or should not be for schools of different sizes.
 <br /><br />
 The next page presents each district's enrollment and PPE in both scatterplot and reference table format.
 
@@ -496,8 +496,8 @@ SECTION3_SUMMARY
 
 • Total PPE breakdown by <b>expenditure category</b> with shaded comparison to cohort baseline<br />
 • <b>Chapter 70 aid</b> and <b>Net School Spending</b> breakdown per pupil with shaded comparison to cohort baseline<br />
-• <b>CAGR over 5, 10, and 15-year periods</b> with shaded comparison to cohort baseline<br />
+• <b>CAGR over 5, 10, and {WINDOW_YEARS}-year periods</b> with shaded comparison to cohort baseline<br />
 
 These district-level pages enable direct comparison between individual district spending patterns and their respective cohorts. Note that although this section focuses on the five selected districts and Western MA, the same visualizations can be produced for other MA districts and regions.
 
-For detailed methodology, see <b><a href="https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf" color="blue">Appendix A: Data Sources & Calculation Methodology</a></b> (https://github.com/timshores/schools/blob/main/ppe_report/output/WMPPE%20Appendices.pdf).
+For detailed methodology, see <b><a href="{APPENDICES_URL}" color="blue">Appendix A: Data Sources & Calculation Methodology</a></b> ({APPENDICES_URL}).

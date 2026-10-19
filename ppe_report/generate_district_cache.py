@@ -23,7 +23,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from school_shared import load_data
+from school_shared import load_data, LATEST_YEAR
 from district_cache import ensure_all_districts_cached, ensure_cache_dirs, get_all_districts
 
 
@@ -130,7 +130,7 @@ def generate_cohort_cache(df, reg, c70):
     print(f"  Loaded {len(lines_data)} enrollment rows")
     print(f"  Loaded {len(nss_data)} NSS rows")
 
-    # Years to process (2009-2024)
+    # Years to process (every year in the data)
     years = sorted(epp_data['YEAR'].unique())
     print(f"\n[2/4] Processing {len(years)} years: {min(years)}-{max(years)}")
 
@@ -145,7 +145,7 @@ def generate_cohort_cache(df, reg, c70):
         cohort_districts_full = get_western_cohort_districts_for_year(df, reg, year)
 
         # Debug: show cohort keys
-        if year == 2024:
+        if year == LATEST_YEAR:
             print(f"    DEBUG: Cohort keys for {year}: {list(cohort_districts_full.keys())}")
 
         # Process each cohort
@@ -161,7 +161,7 @@ def generate_cohort_cache(df, reg, c70):
                 continue
 
             # Debug: show matched cohorts
-            if year == 2024:
+            if year == LATEST_YEAR:
                 print(f"    DEBUG: Matched cohort '{cohort_name}' from '{full_cohort_name}' with {len(district_list)} districts")
                 if cohort_name == 'Tiny':
                     print(f"      DEBUG: First 3 Tiny districts: {district_list[:3]}")
@@ -174,7 +174,7 @@ def generate_cohort_cache(df, reg, c70):
                 # Get expenditure data
                 epp_row = epp_data[(epp_data['YEAR'] == year) & (epp_data['District'] == district_proper)]
                 if epp_row.empty:
-                    if year == 2024 and cohort_name == 'Tiny':
+                    if year == LATEST_YEAR and cohort_name == 'Tiny':
                         print(f"      DEBUG: No EPP data for district '{district}' in {year}")
                     continue
 

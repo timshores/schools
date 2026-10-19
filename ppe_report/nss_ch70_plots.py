@@ -22,6 +22,7 @@ from school_shared import (
     OUTPUT_DIR,
     ENROLL_KEYS,
     FTE_LINE_COLORS,
+    LATEST_YEAR, START_YEAR, WINDOW_YEARS,
 )
 
 # Version stamp
@@ -92,11 +93,11 @@ def plot_nss_ch70(
         print(f"[SKIP] No NSS/Ch70 data for {out_path}")
         return
 
-    # Filter to 2009-2025 for plots (tables will use 2010-2025)
+    # Filter to the analysis window for plots (matches the tables)
     all_years = nss_pivot.index.tolist()
-    years = [yr for yr in all_years if 2009 <= yr <= 2025]
+    years = [yr for yr in all_years if START_YEAR <= yr <= LATEST_YEAR]
     if not years:
-        print(f"[SKIP] No data in 2009-2025 range for {out_path}")
+        print(f"[SKIP] No data in {START_YEAR}-{LATEST_YEAR} range for {out_path}")
         return
     nss_pivot = nss_pivot.loc[years]
 
@@ -167,8 +168,8 @@ def plot_nss_ch70(
         axL.tick_params(axis='y', labelsize=14, pad=12)  # Add space between labels and donut dots
 
         # Check if data exceeds upper limit and extend with faded ticks if needed
-        # Only add faded overflow range if EARLY years (2009-2011) exceed the cohort bound
-        early_years = [yr for yr in years if 2009 <= yr <= 2011]
+        # Only add faded overflow range if EARLY years (first three of the window) exceed the cohort bound
+        early_years = [yr for yr in years if START_YEAR <= yr <= START_YEAR + 2]
         early_enrollment_vals = foundation_enrollment.reindex(early_years).dropna()
         max_early_enrollment = float(early_enrollment_vals.max()) if not early_enrollment_vals.empty else 0
 
@@ -343,7 +344,7 @@ def build_nss_category_data(nss_pivot: pd.DataFrame, latest_year: int) -> tuple:
 
     # Top to bottom for display (reverse of stack order)
     top_bottom = list(reversed(NSS_CH70_STACK_ORDER))
-    start_year = latest_year - 15  # 15 years before latest
+    start_year = latest_year - WINDOW_YEARS  # long-window start (2009)
 
     cat_rows = []
     cat_start_map = {}
@@ -358,7 +359,7 @@ def build_nss_category_data(nss_pivot: pd.DataFrame, latest_year: int) -> tuple:
 
         c5 = compute_cagr_last(nss_pivot[sc], 5)
         c10 = compute_cagr_last(nss_pivot[sc], 10)
-        c15 = compute_cagr_last(nss_pivot[sc], 15)
+        c15 = compute_cagr_last(nss_pivot[sc], WINDOW_YEARS)
 
         cat_rows.append((
             sc,
@@ -379,7 +380,7 @@ def build_nss_category_data(nss_pivot: pd.DataFrame, latest_year: int) -> tuple:
     cat_total = (
         "Total (Actual NSS)",
         f"${start_total:,.0f}",
-        fmt_pct(compute_cagr_last(total_series, 15)),
+        fmt_pct(compute_cagr_last(total_series, WINDOW_YEARS)),
         fmt_pct(compute_cagr_last(total_series, 10)),
         fmt_pct(compute_cagr_last(total_series, 5)),
         f"${latest_total:,.0f}"

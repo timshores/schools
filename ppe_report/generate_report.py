@@ -191,18 +191,21 @@ def main():
     else:
         print("Status: SUCCESS")
         print("\nGenerated files:")
+        from school_shared import OUTPUT_DIR, edition_pdf_name
+        main_pdf = OUTPUT_DIR / edition_pdf_name("Western MA Per Pupil Expenditure Report")
+        exec_pdf = OUTPUT_DIR / edition_pdf_name("Western MA Per Pupil Expenditure Report - Executive Summary")
         if args.sections and "exec" in args.sections:
-            print("  - Main PDF: output/Western MA Per Pupil Expenditure Report.pdf")
-            print("  - Executive Summary excerpt: output/Western MA Per Pupil Expenditure Report - Executive Summary.pdf")
+            print(f"  - Main PDF: {main_pdf}")
+            print(f"  - Executive Summary excerpt: {exec_pdf}")
         elif args.sections:
-            print("  - DRAFT PDF (partial render) in output/ directory")
+            print(f"  - DRAFT PDF (partial render) in {OUTPUT_DIR}/")
         elif args.appendices_only:
-            print("  - Appendices PDF: output/WMPPE Appendices.pdf")
+            print(f"  - Appendices PDF: {OUTPUT_DIR / edition_pdf_name('WMPPE Appendices')}")
         else:
             if not args.pdf_only:
-                print("  - PNG plots in output/ directory")
-            print("  - Main PDF: output/Western MA Per Pupil Expenditure Report.pdf")
-            print("  - Executive Summary excerpt: output/Western MA Per Pupil Expenditure Report - Executive Summary.pdf")
+                print(f"  - PNG plots in {OUTPUT_DIR}/")
+            print(f"  - Main PDF: {main_pdf}")
+            print(f"  - Executive Summary excerpt: {exec_pdf}")
         print("\n[OK] Report generation complete!")
 
 
