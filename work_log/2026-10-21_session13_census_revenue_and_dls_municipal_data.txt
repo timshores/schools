@@ -292,3 +292,31 @@ live site pick it up; footprint?; CSVs of source data with links to the sources)
      to main, since it carries the unreviewed session 12 FY2025 report work).
    - mywebsite: massppe fast-forwarded into main and pushed; GitHub Actions
      "Deploy to Namecheap" succeeded; /massppe and all CSVs return 200 live.
+
+--------------------------------------------------------------------------------
+Session 13, continued: merge to main, new URL, line toggles in the legends
+(Tim: merge everything into main; URL https://timshores.com/mass-school-spending/;
+remove the line checkboxes and make the legend lines clickable on each plot)
+--------------------------------------------------------------------------------
+
+14. schools: fy2025-refresh merged into main (8534f47). main had two commits
+    the branch lacked, the FY2024-edition fixes ("How this report was made",
+    em dash spacing, the leftover authoring note), which the branch had made
+    separately: the report PDFs were byte-identical on both sides. The one
+    conflict (the cohort sentence in report_text.txt) kept the branch's
+    version, which has main's em dash and the {LATEST_YEAR}/{COHORT_YEAR}
+    placeholders. fy2025-refresh moved to the same commit.
+
+15. New address: /mass-school-spending/ (page and CSVs moved; the export
+    writes CSVs to public/mass-school-spending/data/). /massppe/ is now a
+    noindex redirect that keeps ?d= and ?view= selections (JavaScript
+    location.replace, meta refresh fallback). Internal folders keep the short
+    name (src/lib/massppe, src/data/massppe).
+
+16. Chart lines: the "Chart lines" checkboxes are gone (and their trend= /
+    cline= URL parameters). Each stacked chart's legend lists its trend and
+    comparison lines as buttons that hide and show them on that chart only;
+    a hidden line stays in the legend, faded and struck through. Hidden lines
+    persist across districts and towns, like the legend isolation.
+    Verified in Chromium: per-chart independence, focus kept on the button,
+    redirect with a selection, CSV links at the new path; no console errors.

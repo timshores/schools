@@ -1,5 +1,5 @@
 """
-Export the data behind the interactive explorer at timshores.com/massppe.
+Export the data behind the interactive explorer at timshores.com/mass-school-spending.
 
 One JSON file with every Western MA traditional district in the report, each
 cohort aggregate, and the Western MA aggregate, FY START_YEAR..LATEST_YEAR:
@@ -18,7 +18,7 @@ Aggregates pool their regional members, weighted by in-district FTE.
 Writes into a copy of the website (github.com/timshores/mywebsite): the JSON to
 src/data/massppe/, where the page imports it, so it ships as compressed, hashed
 JavaScript chunks (the host compresses JavaScript but not JSON); the CSVs of
-source data to public/massppe/data/, as downloads.
+source data to public/mass-school-spending/data/, as downloads.
 
     python export_explorer_data.py ../../mywebsite
 """
@@ -484,7 +484,7 @@ def main(site: Path):
               "update_dese_data.py); no town view")
 
     json_dir = site / "src" / "data" / "massppe"
-    csv_dir = site / "public" / "massppe" / "data"
+    csv_dir = site / "public" / "mass-school-spending" / "data"
     json_dir.mkdir(parents=True, exist_ok=True)
     csv_dir.mkdir(parents=True, exist_ok=True)
     out_path = json_dir / "explorer.json"
