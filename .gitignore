@@ -41,3 +41,6 @@ key.pub
 id_rsa
 id_ed25519
 .ssh/
+
+# Census F-33 national files (~10 MB a year); update_census_data.py re-downloads them
+ppe_report/data/census_raw/

@@ -8,8 +8,11 @@ hand-built Excel workbook.
 2. Chapter 70 District Profiles (DESE profile.xlsx, DataC70 sheet), written to
    data/dese_c70_profile.csv in the column layout of the workbook's
    "profile_DataC70" sheet.
+3. For the explorer's town view only: the LATEST_YEAR Chapter 70 summary for
+   regional districts (member towns and each town's required contribution),
+   written to data/dese_c70_regional_members.csv.
 
-school_shared.load_data() prefers these CSVs when they exist. After running
+school_shared.load_data() prefers the first two CSVs when they exist. After running
 this script, rebuild the cache:
 
     python update_dese_data.py
@@ -27,6 +30,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from school_shared import LATEST_YEAR
+
 DATA_DIR = Path("./data")
 EXPEND_URL = (
     "https://educationtocareer.data.mass.gov/resource/er3w-dyti.csv"
@@ -42,6 +47,8 @@ C70_SOURCE = (
     "Chapter 70 District Profiles: "
     "https://www.doe.mass.edu/finance/chapter70/default.html"
 )
+REG_MEMBERS_URL = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}-reg.xlsx"
+REG_MEMBERS_OUT = DATA_DIR / "dese_c70_regional_members.csv"
 EXPEND_OUT = DATA_DIR / "dese_expenditures.csv"
 C70_XLSX = DATA_DIR / "dese_c70_profile.xlsx"
 C70_OUT = DATA_DIR / "dese_c70_profile.csv"
@@ -174,12 +181,39 @@ def warn_on_jumps(out: pd.DataFrame, min_enrollment: int = 50) -> None:
         print("  Required NSS per pupil: no implausible jumps")
 
 
+def refresh_regional_members(fy: int) -> None:
+    """Each regional district's member towns and their required local contributions,
+    from that year's Chapter 70 summary chart for regional districts. DESE's town IDs
+    are not DOR codes (they sort "North Adams" and "Northampton" differently), so the
+    explorer joins towns by name."""
+    path = DATA_DIR / f"dese_c70_regional_fy{fy}.xlsx"
+    path.write_bytes(fetch(REG_MEMBERS_URL.format(fy=fy)))
+    sheet = pd.read_excel(path, header=2)
+    sheet.columns = [" ".join(str(c).split()) for c in sheet.columns]
+    # Town ID 999 is each district's total row
+    rows = sheet[sheet["Town ID"].notna() & (sheet["Town ID"] != 999)]
+    out = pd.DataFrame({
+        "FY": fy,
+        "Org4Code": rows["LEA"].astype(int).astype(str).str.zfill(4),
+        "District": rows["District"].str.strip(),
+        "DESE_Town_ID": rows["Town ID"].astype(int),
+        "Town": rows["Member city or town"].str.strip(),
+        "Foundation_enrollment": rows["Foundation enrollment"],
+        "Required_contribution": rows["Required contribution"],
+        "Source": REG_MEMBERS_URL.format(fy=fy),
+    })
+    out.to_csv(REG_MEMBERS_OUT, index=False)
+    print(f"  {REG_MEMBERS_OUT}: FY{fy}, {out['Org4Code'].nunique()} regional districts, {len(out)} memberships")
+
+
 def main():
     today = dt.date.today()
     print("[DESE] Downloading expenditures by spending category...")
     expend_updated = refresh_expenditures(today)
     print("[DESE] Downloading Chapter 70 district profiles...")
     c70_dated = refresh_c70()
+    print("[DESE] Downloading Chapter 70 regional district members...")
+    refresh_regional_members(LATEST_YEAR)
     SOURCES_JSON.write_text(json.dumps({
         "expenditures_last_updated": expend_updated,
         "c70_profile_date": c70_dated,

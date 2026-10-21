@@ -1,0 +1,455 @@
+FY,Org4Code,District,DESE_Town_ID,Town,Foundation_enrollment,Required_contribution,Source
+2025,0406,Northampton Smith,210,Northampton,119.0,3095469.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0600,Acton Boxborough,2,Acton,4082.280285048,43461158.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0600,Acton Boxborough,37,Boxborough,877.719714952,8852771.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0603,Hoosac Valley,4,Adams,860.18312236077,4059948.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0603,Hoosac Valley,58,Cheshire,296.81687763923,2350342.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0605,Amherst Pelham,8,Amherst,963.99999999454,11495958.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0605,Amherst Pelham,154,Leverett,98.99999999549999,1102340.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0605,Amherst Pelham,230,Pelham,73.99999999438,777841.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0605,Amherst Pelham,272,Shutesbury,104.00000000317,929296.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0610,Ashburnham Westminster,11,Ashburnham,982.89473684643,5969244.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0610,Ashburnham Westminster,328,Westminster,1258.10526315357,8884901.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0615,Athol Royalston,15,Athol,1656.30365044389,4034378.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0615,Athol Royalston,255,Royalston,116.69634955611001,677650.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0616,Ayer Shirley,19,Ayer,971.8488576508801,9736178.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0616,Ayer Shirley,270,Shirley,726.1511423491199,5916983.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0618,Berkshire Hills,113,Great Barrington,704.8627451021199,8593682.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0618,Berkshire Hills,283,Stockbridge,127.89060887262,1693659.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0618,Berkshire Hills,333,West Stockbridge,113.24664602526,1499728.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0620,Berlin Boylston,28,Berlin,415.63172804985,3750867.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0620,Berlin Boylston,39,Boylston,637.36827195015,6725220.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0622,Blackstone Millville,32,Blackstone,1194.07366482934,8514234.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0622,Blackstone Millville,188,Millville,402.92633517065997,2697544.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0625,Bridgewater Raynham,42,Bridgewater,3489.48863832426,27358613.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0625,Bridgewater Raynham,245,Raynham,2204.51136167574,17619629.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0632,Chesterfield Goshen,60,Chesterfield,58.95652173859,628954.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0632,Chesterfield Goshen,108,Goshen,54.04347826141,495669.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0635,Central Berkshire,22,Becket,184.10824742016,2148988.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0635,Central Berkshire,69,Cummington,48.242268043600006,585688.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0635,Central Berkshire,70,Dalton,891.0051546376001,5962936.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0635,Central Berkshire,132,Hinsdale,197.89175257984002,2107696.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0635,Central Berkshire,233,Peru,91.56185566648,605035.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0635,Central Berkshire,313,Washington,58.087628869759996,540192.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0635,Central Berkshire,345,Windsor,57.103092782560005,678118.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0640,Concord Carlisle,51,Carlisle,298.81401167532,3454134.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0640,Concord Carlisle,67,Concord,967.18598832468,11180167.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0645,Dennis Yarmouth,75,Dennis,982.9430475731699,13223870.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0645,Dennis Yarmouth,351,Yarmouth,2278.05695242683,27380017.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0650,Dighton Rehoboth,76,Dighton,1143.02207001217,7767533.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0650,Dighton Rehoboth,247,Rehoboth,1459.9779299878298,16034439.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0655,Dover Sherborn,78,Dover,613.35707925184,6627671.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0655,Dover Sherborn,269,Sherborn,534.64292074816,5777120.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0658,Dudley Charlton,54,Charlton,1764.84186748022,13954607.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0658,Dudley Charlton,80,Dudley,1536.1581325197799,8078202.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0660,Nauset,41,Brewster,538.9999999956,6550099.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0660,Nauset,85,Eastham,242.0000000028,2940861.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0660,Nauset,224,Orleans,257.9999999967,3135298.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0660,Nauset,318,Wellfleet,131.0000000049,1591953.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0662,Farmington River,225,Otis,129.23076923008,1543202.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0662,Farmington River,260,Sandisfield,94.76923076992,964037.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0665,Freetown Lakeville,102,Freetown,1165.146198832,11082677.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0665,Freetown Lakeville,146,Lakeville,1554.853801168,13910037.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0670,Frontier,68,Conway,86.1802935019,1025953.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0670,Frontier,74,Deerfield,216.45283018904001,2576813.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0670,Frontier,289,Sunderland,122.25576519848,1425470.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0670,Frontier,337,Whately,53.11111111058,585677.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0672,Gateway,33,Blandford,93.38509316775,1008285.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0672,Gateway,59,Chester,119.37888198700001,944747.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0672,Gateway,143,Huntington,265.7142857165,1606237.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0672,Gateway,183,Middlefield,25.03105590375,266219.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0672,Gateway,194,Montgomery,64.5031055865,782099.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0672,Gateway,256,Russell,206.98757763849997,1285387.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0673,Groton Dunstable,81,Dunstable,531.6946959825,5323258.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0673,Groton Dunstable,115,Groton,1718.3053040174998,17487642.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0674,Gill Montague,106,Gill,99.9749216298,1080125.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0674,Gill Montague,192,Montague,838.0250783702,6282094.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0675,Hamilton Wenham,119,Hamilton,1072.39743589881,10945972.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0675,Hamilton Wenham,320,Wenham,558.60256410119,5587757.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0680,Hampden Wilbraham,120,Hampden,539.53438396548,5897985.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0680,Hampden Wilbraham,339,Wilbraham,2224.46561603452,18893329.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0683,Hampshire,60,Chesterfield,25.042372883760002,259090.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0683,Hampshire,108,Goshen,33.055932203489995,294026.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0683,Hampshire,275,Southampton,330.5593220349,3240713.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0683,Hampshire,327,Westhampton,88.14915254067,965538.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0683,Hampshire,340,Williamsburg,114.19322033718,1040189.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0685,Hawlemont,53,Charlemont,70.875,574305.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0685,Hawlemont,129,Hawley,10.125,120543.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0690,King Philip,208,Norfolk,684.3488016308401,7146329.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0690,King Philip,238,Plainville,532.27129015296,5435677.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0690,King Philip,350,Wrentham,745.3799082162,7850919.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0695,Lincoln Sudbury,157,Lincoln,200.02284083547002,2213241.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0695,Lincoln Sudbury,288,Sudbury,1322.9771591645301,14372163.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0698,Manchester Essex,92,Essex,489.8364116092,5126297.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0698,Manchester Essex,166,Manchester,642.1635883908001,6899392.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0700,Marthas Vineyard,62,Chilmark,31.00000000357,452346.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0700,Marthas Vineyard,89,Edgartown,223.99999999688998,3268568.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0700,Marthas Vineyard,104,Aquinnah,15.00000000096,218877.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0700,Marthas Vineyard,221,Oak Bluffs,217.0000000012,3166425.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0700,Marthas Vineyard,296,Tisbury,188.00000000093,2743262.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0700,Marthas Vineyard,334,West Tisbury,117.99999999645,1721835.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0705,Masconomet,38,Boxford,594.13095994296,6271147.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0705,Masconomet,184,Middleton,507.96694215383997,5590819.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0705,Masconomet,298,Topsfield,473.9020979032,4946744.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0710,Mendon Upton,179,Mendon,856.60119939864,8740788.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0710,Mendon Upton,303,Upton,1120.39880060136,11051358.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0712,Monomoy,55,Chatham,364.99392465995,4476861.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0712,Monomoy,126,Harwich,1250.00607534005,15332048.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0715,Mount Greylock,148,Lanesborough,376.80952380435,2752902.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0715,Mount Greylock,341,Williamstown,730.1904761956499,7296914.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0717,Mohawk Trail,13,Ashfield,141.641791044,1562527.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0717,Mohawk Trail,47,Buckland,170.74626865919998,1366792.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0717,Mohawk Trail,53,Charlemont,39.7761194064,336740.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0717,Mohawk Trail,66,Colrain,136.7910447774,1193141.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0717,Mohawk Trail,129,Hawley,9.701492541,120673.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0717,Mohawk Trail,130,Heath,78.58208955479999,425716.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0717,Mohawk Trail,237,Plainfield,59.179104480599996,614696.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0717,Mohawk Trail,268,Shelburne,143.58208955220002,1644483.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0720,Narragansett,235,Phillipston,207.9057591611,1500576.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0720,Narragansett,294,Templeton,1122.0942408388999,5514324.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0725,Nashoba,34,Bolton,1006.2881844373801,10432433.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0725,Nashoba,147,Lancaster,1017.1296829881,8558850.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0725,Nashoba,286,Stow,1054.58213257452,11127584.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0728,New Salem Wendell,206,New Salem,46.280991736,425038.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0728,New Salem Wendell,319,Wendell,65.719008264,354209.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0730,Northboro Southboro,213,Northborough,753.8491803242599,8278220.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0730,Northboro Southboro,276,Southborough,469.15081967573997,5212217.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0735,North Middlesex,12,Ashby,405.97392688316995,2832572.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0735,North Middlesex,232,Pepperell,1493.82639108885,11653324.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0735,North Middlesex,299,Townsend,1199.19968202798,7879597.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0740,Old Rochester,169,Marion,306.00000000089,3321708.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0740,Old Rochester,173,Mattapoisett,330.9999999969,3829041.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0740,Old Rochester,250,Rochester,312.00000000221,2893111.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0745,Pentucket,116,Groveland,891.89083903577,8159056.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0745,Pentucket,180,Merrimac,822.3801369957,7456662.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0745,Pentucket,329,West Newbury,572.72902396853,5800575.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0750,Pioneer,29,Bernardston,219.20664206630002,1656501.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0750,Pioneer,156,Leyden,69.3819188177,546052.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0750,Pioneer,216,Northfield,256.411439116,2808685.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0753,Quabbin,21,Barre,726.18803419117,3988915.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0753,Quabbin,124,Hardwick,312.61035695458,1776528.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0753,Quabbin,140,Hubbardston,561.1452991486,4225525.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0753,Quabbin,202,New Braintree,102.90899950372,973282.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0753,Quabbin,222,Oakham,228.14731020193,1803220.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0755,Ralph C Mahar,206,New Salem,25.999999997579998,276406.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0755,Ralph C Mahar,223,Orange,428.99999999878,1850347.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0755,Ralph C Mahar,234,Petersham,55.99999999734,514474.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0755,Ralph C Mahar,319,Wendell,42.00000000077,262040.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0760,Silver Lake,118,Halifax,549.63092551193,4593741.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0760,Silver Lake,145,Kingston,993.63882618295,9734882.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0760,Silver Lake,240,Plympton,189.73024830512,1995976.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0763,Somerset Berkley,27,Berkley,231.99999999735,1938391.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0763,Somerset Berkley,273,Somerset,723.00000000265,5572015.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0765,Southern Berkshire,6,Alford,19.17304747136,230207.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0765,Southern Berkshire,90,Egremont,87.2373660022,1047443.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0765,Southern Berkshire,193,Monterey,83.40275650918001,1001401.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0765,Southern Berkshire,205,New Marlborough,107.36906584838,1289160.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0765,Southern Berkshire,267,Sheffield,328.81776416262,3948054.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0766,Southwick Tolland,279,Southwick,1068.49358974488,10498701.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0766,Southwick Tolland,297,Tolland,29.232371798419997,354383.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0766,Southwick Tolland Granville,112,Granville,160.2740384567,1749216.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0767,Spencer East Brookfield,84,East Brookfield,249.36375488592,2090612.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0767,Spencer East Brookfield,280,Spencer,1274.63624511408,8962650.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0770,Tantasqua,43,Brimfield,257.33771353284,2116420.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0770,Tantasqua,45,Brookfield,207.27201050976,1418556.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0770,Tantasqua,135,Holland,128.16819973116,1287649.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0770,Tantasqua,287,Sturbridge,794.0420499366,6886611.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0770,Tantasqua,306,Wales,137.1800262744,795557.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0773,Triton,203,Newbury,617.4226327962,7117613.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0773,Triton,254,Rowley,708.04434179556,7727538.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0773,Triton,259,Salisbury,830.5330254082401,9305123.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0774,Upisland,62,Chilmark,64.8214285719,715572.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0774,Upisland,104,Aquinnah,43.2142857146,477048.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0774,Upisland,334,West Tisbury,276.9642857135,3057442.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0775,Wachusett,134,Holden,3198.0863656347897,23138212.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0775,Wachusett,228,Paxton,616.73827268322,4998051.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0775,Wachusett,241,Princeton,422.7641385603,4223374.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0775,Wachusett,257,Rutland,1645.29855327204,9185777.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0775,Wachusett,282,Sterling,924.11266984965,9647691.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0778,Quaboag,311,Warren,608.8129154824201,2961937.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0778,Quaboag,324,West Brookfield,425.18708451758005,3659871.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0780,Whitman Hanson,123,Hanson,1360.74776786724,11412032.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0780,Whitman Hanson,338,Whitman,2173.25223213276,13276139.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0801,Assabet Valley,28,Berlin,37.000000001050005,597909.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0801,Assabet Valley,141,Hudson,193.0000000041,2802088.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0801,Assabet Valley,170,Marlborough,564.9999999964799,6160982.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0801,Assabet Valley,174,Maynard,65.00000000211999,1063034.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0801,Assabet Valley,213,Northborough,67.00000000438001,1227594.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0801,Assabet Valley,276,Southborough,24.99999999768,463423.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0801,Assabet Valley,321,Westborough,67.00000000438001,1173562.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,25,Bellingham,76.00000000008001,1018807.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,32,Blackstone,56.00000000205,557680.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,77,Douglas,126.00000000146001,1517300.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,110,Grafton,103.99999999479999,1401598.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,138,Hopedale,70.99999999742,807260.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,179,Mendon,75.00000000207,1167729.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,185,Milford,158.99999999884,1183572.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,186,Millbury,90.99999999545,1082426.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,188,Millville,25.999999998699998,243108.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,214,Northbridge,158.00000000082997,1675980.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,290,Sutton,88.99999999942999,1375925.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,303,Upton,93.00000000408,1399699.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0805,Blackstone Valley,304,Uxbridge,137.00000000479,1850105.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0806,Blue Hills,18,Avon,46.99999999616,623498.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0806,Blue Hills,40,Braintree,159.9999999968,2670407.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0806,Blue Hills,50,Canton,75.00000000256,1356376.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0806,Blue Hills,73,Dedham,101.9999999968,1703037.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0806,Blue Hills,133,Holbrook,110.00000000128,1150829.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0806,Blue Hills,189,Milton,33.99999999584,607886.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0806,Blue Hills,220,Norwood,107.99999999552,1662150.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0806,Blue Hills,244,Randolph,287.00000000064,3300262.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0806,Blue Hills,335,Westwood,4.9999999958400005,90833.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0810,Bristol Plymouth,27,Berkley,111.32695140036,1272249.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0810,Bristol Plymouth,42,Bridgewater,150.44182622112,1778649.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0810,Bristol Plymouth,76,Dighton,110.3240058855,1140996.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0810,Bristol Plymouth,102,Freetown,51.150220917359995,755373.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0810,Bristol Plymouth,182,Middleborough,164.48306333381998,1695019.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0810,Bristol Plymouth,245,Raynham,177.52135493166,2139560.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0810,Bristol Plymouth,247,Rehoboth,57.16789396566001,955532.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0810,Bristol Plymouth,293,Taunton,539.58468335814,3517819.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,20,Barnstable,181.27177177059,2840639.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,41,Brewster,51.07657657886,918313.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,55,Chatham,20.03003003001,360123.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,75,Dennis,63.09459459153,1134387.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,85,Eastham,28.04204204068,504172.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,126,Harwich,77.11561561854,1386473.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,172,Mashpee,57.08558558853,1006442.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,224,Orleans,15.02252252084,270092.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,242,Provincetown,6.00900900967,108037.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,300,Truro,11.01651651884,198068.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,318,Wellfleet,11.01651651884,198068.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0815,Cape Cod,351,Yarmouth,146.21921921974,2348618.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,30,Beverly,198.00000000702002,3132367.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,38,Boxford,25.000000003169998,399080.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,71,Danvers,239.99999999652,3814450.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,92,Essex,19.00000000467,308061.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,107,Gloucester,99.00000000351001,1523721.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,119,Hamilton,25.000000003169998,409400.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,164,Lynnfield,36.00000000513,581797.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,166,Manchester,13.000000006170001,216391.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,168,Marblehead,25.000000003169998,416136.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,184,Middleton,54.000000000629996,898854.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,196,Nahant,14.000000001210001,233036.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,229,Peabody,415.00000000458,5116925.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,252,Rockport,14.999999996249999,249682.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,258,Salem,170.0000000046,2077783.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,291,Swampscott,23.999999994,388190.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,298,Topsfield,25.000000003169998,394663.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0817,Essex North Shore,320,Wenham,16.00000000542,256782.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,29,Bernardston,29.99999999805,353029.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,47,Buckland,17.999999998830003,208880.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,66,Colrain,23.00000000136,290827.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,68,Conway,7.000000002399999,126224.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,74,Deerfield,35.00000000058,631119.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,91,Erving,27.000000001100002,475480.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,106,Gill,13.00000000201,189794.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,114,Greenfield,132.00000000283998,1183083.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,130,Heath,11.00000000214,86390.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,156,Leyden,3.99999999974,49023.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,192,Montague,74.00000000089999,749611.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,206,New Salem,13.99999999909,195953.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,216,Northfield,39.9999999974,682301.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,223,Orange,93.00000000252,528116.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,268,Shelburne,9.99999999935,166036.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,289,Sunderland,9.000000002270001,158948.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,312,Warwick,5.00000000253,78190.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,319,Wendell,7.99999999948,65714.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0818,Franklin County,337,Whately,17.999999998830003,300655.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0821,Greater Fall River,95,Fall River,1074.99999999648,3951711.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0821,Greater Fall River,273,Somerset,151.00000000278,1723789.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0821,Greater Fall River,292,Swansea,136.99999999929,1827713.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0821,Greater Fall River,331,Westport,116.00000000145,1902695.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0823,Greater Lawrence,9,Andover,49.00000000336,1050957.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0823,Greater Lawrence,149,Lawrence,1272.00000000304,1667783.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0823,Greater Lawrence,181,Methuen,418.00000000290004,4417949.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0823,Greater Lawrence,211,North Andover,39.00000000848,816648.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0825,Greater New Bedford,72,Dartmouth,319.0000000104,5868424.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0825,Greater New Bedford,94,Fairhaven,175.9999999968,2523723.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0825,Greater New Bedford,201,New Bedford,1664.9999999928,5253388.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0828,Greater Lowell,79,Dracut,503.00000000019,5822817.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0828,Greater Lowell,81,Dunstable,8.00000000373,146403.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0828,Greater Lowell,160,Lowell,1763.00000000628,8401339.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0828,Greater Lowell,301,Tyngsborough,98.9999999898,1558140.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0829,South Middlesex,14,Ashland,62.21478060281,1036710.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0829,South Middlesex,100,Framingham,636.1963048514699,7106696.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0829,South Middlesex,136,Holliston,83.28752886828,1489115.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0829,South Middlesex,139,Hopkinton,26.09006928561,505586.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0829,South Middlesex,198,Natick,61.211316400520005,1160422.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0830,Minuteman,2,Acton,96.99999999773999,1630390.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0830,Minuteman,10,Arlington,216.00000000144,3430220.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0830,Minuteman,34,Bolton,36.00000000024,607112.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0830,Minuteman,67,Concord,42.00000000246,723637.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0830,Minuteman,78,Dover,5.00000000076,86147.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0830,Minuteman,147,Lancaster,57.99999999966,793908.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0830,Minuteman,155,Lexington,81.00000000054,1395586.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0830,Minuteman,199,Needham,47.000000003219995,809785.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0830,Minuteman,286,Stow,72.00000000048,1235823.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,11,Ashburnham,63.9999999936,594906.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,12,Ashby,31.00000000428,326341.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,15,Athol,104.00000000435999,317195.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,21,Barre,45.00000000288,349102.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,97,Fitchburg,386.00000000568,1788912.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,103,Gardner,165.99999999816,963184.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,125,Harvard,9.000000006479999,144466.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,134,Holden,147.99999999996,1707428.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,140,Hubbardston,31.9999999968,340322.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,162,Lunenburg,98.99999999748,1172254.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,234,Petersham,11.9999999988,134551.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,235,Phillipston,23.9999999976,244947.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,241,Princeton,25.00000000488,398238.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,255,Royalston,11.000000006279999,79983.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,282,Sterling,65.9999999934,1098711.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,294,Templeton,86.99999999868,604576.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,328,Westminster,71.00000000028,767450.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0832,Montachusett,343,Winchendon,96.00000000515999,613683.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0851,Northern Berkshire,4,Adams,142.99999999871002,938581.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0851,Northern Berkshire,58,Cheshire,46.00000000126,506532.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0851,Northern Berkshire,63,Clarksburg,51.99999999817,318303.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0851,Northern Berkshire,98,Florida,31.999999998489997,356794.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0851,Northern Berkshire,148,Lanesborough,31.0000000015,365907.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0851,Northern Berkshire,190,Monroe,1.9999999989700001,20119.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0851,Northern Berkshire,209,North Adams,162.99999999839002,927637.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0851,Northern Berkshire,263,Savoy,11.00000000182,164868.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0851,Northern Berkshire,341,Williamstown,18.999999997699998,306759.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0852,Nashoba Valley,19,Ayer,63.00000000019,925929.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0852,Nashoba Valley,56,Chelmsford,218.00000000258,3523815.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0852,Nashoba Valley,115,Groton,49.99999999955,848655.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0852,Nashoba Valley,158,Littleton,47.99999999654,781285.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0852,Nashoba Valley,232,Pepperell,132.99999999956,1592235.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0852,Nashoba Valley,270,Shirley,49.99999999955,597710.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0852,Nashoba Valley,299,Townsend,113.99999999746,1149538.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0852,Nashoba Valley,326,Westford,80.999999997,1294395.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,57,Chelsea,252.000000006,966514.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,165,Malden,179.00000000170002,2016577.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,178,Melrose,71.99999999595,1312445.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,217,North Reading,39.99999999775,769819.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,246,Reading,36.0000000047,705369.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,248,Revere,276.00000000465,2110342.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,262,Saugus,126.000000003,2083754.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,284,Stoneham,71.99999999595,1343400.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,305,Wakefield,100.999999996,1941522.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,344,Winchester,5.9999999963,117561.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,346,Winthrop,62.000000006600004,980650.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0853,Northeast Metropolitan,347,Woburn,123.00000000485001,2312833.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0855,Old Colony,3,Acushnet,189.99999999847998,2123499.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0855,Old Colony,52,Carver,77.99999999827,837845.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0855,Old Colony,146,Lakeville,151.99999999988998,2055263.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0855,Old Colony,173,Mattapoisett,34.99999999972,569503.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0855,Old Colony,250,Rochester,97.99999999811001,1278211.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0860,Pathfinder,24,Belchertown,116.00000000295,1291182.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0860,Pathfinder,111,Granby,19.000000002900002,253615.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0860,Pathfinder,124,Hardwick,24.99999999693,215787.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0860,Pathfinder,191,Monson,92.9999999978,1129707.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0860,Pathfinder,202,New Braintree,10.000000002510001,143649.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0860,Pathfinder,222,Oakham,13.99999999853,168066.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0860,Pathfinder,227,Palmer,184.99999999970998,1600136.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0860,Pathfinder,309,Ware,107.99999999845,718594.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0860,Pathfinder,311,Warren,53.00000000022,370210.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0871,Shawsheen Valley,23,Bedford,38.99999999808,635752.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0871,Shawsheen Valley,31,Billerica,470.00000000604,7472836.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0871,Shawsheen Valley,48,Burlington,118.00000000224,1857259.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0871,Shawsheen Valley,295,Tewksbury,363.00000000024,5755316.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0871,Shawsheen Valley,342,Wilmington,318.00000000648,5083817.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0872,Southeastern,44,Brockton,1039.86021505743,4216427.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0872,Southeastern,83,East Bridgewater,100.17921146727,1208435.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0872,Southeastern,88,Easton,88.15770609321001,1508497.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0872,Southeastern,99,Foxborough,46.082437284,808534.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0872,Southeastern,167,Mansfield,86.15412186420001,1428253.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0872,Southeastern,218,Norton,96.17204300925,1593386.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0872,Southeastern,266,Sharon,22.039426519110002,373641.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0872,Southeastern,285,Stoughton,123.22043010927001,1420880.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0872,Southeastern,323,West Bridgewater,75.13440859626,930352.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0873,South Shore,1,Abington,114.00000000168001,1310268.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0873,South Shore,65,Cohasset,8.99999999769,154953.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0873,South Shore,122,Hanover,80.00000000304,1276375.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0873,South Shore,123,Hanson,77.0000000016,972014.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0873,South Shore,171,Marshfield,3.0000000014399997,50874.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0873,South Shore,219,Norwell,21.999999999510003,378773.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0873,South Shore,251,Rockland,139.00000000263,1391008.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0873,South Shore,264,Scituate,53.999999999399996,929717.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0873,South Shore,338,Whitman,164.99999999964,1517197.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0876,Southern Worcester,17,Auburn,131.00000000472,1480157.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0876,Southern Worcester,54,Charlton,196.00000000042,2270609.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0876,Southern Worcester,80,Dudley,130.00000000383,1001605.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0876,Southern Worcester,215,North Brookfield,49.999999994780005,445933.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0876,Southern Worcester,226,Oxford,148.99999999588,1502190.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0876,Southern Worcester,228,Paxton,39.99999999831,527044.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0876,Southern Worcester,257,Rutland,68.99999999926,626336.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0876,Southern Worcester,277,Southbridge,202.99999999422,969813.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0876,Southern Worcester,280,Spencer,121.99999999670999,1121543.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0876,Southern Worcester,316,Webster,152.99999999944,1275174.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0878,Tri County,101,Franklin,172.99999999914,2711384.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0878,Tri County,175,Medfield,7.00000000296,120762.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0878,Tri County,177,Medway,81.99999999834,1235417.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0878,Tri County,187,Millis,34.000000000920004,586559.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0878,Tri County,208,Norfolk,41.99999999892,684222.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0878,Tri County,212,North Attleborough,244.99999999998002,3353750.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0878,Tri County,238,Plainville,104.00000000226001,1656899.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0878,Tri County,265,Seekonk,83.0000000028,1248891.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0878,Tri County,269,Sherborn,3.999999999,69007.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0878,Tri County,307,Walpole,91.0000000008,1561294.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0878,Tri County,350,Wrentham,77.0000000043,1265248.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0879,Upper Cape Cod,36,Bourne,199.69988276792,3389488.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0879,Upper Cape Cod,96,Falmouth,203.71395076304,3559718.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0879,Upper Cape Cod,169,Marion,32.112543960960004,526560.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0879,Upper Cape Cod,261,Sandwich,157.55216881488,2753082.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0879,Upper Cape Cod,310,Wareham,262.9214536932,3341728.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0885,Whittier,7,Amesbury,123.28963892991,1898614.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0885,Whittier,105,Georgetown,61.14364207498,1029931.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0885,Whittier,116,Groveland,37.08712716463,574271.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0885,Whittier,128,Haverhill,852.0015698533001,6817895.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0885,Whittier,144,Ipswich,27.06357927574,471071.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0885,Whittier,180,Merrimac,40.09419151725,615345.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0885,Whittier,203,Newbury,16.0376766069,281765.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0885,Whittier,204,Newburyport,32.0753532138,562671.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0885,Whittier,254,Rowley,20.04709576501,333447.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0885,Whittier,259,Salisbury,53.124803771530004,907103.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0885,Whittier,329,West Newbury,15.03532182695,257751.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,3,Acushnet,19.000000001990003,224457.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,16,Attleboro,20.999999999510003,197554.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,27,Berkley,13.99999999797,164633.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,72,Dartmouth,23.000000002140002,388139.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,76,Dighton,28.00000000105,297981.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,88,Easton,8.99999999906,146905.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,94,Fairhaven,29.99999999857,394620.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,95,Fall River,50.99999999808,178135.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,102,Freetown,21.999999998270003,334313.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,167,Mansfield,9.99999999782,158139.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,201,New Bedford,58.999999998380005,170768.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,212,North Attleborough,8.99999999906,122824.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,218,Norton,15.000000001839998,237068.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,245,Raynham,9.99999999782,124020.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,247,Rehoboth,34.99999999748,601974.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,265,Seekonk,12.99999999921,195014.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,273,Somerset,32.99999999996,357950.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,292,Swansea,29.99999999857,380286.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,293,Taunton,46.999999997930004,315303.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0910,Bristol County,331,Westport,32.99999999996,514312.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,18,Avon,0.99999999888,13136.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,25,Bellingham,13.9999999992,213377.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,40,Braintree,17.99999999968,297471.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,46,Brookline,0.0,0.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,50,Canton,6.9999999996,125352.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,65,Cohasset,0.0,0.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,73,Dedham,11.99999999896,198390.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,78,Dover,2.00000000024,36340.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,99,Foxborough,8.00000000096,141450.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,101,Franklin,15.00000000056,247601.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,133,Holbrook,8.99999999984,93234.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,175,Medfield,2.99999999912,54509.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,177,Medway,6.9999999996,111074.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,187,Millis,8.00000000096,145358.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,189,Milton,8.99999999984,159331.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,199,Needham,0.99999999888,18170.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,208,Norfolk,15.00000000056,257368.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,220,Norwood,11.99999999896,182870.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,238,Plainville,2.99999999912,50339.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,243,Quincy,20.9999999988,351204.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,244,Randolph,6.9999999996,79704.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,266,Sharon,8.99999999984,153761.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,285,Stoughton,4.99999999936,58103.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,307,Walpole,24.99999999928,451752.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,317,Wellesley,0.99999999888,18170.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,335,Westwood,8.00000000096,143905.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,336,Weymouth,19.00000000104,315751.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx
+2025,0915,Norfolk County,350,Wrentham,8.99999999984,155756.0,https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-reg.xlsx

@@ -1,0 +1,261 @@
+2026-10-21 (Session 13) - Census Revenue by Source (explorer panel), DLS Municipal Schedule A Data
+
+Branch: fy2025-refresh (schools), massppe (mywebsite). Not committed; Tim to
+review.
+
+Tim's question: can we get every revenue source for each district, and every
+expense for each municipality (knowing towns and districts don't line up)?
+Answer, then the agreed first step: a revenue panel in the explorer for the
+regional districts, plus the municipal data layer for a later town view.
+
+Changes:
+
+1. ppe_report/update_census_data.py (new)
+   - Census Bureau Annual Survey of School System Finances (F-33), FY2009 on,
+     one national file a year (elsecYY.txt, dollars in thousands), cached in
+     data/census_raw/ (gitignored, ~8 MB a year). Massachusetts rows (Census
+     STATE 22, not FIPS 25) with every Census column ->
+     data/census_f33_ma.csv: 5,168 rows, FY2009-FY2024.
+   - Joined to DESE codes through the NCES Common Core of Data district
+     directory (state_leaid "MA-" + DESE 4-digit code), via the Urban
+     Institute Education Data API, years 2009/2014/2019/2024 combined ->
+     data/nces_ma_districts.csv. Every Census system matched. DESE 0312
+     (Warwick) has two NCES IDs, one a 2009 "non-op" record; harmless.
+   - Census file quirks handled: data rows end in a comma the header lacks
+     (read with index_col=False, else every column shifts by one); the
+     published FY2022 elsec22.txt is truncated at 1,729 of ~14,000 systems,
+     so a short text file falls back to the year's .xlsx.
+
+2. ppe_report/update_dls_data.py (new)
+   - DLS Municipal Databank, Schedule A general fund, every municipality,
+     FY2002-FY2026, from the DLS Gateway report's Excel export. The export
+     takes one year per request (several years return an error page), so
+     25 years x 2 types = 50 requests, ~4 minutes.
+   - data/dls_schedule_a_general_fund.csv (long: DOR_CODE, Municipality, FY,
+     Type, Category, Amount; 201,825 rows). Expenditures by function (General
+     Government ... Debt Service, Total); revenues by source (Taxes, State
+     Revenue, ... Total). 351 towns most years; FY2025 346; FY2026 60 (filings
+     are due Nov 30).
+   - Spot check: Amherst FY2024 Education $44,020,309 of $84,310,105, same as
+     a manual Gateway export.
+   - Not used by anything yet. Spot check found Lee FY2024 "Miscellaneous"
+     revenue of $27.3M (total revenue $49.7M), likely a one-time entry:
+     screen before use.
+
+3. ppe_report/export_explorer_data.py
+   - Revenue by source, per in-district FTE pupil (DESE, the spending
+     chart's denominator), for the 19 regional districts (DESE code >= 0600)
+     and for averages with at least 3 regional members (Western MA 19, Tiny 4,
+     Small 5, Medium 9; Large has 1, Hampden-Wilbraham, so no average).
+     Nine sources: payments from towns (D23), Chapter 70 (C01), teacher
+     retirement paid by the state (C38), transportation (C12), other state
+     (TSTREV less those and C11), federal (TFEDREV), other school districts
+     (D11), other local (TLOCREV less D23, D11), school building aid (C11).
+   - Town-run districts get Census's latest revenue and spending totals
+     (rev_check) so the page can say why they have no chart.
+   - All existing JSON fields unchanged (compared entity by entity).
+
+Why regional districts only:
+   - Census revenue roughly equals spending for regionals (median ratio 1.06
+     statewide FY2024), because member-town assessments are counted. For
+     town-run districts the local share is badly short: 62 of 229 have
+     revenue under 80% of spending (Amherst $18.4M vs $37.6M; Leverett
+     $1.9M vs $3.4M; Springfield local revenue $11.8M against $809M of
+     spending). Census's notes also say FY2019 on excludes tuition paid to
+     charter schools from local revenue.
+
+Checks:
+   - Census C01 equals DESE Chapter 70 aid (c70aid) within 0.1% for every
+     district FY2010-FY2024. FY2009 is 89.5% of DESE's figure for every
+     district: the state paid $412M of FY2009 Chapter 70 from the federal
+     State Fiscal Stabilization Fund (EOE fact sheet, 2009-05-21; DOR bulletin
+     2009-13B), which Census counts as federal.
+   - TOTALREV = TFEDREV + TSTREV + TLOCREV and TSTREV = its items exactly, so
+     the nine sources account for every dollar. No negative values.
+   - Census fall membership (V33) is within a few percent of DESE in-district
+     FTE for regionals; DESE FTE used anyway so revenue and spending share a
+     denominator. Hawlemont FY2024 ($52,078 per pupil) is real: revenue flat
+     at ~$3.5M while enrollment fell.
+   - Revenue per pupil >= spending per pupil in 367 of 368 regional
+     district-years (median 1.32): it also pays for out-of-district tuition,
+     buildings, state-paid pensions, which the PPE measure leaves out.
+
+mywebsite (massppe branch):
+   - src/lib/massppe/explorer.ts: fourth panel "Revenue per pupil by source"
+     with legend isolation, comparison line and table (shaded against the
+     comparison's regional average, named "... regional average"), full data
+     table, tooltips. Census years end at FY2024; the FY2025 slot is empty
+     and its tooltip says so. Own dollar scale. Town-run districts and the
+     Large average show a note instead (with Census's totals for the town-run
+     district and the cohort's regional districts to try). compareTable takes
+     an end-year index; the PPE and revenue tooltips share stackTip().
+   - src/lib/massppe/charts.ts: the cap label can sit on a column other than
+     the last (cap.index).
+   - src/pages/massppe/index.astro: panel markup, lede, meta description, an
+     "About the data" paragraph on revenue, Census in the sources line.
+   - public/massppe/data/explorer.json regenerated.
+   - Verified: astro build; tsc --strict on explorer.ts/charts.ts; Chromium
+     screenshots of Amherst-Pelham, Leverett, Large cohort, Western MA in
+     FY2025 dollars, Mohawk Trail vs Leverett, Hawlemont hover, the FY2025
+     tooltip, legend isolation, comparison table, full-table dialog, 390px
+     width. No console errors.
+
+Open:
+   - Town view for the DLS data: how to show it (per-town page or a town tab
+     in the explorer; which towns: members of the 65 districts?) is Tim's
+     call.
+   - Revenue for town-run districts would need the town's school spending
+     from DESE (NSS City/Town column, FY2021-25 only) or a residual; not done.
+
+--------------------------------------------------------------------------------
+Session 13, continued: Towns tab in the explorer (Tim: "start with a town tab")
+--------------------------------------------------------------------------------
+
+4. ppe_report/update_census_data.py: town population
+   - Census subcounty population estimates, three vintages (2000-2010
+     intercensal, 2010-2020, 2020-2024), raw files cached in census_raw/ ->
+     data/census_town_population.csv, 351 towns a year, FY2009-FY2025.
+   - FY = July 1 estimate at the start of the fiscal year (FY2025: July 2024).
+     FY2021 uses the April 1, 2020 estimates base: the July 2020 estimate drops
+     Amherst to 27,806 (39,264 in April, 40,260 a year later), South Hadley
+     and other college towns likewise.
+   - About ten towns' FIPS codes change between vintages, so the export joins
+     on the town name.
+
+5. ppe_report/update_dese_data.py: refresh_regional_members(LATEST_YEAR)
+   - DESE FY2025 Chapter 70 summary for regional districts (chapter-2025-reg
+     .xlsx, kept in data/) -> data/dese_c70_regional_members.csv: 87 regional
+     districts, 454 memberships, each town's required contribution.
+   - DESE town IDs are NOT DOR codes past the "New"/"North"/"West" names
+     (DESE 210 Northampton, DOR 210 North Andover): towns join by name.
+   - Run on its own this session; main() now calls it after the other two
+     downloads.
+
+6. export_explorer_data.py: towns.json (beside explorer.json)
+   - 97 towns: every member town of the 65 districts (municipal district =
+     its town; regional = FY2025 members), plus the Western MA towns average
+     (96 towns pooled per resident, Springfield out as in the district view).
+   - Per resident, FY2009-FY2025: Schedule A spending by its ten functions,
+     revenue in six groups (charges/fees/fines = service charges + licenses
+     and permits + fines + special assessments; other = miscellaneous +
+     other governments; transfers and other financing). Schedule A's parts sum
+     to its totals exactly. Years a town did not file are blank (Holyoke
+     FY2024-25, Florida and Gill FY2025).
+   - Each town's school districts with FY2025 required contributions (own
+     district from dese_c70_profile distrlc, regional from the members file).
+   - explorer.json district entities gain "towns" (links to the Towns tab).
+
+mywebsite:
+   - Tabs "School districts" / "Towns" (ARIA tabs, arrow keys). Towns view:
+     town menu by county, compare with the Western MA towns average / another
+     town / none, tiles (spending per resident, education's share, taxes'
+     share of revenue, population), spending and revenue panels with legend
+     isolation, comparison and full tables, a population panel. Header links
+     run both ways: town -> its districts, district -> its towns.
+   - URLs: ?view=towns&t=leverett[&tcmp=other&tvs=...]; district URLs unchanged.
+   - explorer.ts: shared helpers (stackTip, yoy, fmtUsd, stackTop) moved out
+     of the district render; compareTable takes an options object (end,
+     noCmpNote, per); render() dispatches by view; ResizeObserver watches the
+     explorer root.
+   - Notes: three paragraphs on the town data (source, how town and school
+     budgets overlap, revenue grouping, Lee FY2024 $27.3M miscellaneous).
+   - Verified: tsc --strict, astro build, Chromium run of every state above
+     incl. both link directions, tab arrows, real dollars, 390px; no console
+     errors. Voice check clean.
+
+Open:
+   - Lee FY2024 miscellaneous revenue ($27.3M, 55% of total) shown as filed.
+   - Peer groups for towns (e.g. by population) not defined; the only
+     average is all 96 towns.
+
+--------------------------------------------------------------------------------
+Session 13, continued: town peer groups (Tim: "Please create peer groups")
+--------------------------------------------------------------------------------
+
+7. export_explorer_data.py: TOWN_PEERS
+   - By July 2024 population (the estimate behind FY2025, as district cohorts
+     use latest-year FTE): under 1,000 (20 towns), 1,000-2,499 (35),
+     2,500-9,999 (21), 10,000 or more (20). Springfield in none, as in the
+     district averages. Round bounds near the quintiles; median town 1,868.
+   - Why size: FY2025 median spending per resident is similar across the
+     groups ($3.4-4.0K) but taxes per resident run ~$3.5K in towns under
+     2,500 against ~$2.5K in towns of 10,000+, and education's share differs.
+   - towns.json: each town's "peer"; four more averages (pooled per resident,
+     with a mid-sentence "ref" and a "label"); meta.peer_year.
+
+mywebsite:
+   - Town comparison defaults to "Its peer group average" (as districts
+     default to their cohort); averages compare with the Western MA towns
+     average. "Another town or average" lists all five averages.
+   - Header and population tile name the peer group; the notes give the bounds
+     and counts.
+   - Verified in Chromium (Leverett default and Western comparison, a peer
+     average, Springfield, Rowe, the Western average); tsc --strict and astro
+     build clean; voice check clean.
+
+--------------------------------------------------------------------------------
+Session 13, continued: source links inside the notes (Tim: links at the bottom
+make readers hunt and match them)
+--------------------------------------------------------------------------------
+
+8. mywebsite index.astro "About the data": each source is linked in the
+   paragraph that defines its measure (DESE expenditure data, Chapter 70
+   profiles, the report, Census F-33, Schedule A, FY2025 Chapter 70 page for
+   membership and the formula, Census population estimates, BLS CPI). The
+   separate "Sources:" list is gone; the credit line stays. Enrollment gains
+   one sentence naming where each measure comes from (in/out-of-district FTE:
+   DESE expenditure data; foundation enrollment: Chapter 70 profiles, which
+   school_shared's ENROLL_KEYS confirms). All seven URLs returned 200 on
+   2026-10-21. Build and voice check clean.
+
+--------------------------------------------------------------------------------
+Session 13, continued: town/district relations as an outline in the controls box
+(Tim: the "Town budget: ..." / "School districts and ..." lines belong higher up,
+in the selection box, as an outline, with the towns and districts they share)
+--------------------------------------------------------------------------------
+
+9. export_explorer_data.py
+   - towns.json: each town's district entries gain "with", the district's
+     other member towns (all of them, from the FY2025 regional summary; id
+     only for towns in the explorer, e.g. Montachusett lists 17, two linked).
+   - explorer.json: a district's "towns" entries gain "contribution" (the
+     town's FY2025 required contribution to this district) and "also" (the
+     town's other districts, with kind).
+
+mywebsite:
+   - The header line under the entity name is gone; an outline sits at the
+     bottom of the controls box instead, with tree lines: Towns tab = town ->
+     its districts (kind, FY2025 required contribution, "shared with" other
+     member towns, more than 7 behind an "and N more" button); Districts tab =
+     district -> its member towns (contribution, "also funds" their other
+     districts). Names link across the tabs; hidden for averages.
+   - Verified in Chromium: Petersham (town and district), Ralph C Mahar,
+     Mohawk Trail, a cohort and a peer average (hidden), Amherst at 390px,
+     the "more" button, and link chains Petersham -> Mahar -> Orange. No
+     console errors; tsc --strict and astro build clean.
+
+--------------------------------------------------------------------------------
+Session 13, continued: trend lines on the bar charts (Tim: a trendline for the
+district/town in focus, distinct from the comparison line; either can be turned
+off, both on by default)
+--------------------------------------------------------------------------------
+
+10. mywebsite only (no data change)
+   - Every stacked chart (district spending, Chapter 70/NSS, revenue; town
+     spending and revenue) draws the focused entity's trend: an ordinary
+     least-squares straight line through the column totals of the years with
+     values (fewer than 3 -> none), across those years only. It follows the
+     legend isolation like the comparison line ("Leverett trend, teachers");
+     on the NSS chart it fits actual NSS and skips unreported years.
+   - Style: dashed, site accent #b65c3d, on a paper-colored halo, clipped to
+     the plot (a line fitted to lumpy columns such as building aid can run
+     past the axis); the comparison stays solid dark gray with dots. The
+     latest-value label gets a halo so a line behind it does not obscure it.
+   - "Chart lines" checkboxes in the controls box: Trend, Comparison; both on
+     by default; trend=off / cline=off in the URL. Turning the comparison line
+     off leaves the comparison shading in the tables and tiles.
+   - Subtitles say "Dashed line: ... Solid line: ..."; legends and tooltips
+     carry both lines with their own marks.
+   - Verified in Chromium (both on, each off, both off, URL-driven off,
+     isolation, NSS with an unreported year, town chart, 390px); tsc --strict
+     and astro build clean; no console errors.
