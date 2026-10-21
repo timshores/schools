@@ -15,7 +15,12 @@ Census's local revenue leaves out much of what the town spends on its schools
 districts get Census's latest totals instead, so the explorer can say so.
 Aggregates pool their regional members, weighted by in-district FTE.
 
-    python export_explorer_data.py ../../mywebsite/public/massppe/data/explorer.json
+Writes into a copy of the website (github.com/timshores/mywebsite): the JSON to
+src/data/massppe/, where the page imports it, so it ships as compressed, hashed
+JavaScript chunks (the host compresses JavaScript but not JSON); the CSVs of
+source data to public/massppe/data/, as downloads.
+
+    python export_explorer_data.py ../../mywebsite
 """
 
 import datetime as dt
@@ -398,7 +403,7 @@ def write_csvs(out_dir: Path, districts, towns_out, census, latest):
     print(f"{out_dir}: " + "; ".join(written))
 
 
-def main(out_path: Path):
+def main(site: Path):
     df, reg, c70 = load_data()
     cohorts = get_western_cohort_districts(df, reg)
     proper = {n.lower(): n for n in df["DIST_NAME"].unique()}
@@ -478,12 +483,16 @@ def main(out_path: Path):
         print("  [WARN] town data missing (run update_dls_data.py, update_census_data.py, "
               "update_dese_data.py); no town view")
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    json_dir = site / "src" / "data" / "massppe"
+    csv_dir = site / "public" / "massppe" / "data"
+    json_dir.mkdir(parents=True, exist_ok=True)
+    csv_dir.mkdir(parents=True, exist_ok=True)
+    out_path = json_dir / "explorer.json"
     out_path.write_text(json.dumps(out, separators=(",", ":")))
     n_d = sum(e["kind"] == "district" for e in entities)
     print(f"{out_path}: {n_d} districts, {len(entities) - n_d} aggregates, "
           f"{out_path.stat().st_size / 1024:.0f} KB")
-    write_csvs(out_path.parent, districts, towns_out, census, LATEST_YEAR)
+    write_csvs(csv_dir, districts, towns_out, census, LATEST_YEAR)
     if towns_out:
         towns_path = out_path.with_name("towns.json")
         towns_path.write_text(json.dumps(towns_out, separators=(",", ":")))
@@ -493,4 +502,4 @@ def main(out_path: Path):
 
 
 if __name__ == "__main__":
-    main(Path(sys.argv[1]) if len(sys.argv) > 1 else Path("output/explorer.json"))
+    main(Path(sys.argv[1]) if len(sys.argv) > 1 else Path("output/site"))

@@ -259,3 +259,36 @@ off, both on by default)
    - Verified in Chromium (both on, each off, both off, URL-driven off,
      isolation, NSS with an unreported year, town chart, 390px); tsc --strict
      and astro build clean; no console errors.
+
+--------------------------------------------------------------------------------
+Session 13, continued: CSV downloads, deploy, page weight (Tim: commit, let the
+live site pick it up; footprint?; CSVs of source data with links to the sources)
+--------------------------------------------------------------------------------
+
+11. export_explorer_data.py: write_csvs() -> mywebsite/public/massppe/data/
+   - districts-spending-per-pupil.csv (DESE per-pupil subcategories and
+     enrollment, wide), districts-chapter70.csv (DESE profile columns; notes on
+     the 21 FY2023 rows restored from the August 2025 file and on unreported
+     actual NSS), districts-revenue.csv (Census items summed to the explorer's
+     sources, dollars, headers name the items; rows link the year's Census
+     file, FY2022's .xlsx), towns-spending.csv and towns-revenue.csv (Schedule
+     A as filed, with population and its Census file), towns-school-
+     districts.csv, cpi.csv. Every row has source_url. Revenue columns sum to
+     TOTALREV exactly.
+   - Linked from the notes paragraph that defines each measure.
+
+12. Page weight and delivery
+   - The host (LiteSpeed behind an APISIX gateway) brotli-compresses HTML,
+     CSS, JS and SVG but sends .json and .csv uncompressed: explorer.json went
+     out at 193 KB. A data-folder .htaccess (mod_deflate) reached the server
+     (403 on direct request) and changed nothing, so it was removed.
+   - The JSON now lives in mywebsite/src/data/massppe/ and the page imports it:
+     Vite emits hashed JS chunks (explorer ~155 KB raw / ~55 KB gzip; towns
+     ~211 KB / ~72 KB, loaded only when the Towns tab opens). The export script
+     now takes the website root: python export_explorer_data.py ../../mywebsite
+
+13. Deployed
+   - schools: fy2025-refresh pushed to origin (new remote branch; NOT merged
+     to main, since it carries the unreviewed session 12 FY2025 report work).
+   - mywebsite: massppe fast-forwarded into main and pushed; GitHub Actions
+     "Deploy to Namecheap" succeeded; /massppe and all CSVs return 200 live.
