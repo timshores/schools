@@ -318,6 +318,7 @@ def property_series(prop, ks, population):
     b_pop = pop(b.index)
     income = (b["DOR Income Per Capita"] * b_pop).groupby(level="FY").sum() / b_pop.groupby(level="FY").sum()
     return {
+        "income_pc": series(income, 0),
         "prop": {t: series(v_res[t] if t in v_res.columns else None, 0) for t in PROPERTY_TYPES},
         "parcels": {t: series(n[t] if t in n.columns else None, 0) for t in PROPERTY_TYPES if t != "personal"},
         "value_total": series(v.groupby(level="FY").sum().sum(axis=1), 0),
@@ -326,6 +327,87 @@ def property_series(prop, ks, population):
         "sf_bill": series(bill, 0),
         "sf_bill_income": series(bill / income, 4),
     }
+
+
+# Commonwealth tab: every district in DESE's Chapter 70 profiles, with its member towns'
+# property and income pooled, for scatterplots of any two measures
+VALLEY_COUNTIES = {"Franklin", "Hampshire", "Hampden"}
+RESIDENTIAL_TYPES = ["single", "condo", "multi", "other_res"]
+
+
+def commonwealth_data(dists, full, prop):
+    """commonwealth.json: per district and year, its Chapter 70 figures and spending (DESE)
+    and its towns' wealth (DLS), pooled over member towns. EQV is the latest as of each
+    fiscal year's January 1 valuation date (EQV of January 1, 2022 for FY2023 and FY2024)."""
+    c70 = pd.read_csv(C70_CSV, dtype={"Org4Code": str})
+    c70 = c70[c70["fy"].isin(YEARS) & ~c70["District"].str.contains("TOTAL|COUNTY", na=False)]
+    pop = pd.read_csv(POP_CSV).assign(key=lambda d: d["Town"].map(norm))
+    population = {(k, fy): p for k, fy, p in zip(pop["key"], pop["FY"], pop["Population"])}
+    county = pop.sort_values("FY").groupby("key")["County"].last().to_dict()
+    names = pd.read_csv(DLS_CSV, usecols=["Municipality"]).drop_duplicates().assign(
+        key=lambda d: d["Municipality"].map(norm)).set_index("key")["Municipality"].to_dict()
+    members = pd.read_csv(MEMBERS_CSV, dtype={"Org4Code": str}).assign(key=lambda d: d["Town"].map(norm))
+    member_keys = members.groupby("Org4Code")["key"].apply(list).to_dict()
+    by_org = {f"{d['org']:04d}": d for d in dists}
+    entity = {e["id"]: e for e in full}
+
+    def r(v, digits):
+        return None if v is None or pd.isna(v) else round(float(v), digits)
+
+    def ratio(a, b):
+        return None if a is None or b is None or pd.isna(a) or pd.isna(b) or b == 0 else a / b
+
+    out = []
+    for org, g in c70.groupby("Org4Code"):
+        g = g.set_index("fy")
+        if not (g["distfoundenro"].fillna(0) > 0).any() or not (g["actualNSS"].fillna(0) > 0).any():
+            continue  # towns that send all their pupils elsewhere, districts that no longer operate
+        d = by_org.get(org)
+        dese_name = g["District"].iloc[-1].strip()
+        own = norm(dese_name)
+        ks = member_keys.get(org) or ([own] if own in names else [])
+        counties = [county.get(k) for k in ks]
+        e = entity.get(d["id"]) if d else None
+        col = lambda c: [g[c].get(fy) if fy in g.index else None for fy in YEARS]  # noqa: E731
+        fe, fb, rlc, aid, rqd = (col(c) for c in ("distfoundenro", "distfoundbudget", "distrlc", "c70aid", "rqdnss2"))
+        act = [v if v is not None and not pd.isna(v) and v > 0 else None for v in col("actualNSS")]
+        ppe = [sum(e["ppe"][c][i] for c in e["ppe"]) if e and all(e["ppe"][c][i] is not None for c in e["ppe"]) else None
+               for i in range(len(YEARS))]
+        fte = e["enroll"]["in_district"] if e else [None] * len(YEARS)
+        w = property_series(prop, ks, population) if ks else {}
+        pops = [sum(population.get((k, fy), 0) for k in ks) or None for fy in YEARS]
+        eqv = pd.Series(w.get("eqv_total") or [None] * len(YEARS), dtype=float).ffill().tolist()
+        values = [sum(w["prop"][t][i] or 0 for t in PROPERTY_TYPES) if w else None for i in range(len(YEARS))]
+        homes = [sum(w["prop"][t][i] or 0 for t in RESIDENTIAL_TYPES) if w else None for i in range(len(YEARS))]
+        v = {
+            "fe": [r(x, 1) for x in fe],
+            "fte": fte,
+            "nss_pct_fb": [r(ratio(a, b), 4) for a, b in zip(act, fb)],
+            "nss_pct_req": [r(ratio(a, b), 4) for a, b in zip(act, rqd)],
+            "nss_pfe": [r(ratio(a, b), 0) for a, b in zip(act, fe)],
+            "above_pfe": [r(ratio(a - b, f), 0) if a is not None and b is not None else None for a, b, f in zip(act, rqd, fe)],
+            "ppe": [r(x, 0) for x in ppe],
+            "aid_pfe": [r(ratio(a, b), 0) for a, b in zip(aid, fe)],
+            "rlc_pfe": [r(ratio(a, b), 0) for a, b in zip(rlc, fe)],
+            "aid_share": [r(ratio(a, b), 4) for a, b in zip(aid, fb)],
+            "eqv_res": [r(ratio(a, b), 0) for a, b in zip(eqv, pops)],
+            "av_res": [r(x, 0) for x in values],
+            "income_pc": w.get("income_pc") or [None] * len(YEARS),
+            "sf_bill": w.get("sf_bill") or [None] * len(YEARS),
+            "bill_income": w.get("sf_bill_income") or [None] * len(YEARS),
+            "res_share": [r(ratio(a, b), 4) for a, b in zip(homes, values)],
+        }
+        out.append({
+            "org": org, "name": d["name"] if d else dese_name.title(), "id": d["id"] if d else None,
+            "type": d["type"] if d else ("vocational" if int(org) >= 800 else "traditional"),
+            "region": d["region"] if d else None,
+            "towns": [names.get(k, k) for k in ks],
+            "valley": bool(ks) and sum(c in VALLEY_COUNTIES for c in counties) * 2 > len(ks),
+            "v": v,
+        })
+    return {"meta": {"years": YEARS, "latest": LATEST_YEAR, "built": dt.date.today().isoformat(),
+                     "regions": REGIONS, "c70_profile_date": json.loads(Path("data/dese_sources.json").read_text())["c70_profile_date"]},
+            "districts": out}
 
 
 def explorer_districts(df, reg):
@@ -804,6 +886,10 @@ def main(site: Path):
         sizes["towns.json"] = write_json(json_dir / "towns.json", towns_index)
         for chunk, xs in sorted(town_chunks.items()):
             sizes[f"towns/{chunk}.json"] = write_json(json_dir / "towns" / f"{chunk}.json", {"towns": xs})
+    if towns_index:
+        common = commonwealth_data(dists, full, load_property())
+        sizes["commonwealth.json"] = write_json(json_dir / "commonwealth.json", common)
+        print(f"  commonwealth.json: {len(common['districts'])} districts")
     print(f"{json_dir}: {len(full)} districts, {len(averages)} district averages, {len(all_towns)} towns, "
           f"{len(towns_index['averages']) if towns_index else 0} town averages")
     print("  " + "; ".join(f"{k} {v / 1024:.0f} KB" for k, v in sizes.items()))
