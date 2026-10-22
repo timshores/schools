@@ -379,3 +379,13 @@ mywebsite
      district, chunk loading per region, towns incl. Boston, remembered state
      across a new page, old-link aliases, Forget, 390px; no console errors;
      tsc --strict, astro build, voice check clean.
+
+18. Gateway Cities (Tim: identify them as a cohort; overlap with other cohorts is fine)
+   - export: GATEWAY_CITIES, the Commonwealth's 26 (M.G.L. c. 23A s. 3A; mass.gov
+     list; dates from 2014, and by current Census figures Methuen, Quincy and Salem
+     no longer meet the tests). Districts and towns carry "gateway"; averages
+     "cohort-gateway" (26 municipal districts, the very large ones included) and
+     "towns-gateway" (26 cities). Every entity's cmp gains "gateway"; the export
+     fails if any of the 26 is missing on either side.
+   - mywebsite: "Gateway Cities" comparison choice on both tabs; "Gateway City"
+     in the heading; notes sentence linking the state's list. Verified in Chromium.

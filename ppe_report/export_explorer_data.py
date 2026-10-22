@@ -63,6 +63,7 @@ SIZE_COHORTS = ["TINY", "SMALL", "MEDIUM", "LARGE", "XLARGE"]
 COHORT_ORDER = SIZE_COHORTS + ["VOCATIONAL", "CHARTER"]
 COHORT_TEXT = {  # cohorts the report doesn't define: (label, short label)
     "XLARGE": ("Very large (over 10,000 FTE)", "Very large"),
+    "GATEWAY": ("Gateway Cities", "Gateway"),
     "VOCATIONAL": ("Vocational and technical districts", "Vocational"),
     "CHARTER": ("Charter schools", "Charter"),
 }
@@ -72,6 +73,14 @@ REGIONS = {"Western": "Western MA", "Central": "Central MA", "Northeast": "North
 # A cohort average within a region needs this many members; with fewer, comparisons use
 # the statewide cohort
 MIN_AVERAGE_MEMBERS = 3
+# Gateway Cities, as the Commonwealth lists them (M.G.L. c. 23A, s. 3A: population 35,000-
+# 250,000, median household income and bachelor's attainment below the state's). The list
+# dates from 2014. Their districts and the cities themselves get averages of their own,
+# alongside their size cohorts and peer groups.
+GATEWAY_CITIES = ["Attleboro", "Barnstable", "Brockton", "Chelsea", "Chicopee", "Everett", "Fall River", "Fitchburg",
+                  "Haverhill", "Holyoke", "Lawrence", "Leominster", "Lowell", "Lynn", "Malden", "Methuen",
+                  "New Bedford", "Peabody", "Pittsfield", "Quincy", "Revere", "Salem", "Springfield", "Taunton",
+                  "Westfield", "Worcester"]
 
 CENSUS_CSV = Path("data/census_f33_ma.csv")
 # DESE numbers regional academic districts from 0600; DIST_CODE is that times 10000
@@ -311,6 +320,9 @@ def town_data(dists, reg, latest):
     # The cities whose own school districts are very large stand apart from the averages
     apart = {k for k, d in own_of.items() if d["cohort"] == "XLARGE"}
     pooled = [k for k in keys if k not in apart]
+    gateway = {norm(c) for c in GATEWAY_CITIES}
+    if not gateway <= set(keys):
+        raise ValueError(f"Gateway Cities missing from the town list: {sorted(gateway - set(keys))}")
 
     def peer_of(k):
         if k in apart:
@@ -342,7 +354,7 @@ def town_data(dists, reg, latest):
             key=lambda d: d["type"] != "traditional")
         region_of[k] = next((d["region"] for d in mine if d["region"]), None) or COUNTY_REGION.get(county.get(k))
         full.append({"id": slug(names[k]), "name": names[k], "kind": "town", "county": county.get(k),
-                     "region": region_of[k], "peer": peer_of(k),
+                     "region": region_of[k], "peer": peer_of(k), "gateway": k in gateway,
                      "pop": series(pd.Series({fy: population.get((k, fy)) for fy in YEARS}), 0),
                      **town_series(dls[dls["key"] == k], population), "districts": schools})
 
@@ -372,6 +384,11 @@ def town_data(dists, reg, latest):
                                         ref=f"the average for {rl} {phrase}", label=f"{label} residents",
                                         cmp={"peer_state": pid, "region": f"towns-region-{slug(rk)}",
                                              "state": "towns-statewide"}))
+    # Gateway Cities: the Commonwealth's list, very large cities included
+    averages.append(average("towns-gateway", "Gateway Cities average", "group", None, None, sorted(gateway),
+                            cmp={"state": "towns-statewide"}))
+    for a in averages:
+        a["cmp"]["gateway"] = "towns-gateway" if a["id"] != "towns-gateway" else None
     have = {a["id"] for a in averages}
     chunks = {}
     for a in averages:
@@ -379,7 +396,8 @@ def town_data(dists, reg, latest):
     for x in full:
         pid, rk = x["peer"], x["region"]
         x["cmp"] = {"peer": f"{pid}-{slug(rk)}" if pid and rk and f"{pid}-{slug(rk)}" in have else None,
-                    "peer_state": pid, "region": f"towns-region-{slug(rk)}" if rk else None, "state": "towns-statewide"}
+                    "peer_state": pid, "region": f"towns-region-{slug(rk)}" if rk else None, "state": "towns-statewide",
+                    "gateway": "towns-gateway"}
         x["chunk"] = chunk_of(rk)
         chunks.setdefault(x["chunk"], []).append(x)
 
@@ -544,8 +562,13 @@ def main(site: Path):
         census = census.merge(fte.astype({"DIST_CODE": int, "FY": int}), on=["DIST_CODE", "FY"], how="left")
 
     dists = explorer_districts(df, reg)
+    gateway = {norm(c) for c in GATEWAY_CITIES}
     for d in dists:
         d["id"] = slug(d["name"])
+        d["gateway"] = d["type"] == "traditional" and d["code"] < REGIONAL_MIN_CODE and norm(d["name"]) in gateway
+    if sum(d["gateway"] for d in dists) != len(GATEWAY_CITIES):
+        raise ValueError(f"Expected {len(GATEWAY_CITIES)} Gateway City districts: "
+                         f"{sorted(c for c in gateway if not any(norm(d['name']) == c for d in dists))} missing")
     if len({d["id"] for d in dists}) != len(dists):
         raise ValueError("Two districts share an id")
     print(f"  {len(dists)} districts: " + ", ".join(f"{k} {sum(d['cohort'] == k for d in dists)}" for k in COHORT_ORDER))
@@ -559,6 +582,8 @@ def main(site: Path):
     for k in COHORT_ORDER:
         groups.append((f"cohort-{k.lower()}", cohort_name(k), "cohort", k, None,
                        [d for d in dists if d["cohort"] == k], {"state": "statewide"}))
+    groups.append(("cohort-gateway", "Gateway City districts average", "group", "GATEWAY", None,
+                   [d for d in dists if d["gateway"]], {"state": "statewide"}))
     for k in SIZE_COHORTS[:-1]:
         for rk in REGIONS:
             ms = [d for d in dists if d["cohort"] == k and d["region"] == rk]
@@ -579,6 +604,7 @@ def main(site: Path):
         rev = {"rev_members": len(regional)}
         if census is not None and len(regional) >= MIN_REVENUE_MEMBERS:
             rev |= revenue_fields(census, regional, True)
+        cmp = {**cmp, "gateway": "cohort-gateway" if eid != "cohort-gateway" else None}
         averages.append({"id": eid, "name": name, "kind": "average", "scope": scope, "cohort": cohort,
                          "region": region, "members": len(members), "cmp": cmp,
                          "chunk": slug(region) if region else "statewide", **pack(piv, lines, nss), **rev})
@@ -591,9 +617,10 @@ def main(site: Path):
         regional = d["code"] >= REGIONAL_MIN_CODE
         rc = f"cohort-{k.lower()}-{slug(rk)}" if rk else None
         full.append({"id": d["id"], "name": d["name"], "kind": "district", "type": d["type"], "cohort": k,
-                     "region": rk, "regional": regional, "fte": round(d["fte"], 1),
+                     "region": rk, "regional": regional, "fte": round(d["fte"], 1), "gateway": d["gateway"],
                      "cmp": {"cohort": rc if rc in have else None, "cohort_state": f"cohort-{k.lower()}",
-                             "region": f"region-{slug(rk)}" if rk else None, "state": "statewide"},
+                             "region": f"region-{slug(rk)}" if rk else None, "state": "statewide",
+                             "gateway": "cohort-gateway"},
                      "chunk": chunk_of(rk, d["type"]),
                      **pack(piv, lines, nss), **revenue_fields(census, [d["code"]], regional)})
 
@@ -616,7 +643,7 @@ def main(site: Path):
             "years": YEARS, "latest": LATEST_YEAR, "start": START_YEAR,
             "built": dt.date.today().isoformat(),
             "categories": CANON_CATS_BOTTOM_TO_TOP,
-            "cohorts": {k: cohorts[k] for k in COHORT_ORDER},
+            "cohorts": {k: cohorts[k] for k in COHORT_ORDER + ["GATEWAY"]},
             "regions": REGIONS,
             "cpi": {str(y): float(idx[y]) for y in YEARS if y in idx.index},
             "revenue": ({"first": int(census["FY"].min()), "latest": int(census["FY"].max()),
