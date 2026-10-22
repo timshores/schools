@@ -1,11 +1,16 @@
 """
 Export the data behind the interactive explorer at timshores.com/mass-school-spending.
 
-One JSON file with every Western MA traditional district in the report, each
-cohort aggregate, and the Western MA aggregate, FY START_YEAR..LATEST_YEAR:
-per-pupil expenditure by category, enrollment, and Chapter 70 / net school
-spending per foundation pupil. Values come from the same functions the PDF
-report uses, so the explorer and the report agree.
+Every Massachusetts school district (traditional, vocational and charter, less a
+few special-purpose state schools) and every city and town, FY START_YEAR..
+LATEST_YEAR. Districts: per-pupil expenditure by category, enrollment, and
+Chapter 70 / net school spending per foundation pupil, from the same functions
+the PDF report uses, so the explorer and the report agree; districts join size
+cohorts by the report's rule (get_enrollment_group), applied statewide.
+Averages: statewide, each EOHHS region, each cohort statewide and within each
+region. As the report kept Springfield out of the Western MA average, region and
+statewide averages leave out the very large districts (over 10,000 FTE), which
+have their own average; the Western MA average is the report's.
 
 Revenue by source comes from the Census Bureau's school finance survey
 (data/census_f33_ma.csv, written by update_census_data.py), per in-district
@@ -15,10 +20,16 @@ Census's local revenue leaves out much of what the town spends on its schools
 districts get Census's latest totals instead, so the explorer can say so.
 Aggregates pool their regional members, weighted by in-district FTE.
 
+Towns: general fund spending and revenue per resident (DLS Schedule A), with
+population peer groups and the same kinds of averages; the cities whose school
+districts are very large stand apart from them.
+
 Writes into a copy of the website (github.com/timshores/mywebsite): the JSON to
 src/data/massppe/, where the page imports it, so it ships as compressed, hashed
-JavaScript chunks (the host compresses JavaScript but not JSON); the CSVs of
-source data to public/mass-school-spending/data/, as downloads.
+JavaScript chunks (the host compresses JavaScript but not JSON). explorer.json
+and towns.json hold the averages and a light list; each region's full district
+and town data is its own file under districts/ and towns/, loaded when first
+needed. The CSVs of source data go to public/mass-school-spending/data/.
 
     python export_explorer_data.py ../../mywebsite
 """
@@ -32,8 +43,8 @@ from pathlib import Path
 import pandas as pd
 
 from school_shared import (CANON_CATS_BOTTOM_TO_TOP, IN_DISTRICT_FTE_KEY, LATEST_YEAR, START_YEAR, get_cohort_label,
-                           get_cohort_range, get_cohort_short_label, get_indistrict_fte_for_year, get_western_cohort_districts, load_data,
-                           prepare_aggregate_nss_ch70_weighted, prepare_district_epp_lines,
+                           get_cohort_range, get_cohort_short_label, get_enrollment_group, latest_indistrict_fte,
+                           load_data, prepare_aggregate_nss_ch70_weighted, prepare_district_epp_lines,
                            prepare_district_nss_ch70, prepare_western_epp_lines)
 
 YEARS = list(range(START_YEAR, LATEST_YEAR + 1))
@@ -41,7 +52,26 @@ ENROLL = {"In-District FTE Pupils": "in_district", "Foundation Enrollment": "fou
           "Out-of-District FTE Pupils": "out_of_district"}
 NSS = {"Ch70 Aid": "ch70_aid", "Req NSS (minus Ch70)": "required_local",
        "Actual NSS (minus Req NSS)": "above_required"}
-COHORT_ORDER = ["TINY", "SMALL", "MEDIUM", "LARGE", "SPRINGFIELD"]
+# Districts: every traditional, vocational and charter district with latest-year
+# enrollment and spending, less these special-purpose state schools
+SCHOOL_TYPES = {"Traditional": "traditional", "Vocational": "vocational", "Charter": "charter"}
+EXCLUDE_DISTRICTS = {"institutional schools", "ma academy for math and science",
+                     "tec connections academy commonwealth virtual school district",
+                     "greater commonwealth virtual district"}
+# Size cohorts for traditional districts (the report's), then groups by type
+SIZE_COHORTS = ["TINY", "SMALL", "MEDIUM", "LARGE", "XLARGE"]
+COHORT_ORDER = SIZE_COHORTS + ["VOCATIONAL", "CHARTER"]
+COHORT_TEXT = {  # cohorts the report doesn't define: (label, short label)
+    "XLARGE": ("Very large (over 10,000 FTE)", "Very large"),
+    "VOCATIONAL": ("Vocational and technical districts", "Vocational"),
+    "CHARTER": ("Charter schools", "Charter"),
+}
+# EOHHS regions, as DESE assigns districts to them (data/cache/regional_data.csv)
+REGIONS = {"Western": "Western MA", "Central": "Central MA", "Northeast": "Northeast MA",
+           "Metro West": "Metro West", "Southeast": "Southeast MA", "Boston": "Boston area"}
+# A cohort average within a region needs this many members; with fewer, comparisons use
+# the statewide cohort
+MIN_AVERAGE_MEMBERS = 3
 
 CENSUS_CSV = Path("data/census_f33_ma.csv")
 # DESE numbers regional academic districts from 0600; DIST_CODE is that times 10000
@@ -64,8 +94,7 @@ REVENUE = {
 }
 
 
-# Town view (towns.json, beside explorer.json): every member town of the
-# explorer's districts, with its general fund spending and revenue per resident.
+# Town view: every city and town, general fund spending and revenue per resident
 DLS_CSV = Path("data/dls_schedule_a_general_fund.csv")
 POP_CSV = Path("data/census_town_population.csv")
 MEMBERS_CSV = Path("data/dese_c70_regional_members.csv")
@@ -85,21 +114,17 @@ TOWN_REV = {
     "other": ["Miscellaneous", "Revenue from Other Governments"],
     "transfers": ["Transfers", "Other Financing Sources"],
 }
-# Kept out of the Western MA towns average, as Springfield is kept out of the district averages
-TOWN_AVERAGE_EXCLUDES = {"Springfield"}
 # Peer groups by population: the estimate behind the latest fiscal year (July 2024 for
-# FY2025), as district cohorts use latest-year enrollment. Round bounds near the quintiles
-# of the 96 towns (median 1,868): 20, 35, 21 and 20 towns on FY2025 data.
-# (id, lowest population, first population above the group, name, mid-sentence name, label)
+# FY2025), as district cohorts use latest-year enrollment. Round bounds; statewide
+# FY2025: 26, 42, 98, 103, 55 and 27 towns (the last 17 without the very large cities).
+# (id suffix, lowest population, first population above the group, label)
 TOWN_PEERS = [
-    ("towns-under-1000", 0, 1000, "Towns under 1,000 average",
-     "the average for towns under 1,000", "under 1,000 residents"),
-    ("towns-1000-2499", 1000, 2500, "Towns of 1,000–2,499 average",
-     "the average for towns of 1,000–2,499", "1,000–2,499 residents"),
-    ("towns-2500-9999", 2500, 10000, "Towns of 2,500–9,999 average",
-     "the average for towns of 2,500–9,999", "2,500–9,999 residents"),
-    ("towns-10000-plus", 10000, None, "Towns of 10,000+ average",
-     "the average for towns of 10,000 or more", "10,000 residents or more"),
+    ("under-1000", 0, 1000, "under 1,000"),
+    ("1000-2499", 1000, 2500, "1,000–2,499"),
+    ("2500-9999", 2500, 10000, "2,500–9,999"),
+    ("10000-24999", 10000, 25000, "10,000–24,999"),
+    ("25000-49999", 25000, 50000, "25,000–49,999"),
+    ("50000-plus", 50000, None, "50,000 or more"),
 ]
 
 
@@ -166,9 +191,19 @@ def revenue_fields(census, codes, regional):
                           "expenditure": int(r["TOTALEXP"]) * 1000}}
 
 
+# Region for the few towns with no school district of their own (Monroe, Tyringham,
+# Gosnold...): their county's, where the county lies in one EOHHS region
+COUNTY_REGION = {"Berkshire": "Western", "Franklin": "Western", "Hampden": "Western", "Hampshire": "Western",
+                 "Worcester": "Central", "Barnstable": "Southeast", "Bristol": "Southeast", "Dukes": "Southeast",
+                 "Nantucket": "Southeast", "Plymouth": "Southeast"}
+# DESE's Chapter 70 tables call Manchester-by-the-Sea "Manchester"
+TOWN_ALIASES = {"manchester": "manchesterbythesea"}
+
+
 def norm(name: str) -> str:
     """A town name as DLS, DESE and Census all spell it ("Manchester By The Sea", "Manchester-by-the-Sea")."""
-    return re.sub(r"[^a-z]", "", name.lower())
+    key = re.sub(r"[^a-z]", "", name.lower())
+    return TOWN_ALIASES.get(key, key)
 
 
 def dollars(v):
@@ -193,10 +228,56 @@ def town_series(rows, population):
     return out
 
 
-def town_data(districts, latest):
-    """towns.json content, and the member towns of each district.
+def explorer_districts(df, reg):
+    """The explorer's districts: the report's rule for its Western MA cohorts
+    (school_shared.get_western_cohort_districts: latest-year in-district FTE and
+    per-pupil spending both present, cohort by get_enrollment_group) applied to every
+    region and school type. Each is a dict: key (lowercase name), name, code (DESE
+    DIST_CODE), org (four-digit code), type, cohort, region (None if DESE gives none)."""
+    present = {n.lower(): n for n in df["DIST_NAME"].unique()}
+    code = df.assign(key=df["DIST_NAME"].str.lower()).groupby("key")["DIST_CODE"].first().astype(int)
+    latest = int(df["YEAR"].max())
+    epp = df[(df["IND_CAT"].str.lower() == "expenditures per pupil") & (df["YEAR"] == latest)
+             & ~df["IND_SUBCAT"].str.lower().isin(["total expenditures", "total in-district expenditures"])]
+    total_ppe = epp.groupby(epp["DIST_NAME"].str.lower())["IND_VALUE"].sum()
+    out = []
+    for _, r in reg[reg["SCHOOL_TYPE"].isin(SCHOOL_TYPES)].drop_duplicates("DIST_NAME").iterrows():
+        key = r["DIST_NAME"].lower()
+        if key not in present or key in EXCLUDE_DISTRICTS:
+            continue
+        fte = latest_indistrict_fte(df, key)
+        if fte <= 0 or total_ppe.get(key, 0) <= 0:
+            continue
+        kind = SCHOOL_TYPES[r["SCHOOL_TYPE"]]
+        if kind == "traditional":
+            group = get_enrollment_group(fte)
+            cohort = "XLARGE" if group == "SPRINGFIELD" else group
+        else:
+            cohort = kind.upper()
+        out.append({"key": key, "name": present[key], "code": int(code[key]), "org": int(code[key]) // 10000,
+                    "type": kind, "cohort": cohort, "fte": fte,
+                    "region": r["EOHHS_REGION"] if r["EOHHS_REGION"] in REGIONS else None})
+    return out
 
-    districts: (entity id, name, Org4Code) for every district in the explorer."""
+
+def chunk_of(region, kind="traditional"):
+    """The data file a district or town loads from: its region, or its school type."""
+    if kind != "traditional":
+        return kind
+    return slug(region) if region else "other"
+
+
+def cohort_name(k, region=None):
+    """'Statewide Tiny cohort average', 'Western MA Tiny cohort average', 'Very large districts average'"""
+    if k in ("XLARGE", "VOCATIONAL", "CHARTER"):
+        return {"XLARGE": "Very large districts average", "VOCATIONAL": "Vocational districts average",
+                "CHARTER": "Charter schools average"}[k]
+    return f"{REGIONS[region] if region else 'Statewide'} {get_cohort_short_label(k)} cohort average"
+
+
+def town_data(dists, reg, latest):
+    """The town view: (towns.json content, {chunk: full towns}, every full town, each
+    district's towns). dists: explorer_districts() with each district's explorer id."""
     dls = pd.read_csv(DLS_CSV, dtype={"DOR_CODE": str})
     dls = dls[dls["FY"].isin(YEARS)].assign(key=lambda d: d["Municipality"].map(norm))
     pop = pd.read_csv(POP_CSV).assign(key=lambda d: d["Town"].map(norm))
@@ -206,74 +287,110 @@ def town_data(districts, latest):
     c70 = pd.read_csv(C70_CSV, dtype={"Org4Code": str})
     rlc = c70[c70["fy"] == latest].set_index("Org4Code")["distrlc"].to_dict()
     names = dls.drop_duplicates("key").set_index("key")["Municipality"].to_dict()
-
-    by_org = {f"{org:04d}": (eid, name) for eid, name, org in districts}
-    district_towns = {}
-    for eid, name, org in districts:
-        if org * 10000 < REGIONAL_MIN_CODE:
-            district_towns[eid] = [norm(name)]
-        else:
-            district_towns[eid] = members.loc[members["Org4Code"] == f"{org:04d}", "key"].tolist()
-            if not district_towns[eid]:
-                raise ValueError(f"No FY{latest} member towns for {name}")
-    keys = sorted({k for ks in district_towns.values() for k in ks})
-    missing = [k for k in keys if k not in names or (k, latest) not in population]
+    keys = sorted(names)
+    missing = [k for k in keys if (k, latest) not in population]
     if missing:
-        raise ValueError(f"Towns without Schedule A or population data: {missing}")
+        raise ValueError(f"Towns without population data: {missing}")
 
-    pooled = [k for k in keys if names[k] not in TOWN_AVERAGE_EXCLUDES]
-    peer_of = {}
-    for pid, lo, hi, *_ in TOWN_PEERS:
-        for k in pooled:
-            if lo <= population[(k, latest)] and (hi is None or population[(k, latest)] < hi):
-                peer_of[k] = pid
-
-    in_view = set(keys)
-    # Every member town of every regional district, named as DLS spells it where it can be
-    member_towns = {org: [{"name": names.get(mk, town), "id": slug(names[mk]) if mk in in_view else None, "key": mk}
+    by_org = {f"{d['org']:04d}": d for d in dists}
+    own_of = {norm(d["name"]): d for d in dists if d["code"] < REGIONAL_MIN_CODE and d["type"] == "traditional"
+              and norm(d["name"]) in names}
+    member_towns = {org: [{"name": names.get(mk, town), "id": slug(names[mk]) if mk in names else None, "key": mk}
                           for mk, town in zip(g["key"], g["Town"])]
                     for org, g in members.groupby("Org4Code")}
 
-    towns = []
-    schools_of = {}
+    # Each district's towns: its member towns, or the town of the same name
+    district_towns, towns_kind = {}, {}
+    for d in dists:
+        org = f"{d['org']:04d}"
+        if org in member_towns:
+            district_towns[d["id"]], towns_kind[d["id"]] = [m["key"] for m in member_towns[org]], "members"
+        elif norm(d["name"]) in own_of:
+            district_towns[d["id"]], towns_kind[d["id"]] = [norm(d["name"])], "town"
+
+    # The cities whose own school districts are very large stand apart from the averages
+    apart = {k for k, d in own_of.items() if d["cohort"] == "XLARGE"}
+    pooled = [k for k in keys if k not in apart]
+
+    def peer_of(k):
+        if k in apart:
+            return None
+        n = population[(k, latest)]
+        return next(f"towns-{sfx}" for sfx, lo, hi, _ in TOWN_PEERS if lo <= n and (hi is None or n < hi))
+
+    full, schools_of, region_of = [], {}, {}
     for k in keys:
         schools = []
-        own = next(((eid, name, org) for eid, name, org in districts
-                    if org * 10000 < REGIONAL_MIN_CODE and norm(name) == k), None)
+        own = own_of.get(k)
         if own:
-            schools.append({"name": own[1], "id": own[0], "kind": "town",
-                            "contribution": dollars(rlc.get(f"{own[2]:04d}")), "with": []})
+            schools.append({"name": own["name"], "id": own["id"], "kind": "town",
+                            "contribution": dollars(rlc.get(f"{own['org']:04d}")), "with": []})
         for _, m in members[members["key"] == k].iterrows():
             org = int(m["Org4Code"])
             linked = by_org.get(m["Org4Code"])
-            schools.append({"name": linked[1] if linked else m["District"], "id": linked[0] if linked else None,
+            schools.append({"name": linked["name"] if linked else m["District"], "id": linked["id"] if linked else None,
                             "kind": "regional" if 600 <= org < 800 else "vocational",
                             "contribution": dollars(m["Required_contribution"]),
-                            # The district's other member towns
                             "with": [{"name": o["name"], "id": o["id"]} for o in member_towns[m["Org4Code"]]
                                      if o["key"] != k]})
         schools_of[k] = schools
-        towns.append({"id": slug(names[k]), "name": names[k], "kind": "town", "county": county.get(k),
-                      "peer": peer_of.get(k),
-                      "pop": series(pd.Series({fy: population.get((k, fy)) for fy in YEARS}), 0),
-                      **town_series(dls[dls["key"] == k], population), "districts": schools})
+        # Region: the town's own district's, else its regional academic district's, else any of
+        # its districts', else its county's (regional_data.csv's district_code is not DESE's
+        # code for districts whose region was inferred from the host town, so match districts)
+        mine = ([own] if own else []) + sorted(
+            (by_org[o] for o in members.loc[members["key"] == k, "Org4Code"] if o in by_org),
+            key=lambda d: d["type"] != "traditional")
+        region_of[k] = next((d["region"] for d in mine if d["region"]), None) or COUNTY_REGION.get(county.get(k))
+        full.append({"id": slug(names[k]), "name": names[k], "kind": "town", "county": county.get(k),
+                     "region": region_of[k], "peer": peer_of(k),
+                     "pop": series(pd.Series({fy: population.get((k, fy)) for fy in YEARS}), 0),
+                     **town_series(dls[dls["key"] == k], population), "districts": schools})
 
-    def average(aid, name, members, **fields):
+    def average(aid, name, scope, group, region, ks, **fields):
         """A pooled per-resident average; pop is the members' combined population."""
-        return {"id": aid, "name": name, "kind": "average", "members": len(members), **fields,
-                "pop": series(pd.Series({fy: sum(population.get((k, fy), 0) for k in members) for fy in YEARS}), 0),
-                **town_series(dls[dls["key"].isin(members)], population)}
+        return {"id": aid, "name": name, "kind": "average", "scope": scope, "peer": group, "region": region,
+                "members": len(ks), "chunk": slug(region) if region else "statewide", **fields,
+                "pop": series(pd.Series({fy: sum(population.get((k, fy), 0) for k in ks) for fy in YEARS}), 0),
+                **town_series(dls[dls["key"].isin(ks)], population)}
 
-    averages = [average("western-towns", "Western MA towns average", pooled)]
-    for pid, lo, hi, name, ref, label in TOWN_PEERS:
-        members = [k for k in pooled if peer_of.get(k) == pid]
-        averages.append(average(pid, name, members, ref=ref, label=label))
-    out = {
+    averages = [average("towns-statewide", "Statewide towns average", "state", None, None, pooled, cmp={})]
+    for rk, rl in REGIONS.items():
+        ks = [k for k in pooled if region_of[k] == rk]
+        averages.append(average(f"towns-region-{slug(rk)}", f"{rl} towns average", "region", None, rk, ks,
+                                cmp={"state": "towns-statewide"}))
+    have = {a["id"] for a in averages}
+    for sfx, lo, hi, label in TOWN_PEERS:
+        pid = f"towns-{sfx}"
+        phrase = f"towns {label}" if label.startswith("under") else f"towns of {label}"
+        ks = [k for k in pooled if peer_of(k) == pid]
+        averages.append(average(pid, f"{phrase[0].upper()}{phrase[1:]} average", "peer", pid, None, ks,
+                                ref=f"the average for {phrase}", label=f"{label} residents", cmp={"state": "towns-statewide"}))
+        for rk, rl in REGIONS.items():
+            ks = [k for k in pooled if peer_of(k) == pid and region_of[k] == rk]
+            if len(ks) >= MIN_AVERAGE_MEMBERS:
+                averages.append(average(f"{pid}-{slug(rk)}", f"{rl} {phrase} average", "region-peer", pid, rk, ks,
+                                        ref=f"the average for {rl} {phrase}", label=f"{label} residents",
+                                        cmp={"peer_state": pid, "region": f"towns-region-{slug(rk)}",
+                                             "state": "towns-statewide"}))
+    have = {a["id"] for a in averages}
+    chunks = {}
+    for a in averages:
+        chunks.setdefault(a["chunk"], []).append(a)
+    for x in full:
+        pid, rk = x["peer"], x["region"]
+        x["cmp"] = {"peer": f"{pid}-{slug(rk)}" if pid and rk and f"{pid}-{slug(rk)}" in have else None,
+                    "peer_state": pid, "region": f"towns-region-{slug(rk)}" if rk else None, "state": "towns-statewide"}
+        x["chunk"] = chunk_of(rk)
+        chunks.setdefault(x["chunk"], []).append(x)
+
+    index = {
         "meta": {
             "years": YEARS, "latest": latest, "start": START_YEAR, "built": dt.date.today().isoformat(),
-            "members_fy": latest, "excluded": sorted(TOWN_AVERAGE_EXCLUDES),
+            "members_fy": latest, "regions": REGIONS,
+            "apart": sorted(names[k] for k in apart),
             # July 1 of this year sets each town's peer group
             "peer_year": latest - 1,
+            "peers": [{"id": f"towns-{sfx}", "label": f"{label} residents"} for sfx, _, _, label in TOWN_PEERS],
             "sources": {
                 "finances": "DLS Municipal Databank, Schedule A general fund revenues and expenditures",
                 "population": "Census Bureau subcounty population estimates, July 1 at the start of each fiscal year "
@@ -281,19 +398,24 @@ def town_data(districts, latest):
                 "members": f"DESE FY{latest} Chapter 70 summary for regional districts",
             },
         },
-        "towns": averages + towns,
+        "averages": [{"id": a["id"], "name": a["name"], "scope": a["scope"], "peer": a["peer"], "region": a["region"],
+                      "chunk": a["chunk"]} for a in averages],
+        "towns": [{"id": x["id"], "name": x["name"], "county": x["county"], "region": x["region"],
+                   "peer": x["peer"], "chunk": x["chunk"]} for x in full],
     }
+
     def town_link(eid, k):
-        """A district's member town: what it must contribute to this district, and its other districts."""
+        """A district's town: what it must contribute to this district, and its other districts."""
         mine = next(s for s in schools_of[k] if s["id"] == eid)
         return {"id": slug(names[k]), "name": names[k], "contribution": mine["contribution"],
                 "also": [{"name": s["name"], "id": s["id"], "kind": s["kind"]} for s in schools_of[k] if s is not mine]}
 
-    town_links = {eid: [town_link(eid, k) for k in ks] for eid, ks in district_towns.items()}
-    return out, town_links
+    links = {eid: {"towns": [town_link(eid, k) for k in ks], "towns_kind": towns_kind[eid]}
+             for eid, ks in district_towns.items()}
+    return index, chunks, full, links
 
 
-def write_csvs(out_dir: Path, districts, towns_out, census, latest):
+def write_csvs(out_dir: Path, districts, all_towns, census, latest):
     """The source data behind the explorer, as CSV files beside its JSON: one row per
     district-year or town-year, values as each agency published them, and a source_url on
     every row. districts: (entity id, name, Org4Code) for the explorer's districts."""
@@ -362,8 +484,8 @@ def write_csvs(out_dir: Path, districts, towns_out, census, latest):
                              for fy in out["fiscal_year"]]
         save("districts-revenue.csv", out.sort_values(["census_name", "fiscal_year"]))
 
-    if towns_out:
-        keys = {norm(x["name"]): x for x in towns_out["towns"] if x["kind"] == "town"}
+    if all_towns:
+        keys = {norm(x["name"]): x for x in all_towns}
         dls = pd.read_csv(DLS_CSV, dtype={"DOR_CODE": str})
         dls = dls[dls["FY"].between(START_YEAR, latest) & dls["Municipality"].map(norm).isin(keys)]
         pop = pd.read_csv(POP_CSV).assign(key=lambda d: d["Town"].map(norm))
@@ -388,7 +510,7 @@ def write_csvs(out_dir: Path, districts, towns_out, census, latest):
             save(name, frame.sort_values(["town", "fiscal_year"]))
 
         rows = []
-        for x in towns_out["towns"]:
+        for x in all_towns:
             for d in x.get("districts") or []:
                 rows.append({"town": x["name"], "county": x["county"], "school_district": d["name"],
                              "district_kind": {"town": "town district"}.get(d["kind"], d["kind"]),
@@ -403,11 +525,14 @@ def write_csvs(out_dir: Path, districts, towns_out, census, latest):
     print(f"{out_dir}: " + "; ".join(written))
 
 
+def write_json(path: Path, content) -> int:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(content, separators=(",", ":")))
+    return path.stat().st_size
+
+
 def main(site: Path):
     df, reg, c70 = load_data()
-    cohorts = get_western_cohort_districts(df, reg)
-    proper = {n.lower(): n for n in df["DIST_NAME"].unique()}
-    code = df.assign(name=df["DIST_NAME"].str.lower()).groupby("name")["DIST_CODE"].first().astype(int).to_dict()
     idx = pd.read_csv("data/inflation_indices.csv").set_index("fiscal_year")["cpi_u_northeast"]
     census = pd.read_csv(CENSUS_CSV, dtype={"Org4Code": str, "NCESID": str}) if CENSUS_CSV.exists() else None
     if census is None:
@@ -418,48 +543,81 @@ def main(site: Path):
         fte = fte.rename(columns={"YEAR": "FY", "IND_VALUE": "FTE"})[["DIST_CODE", "FY", "FTE"]]
         census = census.merge(fte.astype({"DIST_CODE": int, "FY": int}), on=["DIST_CODE", "FY"], how="left")
 
-    entities = []
-    # Aggregates first: Western MA (excluding Springfield) and each cohort
-    western = [d for k in ["TINY", "SMALL", "MEDIUM", "LARGE"] for d in cohorts.get(k, [])]
-    groups = [("western-ma", "Western MA average", "western", None, western)]
-    groups += [(f"cohort-{k.lower()}", f"{get_cohort_short_label(k)} cohort average", "cohort", k, cohorts[k])
-               for k in ["TINY", "SMALL", "MEDIUM", "LARGE"] if cohorts.get(k)]
-    for eid, name, kind, cohort, members in groups:
-        bucket = "all_western" if kind == "western" else cohort.lower()
-        _t, piv, _sum, lines_mean = prepare_western_epp_lines(df, reg, bucket, c70, districts=members)
-        nss, _e, foundation = prepare_aggregate_nss_ch70_weighted(df, c70, members)
+    dists = explorer_districts(df, reg)
+    for d in dists:
+        d["id"] = slug(d["name"])
+    if len({d["id"] for d in dists}) != len(dists):
+        raise ValueError("Two districts share an id")
+    print(f"  {len(dists)} districts: " + ", ".join(f"{k} {sum(d['cohort'] == k for d in dists)}" for k in COHORT_ORDER))
+
+    # Averages. Region and statewide averages are traditional districts, less the very large.
+    pooled = [d for d in dists if d["type"] == "traditional" and d["cohort"] != "XLARGE"]
+    groups = [("statewide", "Statewide average", "state", None, None, pooled, {})]
+    for rk, rl in REGIONS.items():
+        groups.append((f"region-{slug(rk)}", f"{rl} average", "region", None, rk,
+                       [d for d in pooled if d["region"] == rk], {"state": "statewide"}))
+    for k in COHORT_ORDER:
+        groups.append((f"cohort-{k.lower()}", cohort_name(k), "cohort", k, None,
+                       [d for d in dists if d["cohort"] == k], {"state": "statewide"}))
+    for k in SIZE_COHORTS[:-1]:
+        for rk in REGIONS:
+            ms = [d for d in dists if d["cohort"] == k and d["region"] == rk]
+            if len(ms) >= MIN_AVERAGE_MEMBERS:
+                groups.append((f"cohort-{k.lower()}-{slug(rk)}", cohort_name(k, rk), "region-cohort", k, rk, ms,
+                               {"cohort_state": f"cohort-{k.lower()}", "region": f"region-{slug(rk)}", "state": "statewide"}))
+    have = {g[0] for g in groups}
+
+    averages = []
+    for eid, name, scope, cohort, region, members, cmp in groups:
+        keys = [d["key"] for d in members]
+        _t, piv, _sum, lines_mean = prepare_western_epp_lines(df, reg, "all_western", c70, districts=keys)
+        nss, _e, foundation = prepare_aggregate_nss_ch70_weighted(df, c70, keys)
         lines = dict(lines_mean)
         if foundation is not None and len(foundation):
             lines["Foundation Enrollment"] = foundation
-        regional = [code[d] for d in members if code.get(d, 0) >= REGIONAL_MIN_CODE]
+        regional = [d["code"] for d in members if d["code"] >= REGIONAL_MIN_CODE]
         rev = {"rev_members": len(regional)}
         if census is not None and len(regional) >= MIN_REVENUE_MEMBERS:
             rev |= revenue_fields(census, regional, True)
-        entities.append({"id": eid, "name": name, "kind": kind, "cohort": cohort, "members": len(members),
-                         **pack(piv, lines, nss), **rev})
+        averages.append({"id": eid, "name": name, "kind": "average", "scope": scope, "cohort": cohort,
+                         "region": region, "members": len(members), "cmp": cmp,
+                         "chunk": slug(region) if region else "statewide", **pack(piv, lines, nss), **rev})
 
-    # Districts, grouped by cohort
-    for k in COHORT_ORDER:
-        for d in sorted(cohorts.get(k, [])):
-            name = proper.get(d, d.title())
-            piv, lines = prepare_district_epp_lines(df, name, c70)
-            nss, _e, _f = prepare_district_nss_ch70(df, c70, name)
-            regional = code[d] >= REGIONAL_MIN_CODE
-            entities.append({"id": slug(name), "name": name, "kind": "district", "cohort": k,
-                             "regional": regional,
-                             "fte": round(get_indistrict_fte_for_year(df, d, LATEST_YEAR), 1),
-                             "compare": f"cohort-{k.lower()}" if k != "SPRINGFIELD" else "western-ma",
-                             **pack(piv, lines, nss), **revenue_fields(census, [code[d]], regional)})
+    full = []
+    for d in sorted(dists, key=lambda d: d["name"]):
+        piv, lines = prepare_district_epp_lines(df, d["name"], c70)
+        nss, _e, _f = prepare_district_nss_ch70(df, c70, d["name"])
+        k, rk = d["cohort"], d["region"]
+        regional = d["code"] >= REGIONAL_MIN_CODE
+        rc = f"cohort-{k.lower()}-{slug(rk)}" if rk else None
+        full.append({"id": d["id"], "name": d["name"], "kind": "district", "type": d["type"], "cohort": k,
+                     "region": rk, "regional": regional, "fte": round(d["fte"], 1),
+                     "cmp": {"cohort": rc if rc in have else None, "cohort_state": f"cohort-{k.lower()}",
+                             "region": f"region-{slug(rk)}" if rk else None, "state": "statewide"},
+                     "chunk": chunk_of(rk, d["type"]),
+                     **pack(piv, lines, nss), **revenue_fields(census, [d["code"]], regional)})
 
-    out = {
+    towns_index, town_chunks, all_towns = None, {}, []
+    if all(p.exists() for p in (DLS_CSV, POP_CSV, MEMBERS_CSV)):
+        towns_index, town_chunks, all_towns, links = town_data(dists, reg, LATEST_YEAR)
+        for e in full:
+            e.update(links.get(e["id"], {}))
+    else:
+        print("  [WARN] town data missing (run update_dls_data.py, update_census_data.py, "
+              "update_dese_data.py); no town view")
+
+    cohorts = {k: {"label": get_cohort_label(k), "short": get_cohort_short_label(k),
+                   "range": [r if r != float("inf") else None for r in get_cohort_range(k)]} for k in SIZE_COHORTS[:-1]}
+    cohorts |= {k: {"label": COHORT_TEXT[k][0], "short": COHORT_TEXT[k][1],
+                    "range": [10001, None] if k == "XLARGE" else None} for k in COHORT_TEXT}
+    index = {
         "meta": {
-            "title": "Western MA per-pupil expenditure",
+            "title": "Massachusetts school spending",
             "years": YEARS, "latest": LATEST_YEAR, "start": START_YEAR,
             "built": dt.date.today().isoformat(),
             "categories": CANON_CATS_BOTTOM_TO_TOP,
-            "cohorts": {k: {"label": get_cohort_label(k), "short": get_cohort_short_label(k),
-                            "range": [r if r != float("inf") else None for r in get_cohort_range(k)]}
-                        for k in COHORT_ORDER},
+            "cohorts": {k: cohorts[k] for k in COHORT_ORDER},
+            "regions": REGIONS,
             "cpi": {str(y): float(idx[y]) for y in YEARS if y in idx.index},
             "revenue": ({"first": int(census["FY"].min()), "latest": int(census["FY"].max()),
                          "min_members": MIN_REVENUE_MEMBERS} if census is not None else None),
@@ -470,35 +628,33 @@ def main(site: Path):
                 "revenue": "Census Bureau Annual Survey of School System Finances (F-33), Massachusetts",
             },
         },
-        "entities": entities,
+        # A light list for the menus; each entity's data is in its chunk's file
+        "averages": [{"id": a["id"], "name": a["name"], "scope": a["scope"], "cohort": a["cohort"],
+                      "region": a["region"], "chunk": a["chunk"]} for a in averages],
+        "districts": [{"id": e["id"], "name": e["name"], "type": e["type"], "cohort": e["cohort"], "region": e["region"],
+                       "regional": e["regional"], "fte": e["fte"], "chunk": e["chunk"]} for e in full],
     }
-    towns_out = None
-    districts = [(e["id"], e["name"], code[e["name"].lower()] // 10000) for e in entities if e["kind"] == "district"]
-    if all(p.exists() for p in (DLS_CSV, POP_CSV, MEMBERS_CSV)):
-        towns_out, town_links = town_data(districts, LATEST_YEAR)
-        for e in entities:
-            if e["kind"] == "district":
-                e["towns"] = town_links[e["id"]]
-    else:
-        print("  [WARN] town data missing (run update_dls_data.py, update_census_data.py, "
-              "update_dese_data.py); no town view")
 
     json_dir = site / "src" / "data" / "massppe"
     csv_dir = site / "public" / "mass-school-spending" / "data"
-    json_dir.mkdir(parents=True, exist_ok=True)
+    for sub in ("districts", "towns"):  # stale region files would ship as dead chunks
+        for f in (json_dir / sub).glob("*.json"):
+            f.unlink()
+    sizes = {"explorer.json": write_json(json_dir / "explorer.json", index)}
+    for chunk in sorted({e["chunk"] for e in full + averages}):
+        sizes[f"districts/{chunk}.json"] = write_json(json_dir / "districts" / f"{chunk}.json",
+                                                      {"entities": [e for e in averages + full if e["chunk"] == chunk]})
+    if towns_index:
+        sizes["towns.json"] = write_json(json_dir / "towns.json", towns_index)
+        for chunk, xs in sorted(town_chunks.items()):
+            sizes[f"towns/{chunk}.json"] = write_json(json_dir / "towns" / f"{chunk}.json", {"towns": xs})
+    print(f"{json_dir}: {len(full)} districts, {len(averages)} district averages, {len(all_towns)} towns, "
+          f"{len(towns_index['averages']) if towns_index else 0} town averages")
+    print("  " + "; ".join(f"{k} {v / 1024:.0f} KB" for k, v in sizes.items()))
     csv_dir.mkdir(parents=True, exist_ok=True)
-    out_path = json_dir / "explorer.json"
-    out_path.write_text(json.dumps(out, separators=(",", ":")))
-    n_d = sum(e["kind"] == "district" for e in entities)
-    print(f"{out_path}: {n_d} districts, {len(entities) - n_d} aggregates, "
-          f"{out_path.stat().st_size / 1024:.0f} KB")
-    write_csvs(csv_dir, districts, towns_out, census, LATEST_YEAR)
-    if towns_out:
-        towns_path = out_path.with_name("towns.json")
-        towns_path.write_text(json.dumps(towns_out, separators=(",", ":")))
-        n_t = sum(x["kind"] == "town" for x in towns_out["towns"])
-        print(f"{towns_path}: {n_t} towns, {len(towns_out['towns']) - n_t} averages, "
-              f"{towns_path.stat().st_size / 1024:.0f} KB")
+    write_csvs(csv_dir, [(e["id"], e["name"], e_code // 10000) for e, e_code in
+                         ((e, next(d["code"] for d in dists if d["id"] == e["id"])) for e in full)],
+               all_towns, census, LATEST_YEAR)
 
 
 if __name__ == "__main__":

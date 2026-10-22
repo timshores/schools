@@ -320,3 +320,62 @@ remove the line checkboxes and make the legend lines clickable on each plot)
     persist across districts and towns, like the legend isolation.
     Verified in Chromium: per-chart independence, focus kept on the button,
     redirect with a selection, CSV links at the new path; no console errors.
+
+--------------------------------------------------------------------------------
+Session 13, continued: statewide explorer (Tim: every district and municipality),
+plus no comparison by default, remembered choices, shorter wording, tooltip
+wrapping, comparison tables that follow the legend
+--------------------------------------------------------------------------------
+
+17. export_explorer_data.py, statewide
+   - Districts: explorer_districts() applies the report's Western rule
+     (get_western_cohort_districts: latest-year in-district FTE and PPE both
+     present; cohort by get_enrollment_group) to every region and type: 387
+     districts (Tiny 28, Small 37, Medium 59, Large 152, Very large 10,
+     vocational 29, charter 72). Excluded: two virtual schools, Institutional
+     Schools, Mass Academy of Math and Science. The report's SPRINGFIELD group
+     (over 10,000 FTE) becomes XLARGE: Boston, Worcester, Springfield, Lynn,
+     Brockton, Lowell, Lawrence, New Bedford, Newton, Fall River.
+   - Averages (32): statewide; six EOHHS regions; each cohort statewide; each
+     size cohort within a region where it has 3+ members. Region and statewide
+     averages leave out the very large districts, generalizing the report's
+     "Springfield stands apart", so the Western MA average is the report's.
+   - Regression: all 65 Western districts, the Western average and the four
+     Western cohorts (now cohort-*-western) are value-for-value identical to
+     the published explorer.
+   - Towns: all 351. Region = own district's, else its regional district's,
+     else its county's (Monroe, Mount Washington, New Ashford, Tyringham,
+     Gosnold). regional_data.csv's district_code is NOT a DESE code for
+     host-town-inferred rows (Hancock 440045 collides with Brockton), so regions
+     are matched through the explorer's districts, never by that code.
+     DESE's tables say "Manchester" for Manchester-by-the-Sea (TOWN_ALIASES).
+     Peer groups: under 1,000 (26), 1,000-2,499 (42), 2,500-9,999 (98),
+     10,000-24,999 (103), 25,000-49,999 (55), 50,000+ (17); the ten cities with
+     very large districts stand apart from the town averages. The Western MA
+     towns average now pools 100 towns (was 96): Hancock, plus the four
+     no-district Berkshire/Franklin towns.
+   - Files: explorer.json / towns.json hold meta and a light list; full data
+     per region (and statewide, vocational, charter) in districts/*.json and
+     towns/*.json. First visit loads ~80 KB compressed (index + one region).
+   - CSVs now statewide (largest towns-spending.csv, 1.8 MB).
+
+mywebsite
+   - Region files load on demand (import.meta.glob); refresh() loads the
+     entity, the second-menu pick and the comparison, then draws.
+   - Compare choices: No comparison (default, both tabs), its cohort (peer
+     group) in its region (falls back to statewide, with a note), statewide
+     cohort, region, statewide, another. Old links (western-ma, cmp=western)
+     still open.
+   - Remembered choices: localStorage, not cookies (nothing goes to the
+     server); a non-blocking prompt after the first change; a link's own
+     settings win over saved choices; "Forget them" in the notes clears it.
+   - Wording: the line under the name is cohort/type and region (town: county
+     and region); subtitles lost the line and legend descriptions; population
+     note says what the per-resident division is.
+   - Comparison tables list only isolated categories, plus their total.
+   - Tooltip labels wrap. Notes rewritten for the statewide scope.
+   - Verified in Chromium (dev server and production build): defaults, every
+     comparison choice and fallback, Boston/Worcester, a charter, a vocational
+     district, chunk loading per region, towns incl. Boston, remembered state
+     across a new page, old-link aliases, Forget, 390px; no console errors;
+     tsc --strict, astro build, voice check clean.
