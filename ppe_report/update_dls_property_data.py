@@ -2,8 +2,9 @@
 Download the property values behind each Massachusetts municipality's tax base
 from the DLS Municipal Databank: parcel counts and assessed values by property
 use (the assessors' LA-4), FY2003 onward; the Commissioner of Revenue's
-equalized valuations (EQV), 1970 onward; and the average single-family tax
-bill, 1988 onward.
+equalized valuations (EQV), 1970 onward; the average single-family tax
+bill, 1988 onward; and each town's Proposition 2 1/2 levy limit, levy, and
+excess levy capacity, FY2007 onward.
 
     data/dls_la4_parcels.csv
         DOR_CODE, Municipality, County, FY, Category, Parcels, Value
@@ -13,6 +14,10 @@ bill, 1988 onward.
         DOR_CODE, Municipality, FY, Single-Family Values, Single-Family Parcels,
         Average Single-Family Value, Single-Family Tax Bill, Single-Family Tax
         Bill as % of Value, DOR Income Per Capita, Average Tax Bill as a % of Income
+    data/dls_levy_capacity.csv
+        DOR_CODE, Municipality, FY, Levy Limit w/o Debt & Capital Exclusions,
+        Maximum Levy Limit, Total Tax Levy, Excess Levy Capacity, Levy Ceiling,
+        Override Capacity, Total Assessed Value, ...
 
 The LA-4 is each board of assessors' yearly report of parcels and assessed
 values by property use code, as of January 1 before the fiscal year: the FY2025
@@ -36,6 +41,12 @@ pays: single-family assessed value divided by single-family parcels, times the
 residential tax rate. DLS sets it beside the Department of Revenue's income per
 capita and reports the bill as a percentage of that income.
 
+Under Proposition 2 1/2 a town's levy limit grows 2.5% a year plus new growth,
+and voters can raise it with an override or exclude debt from it; the maximum
+levy limit includes those exclusions. Excess levy capacity is what a town could
+raise but doesn't: the maximum levy limit less the levy it set. The levy
+ceiling, 2.5% of total assessed value, caps the levy limit itself.
+
     python update_dls_property_data.py
 """
 
@@ -54,10 +65,12 @@ DATA_DIR = Path("./data")
 LA4 = "PropertyTaxInformation.LA4.Parcel_counts_vals"
 EQV = "PropertyTaxInformation.EQV.EQV"
 SF_BILL = "AverageSingleTaxBill.SingleFamTaxBill_wRange"
+LEVY = "Prop2.5.ExcessLevyCapandOverride_10_pres"
 LA4_TABLES = {"Parcels": "xtParcels", "Value": "xtVals"}  # measure: the report's table for it
 OUT_LA4 = DATA_DIR / "dls_la4_parcels.csv"
 OUT_EQV = DATA_DIR / "dls_eqv.csv"
 OUT_SF_BILL = DATA_DIR / "dls_single_family_tax_bill.csv"
+OUT_LEVY = DATA_DIR / "dls_levy_capacity.csv"
 SOURCES_JSON = DATA_DIR / "dls_property_sources.json"
 ID_COLS = ["DOR Code", "Municipality", "County"]
 
@@ -138,6 +151,19 @@ def single_family_bills(fields: dict[str, list[str]]) -> pd.DataFrame:
     return df[df["Single-Family Tax Bill"].notna()]
 
 
+def levy_capacity(fields: dict[str, list[str]]) -> pd.DataFrame:
+    """Every year's levy limits, levy, and excess capacity, all municipalities in one request."""
+    df = export(LEVY, "tblExcess", [("iclMuni", m) for m in fields["iclMuni"]] + [("iclYear", y) for y in fields["iclYear"]])
+    df = df.rename(columns=lambda c: re.sub(r"\s+", " ", str(c)).strip())
+    df = df.rename(columns={"DOR Code": "DOR_CODE", "Fiscal Year": "FY"})
+    df["DOR_CODE"] = df["DOR_CODE"].str.zfill(3)
+    df["Municipality"] = df["Municipality"].str.strip()
+    df["FY"] = df["FY"].astype(int)
+    for c in df.columns[3:]:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    return df[df["Total Tax Levy"].notna()]
+
+
 def main():
     today = dt.date.today()
     print("[DLS] Reading the LA-4 and EQV forms...")
@@ -163,6 +189,11 @@ def main():
     bills.to_csv(OUT_SF_BILL, index=False)
     print(f"  {OUT_SF_BILL}: {len(bills):,} rows, FY{bills['FY'].min()}-FY{bills['FY'].max()}, current as of {sf_as_of}")
 
+    levy_fields, levy_as_of = form(LEVY)
+    levy = levy_capacity(levy_fields).sort_values(["FY", "DOR_CODE"])
+    levy.to_csv(OUT_LEVY, index=False)
+    print(f"  {OUT_LEVY}: {len(levy):,} rows, FY{levy['FY'].min()}-FY{levy['FY'].max()}, current as of {levy_as_of}")
+
     SOURCES_JSON.write_text(json.dumps({
         "la4": {"source": f"DLS Municipal Databank, Parcel Counts and Values by Usage Code: {BASE}?rdReport={LA4}",
                 "data_current_as_of": la4_as_of, "first_year": years[0], "latest_year": years[-1]},
@@ -173,6 +204,10 @@ def main():
             "source": f"DLS Municipal Databank, Average Single Family Tax Bill: {BASE}?rdReport={SF_BILL}",
             "data_current_as_of": sf_as_of,
             "first_year": int(bills["FY"].min()), "latest_year": int(bills["FY"].max())},
+        "levy_capacity": {
+            "source": f"DLS Municipal Databank, Excess Levy Capacity and Override Capacity: {BASE}?rdReport={LEVY}",
+            "data_current_as_of": levy_as_of,
+            "first_year": int(levy["FY"].min()), "latest_year": int(levy["FY"].max())},
         "downloaded": today.isoformat(),
     }, indent=1) + "\n")
     print(f"  {SOURCES_JSON}")

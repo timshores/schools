@@ -17,5 +17,11 @@
   "first_year": 1988,
   "latest_year": 2027
  },
+ "levy_capacity": {
+  "source": "DLS Municipal Databank, Excess Levy Capacity and Override Capacity: https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Prop2.5.ExcessLevyCapandOverride_10_pres",
+  "data_current_as_of": "2026-10-21",
+  "first_year": 2007,
+  "latest_year": 2027
+ },
  "downloaded": "2026-10-21"
 }

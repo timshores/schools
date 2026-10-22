@@ -132,6 +132,7 @@ TOWN_REV = {
 LA4_CSV = Path("data/dls_la4_parcels.csv")
 EQV_CSV = Path("data/dls_eqv.csv")
 SF_BILL_CSV = Path("data/dls_single_family_tax_bill.csv")
+LEVY_CSV = Path("data/dls_levy_capacity.csv")
 PROPERTY_TYPES = {
     "single": ["Single Family 101"],
     "condo": ["Condominiums 102"],
@@ -183,6 +184,7 @@ URL_POP = "https://www2.census.gov/programs-surveys/popest/datasets/"
 URL_BLS = "https://data.bls.gov/timeseries/CUUR0100SA0"
 URL_LA4 = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyTaxInformation.LA4.Parcel_counts_vals"
 URL_EQV = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyTaxInformation.EQV.EQV"
+URL_LEVY = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Prop2.5.ExcessLevyCapandOverride_10_pres"
 URL_SF_BILL = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=AverageSingleTaxBill.SingleFamTaxBill_wRange"
 URL_C70_WHITEPAPER = "https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-whitepaper.docx"
 URL_C70_FORMULA = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}.xlsm"
@@ -292,7 +294,11 @@ def load_property():
     eqv = pd.read_csv(EQV_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Municipality"].map(norm))
     bills = pd.read_csv(SF_BILL_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Municipality"].map(norm))
     bills = bills[bills["FY"].isin(YEARS)].set_index(["key", "FY"])
-    return {"value": value, "parcels": parcels, "eqv": eqv.set_index(["key", "Year"])["EQV"], "bills": bills}
+    levy = None
+    if LEVY_CSV.exists():
+        levy = pd.read_csv(LEVY_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Municipality"].map(norm))
+        levy = levy[levy["FY"].isin(YEARS)].set_index(["key", "FY"])
+    return {"value": value, "parcels": parcels, "eqv": eqv.set_index(["key", "Year"])["EQV"], "bills": bills, "levy": levy}
 
 
 def property_series(prop, ks, population):
@@ -320,7 +326,21 @@ def property_series(prop, ks, population):
         b["Single-Family Parcels"].groupby(level="FY").sum()
     b_pop = pop(b.index)
     income = (b["DOR Income Per Capita"] * b_pop).groupby(level="FY").sum() / b_pop.groupby(level="FY").sum()
+    # The tax rate on single-family homes, per $1,000: the bills over the homes' value
+    rate = (b["Single-Family Tax Bill"] * b["Single-Family Parcels"]).groupby(level="FY").sum() / \
+        b["Single-Family Values"].groupby(level="FY").sum() * 1000
+    levy = {}
+    if prop["levy"] is not None:
+        lv = prop["levy"][prop["levy"].index.get_level_values("key").isin(ks)]
+        sums = lv[["Total Tax Levy", "Excess Levy Capacity", "Maximum Levy Limit", "Levy Ceiling"]].groupby(level="FY").sum()
+        per = pop(lv.index).groupby(level="FY").sum()
+        # Prop 2 1/2: the levy raised and the capacity left under the limit, per resident and in all
+        levy = {"levy": {"raised": series(sums["Total Tax Levy"] / per, 0), "unused": series(sums["Excess Levy Capacity"] / per, 0)},
+                "levy_total": series(sums["Total Tax Levy"], 0), "levy_max": series(sums["Maximum Levy Limit"], 0),
+                "levy_ceiling": series(sums["Levy Ceiling"], 0)}
     return {
+        **levy,
+        "sf_rate": series(rate, 2),
         "income_pc": series(income, 0),
         "prop": {t: series(v_res[t] if t in v_res.columns else None, 0) for t in PROPERTY_TYPES},
         "parcels": {t: series(n[t] if t in n.columns else None, 0) for t in PROPERTY_TYPES if t != "personal"},
@@ -801,6 +821,12 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
         eqv["source_url"] = URL_EQV
         save("towns-eqv.csv", eqv[["valuation_year", "valuation_date", "dor_code", "town", "county", "equalized_valuation",
                                    "source_url"]].sort_values(["town", "valuation_year"]))
+        if LEVY_CSV.exists():
+            levy = pd.read_csv(LEVY_CSV, dtype={"DOR_CODE": str})
+            levy = levy[levy["FY"].between(START_YEAR, latest)].rename(columns={"FY": "fiscal_year", "DOR_CODE": "dor_code",
+                                                                                "Municipality": "town"})
+            levy["source_url"] = URL_LEVY
+            save("towns-levy.csv", levy.sort_values(["town", "fiscal_year"]))
 
     # Chapter 70 targets with and without the 82.5% cap (cap_data's method)
     if all_towns and C70_TOWNWIDE_CSV.exists():

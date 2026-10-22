@@ -487,3 +487,19 @@ mywebsite
     capped both years (-$7.19M without the cap in FY2027). CSV towns-chapter70-targets.csv.
     Private material Tim shared (Barrett letter to DESE, Leyva memo, Naughton & Brown workbook,
     a colleague's email) informed the copy and chart options but is not cited on the page.
+
+25. Ideas from Tim's May 2025 ARPS tax rate and levy deck (workbook from DLS DARB reports), on
+    the Towns tab: update_dls_property_data.py now also downloads the Prop 2 1/2 Excess Levy
+    Capacity and Override Capacity report (FY2007-FY2027) -> data/dls_levy_capacity.csv. Export
+    adds per town and pooled average: levy raised and unused capacity per resident, levy and
+    maximum levy limit in all, and the single-family tax rate (bills over values, x1000; the
+    residential rate except where a town has a residential exemption). New panels: "Property
+    tax levy and its limit" (Leverett FY2025: $6.43M of a $7.41M limit, $981,797 = 13% unused,
+    as the deck's "$1M they are choosing not to raise") and "Average single-family tax bill"
+    (rate and share of income in the tooltip); a notes paragraph using the deck's framing
+    (tax relief, careful budgeting, or austerity); CSV towns-levy.csv. Not carried over yet:
+    teacher salaries and benefits (district data), a town's contribution by district over time.
+
+26. Commonwealth modal: the drawer holds only the correlation ranking; "About ρ" and "Data
+    table" open their own windows over the plot. Any open dialog on the page locks the page's
+    scroll (MutationObserver on dialog[open] toggling html.modal-open).
