@@ -503,3 +503,16 @@ mywebsite
 26. Commonwealth modal: the drawer holds only the correlation ranking; "About ρ" and "Data
     table" open their own windows over the plot. Any open dialog on the page locks the page's
     scroll (MutationObserver on dialog[open] toggling html.modal-open).
+
+27. Per household and per taxable property (Tim: as variables on the cap chart and the Towns tab).
+    New update_acs_households.py: ACS five-year B11001 total households for every MA county
+    subdivision, 2005-2009 through 2020-2024. The Census API now needs a key, so it reads summary
+    files: table-based national B11001 files for 2021+, and for 2009-2020 only the geography and
+    sequence members of each ~150 MB Massachusetts zip, via HTTP range requests (sequence from
+    each year's lookup file; geography CSV, or fixed-width before 2012). Ten towns whose codes
+    changed in 2010 are missing from 2005-2009 and take 2006-2010. FY maps to the release ending
+    the year it begins. Export: town and pooled-average "hh" series; cap.json households and
+    FY2026 taxable parcels; CSV towns-households.csv. Explorer: a Per toggle (resident /
+    household / taxable property) scales every town dollar figure by residents over households or
+    parcels; cap chart gets per-household and per-property changes. Leverett FY2025: $4,029 per
+    resident = $10,542 per household (712) = $6,830 per taxable property (1,099).

@@ -133,6 +133,11 @@ LA4_CSV = Path("data/dls_la4_parcels.csv")
 EQV_CSV = Path("data/dls_eqv.csv")
 SF_BILL_CSV = Path("data/dls_single_family_tax_bill.csv")
 LEVY_CSV = Path("data/dls_levy_capacity.csv")
+# Households: ACS five-year estimates (update_acs_households.py). Each fiscal year takes the
+# release ending the calendar year it begins (FY2025: 2020-2024); FY2009 takes the first
+# release, 2005-2009. A town missing from a release (ten whose Census codes changed in 2010
+# are missing from 2005-2009) takes the next one.
+HH_CSV = Path("data/census_town_households.csv")
 PROPERTY_TYPES = {
     "single": ["Single Family 101"],
     "condo": ["Condominiums 102"],
@@ -440,9 +445,16 @@ def cap_data(all_towns):
     the uncapped combined effort yields' total. A town's target is then its yield times that
     factor. (This reproduces Michael Naughton's FY2026 'NO Cap' targets to within 0.01%.)"""
     tw = pd.read_csv(C70_TOWNWIDE_CSV)
-    pop = pd.read_csv(POP_CSV).assign(key=lambda d: d["Town"].map(norm))
+    pop = pd.read_csv(POP_CSV, dtype={"COUSUB_FIPS": str}).assign(key=lambda d: d["Town"].map(norm))
     population = {(k, fy): p for k, fy, p in zip(pop["key"], pop["FY"], pop["Population"])}
     last_pop = int(pop["FY"].max())
+    households = load_households(pop)
+    # Taxable real estate parcels: the latest LA-4 year every town has filed
+    la4 = pd.read_csv(LA4_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Municipality"].map(norm))
+    la4 = la4[~la4["Category"].isin([LA4_EXEMPT] + PROPERTY_TYPES["personal"])]
+    filed = la4[la4["Parcels"] > 0].groupby("FY")["key"].nunique()
+    parcel_fy = int(filed[filed >= 351].index.max())
+    parcels = la4[la4["FY"] == parcel_fy].groupby("key")["Parcels"].sum().to_dict()
     by_key = {norm(x["name"]): x for x in all_towns}
     years = {}
     for fy, g in tw.groupby("fy"):
@@ -464,6 +476,8 @@ def cap_data(all_towns):
                 # estimate for July of the income year
                 "pop": dollars(population.get((r["key"], min(fy, last_pop)))),
                 "pop_income": dollars(population.get((r["key"], income_year + 1))),
+                "hh": dollars(households.get((r["key"], min(fy, last_pop)))),
+                "parcels": dollars(parcels.get(r["key"])),
                 "eqv": dollars(r["eqv"]), "income": dollars(r["income"]), "cey": dollars(r["cey"]),
                 "foundation": dollars(r["foundation"]), "max": dollars(r["max_local"]), "target": dollars(r["target"]),
                 "nocap": dollars(nc), "required": dollars(r["required"]), "prior": dollars(r["rlc_prior"]),
@@ -482,10 +496,29 @@ def cap_data(all_towns):
                        "capped": int(capped.sum()), "up": int((change > 0).sum()), "up_sum": dollars(change[change > 0].sum()),
                        "down": int((change < 0).sum()), "down_sum": dollars(change[change < 0].sum())},
             "source": URL_C70_FORMULA.format(fy=fy), "whitepaper": URL_C70_WP.format(fy=fy),
-            "pop_year": min(int(fy), last_pop) - 1,
+            "pop_year": min(int(fy), last_pop) - 1, "parcel_fy": parcel_fy,
             "towns": towns,
         }
     return {"meta": {"built": dt.date.today().isoformat(), "latest": max(int(y) for y in years)}, "years": years}
+
+
+def load_households(pop):
+    """(town key, fiscal year) -> households; empty if update_acs_households.py hasn't run."""
+    if not HH_CSV.exists():
+        return {}
+    key_of = pop.drop_duplicates("COUSUB_FIPS").set_index("COUSUB_FIPS")["key"]
+    hh = pd.read_csv(HH_CSV, dtype={"COUSUB_FIPS": str})
+    hh["key"] = hh["COUSUB_FIPS"].map(key_of)
+    by = {(k, v): n for k, v, n in zip(hh["key"], hh["Vintage"], hh["Households"]) if isinstance(k, str)}
+    first, last = int(hh["Vintage"].min()), int(hh["Vintage"].max())
+    out = {}
+    for k in set(hh["key"].dropna()):
+        for fy in YEARS:
+            v = min(max(fy - 1, first), last)
+            n = by.get((k, v)) or by.get((k, v + 1))
+            if n:
+                out[(k, fy)] = n
+    return out
 
 
 def explorer_districts(df, reg):
@@ -540,8 +573,9 @@ def town_data(dists, reg, latest):
     district's towns). dists: explorer_districts() with each district's explorer id."""
     dls = pd.read_csv(DLS_CSV, dtype={"DOR_CODE": str})
     dls = dls[dls["FY"].isin(YEARS)].assign(key=lambda d: d["Municipality"].map(norm))
-    pop = pd.read_csv(POP_CSV).assign(key=lambda d: d["Town"].map(norm))
+    pop = pd.read_csv(POP_CSV, dtype={"COUSUB_FIPS": str}).assign(key=lambda d: d["Town"].map(norm))
     population = {(k, fy): p for k, fy, p in zip(pop["key"], pop["FY"], pop["Population"])}
+    households = load_households(pop)
     county = pop.sort_values("FY").groupby("key")["County"].last().to_dict()
     members = pd.read_csv(MEMBERS_CSV, dtype={"Org4Code": str}).assign(key=lambda d: d["Town"].map(norm))
     c70 = pd.read_csv(C70_CSV, dtype={"Org4Code": str})
@@ -610,6 +644,7 @@ def town_data(dists, reg, latest):
         full.append({"id": slug(names[k]), "name": names[k], "kind": "town", "county": county.get(k),
                      "region": region_of[k], "peer": peer_of(k), "gateway": k in gateway,
                      "pop": series(pd.Series({fy: population.get((k, fy)) for fy in YEARS}), 0),
+                     "hh": series(pd.Series({fy: households.get((k, fy)) for fy in YEARS}), 0),
                      **town_series(dls[dls["key"] == k], population), **property_series(prop, [k], population),
                      "districts": schools})
 
@@ -618,6 +653,7 @@ def town_data(dists, reg, latest):
         return {"id": aid, "name": name, "kind": "average", "scope": scope, "peer": group, "region": region,
                 "members": len(ks), "chunk": slug(region) if region else "statewide", **fields,
                 "pop": series(pd.Series({fy: sum(population.get((k, fy), 0) for k in ks) for fy in YEARS}), 0),
+                "hh": series(pd.Series({fy: sum(households.get((k, fy), 0) for k in ks) or None for fy in YEARS}), 0),
                 **town_series(dls[dls["key"].isin(ks)], population), **property_series(prop, ks, population)}
 
     averages = [average("towns-statewide", "Statewide towns average", "state", None, None, pooled, cmp={})]
@@ -844,6 +880,16 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
                                 "max_local": "maximum_local_contribution", "target": "target_local_contribution",
                                 "rlc_prior": "prior_year_required_contribution", "required": "required_contribution"})
         save("towns-chapter70-targets.csv", tw.sort_values(["fiscal_year", "town"]))
+
+    if all_towns and HH_CSV.exists():
+        hh = pd.read_csv(HH_CSV, dtype={"COUSUB_FIPS": str})
+        pop = pd.read_csv(POP_CSV, dtype={"COUSUB_FIPS": str})
+        names = pop.drop_duplicates("COUSUB_FIPS").set_index("COUSUB_FIPS")["Town"]
+        hh.insert(2, "town", hh["COUSUB_FIPS"].map(names))
+        hh = hh.rename(columns={"Vintage": "acs_five_year_ending", "COUSUB_FIPS": "census_cousub_fips",
+                                "Households": "households", "Source": "source_url"})
+        hh.insert(1, "acs_five_year_span", (hh["acs_five_year_ending"] - 4).astype(str) + "-" + hh["acs_five_year_ending"].astype(str))
+        save("towns-households.csv", hh.sort_values(["town", "acs_five_year_ending"]))
 
     cpi = pd.read_csv("data/inflation_indices.csv")
     cpi = cpi[cpi["fiscal_year"].between(START_YEAR, latest)][["fiscal_year", "cpi_u_northeast"]]
