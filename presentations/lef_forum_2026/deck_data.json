@@ -1162,5 +1162,120 @@
   "2023": 309.62,
   "2024": 318.888,
   "2025": 329.691
+ },
+ "town_budgets": {
+  "year": 2025,
+  "towns": {
+   "Leverett": {
+    "members": null,
+    "population": 1863.0,
+    "spend_per_resident": 4029,
+    "education_per_resident": 2477,
+    "education_share": 0.6148,
+    "taxes_per_resident": 3624,
+    "taxes_share": 0.8453,
+    "spend_total": 7507059.0,
+    "districts": [
+     {
+      "name": "Leverett",
+      "kind": "town",
+      "contribution": 1083930
+     },
+     {
+      "name": "Amherst-Pelham",
+      "kind": "regional",
+      "contribution": 1102340
+     }
+    ]
+   },
+   "Pelham": {
+    "members": null,
+    "population": 1343.0,
+    "spend_per_resident": 3996,
+    "education_per_resident": 2314,
+    "education_share": 0.5791,
+    "taxes_per_resident": 3956,
+    "taxes_share": 0.8805,
+    "spend_total": 5366265.0,
+    "districts": [
+     {
+      "name": "Pelham",
+      "kind": "town",
+      "contribution": 661794
+     },
+     {
+      "name": "Amherst-Pelham",
+      "kind": "regional",
+      "contribution": 777841
+     }
+    ]
+   },
+   "Shutesbury": {
+    "members": null,
+    "population": 1717.0,
+    "spend_per_resident": 4192,
+    "education_per_resident": 2483,
+    "education_share": 0.5923,
+    "taxes_per_resident": 3633,
+    "taxes_share": 0.8492,
+    "spend_total": 7198848.0,
+    "districts": [
+     {
+      "name": "Shutesbury",
+      "kind": "town",
+      "contribution": 822355
+     },
+     {
+      "name": "Amherst-Pelham",
+      "kind": "regional",
+      "contribution": 929296
+     }
+    ]
+   },
+   "Amherst": {
+    "members": null,
+    "population": 40989.0,
+    "spend_per_resident": 2108,
+    "education_per_resident": 1127,
+    "education_share": 0.5346,
+    "taxes_per_resident": 1755,
+    "taxes_share": 0.7097,
+    "spend_total": 86420839.0,
+    "districts": [
+     {
+      "name": "Amherst",
+      "kind": "town",
+      "contribution": 11117824
+     },
+     {
+      "name": "Amherst-Pelham",
+      "kind": "regional",
+      "contribution": 11495958
+     }
+    ]
+   },
+   "Western MA towns of 1,000-2,499": {
+    "members": 35,
+    "population": 55270.0,
+    "spend_per_resident": 4116,
+    "education_per_resident": 1973,
+    "education_share": 0.4793,
+    "taxes_per_resident": 3561,
+    "taxes_share": 0.8359,
+    "spend_total": null,
+    "districts": []
+   },
+   "Western MA towns": {
+    "members": 100,
+    "population": 680759.0,
+    "spend_per_resident": 3854,
+    "education_per_resident": 1787,
+    "education_share": 0.4637,
+    "taxes_per_resident": 2714,
+    "taxes_share": 0.6753,
+    "spend_total": null,
+    "districts": []
+   }
+  }
  }
 }

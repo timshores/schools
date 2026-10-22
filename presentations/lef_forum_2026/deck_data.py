@@ -121,6 +121,38 @@ def main():
         epp[epp["DIST_NAME"] == d].set_index("YEAR")["IND_VALUE"], years) for d in DISTRICTS_OF_INTEREST}
 
     out["cpi_u_northeast_fy"] = {int(y): float(idx[y]) for y in years if y in idx.index}
+
+    # Town budgets (DLS Schedule A general fund), through the explorer's own export so the
+    # deck and timshores.com/mass-school-spending agree: the ARPS towns, Western MA towns of
+    # Leverett's size (1,000-2,499 residents), all Western MA towns
+    import export_explorer_data as ex
+    dists = ex.explorer_districts(df, reg)
+    for d in dists:
+        d["id"] = ex.slug(d["name"])
+    _index, chunks, _towns, _links = ex.town_data(dists, reg, latest)
+    by_id = {x["id"]: x for xs in chunks.values() for x in xs}
+    i = ex.YEARS.index(latest)
+    town_ids = {"Leverett": "leverett", "Pelham": "pelham", "Shutesbury": "shutesbury", "Amherst": "amherst",
+                "Western MA towns of 1,000-2,499": "towns-1000-2499-western",
+                "Western MA towns": "towns-region-western"}
+    budgets = {}
+    for name, tid in town_ids.items():
+        x = by_id[tid]
+        spend = sum(v[i] or 0 for v in x["spend"].values())
+        rev = sum(v[i] or 0 for v in x["rev"].values())
+        budgets[name] = {
+            "members": x.get("members"),
+            "population": x["pop"][i],
+            "spend_per_resident": round(spend),
+            "education_per_resident": round(x["spend"]["education"][i]),
+            "education_share": round(x["spend"]["education"][i] / spend, 4),
+            "taxes_per_resident": round(x["rev"]["taxes"][i]),
+            "taxes_share": round(x["rev"]["taxes"][i] / rev, 4),
+            "spend_total": x["spend_total"][i] if x["kind"] == "town" else None,
+            "districts": [{"name": s["name"], "kind": s["kind"], "contribution": s["contribution"]}
+                          for s in x.get("districts", [])],
+        }
+    out["town_budgets"] = {"year": latest, "towns": budgets}
     path = HERE / "deck_data.json"
     path.write_text(json.dumps(out, indent=1))
     print(f"[deck] {path} (FY{FIRST_YEAR}-FY{latest})")

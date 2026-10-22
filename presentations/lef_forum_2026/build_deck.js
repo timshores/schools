@@ -1,4 +1,4 @@
-// Leverett Education Foundation Education Forum, November 2026: five-slide deck.
+// Leverett Education Foundation Education Forum, November 2026: seven-slide deck.
 // Every number comes from deck_data.json (deck_data.py). Rebuild:
 //   cd ppe_report && python ../presentations/lef_forum_2026/deck_data.py
 //   cd ../presentations/lef_forum_2026 && node build_deck.js
@@ -19,6 +19,11 @@ const rate = (a, b, n) => Math.pow(b / a, 1 / n) - 1;
 const ppe = (g, y) => D.ppe[g][String(y)];
 const real = (g, y) => D.ppe_real[g][String(y)];
 const realChange = (g) => ppe(g, L) / real(g, F) - 1;
+const nomChange = (g) => ppe(g, L) / ppe(g, F) - 1;
+const cpiFactor = D.cpi_u_northeast_fy[L] / D.cpi_u_northeast_fy[F];
+const TB = D.town_budgets.towns;
+const TOWN_PEERS = "Western MA towns of 1,000-2,499";
+const share = (v) => Math.round(v * 100) + "%";
 const nomRate = (g) => rate(ppe(g, F), ppe(g, L), N_YEARS);
 const salary = (g) => D.teacher_pay[g].avg_salary[L];
 const levRank = D.tiny_ranking.findIndex((r) => r.district === "Leverett") + 1;
@@ -63,7 +68,7 @@ pres.defineSlideMaster({
   objects: [
     { placeholder: { options: { name: "title", type: "title", x: 0.6, y: 0.35, w: 12.1, h: 1.05,
       fontSize: 32, bold: true, color: C.text2, valign: "middle", align: "left", margin: 0 }, text: "" } },
-    { text: { text: `Data: Massachusetts DESE, FY${F}–FY${L}. Analysis: Tim Shores, with Claude Code. Full report: timshores.com/portfolio`,
+    { text: { text: `Data: Massachusetts DESE, FY${F}–FY${L}. Analysis: Tim Shores, with Claude Code. Report: timshores.com/portfolio · Explorer: timshores.com/mass-school-spending`,
       options: { x: 0.6, y: 6.95, w: 11.2, h: 0.3, fontSize: 10, color: C.accent6, margin: 0 } } },
   ],
   slideNumber: { x: 12.2, y: 6.95, w: 0.5, h: 0.3, fontSize: 10, color: C.accent6, align: "right" },
@@ -186,7 +191,42 @@ pres.addSection({ title: "ARPS" });
   ]);
 }
 
-// ---------- Slide 4: Leverett ----------
+// ---------- Slide 4: what inflation does to the same numbers ----------
+pres.addSection({ title: "Inflation" });
+{
+  const s = pres.addSlide({ masterName: "Chart and commentary", sectionTitle: "Inflation" });
+  s.addText(`Most of the growth since ${F} is inflation`, { placeholder: "title" });
+  const groups = [["Leverett", "Leverett"], ["Amherst-Pelham Regional", "Amherst-Pelham Regional"]];
+  s.addChart(pres.charts.BAR, [
+    { name: `FY${F}, as spent`, labels: groups.map((g) => g[1]), values: groups.map((g) => ppe(g[0], F)) },
+    { name: `FY${F} in FY${L} dollars`, labels: groups.map((g) => g[1]), values: groups.map((g) => real(g[0], F)) },
+    { name: `FY${L}`, labels: groups.map((g) => g[1]), values: groups.map((g) => ppe(g[0], L)) },
+  ], {
+    x: 0.6, y: 1.55, w: 7.9, h: 5.2, barDir: "col", barGrouping: "clustered", barGapWidthPct: 55,
+    ...axisStyle(), catAxisLabelFontSize: 13, chartColors: [HEX.accent3, HEX.accent4, HEX.dk2],
+    showLegend: true, legendPos: "b", valAxisLabelFormatCode: "$#,##0", valAxisMinVal: 0,
+    showValue: true, dataLabelPosition: "outEnd", dataLabelFormatCode: "$#,##0", dataLabelFontSize: 11,
+    dataLabelColor: HEX.dk1, showTitle: true, title: "Spending per pupil: as spent, and restated in today's dollars",
+    titleFontSize: 14, titleColor: HEX.dk1, objectName: "inflation demo chart",
+  });
+  callout(s, { x: 9.0, y: 1.7, w: 3.8, value: `$1.00 → $${cpiFactor.toFixed(2)}`,
+    label: `A dollar spent in FY${F} buys what $${cpiFactor.toFixed(2)} buys in FY${L}, by Northeast consumer prices`,
+    name: "callout dollar" });
+  callout(s, { x: 9.0, y: 3.15, w: 3.8, value: `${pct(nomChange("Leverett"))} → ${pct(realChange("Leverett"))}`,
+    label: `Leverett's growth in spending per pupil since FY${F}, as spent, then after inflation`,
+    valueColor: C.accent1, name: "callout Leverett" });
+  callout(s, { x: 9.0, y: 4.6, w: 3.8, value: `${pct(nomChange("Amherst-Pelham Regional"))} → ${pct(realChange("Amherst-Pelham Regional"))}`,
+    label: "The same for Amherst-Pelham Regional", name: "callout ARPS" });
+  const inflShare = (g) => Math.round((real(g, F) - ppe(g, F)) / (ppe(g, L) - ppe(g, F)) * 100);
+  notes(s, [
+    `How to read it: the first bar is what each district spent per pupil in FY${F}. The second is the same spending in FY${L} dollars, what it would take today to buy what that money bought then. The third is what the district spent in FY${L}. The gap between the first two bars is inflation; only the gap between the last two is growth.`,
+    `Leverett: ${usd(ppe("Leverett", F))} in FY${F} is ${usd(real("Leverett", F))} in FY${L} dollars, against ${usd(ppe("Leverett", L))} spent in FY${L}. Inflation accounts for ${inflShare("Leverett")}% of the increase. Amherst-Pelham Regional: ${usd(ppe("Amherst-Pelham Regional", F))}, ${usd(real("Amherst-Pelham Regional", F))}, ${usd(ppe("Amherst-Pelham Regional", L))}; inflation is ${inflShare("Amherst-Pelham Regional")}% of the increase.`,
+    `Prices here are the CPI-U for the Northeast, averaged over each July–June fiscal year. The report's inflation addendum also uses the federal price index for what state and local governments buy, mostly labor; by that measure the real growth is smaller still.`,
+    "The FY2025 dollars switch in the online explorer does this for every district and town: timshores.com/mass-school-spending.",
+  ]);
+}
+
+// ---------- Slide 5: Leverett ----------
 pres.addSection({ title: "Leverett" });
 {
   const s = pres.addSlide({ masterName: "Chart and commentary", sectionTitle: "Leverett" });
@@ -220,7 +260,7 @@ pres.addSection({ title: "Leverett" });
   ]);
 }
 
-// ---------- Slide 5: pay and who pays ----------
+// ---------- Slide 6: pay and who pays ----------
 pres.addSection({ title: "Pay and funding" });
 {
   const s = pres.addSlide({ masterName: "Chart and commentary", sectionTitle: "Pay and funding" });
@@ -253,6 +293,43 @@ pres.addSection({ title: "Pay and funding" });
     `Leverett: ${usd(D.teacher_pay.Leverett.avg_salary["2018"])} in FY2018, ${usd(salary("Leverett"))} in FY${L}. Districts its size: ${usd(D.teacher_pay[PEERS].avg_salary["2018"])} to ${usd(salary(PEERS))}. Peer and Western MA averages are weighted by teacher FTE.`,
     `Leverett funds ${usd(c70.Leverett[L].above_required)} per pupil above the state's required minimum (net school spending), against ${usd(c70[PEERS][L].above_required)} for districts its size. Chapter 70 aid and net school spending are per foundation pupil, the residents the district pays for.`,
     "Closing point from the report: structural funding challenges will persist until the Commonwealth changes policy that no region, town or district can change alone. See Rural Schools MA and the July 2022 report A Sustainable Future for Rural Schools.",
+  ]);
+}
+
+// ---------- Slide 7: the town budget ----------
+pres.addSection({ title: "Town budget" });
+{
+  const s = pres.addSlide({ masterName: "Chart and commentary", sectionTitle: "Town budget" });
+  s.addText("Leverett puts more of its budget into schools", { placeholder: "title" });
+  const groups = [["Leverett", "Leverett"], ["Shutesbury", "Shutesbury"], ["Pelham", "Pelham"], ["Amherst", "Amherst"],
+    [TOWN_PEERS, "Towns of 1,000–2,499"], ["Western MA towns", "All Western MA towns"]];
+  s.addChart(pres.charts.BAR, [
+    { name: `Education's share of general fund spending, FY${L}`, labels: groups.map((g) => g[1]),
+      values: groups.map((g) => TB[g[0]].education_share) },
+  ], {
+    x: 0.6, y: 1.55, w: 7.6, h: 4.95, barDir: "bar", ...axisStyle(), catAxisLabelFontSize: 12,
+    chartColors: groups.map((g) => (g[0] === "Leverett" ? HEX.accent1 : g[0] === TOWN_PEERS || g[0] === "Western MA towns" ? HEX.accent3 : HEX.accent2)),
+    showLegend: false, valAxisHidden: true, valGridLine: { style: "none" }, valAxisMinVal: 0, valAxisMaxVal: 0.8,
+    barGapWidthPct: 45, showValue: true, dataLabelPosition: "outEnd", dataLabelFormatCode: "0%", dataLabelFontSize: 12,
+    dataLabelColor: HEX.dk1, showTitle: true, title: `Education's share of town general fund spending, FY${L}`,
+    titleFontSize: 14, titleColor: HEX.dk1, objectName: "education share chart",
+  });
+  s.addText("Town budgets: state Division of Local Services (Schedule A). Population: Census Bureau.", {
+    x: 0.6, y: 6.55, w: 7.6, h: 0.3, fontSize: 10, color: C.accent6, margin: 0, isTextBox: true, objectName: "town source" });
+  const lev = TB.Leverett, peers = TB[TOWN_PEERS];
+  callout(s, { x: 8.7, y: 1.7, w: 4.0, value: `${share(lev.education_share)} vs ${share(peers.education_share)}`,
+    label: `Education's share of spending: Leverett vs the ${peers.members} Western MA towns of 1,000–2,499 residents`,
+    valueColor: C.accent1, name: "callout share" });
+  callout(s, { x: 8.7, y: 3.15, w: 4.0, value: `${usd(lev.spend_per_resident)} vs ${usd(peers.spend_per_resident)}`,
+    label: "Total general fund spending per resident: about the same as those towns", name: "callout spending" });
+  callout(s, { x: 8.7, y: 4.6, w: 4.0, value: `${usd(lev.taxes_per_resident)} vs ${usd(peers.taxes_per_resident)}`,
+    label: "Taxes per resident, the same comparison", name: "callout taxes" });
+  const contrib = lev.districts.map((d) => `${usd(d.contribution)} to ${d.kind === "town" ? "Leverett Elementary" : "Amherst-Pelham Regional"}`);
+  notes(s, [
+    `Leverett's town budget is about the size of similar towns' per resident (${usd(lev.spend_per_resident)} against ${usd(peers.spend_per_resident)}), and its residents pay about the same in taxes (${usd(lev.taxes_per_resident)} against ${usd(peers.taxes_per_resident)}). Within that budget, education takes ${share(lev.education_share)}, against ${share(peers.education_share)} for the ${peers.members} Western MA towns of 1,000–2,499 residents: ${usd(lev.education_per_resident)} per resident against ${usd(peers.education_per_resident)}.`,
+    `Education in Schedule A is the town's own school department plus its assessments from regional and vocational districts. Health insurance and pensions for a town's school employees usually sit in fixed costs instead, so education's true share is if anything larger.`,
+    `What the state formula requires: in FY${L}, Chapter 70 set Leverett's required local contribution at ${contrib.join(" and ")}.`,
+    `Per-resident figures divide each town's FY${L} dollars by its Census population estimate (Leverett: ${Math.round(lev.population).toLocaleString("en-US")}). Every town is in the online explorer's Towns tab: timshores.com/mass-school-spending.`,
   ]);
 }
 

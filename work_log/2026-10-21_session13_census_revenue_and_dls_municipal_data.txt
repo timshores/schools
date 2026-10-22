@@ -403,3 +403,33 @@ mywebsite
    - The district select now follows relations-outline clicks (it kept the old
      value before).
    - Verified in Chromium at 1100, 900 and 390px; no console errors.
+
+20. Gateway districts as a menu group; FY2025 report on the website; links open in
+    new tabs; LEF deck updated (Tim, 2026-10-21 evening)
+   - Explorer menus list "Gateway City districts" and "Gateway Cities" as groups
+     (the entries also stay in their region/county groups); the light lists carry
+     "gateway"; the search counts distinct entries.
+   - FY2025 edition published as is (output/fy2025: report, executive summary,
+     appendices, DRAFT inflation addendum; last rebuilt at d9d5d02, the latest
+     report-code commit) to mywebsite public/artifacts/*-fy2025.pdf, as a new
+     portfolio entry (resume: false) with a sentence that some findings in the
+     text still quote 2009-2024. Stale passages, still Tim's to rewrite: the key
+     finding's "grown 3-6% from 2009-2024" (FY2025: Pelham 2.4%, Leverett 2.8%),
+     the Amherst-Pelham example (24% above cohort, 3.77% vs 4.09%), "no clear,
+     actionable signal ... 2009-2024", Appendix A's worked example, Appendix B's
+     tests. The explorer links the FY2025 edition and its inflation addendum.
+   - mywebsite: links to other sites and to hosted files open in a new tab
+     (Layout.astro script, documented in AGENTS.md); the portfolio sets the same
+     at build time and opens site pages in place.
+   - Deck (presentations/lef_forum_2026): seven slides. New slide 4, "Most of the
+     growth since 2009 is inflation": Leverett and Amherst-Pelham per pupil, FY2009
+     as spent, FY2009 in FY2025 dollars, FY2025 (Leverett +57% -> +9%, 78% of the
+     increase is inflation; A-P +72% -> +20%, 61%; $1.00 -> $1.44, CPI-U NE).
+     New slide 7, "Leverett puts more of its budget into schools": education 61%
+     of FY2025 general fund spending vs 48% for the 35 Western MA towns of
+     1,000-2,499; spending and taxes per resident about the same ($4,029 vs
+     $4,116; $3,624 vs $3,561). deck_data.py gets town figures from
+     export_explorer_data.town_data so the deck and the explorer agree. Footer
+     points to the portfolio and the explorer. Voice check clean; not rendered
+     here (no LibreOffice Impress), so the visual check is Tim's PowerPoint. Sent
+     to seahag-inbox as "...LEF forum 2026-11 (1).pptx".

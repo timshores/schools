@@ -419,7 +419,7 @@ def town_data(dists, reg, latest):
         "averages": [{"id": a["id"], "name": a["name"], "scope": a["scope"], "peer": a["peer"], "region": a["region"],
                       "chunk": a["chunk"]} for a in averages],
         "towns": [{"id": x["id"], "name": x["name"], "county": x["county"], "region": x["region"],
-                   "peer": x["peer"], "chunk": x["chunk"]} for x in full],
+                   "peer": x["peer"], "gateway": x["gateway"], "chunk": x["chunk"]} for x in full],
     }
 
     def town_link(eid, k):
@@ -659,7 +659,7 @@ def main(site: Path):
         "averages": [{"id": a["id"], "name": a["name"], "scope": a["scope"], "cohort": a["cohort"],
                       "region": a["region"], "chunk": a["chunk"]} for a in averages],
         "districts": [{"id": e["id"], "name": e["name"], "type": e["type"], "cohort": e["cohort"], "region": e["region"],
-                       "regional": e["regional"], "fte": e["fte"], "chunk": e["chunk"]} for e in full],
+                       "regional": e["regional"], "fte": e["fte"], "gateway": e["gateway"], "chunk": e["chunk"]} for e in full],
     }
 
     json_dir = site / "src" / "data" / "massppe"
