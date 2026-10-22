@@ -389,3 +389,17 @@ mywebsite
      fails if any of the 26 is missing on either side.
    - mywebsite: "Gateway Cities" comparison choice on both tabs; "Gateway City"
      in the heading; notes sentence linking the state's list. Verified in Chromium.
+
+19. Menus (Tim: collapsible groups, collapsed by default; a search at the top)
+   - mywebsite src/lib/massppe/picker.ts (new): a searchable menu with
+     collapsible groups over each long native <select> (district, comparison
+     district, town, comparison town). The select stays the source of truth,
+     hidden; the menu reads its groups, sets its value and fires "change", so
+     the explorer code is unchanged. Groups start collapsed and show counts; a
+     dot marks the group holding the current choice; search filters, opens the
+     matching groups and counts matches; Enter takes the first match; arrows,
+     Home/End, Escape; outside click closes; the panel shifts left rather than
+     run past the window. The short "Compare with" menus stay native.
+   - The district select now follows relations-outline clicks (it kept the old
+     value before).
+   - Verified in Chromium at 1100, 900 and 390px; no console errors.
