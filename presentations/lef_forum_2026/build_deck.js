@@ -28,19 +28,26 @@ const nomRate = (g) => rate(ppe(g, F), ppe(g, L), N_YEARS);
 const salary = (g) => D.teacher_pay[g].avg_salary[L];
 const levRank = D.tiny_ranking.findIndex((r) => r.district === "Leverett") + 1;
 
+// Leverett Elementary's colors (leverettschool.org, its SharpSchool template stylesheet):
+// navy #141F3E for headers and headings, leaf green #9DC058 for links and accents, light
+// green #CBE793 on navy, pale teal #DCE9EA backgrounds, deep teal #035D58. Leverett is navy,
+// the strongest; comparison groups leaf green; Western MA gray. The leaf green is too light
+// for text on white (about 2:1), so it marks bars and lines only, and the takeaways use the
+// deep teal.
 const THEME = {
-  name: "Leverett Forum",
+  name: "Leverett Elementary",
   headFontFace: "Cambria",
   bodyFontFace: "Calibri",
   colors: {
-    dk1: "1F2A2E", lt1: "FFFFFF", dk2: "23423A", lt2: "EEF2EF",
-    accent1: "C8553D", accent2: "2F6F62", accent3: "9DB5AC", accent4: "E0A458",
-    accent5: "5B6C8F", accent6: "7A8580", hlink: "2F6F62", folHlink: "5B6C8F",
+    dk1: "141F3E", lt1: "FFFFFF", dk2: "141F3E", lt2: "DCE9EA",
+    accent1: "141F3E", accent2: "9DC058", accent3: "CBE793", accent4: "DCE9EA",
+    accent5: "035D58", accent6: "6E7681", hlink: "035D58", folHlink: "202D53",
   },
 };
 const HEX = THEME.colors;
-const GRID = "D9DFDC";
-const MUTED = "5E6B66";
+const GRID = "E3E3E3";
+const MUTED = "5F6670";
+const LIGHT_GREEN = "CBE793";
 
 const pres = new pptxgen();
 pres.layout = "LAYOUT_WIDE"; // 13.333 x 7.5 in
@@ -56,7 +63,7 @@ pres.defineSlideMaster({
     { placeholder: { options: { name: "title", type: "title", x: 0.7, y: 1.0, w: 7.2, h: 2.2,
       fontSize: 40, bold: true, color: C.background1, valign: "bottom", align: "left", margin: 0 }, text: "" } },
     { placeholder: { options: { name: "body", type: "body", x: 0.7, y: 3.45, w: 7.0, h: 1.3,
-      fontSize: 18, color: C.background2, valign: "top", margin: 0 }, text: "" } },
+      fontSize: 18, color: LIGHT_GREEN, valign: "top", margin: 0 }, text: "" } },
     { placeholder: { options: { name: "byline", type: "body", x: 0.7, y: 6.35, w: 8.0, h: 0.5,
       fontSize: 14, color: C.background2, valign: "top", margin: 0 }, text: "" } },
   ],
@@ -183,7 +190,7 @@ pres.addSection({ title: "ARPS" });
   callout(s, { x: 9.0, y: 3.25, w: 3.8, value: `${Math.min(...rates).toFixed(1)}–${Math.max(...rates).toFixed(1)}% a year`,
     label: `ARPS growth since ${F}, against ${(nomRate("Western MA") * 100).toFixed(1)}% for Western MA`, name: "callout rates" });
   s.addText("Today's high spending is a legacy of a high starting point, not runaway growth.", {
-    x: 9.0, y: 4.85, w: 3.8, h: 1.2, fontSize: 16, italic: true, color: C.accent2, margin: 0, valign: "top",
+    x: 9.0, y: 4.85, w: 3.8, h: 1.2, fontSize: 16, italic: true, color: C.accent5, margin: 0, valign: "top",
     isTextBox: true, objectName: "takeaway" });
   notes(s, [
     "This is the main finding of the Western MA Per Pupil Expenditure Report: in 2009 the ARPS districts already spent well above regional averages, and ordinary growth applied to a high base keeps them above average. The question shifts from 'why are costs so high?' to 'how do we manage the system we have inherited at ordinary growth rates?'",
@@ -203,7 +210,7 @@ pres.addSection({ title: "Inflation" });
     { name: `FY${L}`, labels: groups.map((g) => g[1]), values: groups.map((g) => ppe(g[0], L)) },
   ], {
     x: 0.6, y: 1.55, w: 7.9, h: 5.2, barDir: "col", barGrouping: "clustered", barGapWidthPct: 55,
-    ...axisStyle(), catAxisLabelFontSize: 13, chartColors: [HEX.accent3, HEX.accent4, HEX.dk2],
+    ...axisStyle(), catAxisLabelFontSize: 13, chartColors: [HEX.accent3, HEX.accent2, HEX.dk2],
     showLegend: true, legendPos: "b", valAxisLabelFormatCode: "$#,##0", valAxisMinVal: 0,
     showValue: true, dataLabelPosition: "outEnd", dataLabelFormatCode: "$#,##0", dataLabelFontSize: 11,
     dataLabelColor: HEX.dk1, showTitle: true, title: "Spending per pupil: as spent, and restated in today's dollars",
@@ -286,7 +293,7 @@ pres.addSection({ title: "Pay and funding" });
   callout(s, { x: 8.7, y: 3.15, w: 4.0, value: `${usd(c70.Leverett[L].aid)} vs ${usd(c70[PEERS][L].aid)}`,
     label: "State Chapter 70 aid per pupil: Leverett vs districts with 200 or fewer students", name: "callout aid" });
   s.addText("The town carries more of the cost, and its educators absorb part of it in pay. The structural fix sits with the state's funding formula.", {
-    x: 8.7, y: 4.6, w: 4.0, h: 1.6, fontSize: 16, italic: true, color: C.accent2, margin: 0, valign: "top",
+    x: 8.7, y: 4.6, w: 4.0, h: 1.6, fontSize: 16, italic: true, color: C.accent5, margin: 0, valign: "top",
     isTextBox: true, objectName: "takeaway" });
   notes(s, [
     `Average teacher salary is DESE's figure for each district. It reflects experience and credentials as well as pay scales, and with about ${Math.round(D.teacher_pay.Leverett.teacher_fte[L])} teachers Leverett's average moves with a few hires or retirements. FY2018 is the first year DESE reports it in this dataset.`,

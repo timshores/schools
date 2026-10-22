@@ -433,3 +433,9 @@ mywebsite
      points to the portfolio and the explorer. Voice check clean; not rendered
      here (no LibreOffice Impress), so the visual check is Tim's PowerPoint. Sent
      to seahag-inbox as "...LEF forum 2026-11 (1).pptx".
+
+21. LEF deck in Leverett Elementary colors (Tim: use leverettschool.org's scheme). From its
+    SharpSchool stylesheet: navy #141F3E (title slide, Leverett, text), leaf green #9DC058
+    (comparison groups, bars and lines only: about 2:1 on white, too light for text), light
+    green #CBE793 (earlier-year bars, title subtitle), pale teal #DCE9EA, deep teal #035D58
+    (takeaways). Not rendered here; sent to seahag-inbox.
