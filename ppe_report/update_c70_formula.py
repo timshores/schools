@@ -9,6 +9,17 @@ local contribution calculation, the "Townwide Contributions" sheet:
         target local contribution, last year's required contribution, MRGF,
         increments and reductions, and the required contribution.
 
+It also keeps every town's local contribution history, FY2007 on, from DESE's
+"Chapter 70 Trends in Aid and Local Contribution" workbook (keyfactors.xlsx,
+dataContribution sheet):
+
+    data/dese_c70_town_history.csv
+        fy, lea, town, eqv, income, cey, foundation, target, mrgf, required
+
+In every year there, each town's target is the smaller of its yield and 82.5%
+of its foundation budget, and the targets add up to 59% of all foundation
+budgets, which is what lets the explorer redo any year with another cap.
+
 The target local contribution is the combined effort yield (property
 percentage x EQV + income percentage x income) or the maximum, 82.5% of the
 town's foundation budget, whichever is less. DESE sets the two percentages so
@@ -34,6 +45,10 @@ RAW_DIR = DATA_DIR / "c70_raw"
 URL = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}.xlsm"
 OUT = DATA_DIR / "dese_c70_townwide.csv"
 SOURCES_JSON = DATA_DIR / "dese_c70_townwide_sources.json"
+KEYFACTORS_URL = "https://www.doe.mass.edu/finance/chapter70/keyfactors.xlsx"
+HISTORY_OUT = DATA_DIR / "dese_c70_town_history.csv"
+HISTORY_COLUMNS = {"fy": "fy", "LEANumCode": "lea", "DistName": "town", "eqv": "eqv", "income": "income", "cey": "cey",
+                   "townfoundbudget": "foundation", "targetlocacont": "target", "mrgf": "mrgf", "rlc": "required"}
 SHEET = "Townwide Contributions"
 # Sheet column: field. The header row (row 9) is checked against these words.
 COLUMNS = {
@@ -95,6 +110,29 @@ def townwide(fy: int) -> tuple[pd.DataFrame, dict]:
     return out, {"eqv_year": eqv_year, "income_year": income_year, **rates}
 
 
+def history() -> pd.DataFrame:
+    """Every town's local contribution, FY2007 on, from DESE's trends workbook."""
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    path = RAW_DIR / "keyfactors.xlsx"
+    path.write_bytes(fetch(KEYFACTORS_URL))
+    df = pd.read_excel(path, sheet_name="dataContribution", header=2)
+    df = df[pd.to_numeric(df["LEANumCode"], errors="coerce").between(1, 351)][list(HISTORY_COLUMNS)].rename(columns=HISTORY_COLUMNS)
+    df["town"] = df["town"].astype(str).str.strip()
+    for c in df.columns.drop("town"):
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df[["fy", "lea"]] = df[["fy", "lea"]].astype(int)
+    # The rule the explorer relies on, checked every year
+    expect = df[["cey"]].join((df["foundation"] * 0.825).rename("cap")).min(axis=1)
+    off = (df["target"] - expect).abs() > 2
+    if off.any():
+        raise ValueError(f"{off.sum()} town-years where the target isn't min(yield, 82.5% of foundation)")
+    share = df.groupby("fy")["target"].sum() / df.groupby("fy")["foundation"].sum()
+    if ((share - 0.59).abs() > 0.0005).any():
+        raise ValueError(f"Years where targets don't total 59% of foundation: {share[(share - 0.59).abs() > 0.0005].to_dict()}")
+    df["source_url"] = KEYFACTORS_URL
+    return df.sort_values(["fy", "lea"])
+
+
 def main(years: list[int]):
     frames, meta = [], {}
     for fy in years:
@@ -107,6 +145,9 @@ def main(years: list[int]):
               f"income {m['income_pct']:.6%}; targets {df['target'].sum() / 1e9:.3f}B = {share:.2%} of foundation; "
               f"{((df['target'] >= df['max_local']) & (df['foundation'] > 0)).sum()} at the maximum")
     pd.concat(frames, ignore_index=True).to_csv(OUT, index=False)
+    hist = history()
+    hist.to_csv(HISTORY_OUT, index=False)
+    print(f"  {HISTORY_OUT}: FY{hist['fy'].min()}-FY{hist['fy'].max()}, {hist['lea'].nunique()} towns")
     SOURCES_JSON.write_text(json.dumps({
         "source": "DESE Chapter 70 complete formula spreadsheet, Townwide Contributions sheet",
         "urls": {str(fy): URL.format(fy=fy) for fy in years},

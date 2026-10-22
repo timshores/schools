@@ -195,6 +195,7 @@ URL_C70_WHITEPAPER = "https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-
 URL_C70_FORMULA = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}.xlsm"
 URL_C70_WP = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}-whitepaper.docx"
 C70_TOWNWIDE_CSV = Path("data/dese_c70_townwide.csv")
+C70_HISTORY_CSV = Path("data/dese_c70_town_history.csv")
 
 
 def slug(name: str) -> str:
@@ -509,8 +510,29 @@ def cap_data(all_towns):
                 "median": round(float(ratio.median()), 3), "half_again": int((ratio >= 1.5).sum()),
                 "double": int((ratio >= 2).sum()), "required": dollars(c70["rqdnss2"].sum()),
                 "over": dollars((c70["actualNSS"] - c70["rqdnss2"]).clip(lower=0).sum())}
+    # Each town's yield, foundation budget, target, and required contribution, FY2007 on (DESE's
+    # trends workbook), with the latest formula year added, so any cap can be redone year by year
+    history = None
+    if C70_HISTORY_CSV.exists():
+        h = pd.read_csv(C70_HISTORY_CSV).assign(key=lambda d: d["town"].map(norm))
+        latest_fy = int(tw["fy"].max())
+        if latest_fy not in set(h["fy"]):
+            t = tw[tw["fy"] == latest_fy].assign(key=lambda d: d["town"].map(norm))
+            h = pd.concat([h, pd.DataFrame({"fy": latest_fy, "key": t["key"], "cey": t["cey"], "foundation": t["foundation"],
+                                            "target": t["target"], "required": t["required"]})], ignore_index=True)
+        missing = sorted(set(h["key"]) - set(by_key))
+        if missing:
+            raise ValueError(f"History towns not in the town list: {missing}")
+        hy = sorted(int(y) for y in h["fy"].unique())
+        hist_towns = {}
+        for k, g in h.groupby("key"):
+            g = g.set_index("fy")
+            hist_towns[by_key[k]["id"]] = {c: [dollars(g[c].get(y)) if y in g.index else None for y in hy]
+                                           for c in ("cey", "foundation", "target", "required")}
+        history = {"years": hy, "source": "https://www.doe.mass.edu/finance/chapter70/keyfactors.xlsx",
+                   "towns": hist_towns}
     return {"meta": {"built": dt.date.today().isoformat(), "latest": max(int(y) for y in years), "spending": spending},
-            "years": years}
+            "years": years, "history": history}
 
 
 def load_households(pop):

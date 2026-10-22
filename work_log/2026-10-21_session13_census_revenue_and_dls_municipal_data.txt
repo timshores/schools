@@ -516,3 +516,16 @@ mywebsite
     household / taxable property) scales every town dollar figure by residents over households or
     parcels; cap chart gets per-household and per-property changes. Leverett FY2025: $4,029 per
     resident = $10,542 per household (712) = $6,830 per taxable property (1,099).
+
+28. Cap history (Tim: can the difference be shown across the whole time series, or does it rest
+    on one year's spreadsheet?). DESE's "Chapter 70 Trends in Aid and Local Contribution"
+    workbook (keyfactors.xlsx, dataContribution) has every town's EQV, income, yield, foundation
+    budget, target, and required contribution, FY2007-FY2026. Checked: every town-year's target
+    is min(yield, 82.5% of foundation), and every year's targets total exactly 59% of foundation
+    budgets, so any cap can be redone each year by the same one-factor method. The cap's
+    leverage grew: yields over targets 1.17 (FY2007, 109 towns at the cap) to 1.44 (FY2025, 182).
+    update_c70_formula.py writes data/dese_c70_town_history.csv (rule checked each run); cap.json
+    adds history (FY2027 from the formula sheet). Cap tab: a year-by-year chart per town for the
+    chosen cap. Leverett, no cap: $4.95M lower targets over FY2007-FY2027 ($236K a year), at the
+    cap 15 of 21 years. Also this round: Data tab for the notes, plot window 90% wide, the
+    Horizontal list slides wider or shut, cap explanation folds (remembered).
