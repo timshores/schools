@@ -556,12 +556,16 @@ def load_households(pop):
     return out
 
 
-def map_data(districts, towns, cap, cpi):
+def map_data(districts, towns, cap, cpi, org4):
     """map.json: the Commonwealth tab's map. Each town's outline, the district that serves its
-    elementary grades and its high school grades, and a few measures of how towns and districts
+    elementary grades and its secondary grades, and a few measures of how towns and districts
     have changed. Growth is compounded yearly from the first year with a value to the last, in
-    LATEST_YEAR dollars; each value carries its years. districts and towns: the explorer's full
-    entities; cap: cap_data(); cpi: fiscal year -> Northeast CPI."""
+    LATEST_YEAR dollars; each value carries its years. A town whose grades split between two
+    districts also gets the two combined ("all"), each weighted by the town's own pupils in it:
+    a district of its own counts all its foundation pupils, a regional one the town's foundation
+    enrollment there (DESE's regional members file, its one year). districts and towns: the
+    explorer's full entities; cap: cap_data(); cpi: fiscal year -> Northeast CPI; org4: district
+    id -> its four-digit DESE code."""
     geo = json.loads(BOUNDARIES_JSON.read_text())
     outline = {norm(g["town"]): g["d"] for g in geo["towns"].values()}
     real = lambda vals: [None if v is None else v * cpi[LATEST_YEAR] / cpi[y] for v, y in zip(vals, YEARS)]
@@ -589,6 +593,52 @@ def map_data(districts, towns, cap, cpi):
 
     entity = {e["id"]: e for e in districts}
     members = {e["id"]: len(e.get("towns") or []) for e in districts}
+    mem = pd.read_csv(MEMBERS_CSV, dtype={"Org4Code": str})
+    mem = mem[mem["FY"] == mem["FY"].max()]
+    pupils_in = {(int(o), norm(t)): float(f) for o, t, f in zip(mem["Org4Code"], mem["Town"], mem["Foundation_enrollment"])}
+
+    def pupils(did, town, kind):
+        """The town's pupils in a district: all of a district of its own, its share of a regional one"""
+        if kind == "town":
+            fe = entity[did]["enroll"]["foundation"]
+            at = [v for v in fe if v is not None]
+            return at[-1] if at else None
+        return pupils_in.get((org4.get(did), norm(town)))
+
+    def ppe_of(did):
+        """The district's in-district spending per pupil each year"""
+        cats = entity[did]["ppe"].values()
+        return [None if all(x[y] is None for x in cats) else sum(x[y] or 0 for x in cats) for y in range(len(YEARS))]
+
+    def reported(did):
+        """The year indexes with the district's above-required, aid and required spending per foundation pupil"""
+        nss = entity[did].get("nss") or {}
+        return {i: {"above": a, "aid": c, "req": c + r, "fy": YEARS[i]}
+                for i, (a, c, r) in enumerate(zip(nss.get("above_required", []), nss.get("ch70_aid", []), nss.get("required_local", [])))
+                if a is not None and c is not None and r is not None}
+
+    def combined(pair):
+        """Two districts as one, each weighted by the town's pupils in it; spending against the
+        requirement at the latest year both have reported"""
+        (d1, w1), (d2, w2) = pair
+        if not w1 or not w2:
+            return {}
+        p1, p2 = ppe_of(d1), ppe_of(d2)
+        r1, r2 = reported(d1), reported(d2)
+        both = sorted(set(r1) & set(r2))
+        n1, n2 = (r1[both[-1]], r2[both[-1]]) if both else (None, None)
+        out = {}
+        mix = [None if a is None or b is None else (w1 * a + w2 * b) / (w1 + w2) for a, b in zip(p1, p2)]
+        if (g := growth(real(mix))):
+            out["ppe"] = g
+        c1, c2 = change(entity[d1]["enroll"]["in_district"]), change(entity[d2]["enroll"]["in_district"])
+        if c1 and c2:
+            out["enroll"] = [round((w1 * c1[0] + w2 * c2[0]) / (w1 + w2), 4), max(c1[1], c2[1]), min(c1[2], c2[2])]
+        if n1 and n2:
+            req = w1 * n1["req"] + w2 * n2["req"]
+            out["above"] = [round((w1 * n1["above"] + w2 * n2["above"]) / req, 4), n1["fy"]]
+            out["aid"] = [round((w1 * n1["aid"] + w2 * n2["aid"]) / req, 4), n1["fy"]]
+        return out
     used = set()
     out_towns = []
     cap_year = cap["meta"]["latest"]
@@ -605,6 +655,8 @@ def map_data(districts, towns, cap, cpi):
         elem = own[0] if own else regs[0] if regs else None
         high = regs[-1] if regs else own[0] if own else None
         used |= {elem, high} - {None}
+        kind_of = {d["id"]: d["kind"] for d in ds}
+        both = combined([(i, pupils(i, t["name"], kind_of[i])) for i in (elem, high)]) if elem and high and elem != high else None
         c = cap_towns.get(t["id"])
         hh = t["hh"][-1] if t.get("hh") else None
         v = {
@@ -617,7 +669,7 @@ def map_data(districts, towns, cap, cpi):
             "cap_hh": [round((c["nocap"] - c["target"]) / c["hh"]), cap_year] if c and c.get("hh") else None,
         }
         out_towns.append({"id": t["id"], "name": t["name"], "d": outline[k], "elem": elem, "high": high,
-                          "v": {m: x for m, x in v.items() if x is not None}})
+                          "v": {m: x for m, x in v.items() if x is not None}, **({"all": both} if both else {})})
 
     out_districts = {}
     for i in sorted(used):
@@ -1157,7 +1209,8 @@ def main(site: Path):
             print("  cap.json: FY" + ", FY".join(cap["years"]))
             if BOUNDARIES_JSON.exists():
                 towns_only = [t for t in all_towns if t["kind"] == "town"]
-                mp = map_data(full, towns_only, cap, {int(y): float(idx[y]) for y in YEARS if y in idx.index})
+                mp = map_data(full, towns_only, cap, {int(y): float(idx[y]) for y in YEARS if y in idx.index},
+                              {d["id"]: d["code"] // 10000 for d in dists})
                 sizes["map.json"] = write_json(json_dir / "map.json", mp)
                 print(f"  map.json: {len(mp['towns'])} towns, {len(mp['districts'])} districts")
             else:

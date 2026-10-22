@@ -37,3 +37,18 @@ Changes:
    First readings: 292 of 351 towns' spending per resident grew faster than prices, FY2009-
    FY2025; 239 of 241 high school districts' spending per pupil did; the no-cap map is blue on the
    Cape and Islands and around Boston, orange across the interior.
+
+4. Grades: Elementary / Secondary / All (Tim: "High school" didn't make sense). map_data() now
+   gives the 48 towns split between two districts an "all" set: the two combined, each weighted
+   by the town's own pupils in it (a district of its own: all its foundation pupils; a regional
+   one: the town's foundation enrollment there, from dese_c70_regional_members.csv, FY2025 only).
+   Spending against the requirement combines at the latest year both districts reported (five
+   towns' own districts last reported FY2024: Brewster, Dover, Eastham, Orleans, Wellfleet).
+   Leverett, spending above required: its own district 76%, Amherst-Pelham 34%, combined 52%.
+   The map opens on school districts, all grades, spending above the requirement.
+
+5. Amherst check (Tim: the town page said +0.5% a year after inflation, the map -1.5%). The map
+   is right: $1,863 per resident in FY2009 to $2,108 in FY2025 while prices rose 44%, -1.5% a
+   year in FY2025 dollars. The town page's +0.5% was the nominal trend (and +0.8% the nominal
+   endpoint growth); neither said so. The tile and the trend now say "before inflation" in
+   nominal dollars, as they said "after inflation" in FY2025 dollars.
