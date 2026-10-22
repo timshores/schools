@@ -499,7 +499,18 @@ def cap_data(all_towns):
             "pop_year": min(int(fy), last_pop) - 1, "parcel_fy": parcel_fy,
             "towns": towns,
         }
-    return {"meta": {"built": dt.date.today().isoformat(), "latest": max(int(y) for y in years)}, "years": years}
+    # How far districts spend above the required minimum (actual net school spending over required),
+    # the latest year with actual spending reported
+    c70 = pd.read_csv(C70_CSV, dtype={"Org4Code": str})
+    c70 = c70[(c70["fy"] == LATEST_YEAR) & ~c70["District"].str.contains("TOTAL|COUNTY", na=False)
+              & (c70["actualNSS"] > 0) & (c70["rqdnss2"] > 0)]
+    ratio = c70["actualNSS"] / c70["rqdnss2"]
+    spending = {"fy": LATEST_YEAR, "districts": int(len(c70)), "above": int((ratio > 1.0005).sum()),
+                "median": round(float(ratio.median()), 3), "half_again": int((ratio >= 1.5).sum()),
+                "double": int((ratio >= 2).sum()), "required": dollars(c70["rqdnss2"].sum()),
+                "over": dollars((c70["actualNSS"] - c70["rqdnss2"]).clip(lower=0).sum())}
+    return {"meta": {"built": dt.date.today().isoformat(), "latest": max(int(y) for y in years), "spending": spending},
+            "years": years}
 
 
 def load_households(pop):
