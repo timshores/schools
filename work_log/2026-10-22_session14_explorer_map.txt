@@ -1,0 +1,39 @@
+2026-10-22 (Session 14) - Explorer map: towns and districts colored by how they've changed
+
+Tim: add a Massachusetts choropleth to the Commonwealth tab, showing towns and districts
+colored by interesting trends (after the scatterplot tiles were cut to the pairs with the
+fewest cautions, and he wondered how valuable the scatterplots are).
+
+Changes:
+
+1. update_town_boundaries.py (new): the Census Bureau's 2023 cartographic boundary file of
+   county subdivisions (1:500,000, clipped to the shoreline), read with the standard library
+   (a small .shp/.dbf reader; no geographic packages in the venv). Projected equirectangularly at
+   the state's middle latitude into a 1600 x 993 box and rounded to whole units (~190 m), which
+   drops close points and keeps shared borders identical, so neighbours still meet. Writes
+   data/town_boundaries.json: 351 towns, 17,328 points, 103 KB. Ten towns that became cities
+   have two codes in census_town_population.csv; each takes whichever the outlines use, and the
+   file records the population file's town name for the join.
+
+2. export_explorer_data.py map_data() writes map.json (205 KB): each town's outline; the
+   district serving its elementary grades (its own district, else its regional one; of two
+   regionals, the one with fewer towns) and its high school grades (its regional district, of two
+   the larger, else its own); and measures, each with its years:
+   towns - spending per resident and EQV per resident, yearly growth in FY2025 dollars;
+   population change; room under the levy limit (unused capacity over the limit); single-family
+   bill over income per capita; FY2027 change per household with no cap (cap.json).
+   districts - in-district spending per pupil, yearly growth in FY2025 dollars; in-district FTE
+   change; spending above required over required; Chapter 70 aid over required spending.
+   Town patterns: 185 own district only, 108 one regional, 44 own + regional, 9 two regionals,
+   5 none (Gosnold, Monroe, Mount Washington, New Ashford, Tyringham).
+
+3. Explorer (mywebsite map.ts): the map leads the Commonwealth tab. Towns / School districts,
+   and for districts Elementary / High school; a measure menu; a paragraph on each measure with
+   how the towns or districts split; five classes (a change diverges around zero, orange down,
+   gray near none, blue up; a level runs light to dark blue); hatched for no value; hover
+   outlines the town, or every town of its district; a click opens it in its tab; a table of
+   every value; enlargeable.
+
+   First readings: 292 of 351 towns' spending per resident grew faster than prices, FY2009-
+   FY2025; 239 of 241 high school districts' spending per pupil did; the no-cap map is blue on the
+   Cape and Islands and around Boston, orange across the interior.

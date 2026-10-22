@@ -2,6 +2,9 @@
 
 Session files (newest first):
 
+  2026-10-22_session14_explorer_map.txt
+    2026-10-22 (Session 14) - Explorer Map: Towns and Districts Colored by How They've Changed
+
   2026-10-21_session13_census_revenue_and_dls_municipal_data.txt
     2026-10-21 (Session 13) - Census Revenue by Source (explorer panel), DLS Municipal Schedule A Data, Towns Tab
 

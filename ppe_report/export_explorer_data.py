@@ -138,6 +138,8 @@ LEVY_CSV = Path("data/dls_levy_capacity.csv")
 # release, 2005-2009. A town missing from a release (ten whose Census codes changed in 2010
 # are missing from 2005-2009) takes the next one.
 HH_CSV = Path("data/census_town_households.csv")
+# Town outlines for the map (update_town_boundaries.py)
+BOUNDARIES_JSON = Path("data/town_boundaries.json")
 PROPERTY_TYPES = {
     "single": ["Single Family 101"],
     "condo": ["Condominiums 102"],
@@ -552,6 +554,89 @@ def load_households(pop):
             if n:
                 out[(k, fy)] = n
     return out
+
+
+def map_data(districts, towns, cap, cpi):
+    """map.json: the Commonwealth tab's map. Each town's outline, the district that serves its
+    elementary grades and its high school grades, and a few measures of how towns and districts
+    have changed. Growth is compounded yearly from the first year with a value to the last, in
+    LATEST_YEAR dollars; each value carries its years. districts and towns: the explorer's full
+    entities; cap: cap_data(); cpi: fiscal year -> Northeast CPI."""
+    geo = json.loads(BOUNDARIES_JSON.read_text())
+    outline = {norm(g["town"]): g["d"] for g in geo["towns"].values()}
+    real = lambda vals: [None if v is None else v * cpi[LATEST_YEAR] / cpi[y] for v, y in zip(vals, YEARS)]
+    ratio = lambda a, b: [None if x is None or y is None or not y else x / y for x, y in zip(a, b)]
+
+    def ends(vals):
+        at = [i for i, v in enumerate(vals) if v is not None and v > 0]
+        return (at[0], at[-1]) if len(at) >= 2 and at[-1] > at[0] else None
+
+    def growth(vals):
+        if not (e := ends(vals)):
+            return None
+        a, b = e
+        return [round((vals[b] / vals[a]) ** (1 / (b - a)) - 1, 5), YEARS[a], YEARS[b]]
+
+    def change(vals):
+        if not (e := ends(vals)):
+            return None
+        a, b = e
+        return [round(vals[b] / vals[a] - 1, 4), YEARS[a], YEARS[b]]
+
+    def latest(vals):
+        at = [i for i, v in enumerate(vals) if v is not None]
+        return [round(vals[at[-1]], 4), YEARS[at[-1]]] if at else None
+
+    entity = {e["id"]: e for e in districts}
+    members = {e["id"]: len(e.get("towns") or []) for e in districts}
+    used = set()
+    out_towns = []
+    cap_year = cap["meta"]["latest"]
+    cap_towns = {t["id"]: t for t in cap["years"][str(cap_year)]["towns"]}
+    for t in towns:
+        k = norm(t["name"])
+        if k not in outline:
+            raise ValueError(f"No outline for {t['name']}")
+        # Its own district for the elementary grades, else its regional one (of two, the smaller);
+        # for high school, a regional district if it has one (of two, the larger), else its own
+        ds = [d for d in t.get("districts") or [] if d["kind"] != "vocational" and d["id"] in entity]
+        own = [d["id"] for d in ds if d["kind"] == "town"]
+        regs = sorted((d["id"] for d in ds if d["kind"] == "regional"), key=lambda i: members[i])
+        elem = own[0] if own else regs[0] if regs else None
+        high = regs[-1] if regs else own[0] if own else None
+        used |= {elem, high} - {None}
+        c = cap_towns.get(t["id"])
+        hh = t["hh"][-1] if t.get("hh") else None
+        v = {
+            "spend": growth(real(ratio(t["spend_total"], t["pop"]))),
+            "pop": change(t["pop"]),
+            "eqv": growth(real(t["eqv"])) if t.get("eqv") else None,
+            "levy_room": latest([None if m is None or x is None or not m else (m - x) / m
+                                 for x, m in zip(t.get("levy_total") or [], t.get("levy_max") or [])]),
+            "bill_income": latest(t["sf_bill_income"]) if t.get("sf_bill_income") else None,
+            "cap_hh": [round((c["nocap"] - c["target"]) / c["hh"]), cap_year] if c and c.get("hh") else None,
+        }
+        out_towns.append({"id": t["id"], "name": t["name"], "d": outline[k], "elem": elem, "high": high,
+                          "v": {m: x for m, x in v.items() if x is not None}})
+
+    out_districts = {}
+    for i in sorted(used):
+        e = entity[i]
+        ppe = [None if all(s[y] is None for s in e["ppe"].values()) else sum(s[y] or 0 for s in e["ppe"].values())
+               for y in range(len(YEARS))]
+        nss = e.get("nss") or {}
+        req = [None if a is None or r is None else a + r for a, r in zip(nss.get("ch70_aid", []), nss.get("required_local", []))]
+        v = {
+            "ppe": growth(real(ppe)),
+            "enroll": change(e["enroll"]["in_district"]),
+            "above": latest(ratio(nss.get("above_required", []), req)) if req else None,
+            "aid": latest(ratio(nss.get("ch70_aid", []), req)) if req else None,
+        }
+        out_districts[i] = {"name": e["name"], "v": {m: x for m, x in v.items() if x is not None}}
+    return {"meta": {"built": dt.date.today().isoformat(), "start": START_YEAR, "latest": LATEST_YEAR,
+                     "cap_fy": cap_year, "width": geo["width"], "height": geo["height"],
+                     "outlines": geo["source"]},
+            "towns": out_towns, "districts": out_districts}
 
 
 def explorer_districts(df, reg):
@@ -1070,6 +1155,13 @@ def main(site: Path):
             cap = cap_data(all_towns)
             sizes["cap.json"] = write_json(json_dir / "cap.json", cap)
             print("  cap.json: FY" + ", FY".join(cap["years"]))
+            if BOUNDARIES_JSON.exists():
+                towns_only = [t for t in all_towns if t["kind"] == "town"]
+                mp = map_data(full, towns_only, cap, {int(y): float(idx[y]) for y in YEARS if y in idx.index})
+                sizes["map.json"] = write_json(json_dir / "map.json", mp)
+                print(f"  map.json: {len(mp['towns'])} towns, {len(mp['districts'])} districts")
+            else:
+                print(f"  [WARN] {BOUNDARIES_JSON} missing (run update_town_boundaries.py); no map")
         else:
             print("  [WARN] data/dese_c70_townwide.csv missing (run update_c70_formula.py); no cap tab data")
     print(f"{json_dir}: {len(full)} districts, {len(averages)} district averages, {len(all_towns)} towns, "
