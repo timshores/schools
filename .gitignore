@@ -44,3 +44,4 @@ id_ed25519
 
 # Census F-33 national files (~10 MB a year); update_census_data.py re-downloads them
 ppe_report/data/census_raw/
+ppe_report/data/c70_raw/

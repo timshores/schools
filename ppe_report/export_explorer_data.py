@@ -185,6 +185,9 @@ URL_LA4 = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyT
 URL_EQV = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyTaxInformation.EQV.EQV"
 URL_SF_BILL = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=AverageSingleTaxBill.SingleFamTaxBill_wRange"
 URL_C70_WHITEPAPER = "https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-whitepaper.docx"
+URL_C70_FORMULA = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}.xlsm"
+URL_C70_WP = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}-whitepaper.docx"
+C70_TOWNWIDE_CSV = Path("data/dese_c70_townwide.csv")
 
 
 def slug(name: str) -> str:
@@ -408,6 +411,57 @@ def commonwealth_data(dists, full, prop):
     return {"meta": {"years": YEARS, "latest": LATEST_YEAR, "built": dt.date.today().isoformat(),
                      "regions": REGIONS, "c70_profile_date": json.loads(Path("data/dese_sources.json").read_text())["c70_profile_date"]},
             "districts": out}
+
+
+def cap_data(all_towns):
+    """cap.json: each year's town targets from DESE's formula spreadsheet, with and without the
+    82.5% cap. Without it, DESE's rule that targets add up to 59% of all foundation budgets
+    stays, so both statewide percentages fall by one factor: the capped targets' total over
+    the uncapped combined effort yields' total. A town's target is then its yield times that
+    factor. (This reproduces Michael Naughton's FY2026 'NO Cap' targets to within 0.01%.)"""
+    tw = pd.read_csv(C70_TOWNWIDE_CSV)
+    pop = pd.read_csv(POP_CSV).assign(key=lambda d: d["Town"].map(norm))
+    population = {(k, fy): p for k, fy, p in zip(pop["key"], pop["FY"], pop["Population"])}
+    last_pop = int(pop["FY"].max())
+    by_key = {norm(x["name"]): x for x in all_towns}
+    years = {}
+    for fy, g in tw.groupby("fy"):
+        g = g.assign(key=g["town"].map(norm))
+        missing = sorted(set(g["key"]) - set(by_key))
+        if missing:
+            raise ValueError(f"FY{fy} formula towns not in the town list: {missing}")
+        factor = g["target"].sum() / g["cey"].sum()
+        nocap = (g["cey"] * factor).round()
+        income_year, eqv_year = int(g["income_year"].iloc[0]), int(g["eqv_year"].iloc[0])
+        capped = (g["target"] >= g["max_local"]) & (g["foundation"] > 0)
+        change = nocap - g["target"]
+        towns = []
+        for (_, r), nc, cap in zip(g.iterrows(), nocap, capped):
+            x = by_key[r["key"]]
+            towns.append({
+                "lea": int(r["lea"]), "name": x["name"], "id": x["id"], "county": x["county"], "region": x["region"],
+                # Residents: the latest estimate for per-resident dollars; income per resident uses the
+                # estimate for July of the income year
+                "pop": dollars(population.get((r["key"], min(fy, last_pop)))),
+                "pop_income": dollars(population.get((r["key"], income_year + 1))),
+                "eqv": dollars(r["eqv"]), "income": dollars(r["income"]), "cey": dollars(r["cey"]),
+                "foundation": dollars(r["foundation"]), "max": dollars(r["max_local"]), "target": dollars(r["target"]),
+                "nocap": dollars(nc), "required": dollars(r["required"]), "prior": dollars(r["rlc_prior"]),
+                "capped": bool(cap), "floor": bool(r["floor_increment"] > 0),
+            })
+        years[str(fy)] = {
+            "fy": int(fy), "eqv_year": eqv_year, "income_year": income_year,
+            "property_pct": float(g["property_pct"].iloc[0]), "income_pct": float(g["income_pct"].iloc[0]),
+            "max_pct": float(g["max_pct"].iloc[0]), "factor": float(factor),
+            "totals": {"cey": dollars(g["cey"].sum()), "target": dollars(g["target"].sum()),
+                       "foundation": dollars(g["foundation"].sum()), "required": dollars(g["required"].sum()),
+                       "capped": int(capped.sum()), "up": int((change > 0).sum()), "up_sum": dollars(change[change > 0].sum()),
+                       "down": int((change < 0).sum()), "down_sum": dollars(change[change < 0].sum())},
+            "source": URL_C70_FORMULA.format(fy=fy), "whitepaper": URL_C70_WP.format(fy=fy),
+            "pop_year": min(int(fy), last_pop) - 1,
+            "towns": towns,
+        }
+    return {"meta": {"built": dt.date.today().isoformat(), "latest": max(int(y) for y in years)}, "years": years}
 
 
 def explorer_districts(df, reg):
@@ -748,6 +802,19 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
         save("towns-eqv.csv", eqv[["valuation_year", "valuation_date", "dor_code", "town", "county", "equalized_valuation",
                                    "source_url"]].sort_values(["town", "valuation_year"]))
 
+    # Chapter 70 targets with and without the 82.5% cap (cap_data's method)
+    if all_towns and C70_TOWNWIDE_CSV.exists():
+        tw = pd.read_csv(C70_TOWNWIDE_CSV)
+        tw["target_without_cap"] = (tw["cey"] * tw.groupby("fy")["target"].transform("sum")
+                                    / tw.groupby("fy")["cey"].transform("sum")).round()
+        tw["change_without_cap"] = tw["target_without_cap"] - tw["target"]
+        tw["without_cap_method"] = ("computed here: combined effort yield times (statewide targets / statewide yields), "
+                                    "so targets still total 59% of foundation budgets")
+        tw = tw.rename(columns={"fy": "fiscal_year", "cey": "combined_effort_yield", "foundation": "foundation_budget",
+                                "max_local": "maximum_local_contribution", "target": "target_local_contribution",
+                                "rlc_prior": "prior_year_required_contribution", "required": "required_contribution"})
+        save("towns-chapter70-targets.csv", tw.sort_values(["fiscal_year", "town"]))
+
     cpi = pd.read_csv("data/inflation_indices.csv")
     cpi = cpi[cpi["fiscal_year"].between(START_YEAR, latest)][["fiscal_year", "cpi_u_northeast"]]
     save("cpi.csv", cpi.assign(average_of="July-June monthly CPI-U Northeast, not seasonally adjusted", source_url=URL_BLS))
@@ -890,6 +957,12 @@ def main(site: Path):
         common = commonwealth_data(dists, full, load_property())
         sizes["commonwealth.json"] = write_json(json_dir / "commonwealth.json", common)
         print(f"  commonwealth.json: {len(common['districts'])} districts")
+        if C70_TOWNWIDE_CSV.exists():
+            cap = cap_data(all_towns)
+            sizes["cap.json"] = write_json(json_dir / "cap.json", cap)
+            print("  cap.json: FY" + ", FY".join(cap["years"]))
+        else:
+            print("  [WARN] data/dese_c70_townwide.csv missing (run update_c70_formula.py); no cap tab data")
     print(f"{json_dir}: {len(full)} districts, {len(averages)} district averages, {len(all_towns)} towns, "
           f"{len(towns_index['averages']) if towns_index else 0} town averages")
     print("  " + "; ".join(f"{k} {v / 1024:.0f} KB" for k, v in sizes.items()))

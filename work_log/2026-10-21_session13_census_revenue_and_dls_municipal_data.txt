@@ -457,3 +457,33 @@ mywebsite
     resident with the town's FY2025 Chapter 70 property figure: Leverett 0.3906% x $338.6M =
     $1,322,492), notes on the LA-4 groups, EQV method (DLS: sales ratios by class, plus new
     growth) and the FY2025 target local contribution (white paper Appendix A).
+
+23. Commonwealth tab (Tim: gallery of plots, tiles with thumbnails, modal; first plot NSS over
+    enrollment replicating his FY25 R plots, updated; generalizable scatter with chosen IV/DV;
+    which association is strongest and why it matters). export_explorer_data.commonwealth_data
+    writes commonwealth.json: every Chapter 70 profile district FY2009-FY2025 with NSS as % of
+    foundation and of required (rqdnss2, as the report), NSS/aid/required local per foundation
+    pupil, PPE, FTE, and member towns' pooled EQV/assessed value/income per resident, single-
+    family bill and its share of income, residential share of value. Tim's FY25 plot values
+    predate DESE's final FY2025 actuals (Pelham 318% there, 240% in the 2026-03-26 profile).
+    Front end: scatter.ts (LOESS span 0.75 local linear, Spearman rho, log x, dodging labels),
+    commonwealth.ts (five presets, modal with settings accordion, correlations/data drawer, chart
+    fitted so the modal never scrolls; highlight defaults to none). FY2025 finding: NSS % of
+    foundation tracks towns' property value per resident (rho 0.63) more than enrollment (-0.33);
+    aid share vs EQV per resident is the tightest pair (-0.88).
+
+24. The 82.5% cap tab (Tim: MASS Promise to Invest's argument; like and curious, no
+    endorsement; tools to understand their claims). New update_c70_formula.py reads DESE's
+    complete formula spreadsheets (chapter-2026.xlsm, chapter-2027.xlsm; macros never run;
+    cached in data/c70_raw, gitignored) Townwide Contributions -> data/dese_c70_townwide.csv.
+    DESE's own totals confirm the mechanism: FY2027 uncapped yields $12.94B, capped targets
+    $9.340B = 59% of foundation, so the percentages are solved after the cap. Any-cap scenario:
+    one factor f on both percentages, bisection so sum(min(CEY*f, cap*FB)) holds the total;
+    reproduces Naughton & Brown's FY2026 100% targets to $1 and no-cap within 0.01%. Notes:
+    DESE's FY2026 sheet has Acton's row as text (required "46,886,1925", an extra digit), left
+    blank; FY2026's cap cell is blank, so max_pct is derived (0.825); 193/192 at the cap once a
+    $0-foundation town is excluded (DESE's counts). FY2027 with no cap: 248 towns' targets down
+    $1.41B, 103 up (54 in the top income fifth); Amherst, 6th-lowest income per resident, is
+    capped both years (-$7.19M without the cap in FY2027). CSV towns-chapter70-targets.csv.
+    Private material Tim shared (Barrett letter to DESE, Leyva memo, Naughton & Brown workbook,
+    a colleague's email) informed the copy and chart options but is not cited on the page.

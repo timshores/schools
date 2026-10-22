@@ -1,0 +1,24 @@
+{
+ "source": "DESE Chapter 70 complete formula spreadsheet, Townwide Contributions sheet",
+ "urls": {
+  "2026": "https://www.doe.mass.edu/finance/chapter70/fy2026/chapter-2026.xlsm",
+  "2027": "https://www.doe.mass.edu/finance/chapter70/fy2027/chapter-2027.xlsm"
+ },
+ "years": {
+  "2026": {
+   "eqv_year": 2024,
+   "income_year": 2022,
+   "property_pct": 0.0032428690803992326,
+   "income_pct": 0.015699377926007476,
+   "max_pct": 0.825
+  },
+  "2027": {
+   "eqv_year": 2024,
+   "income_year": 2023,
+   "property_pct": 0.0033097846059562523,
+   "income_pct": 0.015898784222377976,
+   "max_pct": 0.825
+  }
+ },
+ "downloaded": "2026-10-21"
+}
