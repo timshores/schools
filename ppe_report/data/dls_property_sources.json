@@ -1,0 +1,21 @@
+{
+ "la4": {
+  "source": "DLS Municipal Databank, Parcel Counts and Values by Usage Code: https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyTaxInformation.LA4.Parcel_counts_vals",
+  "data_current_as_of": "2026-10-21",
+  "first_year": 2003,
+  "latest_year": 2027
+ },
+ "eqv": {
+  "source": "DLS Municipal Databank, Equalized Valuations (EQV): https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyTaxInformation.EQV.EQV",
+  "data_current_as_of": "2026-10-21",
+  "first_year": 1970,
+  "latest_year": 2024
+ },
+ "single_family_tax_bill": {
+  "source": "DLS Municipal Databank, Average Single Family Tax Bill: https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=AverageSingleTaxBill.SingleFamTaxBill_wRange",
+  "data_current_as_of": "2026-10-21",
+  "first_year": 1988,
+  "latest_year": 2027
+ },
+ "downloaded": "2026-10-21"
+}

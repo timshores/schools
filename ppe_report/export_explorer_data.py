@@ -22,7 +22,10 @@ Aggregates pool their regional members, weighted by in-district FTE.
 
 Towns: general fund spending and revenue per resident (DLS Schedule A), with
 population peer groups and the same kinds of averages; the cities whose school
-districts are very large stand apart from them.
+districts are very large stand apart from them. Each town's property: assessed
+value per resident and parcels by type (the assessors' LA-4), equalized
+valuation (EQV) per resident, and the average single-family tax bill, from
+update_dls_property_data.py.
 
 Writes into a copy of the website (github.com/timshores/mywebsite): the JSON to
 src/data/massppe/, where the page imports it, so it ships as compressed, hashed
@@ -123,6 +126,32 @@ TOWN_REV = {
     "other": ["Miscellaneous", "Revenue from Other Governments"],
     "transfers": ["Transfers", "Other Financing Sources"],
 }
+# Property (update_dls_property_data.py). The LA-4's groups of use codes, gathered into the
+# explorer's property types, bottom to top in its stack. Personal property (business
+# equipment, utilities) is assessed value but not parcels; exempt property is neither.
+LA4_CSV = Path("data/dls_la4_parcels.csv")
+EQV_CSV = Path("data/dls_eqv.csv")
+SF_BILL_CSV = Path("data/dls_single_family_tax_bill.csv")
+PROPERTY_TYPES = {
+    "single": ["Single Family 101"],
+    "condo": ["Condominiums 102"],
+    "multi": ["Two Family 104", "Three Family 105", "Apartment 111-125"],
+    "other_res": ["Miscellaneous Residential 103,109", "Vacant/ Accessory Land 130-132,106"],
+    "mixed": ["Multi-Use 012-043"],
+    "commercial": ["Commercial 300-393"],
+    "industrial": ["Industrial 400-442", "Industrial Power Plant 450-452"],
+    "farm": ["CH 61A LAND Agriculture"],
+    "forest": ["CH 61 LAND Forest", "CH 61B LAND Recreation", "Open Space 200-231"],
+    "personal": ["Individuals/ Partnerships/ Associations/ Trusts/ LLC 501", "Corporations 502", "Manufacturing 503",
+                 "Public Utilities 504", "Centrally Valued Telephone 505", "Centrally Valued Pipelines 506",
+                 "Wireless Telephone 508", "Electric Generating Plant 550-552"],
+}
+LA4_EXEMPT = "Exempt Parcel Count & Value"
+# FY2025 Chapter 70 (DESE white paper, Appendix A): the uniform percentages applied to each
+# town's 2022 EQV and 2021 income, the statewide target local share, and the cap
+C70_TARGET = {"fy": 2025, "eqv_year": 2022, "income_year": 2021, "property_pct": 0.3906, "income_pct": 1.4312,
+              "target_share": 59, "cap": 82.5, "capped_towns": 182}
+
 # Peer groups by population: the estimate behind the latest fiscal year (July 2024 for
 # FY2025), as district cohorts use latest-year enrollment. Round bounds; statewide
 # FY2025: 26, 42, 98, 103, 55 and 27 towns (the last 17 without the very large cities).
@@ -152,6 +181,10 @@ URL_CENSUS_FILE = "https://www2.census.gov/programs-surveys/school-finances/tabl
 URL_DLS = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=ScheduleA.GenFund_MAIN"
 URL_POP = "https://www2.census.gov/programs-surveys/popest/datasets/"
 URL_BLS = "https://data.bls.gov/timeseries/CUUR0100SA0"
+URL_LA4 = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyTaxInformation.LA4.Parcel_counts_vals"
+URL_EQV = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyTaxInformation.EQV.EQV"
+URL_SF_BILL = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=AverageSingleTaxBill.SingleFamTaxBill_wRange"
+URL_C70_WHITEPAPER = "https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-whitepaper.docx"
 
 
 def slug(name: str) -> str:
@@ -237,6 +270,64 @@ def town_series(rows, population):
     return out
 
 
+def load_property():
+    """LA-4 value and parcels by (town key, FY) and property type, EQV by (town key, year), and
+    single-family tax bills by (town key, FY); None where update_dls_property_data.py hasn't run."""
+    if not all(p.exists() for p in (LA4_CSV, EQV_CSV, SF_BILL_CSV)):
+        return None
+    type_of = {c: t for t, cats in PROPERTY_TYPES.items() for c in cats}
+    la4 = pd.read_csv(LA4_CSV, dtype={"DOR_CODE": str})
+    la4 = la4[la4["FY"].isin(YEARS)].assign(key=lambda d: d["Municipality"].map(norm))
+    unknown = set(la4["Category"]) - set(type_of) - {LA4_EXEMPT}
+    if unknown:
+        raise ValueError(f"LA-4 categories without a property type: {sorted(unknown)}")
+    la4 = la4.assign(type=la4["Category"].map(type_of))
+    taxable = la4[la4["type"].notna()]
+    value = taxable.pivot_table(index=["key", "FY"], columns="type", values="Value", aggfunc="sum")
+    parcels = taxable[taxable["type"] != "personal"].pivot_table(index=["key", "FY"], columns="type",
+                                                                values="Parcels", aggfunc="sum")
+    eqv = pd.read_csv(EQV_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Municipality"].map(norm))
+    bills = pd.read_csv(SF_BILL_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Municipality"].map(norm))
+    bills = bills[bills["FY"].isin(YEARS)].set_index(["key", "FY"])
+    return {"value": value, "parcels": parcels, "eqv": eqv.set_index(["key", "Year"])["EQV"], "bills": bills}
+
+
+def property_series(prop, ks, population):
+    """Property for one town, or pooled over a group of towns (ks): assessed value per resident
+    by type, parcels by type (the towns' combined count), EQV per resident and in all, and the
+    average single-family tax bill with its share of income per capita.
+
+    EQV is set as of January 1 of even years; each sits at the fiscal year whose assessments
+    share that valuation date (EQV of January 1, 2024 at FY2025), per resident of that year."""
+    if prop is None:
+        return {}
+    ks = set(ks)
+    pop = lambda idx: pd.Series([population.get(i, 0) for i in idx], index=idx)  # noqa: E731
+    v = prop["value"][prop["value"].index.get_level_values("key").isin(ks)]
+    v_res = v.groupby(level="FY").sum().div(pop(v.index).groupby(level="FY").sum(), axis=0)
+    n = prop["parcels"][prop["parcels"].index.get_level_values("key").isin(ks)].groupby(level="FY").sum()
+    e = prop["eqv"][prop["eqv"].index.get_level_values("key").isin(ks)]
+    e = e.groupby(level="Year").sum()
+    e.index = e.index + 1  # valuation year -> fiscal year
+    e = e[e.index.isin(YEARS)]
+    e_pop = pd.Series({fy: sum(population.get((k, fy), 0) for k in ks) for fy in e.index})
+    b = prop["bills"][prop["bills"].index.get_level_values("key").isin(ks)].dropna(subset=["Single-Family Tax Bill"])
+    b = b[b["Single-Family Parcels"] > 0]
+    bill = (b["Single-Family Tax Bill"] * b["Single-Family Parcels"]).groupby(level="FY").sum() / \
+        b["Single-Family Parcels"].groupby(level="FY").sum()
+    b_pop = pop(b.index)
+    income = (b["DOR Income Per Capita"] * b_pop).groupby(level="FY").sum() / b_pop.groupby(level="FY").sum()
+    return {
+        "prop": {t: series(v_res[t] if t in v_res.columns else None, 0) for t in PROPERTY_TYPES},
+        "parcels": {t: series(n[t] if t in n.columns else None, 0) for t in PROPERTY_TYPES if t != "personal"},
+        "value_total": series(v.groupby(level="FY").sum().sum(axis=1), 0),
+        "eqv": series(e / e_pop, 0),
+        "eqv_total": series(e, 0),
+        "sf_bill": series(bill, 0),
+        "sf_bill_income": series(bill / income, 4),
+    }
+
+
 def explorer_districts(df, reg):
     """The explorer's districts: the report's rule for its Western MA cohorts
     (school_shared.get_western_cohort_districts: latest-year in-district FTE and
@@ -295,6 +386,9 @@ def town_data(dists, reg, latest):
     members = pd.read_csv(MEMBERS_CSV, dtype={"Org4Code": str}).assign(key=lambda d: d["Town"].map(norm))
     c70 = pd.read_csv(C70_CSV, dtype={"Org4Code": str})
     rlc = c70[c70["fy"] == latest].set_index("Org4Code")["distrlc"].to_dict()
+    prop = load_property()
+    if prop is None:
+        print("  [WARN] property data missing (run update_dls_property_data.py); no property panels")
     names = dls.drop_duplicates("key").set_index("key")["Municipality"].to_dict()
     keys = sorted(names)
     missing = [k for k in keys if (k, latest) not in population]
@@ -356,14 +450,15 @@ def town_data(dists, reg, latest):
         full.append({"id": slug(names[k]), "name": names[k], "kind": "town", "county": county.get(k),
                      "region": region_of[k], "peer": peer_of(k), "gateway": k in gateway,
                      "pop": series(pd.Series({fy: population.get((k, fy)) for fy in YEARS}), 0),
-                     **town_series(dls[dls["key"] == k], population), "districts": schools})
+                     **town_series(dls[dls["key"] == k], population), **property_series(prop, [k], population),
+                     "districts": schools})
 
     def average(aid, name, scope, group, region, ks, **fields):
         """A pooled per-resident average; pop is the members' combined population."""
         return {"id": aid, "name": name, "kind": "average", "scope": scope, "peer": group, "region": region,
                 "members": len(ks), "chunk": slug(region) if region else "statewide", **fields,
                 "pop": series(pd.Series({fy: sum(population.get((k, fy), 0) for k in ks) for fy in YEARS}), 0),
-                **town_series(dls[dls["key"].isin(ks)], population)}
+                **town_series(dls[dls["key"].isin(ks)], population), **property_series(prop, ks, population)}
 
     averages = [average("towns-statewide", "Statewide towns average", "state", None, None, pooled, cmp={})]
     for rk, rl in REGIONS.items():
@@ -414,7 +509,11 @@ def town_data(dists, reg, latest):
                 "population": "Census Bureau subcounty population estimates, July 1 at the start of each fiscal year "
                               "(FY2021: April 1, 2020 estimates base)",
                 "members": f"DESE FY{latest} Chapter 70 summary for regional districts",
+                "property": "DLS Municipal Databank: LA-4 parcel counts and values by use, equalized valuations, "
+                            "average single-family tax bill",
             },
+            "property": prop is not None,
+            "c70_target": C70_TARGET,
         },
         "averages": [{"id": a["id"], "name": a["name"], "scope": a["scope"], "peer": a["peer"], "region": a["region"],
                       "chunk": a["chunk"]} for a in averages],
@@ -536,6 +635,36 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
                              f"fy{latest}_required_local_contribution": d["contribution"],
                              "source_url": URL_C70_PROFILE if d["kind"] == "town" else URL_C70_REGIONAL.format(fy=latest)})
         save("towns-school-districts.csv", pd.DataFrame(rows))
+
+    # Property: the LA-4 as DLS publishes it, one column per category, with the year's
+    # single-family tax bill; EQV for every year DLS lists
+    if all_towns and all(p.exists() for p in (LA4_CSV, EQV_CSV, SF_BILL_CSV)):
+        keys = {norm(x["name"]): x for x in all_towns}
+        la4 = pd.read_csv(LA4_CSV, dtype={"DOR_CODE": str})
+        la4 = la4[la4["FY"].between(START_YEAR, latest)]
+        order = [c for cats in PROPERTY_TYPES.values() for c in cats] + [LA4_EXEMPT]
+        wide = []
+        for measure in ("Parcels", "Value"):
+            w = la4.pivot_table(index=["FY", "DOR_CODE", "Municipality"], columns="Category", values=measure, aggfunc="sum")
+            wide.append(w[[c for c in order if c in w.columns]].add_prefix(f"{measure.lower()}: "))
+        frame = pd.concat(wide, axis=1).reset_index()
+        frame.insert(3, "county", [keys[norm(m)]["county"] for m in frame["Municipality"]])
+        frame = frame.rename(columns={"FY": "fiscal_year", "DOR_CODE": "dor_code", "Municipality": "town"})
+        frame["taxable_value"] = frame[[f"value: {c}" for c in order[:-1] if f"value: {c}" in frame.columns]].sum(axis=1)
+        bills = pd.read_csv(SF_BILL_CSV, dtype={"DOR_CODE": str}).rename(columns={"FY": "fiscal_year", "DOR_CODE": "dor_code"})
+        bills = bills.drop(columns=["Municipality"]).rename(columns=lambda c: c if c in ("fiscal_year", "dor_code")
+                                                             else f"single-family tax bill table: {c}")
+        frame = frame.merge(bills, on=["fiscal_year", "dor_code"], how="left")
+        frame["source_url"] = URL_LA4
+        frame["tax_bill_source_url"] = URL_SF_BILL
+        save("towns-property.csv", frame.sort_values(["town", "fiscal_year"]))
+        eqv = pd.read_csv(EQV_CSV, dtype={"DOR_CODE": str})
+        eqv = eqv.rename(columns={"Year": "valuation_year", "DOR_CODE": "dor_code", "Municipality": "town",
+                                  "County": "county", "EQV": "equalized_valuation"})
+        eqv["valuation_date"] = "January 1, " + eqv["valuation_year"].astype(str)
+        eqv["source_url"] = URL_EQV
+        save("towns-eqv.csv", eqv[["valuation_year", "valuation_date", "dor_code", "town", "county", "equalized_valuation",
+                                   "source_url"]].sort_values(["town", "valuation_year"]))
 
     cpi = pd.read_csv("data/inflation_indices.csv")
     cpi = cpi[cpi["fiscal_year"].between(START_YEAR, latest)][["fiscal_year", "cpi_u_northeast"]]

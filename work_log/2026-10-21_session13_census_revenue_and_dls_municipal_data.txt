@@ -439,3 +439,21 @@ mywebsite
     (comparison groups, bars and lines only: about 2:1 on white, too light for text), light
     green #CBE793 (earlier-year bars, title subtitle), pale teal #DCE9EA, deep teal #035D58
     (takeaways). Not rendered here; sent to seahag-inbox.
+
+22. Town property (Tim: number of properties, assessed value and/or EQV with how EQV is set and
+    how it enters Chapter 70, mix of property types). New update_dls_property_data.py downloads
+    from the DLS Gateway, all 351 municipalities: the LA-4 (parcels and assessed values by use
+    code, FY2003-FY2027; FY2027 has 125 towns so far), EQV (1970-2024, every other year), and the
+    average single-family tax bill with DOR income per capita (FY1988-FY2027). Report names came
+    from an archived mass.gov "Property Tax Data and Statistics" page (mass.gov refuses scripts).
+    LA-4 taxable categories add up exactly to DLS's assessed values by class (351 of 351, FY2025).
+    export_explorer_data.py groups LA-4 categories into ten types (PROPERTY_TYPES; personal
+    property is value but not parcels; exempt is out) and adds per town and pooled average:
+    value per resident by type, parcels by type, EQV per resident and in all (EQV of January 1,
+    Y at FY Y+1, the year whose assessments share the date), single-family bill and its share of
+    income per capita. New CSVs: towns-property.csv (LA-4 as published plus the bill table),
+    towns-eqv.csv. Explorer Towns tab: four tiles, three panels (assessed value per resident by
+    type, parcels by type with no comparison shading since towns differ in size, EQV per
+    resident with the town's FY2025 Chapter 70 property figure: Leverett 0.3906% x $338.6M =
+    $1,322,492), notes on the LA-4 groups, EQV method (DLS: sales ratios by class, plus new
+    growth) and the FY2025 target local contribution (white paper Appendix A).
