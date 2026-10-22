@@ -467,6 +467,10 @@ def cap_data(all_towns):
                 "eqv": dollars(r["eqv"]), "income": dollars(r["income"]), "cey": dollars(r["cey"]),
                 "foundation": dollars(r["foundation"]), "max": dollars(r["max_local"]), "target": dollars(r["target"]),
                 "nocap": dollars(nc), "required": dollars(r["required"]), "prior": dollars(r["rlc_prior"]),
+                # How the required contribution moved: growth factor, extra increment, and the start it gave
+                "mrgf": None if pd.isna(r["mrgf"]) else round(float(r["mrgf"]), 4),
+                "increment": None if pd.isna(r["pct_increment"]) else round(float(r["pct_increment"]), 4),
+                "preliminary": dollars(r["preliminary"]),
                 "capped": bool(cap), "floor": bool(r["floor_increment"] > 0),
             })
         years[str(fy)] = {
