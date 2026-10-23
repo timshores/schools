@@ -77,3 +77,15 @@ Changes:
    First look, FY2025: rural districts average $24,095 per pupil (sparsest tier $29,586, 62%
    above required), aid 43% of required spending (suburban 32%, urban 63%), and enrollment down
    23% since FY2009 (sparsest 29%; suburban 10%; urban flat).
+
+8. Boston apart from the Gateway Cities (Tim: Boston with the Gateway Cities misreads the term;
+   Boston and its surrounding metro is the sensible group). MAPC's community types (2008, five
+   types, nine sub-types) are the state's planning classification; the statewide assignment is
+   only a map image, and the MIT course table (MA_COMM_TYPE) isn't public, but MAPC's DataCommon
+   profiles give each of its 99 towns' sub-type, which covers the whole Inner Core: Metropolitan
+   Core Communities (Boston, Cambridge, Chelsea, Everett, Malden, Revere, Somerville) and Streetcar
+   Suburbs (Arlington, Belmont, Brookline, Medford, Melrose, Newton, Waltham, Watertown, Winthrop).
+   INNER_CORE in the exporter; types now core / gateway (the other 22) / rural / suburban.
+   Districts 16 / 22 / 79 / 169; towns 16 / 22 / 164 / 149. ("Kind of Community", a DOR/DLS
+   typology, couldn't be verified, so it isn't used.) commonwealth.json rows carry "ct"; map.json
+   carries each town's and district's type and density.

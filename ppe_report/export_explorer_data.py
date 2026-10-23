@@ -140,14 +140,17 @@ LEVY_CSV = Path("data/dls_levy_capacity.csv")
 HH_CSV = Path("data/census_town_households.csv")
 # Town outlines for the map, with land areas (update_town_boundaries.py)
 BOUNDARIES_JSON = Path("data/town_boundaries.json")
-# Community types, by the Commonwealth's own lines where it draws them. A district is rural at 35 or
-# fewer students per square mile (foundation enrollment over its towns' land area), DESE's test for
-# rural school aid, in its three tiers; a town is rural under 500 residents per square mile, the
-# Rural Policy Advisory Commission's line. Boston and the Gateway Cities are urban. The state has no
-# name for the rest; here, suburban and other.
+# Community types, by the Commonwealth's own lines where it draws them. The Inner Core is Boston and
+# its densest neighbors: the Metropolitan Area Planning Council's Metropolitan Core Communities and
+# Streetcar Suburbs (its community types, as its DataCommon profiles give them). The Gateway Cities
+# are the state's 26 mid-size cities; the four in the Inner Core count there. A district is rural at
+# 35 or fewer students per square mile (foundation enrollment over its towns' land area), DESE's test
+# for rural school aid, in its three tiers; a town is rural under 500 residents per square mile, the
+# Rural Policy Advisory Commission's line. The state has no name for the rest; here, suburban and other.
+INNER_CORE = ["Boston", "Cambridge", "Chelsea", "Everett", "Malden", "Revere", "Somerville",
+              "Arlington", "Belmont", "Brookline", "Medford", "Melrose", "Newton", "Waltham", "Watertown", "Winthrop"]
 RURAL_STUDENT_TIERS = (11, 21, 35)
 RURAL_RESIDENTS = 500
-TYPE_NAMES = {"rural": "rural", "suburban": "suburban and other", "urban": "Boston and the Gateway Cities"}
 PROPERTY_TYPES = {
     "single": ["Single Family 101"],
     "condo": ["Condominiums 102"],
@@ -442,6 +445,7 @@ def commonwealth_data(dists, full, prop):
             "region": d["region"] if d else None,
             "towns": [names.get(k, k) for k in ks],
             "valley": bool(ks) and sum(c in VALLEY_COUNTIES for c in counties) * 2 > len(ks),
+            "ct": (d.get("community") or {}).get("type") if d else None,
             "v": v,
         })
     return {"meta": {"years": YEARS, "latest": LATEST_YEAR, "built": dt.date.today().isoformat(),
@@ -584,6 +588,7 @@ def district_types(dists, c70, area):
     for o, t in zip(mem["Org4Code"].astype(int), mem["Town"]):
         towns_of.setdefault(o, []).append(norm(t))
     fe = c70.dropna(subset=["distfoundenro"]).sort_values("fy").groupby("Org4Code").last()
+    core = {norm(t) for t in INNER_CORE}
     out, missing = {}, []
     for d in dists:
         if d["type"] != "traditional":
@@ -595,7 +600,9 @@ def district_types(dists, c70, area):
             continue
         density = float(fe.loc[org, "distfoundenro"]) / sum(area[k] for k in ks)
         tier = next((i + 1 for i, lim in enumerate(RURAL_STUDENT_TIERS) if density <= lim), None)
-        kind = "urban" if d["gateway"] or norm(d["name"]) == norm("Boston") else "rural" if tier else "suburban"
+        local = d["code"] < REGIONAL_MIN_CODE
+        kind = ("core" if local and norm(d["name"]) in core else "gateway" if d["gateway"] else "rural" if tier
+                else "suburban")
         out[d["id"]] = {"type": kind, "density": round(density, 1), "tier": tier, "fy": int(fe.loc[org, "fy"])}
     if missing:
         print(f"  [WARN] no community type for {len(missing)} districts: {missing[:8]}")
@@ -714,7 +721,10 @@ def map_data(districts, towns, cap, cpi, org4):
             "bill_income": latest(t["sf_bill_income"]) if t.get("sf_bill_income") else None,
             "cap_hh": [round((c["nocap"] - c["target"]) / c["hh"]), cap_year] if c and c.get("hh") else None,
         }
-        out_towns.append({"id": t["id"], "name": t["name"], "d": outline[k], "elem": elem, "high": high,
+        com = t.get("community") or {}
+        if com:
+            v["density"] = [com["density"], com["fy"]]
+        out_towns.append({"id": t["id"], "name": t["name"], "d": outline[k], "elem": elem, "high": high, "ct": com.get("type"),
                           "v": {m: x for m, x in v.items() if x is not None}, **({"all": both} if both else {})})
 
     out_districts = {}
@@ -730,7 +740,10 @@ def map_data(districts, towns, cap, cpi, org4):
             "above": latest(ratio(nss.get("above_required", []), req)) if req else None,
             "aid": latest(ratio(nss.get("ch70_aid", []), req)) if req else None,
         }
-        out_districts[i] = {"name": e["name"], "v": {m: x for m, x in v.items() if x is not None}}
+        com = e.get("community") or {}
+        if com:
+            v["density"] = [com["density"], com["fy"]]
+        out_districts[i] = {"name": e["name"], "ct": com.get("type"), "v": {m: x for m, x in v.items() if x is not None}}
     # The price index too, so the map can turn growth in LATEST_YEAR dollars back into nominal growth
     return {"meta": {"built": dt.date.today().isoformat(), "start": START_YEAR, "latest": LATEST_YEAR,
                      "cap_fy": cap_year, "width": geo["width"], "height": geo["height"],
@@ -895,15 +908,17 @@ def town_data(dists, reg, latest, area=None):
     # Gateway Cities: the Commonwealth's list, very large cities included
     averages.append(average("towns-gateway", "Gateway Cities average", "group", None, None, sorted(gateway),
                             cmp={"state": "towns-statewide"}))
-    # Community types: rural under RURAL_RESIDENTS per square mile, Boston and the Gateway Cities, the rest
+    # Community types: the Inner Core, the other Gateway Cities, rural under RURAL_RESIDENTS per square
+    # mile, and the rest
+    core = {norm(t) for t in INNER_CORE}
     type_of = {}
     for k in keys:
         p, a = population.get((k, latest)), (area or {}).get(k)
         if p and a:
-            kind = "urban" if k in gateway or k == norm("Boston") else "rural" if p / a < RURAL_RESIDENTS else "suburban"
+            kind = "core" if k in core else "gateway" if k in gateway else "rural" if p / a < RURAL_RESIDENTS else "suburban"
             type_of[k] = {"type": kind, "density": round(p / a), "fy": latest}
-    for t, name in (("rural", "Rural towns average"), ("suburban", "Suburban and other towns average"),
-                    ("urban", "Boston and Gateway Cities average")):
+    for t, name in (("core", "Inner Core average"), ("gateway", "Gateway Cities outside the Inner Core average"),
+                    ("suburban", "Suburban and other towns average"), ("rural", "Rural towns average")):
         # Every town of the type, the very large cities included, as for the Gateway Cities
         ks = [k for k in keys if type_of.get(k, {}).get("type") == t]
         if ks:
@@ -1180,10 +1195,12 @@ def main(site: Path):
                                {"cohort_state": f"cohort-{k.lower()}", "region": f"region-{slug(rk)}", "state": "statewide"}))
     # Community types: rural (and DESE's three rural tiers), suburban and other, Boston and the Gateway Cities
     types = district_types(dists, c70, land_areas())
-    for t in ("rural", "suburban", "urban"):
+    for d in dists:
+        d["community"] = types.get(d["id"])
+    for t, name in (("core", "Inner Core districts average"),
+                    ("gateway", "Gateway City districts outside the Inner Core average"),
+                    ("suburban", "Suburban and other districts average"), ("rural", "Rural districts average")):
         ms = [d for d in dists if types.get(d["id"], {}).get("type") == t]
-        name = {"rural": "Rural districts average", "suburban": "Suburban and other districts average",
-                "urban": "Boston and Gateway City districts average"}[t]
         groups.append((f"type-{t}", name, "type", None, None, ms, {"state": "statewide"}))
     for tier, words in zip((1, 2, 3), ("11 or fewer", "over 11 to 21", "over 21 to 35")):
         ms = [d for d in dists if types.get(d["id"], {}).get("tier") == tier]
