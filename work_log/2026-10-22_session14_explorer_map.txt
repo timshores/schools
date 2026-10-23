@@ -125,3 +125,13 @@ Changes:
     Worthington FY2009-FY2014, before it ran its own school (its DESE rows start FY2016). Highest
     spending as % of required is now Gosnold FY2021 (717%, one pupil); in FY2025, Provincetown
     (457%). The scatter caption says "districts that ran schools that year".
+
+12. (2026-10-23) Source files and totals. ppe_report/data/README.md documents each source file
+    the explorer uses: what it holds, the agency and its page, the date retrieved, and the script
+    that downloads it again; the report-era workbooks and the uncommitted raw caches (census_raw/,
+    c70_raw/) are named as such. The explorer's Data tab links each file's copy here on GitHub.
+    For the explorer's new Totals choice, revenue_per_pupil() also returns rev_fte: the in-district
+    FTE of the average district it pools (a regional district's own FTE; an average's over its
+    regional districts only, which is what its revenue per pupil divides by). Revenue per pupil
+    times rev_fte is the district's, or the average district's, revenue in dollars. Western MA
+    average, FY2024: rev_fte 905 against 1,179 in-district FTE for all its districts.

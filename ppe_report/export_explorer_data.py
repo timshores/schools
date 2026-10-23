@@ -233,14 +233,16 @@ def pack(piv, lines, nss):
 
 
 def revenue_per_pupil(census, codes):
-    """Revenue by source per in-district FTE pupil, pooled over the districts' DESE codes."""
+    """Revenue by source per in-district FTE pupil, pooled over the districts' DESE codes, and the
+    in-district FTE of their average district, which turns the pooled figures back into an average
+    district's dollars (one district's own FTE when there is only one)."""
     rows = census[census["DIST_CODE"].isin(codes) & (census["FTE"] > 0)]
     by_year = rows.groupby("FY").sum(numeric_only=True)
     out = {}
     for key, items in REVENUE.items():
         dollars = sum(by_year[i.lstrip("-")] * (-1 if i.startswith("-") else 1) for i in items)
         out[key] = series(dollars * 1000 / by_year["FTE"], 0)
-    return out
+    return out, series(by_year["FTE"] / rows.groupby("FY").size(), 1)
 
 
 def revenue_fields(census, codes, regional):
@@ -249,7 +251,8 @@ def revenue_fields(census, codes, regional):
     if census is None:
         return {}
     if regional:
-        return {"rev": revenue_per_pupil(census, codes)}
+        rev, fte = revenue_per_pupil(census, codes)
+        return {"rev": rev, "rev_fte": fte}
     latest = census[census["DIST_CODE"].isin(codes)].sort_values("FY").tail(1)
     if latest.empty:
         return {}
