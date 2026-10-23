@@ -111,3 +111,17 @@ Changes:
     The cap tab now ranks every town with income (it had left out the few with no foundation
     budget), so its FY2027 fifths match the rest. Also this round: the cap chart's Enlarge takes
     only the plot and draws it to the window, with zoom (buttons, wheel when enlarged) and drag.
+
+11. (2026-10-23) Non-operating district-years out of commonwealth.json. Tim saw Williamstown at
+    over 2,000,000% of required on the Commonwealth scatter with every district included. Source:
+    DESE's Chapter 70 district profiles keep a row for every town, and a town whose pupils all go
+    to a regional district carries leftovers there: Williamstown, in Mount Greylock since FY2019,
+    shows 0 foundation pupils, $14.14 required and $318,114 actual for FY2025; Sterling FY2023 shows
+    2 pupils and $13.5M actual; Hanson, Northfield, Colrain and Cheshire the same kind of thing.
+    The numbers are DESE's; the error was ours, dividing them and plotting the town as a district.
+    commonwealth_data() now keeps a district-year only if DESE's district profiles
+    (dese_expenditures.csv, any category: spending, enrollment, staff) have that district that
+    year, and drops a row with no such year. 400 rows -> 329. Operating districts lose only
+    Worthington FY2009-FY2014, before it ran its own school (its DESE rows start FY2016). Highest
+    spending as % of required is now Gosnold FY2021 (717%, one pupil); in FY2025, Provincetown
+    (457%). The scatter caption says "districts that ran schools that year".

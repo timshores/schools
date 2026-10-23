@@ -111,6 +111,7 @@ DLS_CSV = Path("data/dls_schedule_a_general_fund.csv")
 POP_CSV = Path("data/census_town_population.csv")
 MEMBERS_CSV = Path("data/dese_c70_regional_members.csv")
 C70_CSV = Path("data/dese_c70_profile.csv")
+EXP_CSV = Path("data/dese_expenditures.csv")
 # Schedule A functions, bottom to top in the explorer's stack
 TOWN_SPEND = {
     "education": "Education", "fixed": "Fixed Costs", "safety": "Public Safety", "works": "Public Works",
@@ -392,6 +393,13 @@ def commonwealth_data(dists, full, prop):
     member_keys = members.groupby("Org4Code")["key"].apply(list).to_dict()
     by_org = {f"{d['org']:04d}": d for d in dists}
     entity = {e["id"]: e for e in full}
+    # A district counts in a year only if it ran schools then, and DESE's district profiles
+    # (spending, enrollment, staff) cover those years alone. A town whose pupils all go to regional
+    # districts keeps a row in the Chapter 70 profiles, with a few pupils it pays tuition for and
+    # leftover sums that divide into nonsense (Williamstown, FY2025: $318,114 of actual spending
+    # against $14 required).
+    exp = pd.read_csv(EXP_CSV, usecols=["SY", "DIST_CODE"], dtype={"DIST_CODE": str}).drop_duplicates()
+    ran = {(f"{int(c) // 10000:04d}", int(fy)) for c, fy in zip(exp["DIST_CODE"], exp["SY"])}
 
     def r(v, digits):
         return None if v is None or pd.isna(v) else round(float(v), digits)
@@ -439,6 +447,10 @@ def commonwealth_data(dists, full, prop):
             "bill_income": w.get("sf_bill_income") or [None] * len(YEARS),
             "res_share": [r(ratio(a, b), 4) for a, b in zip(homes, values)],
         }
+        off = [(org, fy) not in ran for fy in YEARS]
+        if all(off):
+            continue
+        v = {k: [None if o else x for x, o in zip(s, off)] for k, s in v.items()}
         out.append({
             "org": org, "name": d["name"] if d else dese_name.title(), "id": d["id"] if d else None,
             "type": d["type"] if d else ("vocational" if int(org) >= 800 else "traditional"),
@@ -1067,7 +1079,7 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
         written.append(f"{name} ({len(frame):,} rows, {(out_dir / name).stat().st_size / 1024:.0f} KB)")
 
     # DESE expenditures per pupil and enrollment, wide: one column per DESE subcategory
-    exp = pd.read_csv("data/dese_expenditures.csv", dtype={"DIST_CODE": str})
+    exp = pd.read_csv(EXP_CSV, dtype={"DIST_CODE": str})
     exp = exp[exp["DIST_CODE"].astype(int).floordiv(10000).isin(orgs) & exp["SY"].between(START_YEAR, latest)
               & exp["IND_CAT"].isin(["Expenditures Per Pupil", "Student Enrollment"])]
     exp = exp.assign(column=exp["IND_CAT"].map({"Expenditures Per Pupil": "Per pupil: ", "Student Enrollment": "Enrollment: "})
