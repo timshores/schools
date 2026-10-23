@@ -446,6 +446,7 @@ def commonwealth_data(dists, full, prop):
             "towns": [names.get(k, k) for k in ks],
             "valley": bool(ks) and sum(c in VALLEY_COUNTIES for c in counties) * 2 > len(ks),
             "ct": (d.get("community") or {}).get("type") if d else None,
+            "fifth": (d.get("income") or {}).get("fifth") if d else None,
             "v": v,
         })
     return {"meta": {"years": YEARS, "latest": LATEST_YEAR, "built": dt.date.today().isoformat(),
@@ -574,6 +575,48 @@ def land_areas():
         return {}
     geo = json.loads(BOUNDARIES_JSON.read_text())
     return {norm(g["town"]): g["sqmi"] for g in geo["towns"].values()}
+
+
+def district_members(dists):
+    """Each traditional district's towns, by town key: a regional district's members in DESE's regional
+    members file (its one year); a town's own district is the town."""
+    mem = pd.read_csv(MEMBERS_CSV, dtype={"Org4Code": str})
+    mem = mem[mem["FY"] == mem["FY"].max()]
+    towns_of = {}
+    for o, t in zip(mem["Org4Code"].astype(int), mem["Town"]):
+        towns_of.setdefault(o, []).append(norm(t))
+    return {d["id"]: towns_of.get(d["code"] // 10000, []) if d["code"] >= REGIONAL_MIN_CODE else [norm(d["name"])]
+            for d in dists if d["type"] == "traditional"}
+
+
+FIFTH_NAMES = {1: "lowest", 2: "second", 3: "middle", 4: "fourth", 5: "highest"}
+
+
+def town_incomes():
+    """Each town's income per resident, as the cap tab counts it: the Chapter 70 formula's income for
+    the latest fiscal year over the population estimate for July of that income year.
+    {town key: (income, population, year)}"""
+    if not C70_TOWNWIDE_CSV.exists():
+        return {}
+    tw = pd.read_csv(C70_TOWNWIDE_CSV)
+    tw = tw[tw["fy"] == tw["fy"].max()]
+    pop = pd.read_csv(POP_CSV, dtype={"COUSUB_FIPS": str}).assign(key=lambda d: d["Town"].map(norm))
+    population = {(k, fy): p for k, fy, p in zip(pop["key"], pop["FY"], pop["Population"])}
+    out = {}
+    for town, inc, yr in zip(tw["town"], tw["income"], tw["income_year"]):
+        k, p = norm(town), population.get((norm(town), int(yr) + 1))
+        if p and inc == inc:
+            out[k] = (float(inc), float(p), int(yr))
+    return out
+
+
+def income_fifths(per_resident):
+    """{key: {"fifth": 1 (lowest) to 5 (highest), "income_pc", "year"}}, from {key: (income, population, year)}:
+    ranked by income per resident, in five groups as near equal in size as the count allows"""
+    ranked = sorted(per_resident.items(), key=lambda kv: kv[1][0] / kv[1][1])
+    n = len(ranked)
+    return {k: {"fifth": min(4, i * 5 // n) + 1, "income_pc": round(v[0] / v[1]), "year": v[2]}
+            for i, (k, v) in enumerate(ranked)}
 
 
 def district_types(dists, c70, area):
@@ -741,6 +784,8 @@ def map_data(districts, towns, cap, cpi, org4):
         com = t.get("community") or {}
         if com:
             v["density"] = [com["density"], com["fy"]]
+        if t.get("income"):
+            v["income"] = [t["income"]["income_pc"], t["income"]["year"]]
         out_towns.append({"id": t["id"], "name": t["name"], "d": outline[k], "elem": elem, "high": high, "ct": com.get("type"),
                           "v": {m: x for m, x in v.items() if x is not None}, **({"all": both} if both else {})})
 
@@ -760,11 +805,18 @@ def map_data(districts, towns, cap, cpi, org4):
         com = e.get("community") or {}
         if com:
             v["density"] = [com["density"], com["fy"]]
+        if e.get("income"):
+            v["income"] = [e["income"]["income_pc"], e["income"]["year"]]
         out_districts[i] = {"name": e["name"], "ct": com.get("type"), "v": {m: x for m, x in v.items() if x is not None}}
-    # The price index too, so the map can turn growth in LATEST_YEAR dollars back into nominal growth
+    # Where each income fifth begins, so the map's income colors are exactly the fifths
+    def fifth_cuts(xs):
+        return [min(x["income_pc"] for x in xs if x["fifth"] == f) for f in (2, 3, 4, 5)] if xs else None
     return {"meta": {"built": dt.date.today().isoformat(), "start": START_YEAR, "latest": LATEST_YEAR,
                      "cap_fy": cap_year, "width": geo["width"], "height": geo["height"],
-                     "outlines": geo["source"], "cpi": {str(y): round(v, 3) for y, v in cpi.items()}},
+                     "outlines": geo["source"],
+                     "fifths": {"towns": fifth_cuts([t["income"] for t in towns if t.get("income")]),
+                                "districts": fifth_cuts([e["income"] for e in districts if e.get("income")]),
+                                "year": max((t["income"]["year"] for t in towns if t.get("income")), default=None)}},
             "towns": out_towns, "districts": out_districts}
 
 
@@ -815,7 +867,7 @@ def cohort_name(k, region=None):
     return f"{REGIONS[region] if region else 'Statewide'} {get_cohort_short_label(k)} cohort average"
 
 
-def town_data(dists, reg, latest, area=None):
+def town_data(dists, reg, latest, area=None, fifths=None):
     """The town view: (towns.json content, {chunk: full towns}, every full town, each
     district's towns). dists: explorer_districts() with each district's explorer id."""
     dls = pd.read_csv(DLS_CSV, dtype={"DOR_CODE": str})
@@ -934,6 +986,12 @@ def town_data(dists, reg, latest, area=None):
         if p and a:
             kind = "core" if k in core else "gateway" if k in gateway else "rural" if p / a < RURAL_RESIDENTS else "suburban"
             type_of[k] = {"type": kind, "density": round(p / a), "fy": latest}
+    # Income fifths, as the cap tab counts them; every town of each, the very large cities included
+    for f, word in FIFTH_NAMES.items():
+        ks = [k for k in keys if (fifths or {}).get(k, {}).get("fifth") == f]
+        if ks:
+            averages.append(average(f"towns-fifth-{f}", f"Towns in the {word} income fifth average", "fifth", None, None, ks,
+                                    cmp={"state": "towns-statewide"}))
     for t, name in (("core", "Inner Core average"), ("gateway", "Gateway Cities outside the Inner Core average"),
                     ("suburban", "Suburban and other towns average"), ("rural", "Rural towns average")):
         # Every town of the type, the very large cities included, as for the Gateway Cities
@@ -952,9 +1010,12 @@ def town_data(dists, reg, latest, area=None):
         x["cmp"] = {"peer": f"{pid}-{slug(rk)}" if pid and rk and f"{pid}-{slug(rk)}" in have else None,
                     "peer_state": pid, "region": f"towns-region-{slug(rk)}" if rk else None, "state": "towns-statewide",
                     "gateway": "towns-gateway",
-                    "type": f"towns-type-{type_of[k]['type']}" if k in type_of and f"towns-type-{type_of[k]['type']}" in have else None}
+                    "type": f"towns-type-{type_of[k]['type']}" if k in type_of and f"towns-type-{type_of[k]['type']}" in have else None,
+                    "fifth": f"towns-fifth-{fifths[k]['fifth']}" if fifths and k in fifths else None}
         if k in type_of:
             x["community"] = type_of[k]
+        if fifths and k in fifths:
+            x["income"] = fifths[k]
         x["chunk"] = chunk_of(rk)
         chunks.setdefault(x["chunk"], []).append(x)
 
@@ -1214,6 +1275,20 @@ def main(site: Path):
     types = district_types(dists, c70, land_areas())
     for d in dists:
         d["community"] = types.get(d["id"])
+    # Income fifths: towns by income per resident, and districts by their towns' combined income per resident
+    incomes = town_incomes()
+    town_fifths = income_fifths(incomes)
+    district_income = {}
+    for i, ks in district_members(dists).items():
+        if ks and all(k in incomes for k in ks):
+            district_income[i] = (sum(incomes[k][0] for k in ks), sum(incomes[k][1] for k in ks), incomes[ks[0]][2])
+    district_fifths = income_fifths(district_income)
+    for d in dists:
+        d["income"] = district_fifths.get(d["id"])
+    for k, word in FIFTH_NAMES.items():
+        ms = [d for d in dists if (d["income"] or {}).get("fifth") == k]
+        groups.append((f"fifth-{k}", f"Districts in the {word} income fifth average", "fifth", None, None, ms,
+                       {"state": "statewide"}))
     for t, name in (("core", "Inner Core districts average"),
                     ("gateway", "Gateway City districts outside the Inner Core average"),
                     ("suburban", "Suburban and other districts average"), ("rural", "Rural districts average")):
@@ -1254,14 +1329,16 @@ def main(site: Path):
                      "cmp": {"cohort": rc if rc in have else None, "cohort_state": f"cohort-{k.lower()}",
                              "region": f"region-{slug(rk)}" if rk else None, "state": "statewide",
                              "gateway": "cohort-gateway",
-                             "type": f"type-{types[d['id']]['type']}" if d["id"] in types else None},
+                             "type": f"type-{types[d['id']]['type']}" if d["id"] in types else None,
+                             "fifth": f"fifth-{d['income']['fifth']}" if d["income"] else None},
                      **({"community": types[d["id"]]} if d["id"] in types else {}),
+                     **({"income": d["income"]} if d["income"] else {}),
                      "chunk": chunk_of(rk, d["type"]),
                      **pack(piv, lines, nss), **revenue_fields(census, [d["code"]], regional)})
 
     towns_index, town_chunks, all_towns = None, {}, []
     if all(p.exists() for p in (DLS_CSV, POP_CSV, MEMBERS_CSV)):
-        towns_index, town_chunks, all_towns, links = town_data(dists, reg, LATEST_YEAR, land_areas())
+        towns_index, town_chunks, all_towns, links = town_data(dists, reg, LATEST_YEAR, land_areas(), town_fifths)
         for e in full:
             e.update(links.get(e["id"], {}))
     else:

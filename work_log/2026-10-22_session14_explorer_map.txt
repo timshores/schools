@@ -98,3 +98,16 @@ Changes:
    conversion on the map is gone (it held only for first-to-last growth). Amherst district:
    +4.3% nominal, +2.0% real in the tile, the chart and the map. The comparison tables' CAGR
    columns stay first-to-last, as their note defines them.
+
+10. Income fifths everywhere (Tim: distinguish the fifths in the cap plot, show a town's fifth on
+    the Towns tab, make them comparison groups in all contexts). town_incomes(): the Chapter 70
+    townwide file's latest income (2023, for FY2027) over the July-of-that-year population, as the
+    cap tab counts it; income_fifths() ranks into five near-equal groups (towns 71/70/70/70/70).
+    Districts: their towns' combined income over combined population (district_members(): the
+    regional members file, or the town itself), 286 districts at 57-58 a fifth. Averages
+    towns-fifth-1..5 and fifth-1..5; cmp "fifth"; "income" on entities; commonwealth rows "fifth";
+    map.json income per resident for towns and districts, with each fifth's starting value
+    (meta.fifths) so the map's five colors are the fifths. Leverett: middle fifth, $47,294.
+    The cap tab now ranks every town with income (it had left out the few with no foundation
+    budget), so its FY2027 fifths match the rest. Also this round: the cap chart's Enlarge takes
+    only the plot and draws it to the window, with zoom (buttons, wheel when enlarged) and drag.
