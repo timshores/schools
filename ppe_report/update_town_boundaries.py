@@ -4,9 +4,10 @@ Bureau's cartographic boundary file of county subdivisions (1:500,000, clipped t
 shoreline):
 
     data/town_boundaries.json
-        {"source", "vintage", "width", "height", "towns": {COUSUB_FIPS: {"name", "town", "d"}}}
+        {"source", "vintage", "width", "height", "towns": {COUSUB_FIPS: {"name", "town", "sqmi", "d"}}}
 
-Each "d" is an SVG path in a width x height box: longitude and latitude projected
+"sqmi" is the town's land area in square miles, from the file's ALAND, for densities. Each "d"
+is an SVG path in a width x height box: longitude and latitude projected
 equirectangularly at the state's middle latitude, then rounded to whole units, which both
 shrinks the file and drops points closer together than a unit. Neighbouring towns share
 their border points in the source, so they round the same way and still meet. "town" is the
@@ -35,6 +36,7 @@ POP_CSV = DATA_DIR / "census_town_population.csv"
 VINTAGE = 2023
 URL = f"https://www2.census.gov/geo/tiger/GENZ{VINTAGE}/shp/cb_{VINTAGE}_25_cousub_500k.zip"
 WIDTH = 1600  # units across; about 190 m each
+SQ_M_PER_SQ_MI = 2_589_988.11
 
 
 def fetch(url: str) -> bytes:
@@ -117,7 +119,8 @@ def main():
             seg = [f"M{pts[0][0]} {pts[0][1]}"]
             seg += [f"l{b[0] - a[0]} {b[1] - a[1]}" for a, b in zip(pts, pts[1:-1])]
             d.append("".join(seg) + "z")
-        out[r["GEOID"]] = {"name": r["NAME"], "town": town_of[r["GEOID"]], "d": "".join(d)}
+        out[r["GEOID"]] = {"name": r["NAME"], "town": town_of[r["GEOID"]], "sqmi": round(int(r["ALAND"]) / SQ_M_PER_SQ_MI, 2),
+                           "d": "".join(d)}
     result = {"source": URL, "vintage": VINTAGE, "width": WIDTH, "height": height, "towns": out}
     OUT.write_text(json.dumps(result, separators=(",", ":")))
     print(f"  {OUT}: {len(out)} towns, {points:,} points, {OUT.stat().st_size / 1024:.0f} KB")

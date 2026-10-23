@@ -59,3 +59,21 @@ Changes:
    exact for endpoint growth and for the combined towns' mixes. The switch is the explorer's one
    Dollars choice, shared with the districts and towns tabs. Amherst spending per resident: +0.8%
    a year nominal, -1.5% in FY2025 dollars, as on its town page.
+
+7. Community types (Tim: cohorts for rural, suburban and urban, in the state's own terms; rural
+   schools and Chapter 70 aid are live). Districts: DESE's rural school aid test, 35 or fewer
+   students per square mile (foundation enrollment over land area), tiers <=11, <=21, <=35
+   (FY2026 page and its spreadsheet of the 65 eligible; aid also needs income below the state
+   average). Towns: under 500 residents per square mile (Rural Policy Plan, BRPC for the Rural
+   Policy Advisory Commission, Nov 2019: "170 Rural Towns"). Urban: Boston and the Gateway Cities.
+   The rest has no state name: "suburban and other". update_town_boundaries.py adds each town's
+   land area (ALAND; Leverett 22.79 sq mi vs DESE's 22.81). export: district_types() (regional
+   members from the FY2025 members file; a town's own district is the town; enrollment the latest
+   foundation enrollment in the Chapter 70 table, FY2026); district and town averages per type
+   (and per rural tier); cmp "type"; "community" on each entity. Counts: districts 79 rural (37 /
+   24 / 18 by tier), 180 suburban and other, 27 urban; towns 164 rural (the plan's 2019 count was
+   170), 160, 27. Checked against DESE's 65 eligible: all 62 in the explorer have the same tier;
+   Hampshire, Plympton and Halifax aren't in the explorer's district list (an older gap).
+   First look, FY2025: rural districts average $24,095 per pupil (sparsest tier $29,586, 62%
+   above required), aid 43% of required spending (suburban 32%, urban 63%), and enrollment down
+   23% since FY2009 (sparsest 29%; suburban 10%; urban flat).

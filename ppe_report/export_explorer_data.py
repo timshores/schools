@@ -138,8 +138,16 @@ LEVY_CSV = Path("data/dls_levy_capacity.csv")
 # release, 2005-2009. A town missing from a release (ten whose Census codes changed in 2010
 # are missing from 2005-2009) takes the next one.
 HH_CSV = Path("data/census_town_households.csv")
-# Town outlines for the map (update_town_boundaries.py)
+# Town outlines for the map, with land areas (update_town_boundaries.py)
 BOUNDARIES_JSON = Path("data/town_boundaries.json")
+# Community types, by the Commonwealth's own lines where it draws them. A district is rural at 35 or
+# fewer students per square mile (foundation enrollment over its towns' land area), DESE's test for
+# rural school aid, in its three tiers; a town is rural under 500 residents per square mile, the
+# Rural Policy Advisory Commission's line. Boston and the Gateway Cities are urban. The state has no
+# name for the rest; here, suburban and other.
+RURAL_STUDENT_TIERS = (11, 21, 35)
+RURAL_RESIDENTS = 500
+TYPE_NAMES = {"rural": "rural", "suburban": "suburban and other", "urban": "Boston and the Gateway Cities"}
 PROPERTY_TYPES = {
     "single": ["Single Family 101"],
     "condo": ["Condominiums 102"],
@@ -556,6 +564,44 @@ def load_households(pop):
     return out
 
 
+def land_areas():
+    """Each town's land area in square miles, by town key; empty without the outlines file"""
+    if not BOUNDARIES_JSON.exists():
+        return {}
+    geo = json.loads(BOUNDARIES_JSON.read_text())
+    return {norm(g["town"]): g["sqmi"] for g in geo["towns"].values()}
+
+
+def district_types(dists, c70, area):
+    """Each traditional district's community type: {id: {"type", "density" (students per square
+    mile), "tier" (DESE's rural tier, else None), "fy" (of the enrollment)}}. A regional district's
+    towns are its members in DESE's regional members file; a town's own district is the town."""
+    if not area:
+        return {}
+    mem = pd.read_csv(MEMBERS_CSV, dtype={"Org4Code": str})
+    mem = mem[mem["FY"] == mem["FY"].max()]
+    towns_of = {}
+    for o, t in zip(mem["Org4Code"].astype(int), mem["Town"]):
+        towns_of.setdefault(o, []).append(norm(t))
+    fe = c70.dropna(subset=["distfoundenro"]).sort_values("fy").groupby("Org4Code").last()
+    out, missing = {}, []
+    for d in dists:
+        if d["type"] != "traditional":
+            continue
+        org = d["code"] // 10000
+        ks = towns_of.get(org, []) if d["code"] >= REGIONAL_MIN_CODE else [norm(d["name"])]
+        if not ks or any(k not in area for k in ks) or org not in fe.index:
+            missing.append(d["name"])
+            continue
+        density = float(fe.loc[org, "distfoundenro"]) / sum(area[k] for k in ks)
+        tier = next((i + 1 for i, lim in enumerate(RURAL_STUDENT_TIERS) if density <= lim), None)
+        kind = "urban" if d["gateway"] or norm(d["name"]) == norm("Boston") else "rural" if tier else "suburban"
+        out[d["id"]] = {"type": kind, "density": round(density, 1), "tier": tier, "fy": int(fe.loc[org, "fy"])}
+    if missing:
+        print(f"  [WARN] no community type for {len(missing)} districts: {missing[:8]}")
+    return out
+
+
 def map_data(districts, towns, cap, cpi, org4):
     """map.json: the Commonwealth tab's map. Each town's outline, the district that serves its
     elementary grades and its secondary grades, and a few measures of how towns and districts
@@ -739,7 +785,7 @@ def cohort_name(k, region=None):
     return f"{REGIONS[region] if region else 'Statewide'} {get_cohort_short_label(k)} cohort average"
 
 
-def town_data(dists, reg, latest):
+def town_data(dists, reg, latest, area=None):
     """The town view: (towns.json content, {chunk: full towns}, every full town, each
     district's towns). dists: explorer_districts() with each district's explorer id."""
     dls = pd.read_csv(DLS_CSV, dtype={"DOR_CODE": str})
@@ -849,6 +895,19 @@ def town_data(dists, reg, latest):
     # Gateway Cities: the Commonwealth's list, very large cities included
     averages.append(average("towns-gateway", "Gateway Cities average", "group", None, None, sorted(gateway),
                             cmp={"state": "towns-statewide"}))
+    # Community types: rural under RURAL_RESIDENTS per square mile, Boston and the Gateway Cities, the rest
+    type_of = {}
+    for k in keys:
+        p, a = population.get((k, latest)), (area or {}).get(k)
+        if p and a:
+            kind = "urban" if k in gateway or k == norm("Boston") else "rural" if p / a < RURAL_RESIDENTS else "suburban"
+            type_of[k] = {"type": kind, "density": round(p / a), "fy": latest}
+    for t, name in (("rural", "Rural towns average"), ("suburban", "Suburban and other towns average"),
+                    ("urban", "Boston and Gateway Cities average")):
+        # Every town of the type, the very large cities included, as for the Gateway Cities
+        ks = [k for k in keys if type_of.get(k, {}).get("type") == t]
+        if ks:
+            averages.append(average(f"towns-type-{t}", name, "type", None, None, ks, cmp={"state": "towns-statewide"}))
     for a in averages:
         a["cmp"]["gateway"] = "towns-gateway" if a["id"] != "towns-gateway" else None
     have = {a["id"] for a in averages}
@@ -857,9 +916,13 @@ def town_data(dists, reg, latest):
         chunks.setdefault(a["chunk"], []).append(a)
     for x in full:
         pid, rk = x["peer"], x["region"]
+        k = norm(x["name"])
         x["cmp"] = {"peer": f"{pid}-{slug(rk)}" if pid and rk and f"{pid}-{slug(rk)}" in have else None,
                     "peer_state": pid, "region": f"towns-region-{slug(rk)}" if rk else None, "state": "towns-statewide",
-                    "gateway": "towns-gateway"}
+                    "gateway": "towns-gateway",
+                    "type": f"towns-type-{type_of[k]['type']}" if k in type_of and f"towns-type-{type_of[k]['type']}" in have else None}
+        if k in type_of:
+            x["community"] = type_of[k]
         x["chunk"] = chunk_of(rk)
         chunks.setdefault(x["chunk"], []).append(x)
 
@@ -1115,6 +1178,17 @@ def main(site: Path):
             if len(ms) >= MIN_AVERAGE_MEMBERS:
                 groups.append((f"cohort-{k.lower()}-{slug(rk)}", cohort_name(k, rk), "region-cohort", k, rk, ms,
                                {"cohort_state": f"cohort-{k.lower()}", "region": f"region-{slug(rk)}", "state": "statewide"}))
+    # Community types: rural (and DESE's three rural tiers), suburban and other, Boston and the Gateway Cities
+    types = district_types(dists, c70, land_areas())
+    for t in ("rural", "suburban", "urban"):
+        ms = [d for d in dists if types.get(d["id"], {}).get("type") == t]
+        name = {"rural": "Rural districts average", "suburban": "Suburban and other districts average",
+                "urban": "Boston and Gateway City districts average"}[t]
+        groups.append((f"type-{t}", name, "type", None, None, ms, {"state": "statewide"}))
+    for tier, words in zip((1, 2, 3), ("11 or fewer", "over 11 to 21", "over 21 to 35")):
+        ms = [d for d in dists if types.get(d["id"], {}).get("tier") == tier]
+        groups.append((f"type-rural-{tier}", f"Rural districts, {words} students per square mile, average", "type",
+                       None, None, ms, {"type": "type-rural", "state": "statewide"}))
     have = {g[0] for g in groups}
 
     averages = []
@@ -1145,13 +1219,15 @@ def main(site: Path):
                      "region": rk, "regional": regional, "fte": round(d["fte"], 1), "gateway": d["gateway"],
                      "cmp": {"cohort": rc if rc in have else None, "cohort_state": f"cohort-{k.lower()}",
                              "region": f"region-{slug(rk)}" if rk else None, "state": "statewide",
-                             "gateway": "cohort-gateway"},
+                             "gateway": "cohort-gateway",
+                             "type": f"type-{types[d['id']]['type']}" if d["id"] in types else None},
+                     **({"community": types[d["id"]]} if d["id"] in types else {}),
                      "chunk": chunk_of(rk, d["type"]),
                      **pack(piv, lines, nss), **revenue_fields(census, [d["code"]], regional)})
 
     towns_index, town_chunks, all_towns = None, {}, []
     if all(p.exists() for p in (DLS_CSV, POP_CSV, MEMBERS_CSV)):
-        towns_index, town_chunks, all_towns, links = town_data(dists, reg, LATEST_YEAR)
+        towns_index, town_chunks, all_towns, links = town_data(dists, reg, LATEST_YEAR, land_areas())
         for e in full:
             e.update(links.get(e["id"], {}))
     else:
