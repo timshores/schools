@@ -685,9 +685,10 @@ def map_data(districts, towns, cap, cpi, org4):
             "aid": latest(ratio(nss.get("ch70_aid", []), req)) if req else None,
         }
         out_districts[i] = {"name": e["name"], "v": {m: x for m, x in v.items() if x is not None}}
+    # The price index too, so the map can turn growth in LATEST_YEAR dollars back into nominal growth
     return {"meta": {"built": dt.date.today().isoformat(), "start": START_YEAR, "latest": LATEST_YEAR,
                      "cap_fy": cap_year, "width": geo["width"], "height": geo["height"],
-                     "outlines": geo["source"]},
+                     "outlines": geo["source"], "cpi": {str(y): round(v, 3) for y, v in cpi.items()}},
             "towns": out_towns, "districts": out_districts}
 
 

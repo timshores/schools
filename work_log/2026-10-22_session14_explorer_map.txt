@@ -52,3 +52,10 @@ Changes:
    year in FY2025 dollars. The town page's +0.5% was the nominal trend (and +0.8% the nominal
    endpoint growth); neither said so. The tile and the trend now say "before inflation" in
    nominal dollars, as they said "after inflation" in FY2025 dollars.
+
+6. Dollars switch on the map (Tim: building inflation into the measures' names was confusing).
+   map.json meta carries the Northeast CPI by year; the map turns each stored after-inflation
+   growth back into nominal growth over the value's own years, (1 + r)(CPI_b / CPI_a)^(1/(b-a)) - 1,
+   exact for endpoint growth and for the combined towns' mixes. The switch is the explorer's one
+   Dollars choice, shared with the districts and towns tabs. Amherst spending per resident: +0.8%
+   a year nominal, -1.5% in FY2025 dollars, as on its town page.
