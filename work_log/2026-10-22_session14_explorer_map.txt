@@ -89,3 +89,12 @@ Changes:
    Districts 16 / 22 / 79 / 169; towns 16 / 22 / 164 / 149. ("Kind of Community", a DOR/DLS
    typology, couldn't be verified, so it isn't used.) commonwealth.json rows carry "ct"; map.json
    carries each town's and district's type and density.
+
+9. Growth: one definition (Tim, after the Amherst check: map 4.0%/1.7% was first-to-last growth,
+   the chart's trend 4.3%/2.0%). A first-to-last growth path was tried and dropped; the explorer
+   now uses the least-squares trend everywhere: the charts' dashed line, the growth tiles ("a year
+   on trend") and the map. map_data() fits the trend on the FY2025-dollar series and on the
+   nominal series separately and stores [real, first year, last year, nominal]; the CPI-based
+   conversion on the map is gone (it held only for first-to-last growth). Amherst district:
+   +4.3% nominal, +2.0% real in the tile, the chart and the map. The comparison tables' CAGR
+   columns stay first-to-last, as their note defines them.

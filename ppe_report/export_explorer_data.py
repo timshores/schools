@@ -612,8 +612,9 @@ def district_types(dists, c70, area):
 def map_data(districts, towns, cap, cpi, org4):
     """map.json: the Commonwealth tab's map. Each town's outline, the district that serves its
     elementary grades and its secondary grades, and a few measures of how towns and districts
-    have changed. Growth is compounded yearly from the first year with a value to the last, in
-    LATEST_YEAR dollars; each value carries its years. A town whose grades split between two
+    have changed. Growth is the trend's, as the explorer's charts draw it: the least-squares line's
+    yearly growth from its first year to its last, in LATEST_YEAR dollars and then nominal, each
+    fitted on its own series; each value carries its years. A town whose grades split between two
     districts also gets the two combined ("all"), each weighted by the town's own pupils in it:
     a district of its own counts all its foundation pupils, a regional one the town's foundation
     enrollment there (DESE's regional members file, its one year). districts and towns: the
@@ -628,11 +629,27 @@ def map_data(districts, towns, cap, cpi, org4):
         at = [i for i, v in enumerate(vals) if v is not None and v > 0]
         return (at[0], at[-1]) if len(at) >= 2 and at[-1] > at[0] else None
 
-    def growth(vals):
-        if not (e := ends(vals)):
+    def trend(vals):
+        """The least-squares line's yearly growth, from its first year to its last, as the explorer's charts
+        draw it: [rate, first year, last year]"""
+        pts = [(i, v) for i, v in enumerate(vals) if v is not None]
+        if len(pts) < 3:
             return None
-        a, b = e
-        return [round((vals[b] / vals[a]) ** (1 / (b - a)) - 1, 5), YEARS[a], YEARS[b]]
+        n = len(pts)
+        mx = sum(i for i, _ in pts) / n
+        my = sum(v for _, v in pts) / n
+        slope = sum((i - mx) * (v - my) for i, v in pts) / sum((i - mx) ** 2 for i, _ in pts)
+        a, b = pts[0][0], pts[-1][0]
+        fa, fb = my + slope * (a - mx), my + slope * (b - mx)
+        if fa <= 0 or fb <= 0:
+            return None
+        return [round((fb / fa) ** (1 / (b - a)) - 1, 5), YEARS[a], YEARS[b]]
+
+    def growth(vals):
+        """Trend growth in LATEST_YEAR dollars, then nominal: [real rate, first year, last year, nominal rate].
+        Each is fitted on its own series, so one can't be had from the other."""
+        r, nom = trend(real(vals)), trend(vals)
+        return [*r, nom[0]] if r and nom else None
 
     def change(vals):
         if not (e := ends(vals)):
@@ -682,7 +699,7 @@ def map_data(districts, towns, cap, cpi, org4):
         n1, n2 = (r1[both[-1]], r2[both[-1]]) if both else (None, None)
         out = {}
         mix = [None if a is None or b is None else (w1 * a + w2 * b) / (w1 + w2) for a, b in zip(p1, p2)]
-        if (g := growth(real(mix))):
+        if (g := growth(mix)):
             out["ppe"] = g
         c1, c2 = change(entity[d1]["enroll"]["in_district"]), change(entity[d2]["enroll"]["in_district"])
         if c1 and c2:
@@ -713,9 +730,9 @@ def map_data(districts, towns, cap, cpi, org4):
         c = cap_towns.get(t["id"])
         hh = t["hh"][-1] if t.get("hh") else None
         v = {
-            "spend": growth(real(ratio(t["spend_total"], t["pop"]))),
+            "spend": growth(ratio(t["spend_total"], t["pop"])),
             "pop": change(t["pop"]),
-            "eqv": growth(real(t["eqv"])) if t.get("eqv") else None,
+            "eqv": growth(t["eqv"]) if t.get("eqv") else None,
             "levy_room": latest([None if m is None or x is None or not m else (m - x) / m
                                  for x, m in zip(t.get("levy_total") or [], t.get("levy_max") or [])]),
             "bill_income": latest(t["sf_bill_income"]) if t.get("sf_bill_income") else None,
@@ -735,7 +752,7 @@ def map_data(districts, towns, cap, cpi, org4):
         nss = e.get("nss") or {}
         req = [None if a is None or r is None else a + r for a, r in zip(nss.get("ch70_aid", []), nss.get("required_local", []))]
         v = {
-            "ppe": growth(real(ppe)),
+            "ppe": growth(ppe),
             "enroll": change(e["enroll"]["in_district"]),
             "above": latest(ratio(nss.get("above_required", []), req)) if req else None,
             "aid": latest(ratio(nss.get("ch70_aid", []), req)) if req else None,
