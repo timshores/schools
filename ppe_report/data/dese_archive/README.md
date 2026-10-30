@@ -57,9 +57,9 @@ spending.
 | `PER_PUPIL_EXPENDITURE_1993-1994.pdf` | FY1994 | Report, December 1995 | Day program, pages 19–27 |
 | `PER_PUPIL_EXPENDITURE_1994-1995.pdf` | FY1995 | Report, April 1997 | Day program, pages 19–27 |
 | `PER_PUPIL_EXPENDITURE_FY96.pdf` | FY1996 | Report, October 1998 | Day program, pages 20–28; statewide averages FY1989–FY1996, page 19 |
-| `PER_PUPIL_EXPENDITURE_FY97.pdf` | FY1997 | Report, December 1998 | Check on the workbooks, pages 20–28 |
-| `PER_PUPIL_EXPENDITURE_FY98.pdf` | FY1998 | Report, November 1999 | Check on the workbooks, pages 19–30; statewide averages FY1990–FY1998, page 31 |
-| `PER_PUPIL_EXPENDITURE_FY99.pdf` | FY1999 | Report, January 2001 | Check on the workbooks, pages 18–27; statewide averages FY1995–FY1999, page 17 |
+| `PER_PUPIL_EXPENDITURE_FY97.pdf` | FY1997 | Report, December 1998 | Check on the workbooks; Essex, Manchester and Worcester Trade, pages 20–28 |
+| `PER_PUPIL_EXPENDITURE_FY98.pdf` | FY1998 | Report, November 1999 | Check on the workbooks; Essex, Manchester and Worcester Trade, pages 19–30; statewide averages FY1990–FY1998, page 31 |
+| `PER_PUPIL_EXPENDITURE_FY99.pdf` | FY1999 | Report, January 2001 | Check on the workbooks; Essex and Manchester, pages 18–27; statewide averages FY1995–FY1999, page 17 |
 | `PER_PUPIL_EXPENDITURE_BY_FUNCTION_*.pdf` | FY1990, FY1992–FY1996, FY1998 | Functional spending per pupil under DESE's older chart of accounts | Not yet read (see below) |
 | `perpupil_post01_final.xls` | FY1997–FY2001 | Workbook: five-year day-program trends, functional and integrated-cost tables | Day program FY1997 |
 | `perpupil_post02_1mar04_final.xls` | FY1998–FY2002 | Workbook, March 2004 | Day program FY1998 |
@@ -71,7 +71,10 @@ spending.
 | `calcfunctional08final.xls` | FY2008 | Functional calculation workbook; also holds FY2006 and FY2007 data | Functional FY2008 and FY2006; check on FY2007 |
 
 Where several workbooks hold the same year, the latest one is used: each five-year workbook revises
-earlier years.
+earlier years. Each workbook lists only the districts still operating when it was made, so for
+FY1997 to FY1999 the PDFs supply the three it leaves out: Essex and Manchester (the workbooks
+start Manchester Essex in FY2001) and Worcester Trade (last printed in FY1998). Essex and
+Manchester have no FY2000 figure, since there is no FY2000 report.
 
 ## How the PDFs were read, and checked
 

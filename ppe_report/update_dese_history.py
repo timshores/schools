@@ -3,8 +3,9 @@
 
 DESE's Education-to-Career Hub dataset behind data/dese_expenditures.csv starts in FY2009. The
 archive in data/dese_archive/ came from DESE's Public Records Center, in answer to Massachusetts
-public records request P004939-101625, and reaches back to FY1990, in two formats: scanned and OCR'd PDF reports for FY1990 to FY1999, and the Office of School Finance's
-Excel workbooks for FY2001 to FY2008. This script reads both and writes three CSVs:
+public records request P004939-101625, and reaches back to FY1990, in two formats: scanned and
+OCR'd PDF reports for FY1990 to FY1999, and the Office of School Finance's Excel workbooks for
+FY1997 to FY2008. This script reads both and writes three CSVs:
 
   data/dese_expenditures_fy2005_2008.csv
       Spending per pupil by DESE's functional category, and FTE enrollment, FY2005 to FY2008. Same
@@ -23,8 +24,10 @@ Every row names the archive file and the sheet and row, or the page, it came fro
 are checked three ways and the results written to data/dese_archive/qa/: the name printed beside
 each code must match DESE's name for that code; each total must fall within the range of the
 district's program figures, since it is their weighted average; and FY1997 to FY1999, which
-appear both as PDF pages and in the workbooks, must agree. Values read by eye from a page image
-are listed in CORRECTIONS with the reason.
+appear both as PDF pages and in the workbooks, must agree. Those three years come from the
+workbooks, except for districts the workbooks leave out: each lists only the districts still
+operating when it was made, so Essex, Manchester and Worcester Trade come from the PDFs. Values
+read by eye from a page image are listed in CORRECTIONS with the reason.
 
 Usage (from ppe_report/):  python update_dese_history.py
 Needs pdftotext (poppler) and xlrd.
@@ -601,12 +604,17 @@ def main():
     write_csv(QA / "day_program_pdf_rows.csv", flags,
               ["FY", "code", "printed_name", "file", "page"] + PROGRAMS + [TOTAL_DAY, "problems", "notes"])
 
-    # PDF years enter the day-program table unless a check failed; flagged rows are held back
+    # PDF years enter the day-program table unless a check failed; flagged rows are held back. In
+    # FY1997-FY1999 the workbooks come first, and the PDFs add only the districts they leave out
+    # (each workbook lists the districts still operating when it was made)
     held = []
     for r in pdf_rows:
+        problems = r["problems"]
         if r["fy"] in PDF_CHECK_ONLY:
-            continue
-        if r["problems"]:
+            if problems != ["not in the workbooks"]:
+                continue
+            problems = []
+        if problems:
             held.append(r)
             continue
         if (r["fy"], r["lea"]) in day:

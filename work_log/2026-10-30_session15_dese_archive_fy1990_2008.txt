@@ -68,3 +68,11 @@ Follow-up (same day):
    and the 3 county agricultural schools in FY1991. Against DESE's average membership in FY1997 and
    FY1998 its median ratio is 1.000, the middle 90% between 0.94 and 1.09; vocational and
    agricultural schools differ most. Not yet added to the data.
+
+8. The five-year workbooks list only the districts still operating when each was made, so Essex,
+   Manchester (FY1997-FY1999) and Worcester Trade (FY1997-FY1998) were in the PDFs but missing from
+   dese_day_program_fy1990_2006.csv. The PDFs now supply districts the workbooks leave out, when
+   that is a row's only flag (24 rows added). Becket, Monroe, New Ashford and Tyringham's FY1998
+   rows, special needs only with no total, stay out. Essex and Manchester have no FY2000 figure:
+   no FY2000 report, and the workbooks start Manchester Essex in FY2001. The docstring now says the
+   workbooks cover FY1997-FY2008 (it said FY2001).
