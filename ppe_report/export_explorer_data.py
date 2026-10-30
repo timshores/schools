@@ -45,6 +45,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from explorer_history import HIST_YEARS, history
 from school_shared import (CANON_CATS_BOTTOM_TO_TOP, IN_DISTRICT_FTE_KEY, LATEST_YEAR, START_YEAR, get_cohort_label,
                            get_cohort_range, get_cohort_short_label, get_enrollment_group, latest_indistrict_fte,
                            load_data, prepare_aggregate_nss_ch70_weighted, prepare_district_epp_lines,
@@ -1360,6 +1361,10 @@ def main(site: Path):
         print("  [WARN] town data missing (run update_dls_data.py, update_census_data.py, "
               "update_dese_data.py); no town view")
 
+    # The earlier years, for the "Since 1990" switch: their own files, loaded only when it's on
+    hist_chunks, hist_meta, former = history(df, reg, c70, dists, groups, full, all_towns, CANON_CATS_BOTTOM_TO_TOP,
+                                             YEARS, REGIONS, norm, EXCLUDE_DISTRICTS)
+
     cohorts = {k: {"label": get_cohort_label(k), "short": get_cohort_short_label(k),
                    "range": [r if r != float("inf") else None for r in get_cohort_range(k)]} for k in SIZE_COHORTS[:-1]}
     cohorts |= {k: {"label": COHORT_TEXT[k][0], "short": COHORT_TEXT[k][1],
@@ -1372,7 +1377,8 @@ def main(site: Path):
             "categories": CANON_CATS_BOTTOM_TO_TOP,
             "cohorts": {k: cohorts[k] for k in COHORT_ORDER + ["GATEWAY"]},
             "regions": REGIONS,
-            "cpi": {str(y): float(idx[y]) for y in YEARS if y in idx.index},
+            "cpi": {str(y): float(idx[y]) for y in HIST_YEARS + YEARS if y in idx.index},
+            "history": hist_meta,
             "revenue": ({"first": int(census["FY"].min()), "latest": int(census["FY"].max()),
                          "min_members": MIN_REVENUE_MEMBERS} if census is not None else None),
             "sources": {
@@ -1387,17 +1393,22 @@ def main(site: Path):
                       "region": a["region"], "chunk": a["chunk"]} for a in averages],
         "districts": [{"id": e["id"], "name": e["name"], "type": e["type"], "cohort": e["cohort"], "region": e["region"],
                        "regional": e["regional"], "fte": e["fte"], "gateway": e["gateway"], "chunk": e["chunk"]} for e in full],
+        # Districts the older files have and the Hub doesn't, shown with the earlier years
+        "former": former,
     }
 
     json_dir = site / "src" / "data" / "massppe"
     csv_dir = site / "public" / "mass-school-spending" / "data"
-    for sub in ("districts", "towns"):  # stale region files would ship as dead chunks
+    for sub in ("districts", "towns", "districts-history"):  # stale region files would ship as dead chunks
         for f in (json_dir / sub).glob("*.json"):
             f.unlink()
     sizes = {"explorer.json": write_json(json_dir / "explorer.json", index)}
     for chunk in sorted({e["chunk"] for e in full + averages}):
         sizes[f"districts/{chunk}.json"] = write_json(json_dir / "districts" / f"{chunk}.json",
                                                       {"entities": [e for e in averages + full if e["chunk"] == chunk]})
+    for chunk, xs in sorted(hist_chunks.items()):
+        sizes[f"districts-history/{chunk}.json"] = write_json(json_dir / "districts-history" / f"{chunk}.json",
+                                                              {"entities": xs})
     if towns_index:
         sizes["towns.json"] = write_json(json_dir / "towns.json", towns_index)
         for chunk, xs in sorted(town_chunks.items()):

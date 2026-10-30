@@ -30,9 +30,10 @@ and checked.
 
 | File | What it holds | Source | Received | Script |
 | --- | --- | --- | --- | --- |
-| [dese_expenditures_fy2005_2008.csv](dese_expenditures_fy2005_2008.csv) | Spending per pupil by functional category, and FTE enrollment, for every district, FY2005 to FY2008; same columns and labels as `dese_expenditures.csv` | DESE Office of School Finance, functional calculation workbooks (`calcfunctional05final.xls`, `calcfunctional07dec.xls`, `calcfunctional08final.xls`) | October 28, 2026 | `update_dese_history.py` |
+| [dese_expenditures_fy2005_2008.csv](dese_expenditures_fy2005_2008.csv) | Spending per pupil by functional category, and FTE enrollment, for every district, FY2005 to FY2008; same columns and labels as `dese_expenditures.csv`, plus payments to out-of-district schools per out-of-district pupil, which the Hub doesn't report | DESE Office of School Finance, functional calculation workbooks (`calcfunctional05final.xls`, `calcfunctional07dec.xls`, `calcfunctional08final.xls`) | October 28, 2026 | `update_dese_history.py` |
 | [dese_day_program_fy1990_2006.csv](dese_day_program_fy1990_2006.csv) | "Day program" spending per pupil by program (regular day, special needs, bilingual, occupational day) and in total, for every district, FY1990 to FY2006; total spending and average membership from FY1997. A narrower measure than the functional total; see the archive README | DESE's printed Per Pupil Expenditures reports, FY1990–FY1996 (scanned PDFs), and the Office of School Finance's workbooks, FY1997–FY2006, with the FY1997–FY1999 reports for three districts the workbooks leave out | October 28, 2026 | `update_dese_history.py` |
 | [dese_day_program_state_fy1989_2006.csv](dese_day_program_state_fy1989_2006.csv) | DESE's published statewide day-program averages, FY1989 to FY2006 | The same reports and workbooks | October 28, 2026 | `update_dese_history.py` |
+| [nces_ma_enrollment_fy1990_2006.csv](nces_ma_enrollment_fy1990_2006.csv) | Each district's fall enrollment, FY1990 to FY2006, with DESE's district code. The explorer weights its day-program averages by it for FY1990 to FY1996, which DESE's reports give no pupils for; a head count each fall, where DESE's average membership counts full-time equivalents over the year | NCES [Common Core of Data](https://nces.ed.gov/ccd/) district directory, through the Urban Institute's [Education Data Portal](https://educationdata.urban.org/) | October 30, 2026 | `update_nces_enrollment.py` |
 
 ## Chapter 70 formula
 
@@ -63,7 +64,8 @@ and checked.
 ## Notes
 
 - **What the scripts change.** `update_census_data.py` keeps only Massachusetts rows and adds DESE's
-  district codes. `update_dls_*` and `update_acs_households.py` stack each year's download into one
+  district codes; `update_nces_enrollment.py` does the same, leaving out districts NCES reports no
+  enrollment for. `update_dls_*` and `update_acs_households.py` stack each year's download into one
   long table. `update_inflation_data.py` averages monthly or quarterly index values over each
   July–June fiscal year. `update_dese_history.py` reads DESE's scanned reports from their OCR text,
   with two figures corrected by hand from the page image, and renames one category to the Hub's

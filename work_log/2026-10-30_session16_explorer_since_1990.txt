@@ -1,0 +1,48 @@
+2026-10-30 (Session 16) - Explorer: "Since 1990", the FY1990-FY2008 data in the explorer
+
+Tim's decisions on the plan (seahag context/schools/explorer-history-plan.md, prompt log #141-142):
+use NCES enrollment for the averages before FY1997, saying how its count and source differ; name the
+switch "Since 1990"; show the older measure's line whenever it's on, labelled carefully; include
+districts that no longer exist, labelled in the menus; leave the Dollars setting as it is. Wording
+drafted here for Tim to correct after review on localhost.
+
+Changes:
+
+1. update_inflation_data.py: FIRST_FY 2008 -> 1990. inflation_indices.csv now runs FY1990-FY2026;
+   FY2008 on is unchanged (compared before and after). Needed only for FY2025 dollars with Since
+   1990 on; the explorer opens in nominal dollars.
+
+2. update_nces_enrollment.py (new) -> data/nces_ma_enrollment_fy1990_2006.csv: each district's fall
+   enrollment from the NCES Common Core of Data directory (educationdata.urban.org), FY1990-FY2006,
+   6,151 rows, with DESE's code from state_leaid (checked against nces_ma_districts.csv; no
+   conflicts). No duplicate codes. One-year spikes: Hancock FY1996 (103 between 54 and 50) is the
+   only one in the years it weights.
+
+3. explorer_history.py (new), called by export_explorer_data.py: writes
+   src/data/massppe/districts-history/<chunk>.json, one record per district and average over
+   FY1990-FY2008, which the explorer puts in front of its own series.
+   - FY2005-FY2008 categories, enrollment and averages come from the same shared functions as
+     FY2009 on, with dese_expenditures_fy2005_2008.csv stacked under the Hub data. Its payments to
+     out-of-district schools are left out: the Hub has no such row, and aggregate_to_canonical
+     would fold it into "Other".
+   - Day program: a district's total and programs, DESE's average membership, NCES enrollment.
+     Averages: the total only, weighted by DESE membership from FY1997 and NCES enrollment before;
+     with each year's count of districts. Program averages would need each program's pupils.
+   - Chapter 70 from FY1993, shown only in years the district reported spending (day program,
+     functional or Hub): DESE's profiles keep rows for towns whose pupils all go to a regional
+     district (the Williamstown case, #138).
+   - Former districts: 65 that the older files or the Hub have and the explorer's FY2025 list
+     doesn't (34 gone before FY2009, 20 that closed after it, 11 charters), less the virtual and
+     special-purpose schools the explorer leaves out. Each carries its FY2009-on Hub series too.
+   - meta.cpi now reaches FY1990; meta.history; explorer.json lists former districts.
+   Every existing explorer file came out identical (checked against the site's copy, ignoring
+   build dates).
+
+4. READMEs: dese_expenditures_fy2005_2008.csv has one row the Hub lacks (payments to
+   out-of-district schools per out-of-district pupil); the earlier "same labels" wording didn't say
+   so. data/README.md lists the NCES file.
+
+Website (mywebsite, not committed: for Tim's review on localhost): the Since 1990 switch, the Years
+slider over FY1990-FY2025 with a mark at FY2005, the dashed older-measure line and the comparison's,
+program lines on request, the older measure's own comparison table, earlier counts on the
+enrollment chart, former districts in the menus, and a Data tab section.

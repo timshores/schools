@@ -10,8 +10,9 @@ FY1997 to FY2008. This script reads both and writes three CSVs:
   data/dese_expenditures_fy2005_2008.csv
       Spending per pupil by DESE's functional category, and FTE enrollment, FY2005 to FY2008. Same
       columns and the same IND_CAT/IND_SUBCAT labels as dese_expenditures.csv, so the two can be
-      stacked. DESE's workbooks call the teachers category "Classroom and Specialist Teachers";
-      the Hub calls it "Teachers", and so does this file.
+      stacked, plus payments to out-of-district schools per out-of-district pupil, which the Hub
+      doesn't report and a stack should leave out. DESE's workbooks call the teachers category
+      "Classroom and Specialist Teachers"; the Hub calls it "Teachers", and so does this file.
   data/dese_day_program_fy1990_2006.csv
       DESE's older measure, "day program" spending per pupil by program (regular day, special
       needs, bilingual, occupational day) and in total, FY1990 to FY2006; total spending and

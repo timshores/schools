@@ -34,7 +34,7 @@ BLS_URL = "https://api.bls.gov/publicAPI/v1/timeseries/data/"
 BLS_SERIES = {"cpi_u_northeast": "CUUR0100SA0", "cpi_u_us": "CUUR0000SA0"}
 BEA_URL = "https://apps.bea.gov/national/Release/TXT/NipaDataQ.txt"
 BEA_SERIES = {"sl_gov_deflator": "A829RD"}
-FIRST_FY, LAST_FY = 2008, 2027
+FIRST_FY, LAST_FY = 1990, 2027
 
 
 def _get(url, data=None):

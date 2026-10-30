@@ -15,7 +15,7 @@ CSVs:
 
 | File | What it holds |
 | --- | --- |
-| [`dese_expenditures_fy2005_2008.csv`](../dese_expenditures_fy2005_2008.csv) | Spending per pupil in DESE's functional categories, and FTE enrollment, for every district, FY2005 to FY2008. Same columns and labels as `dese_expenditures.csv`, so the two stack into one series from FY2005. |
+| [`dese_expenditures_fy2005_2008.csv`](../dese_expenditures_fy2005_2008.csv) | Spending per pupil in DESE's functional categories, and FTE enrollment, for every district, FY2005 to FY2008. Same columns and labels as `dese_expenditures.csv`, so the two stack into one series from FY2005, plus one row the Hub doesn't have: payments to out-of-district schools per out-of-district pupil, which a stack of the two should leave out. |
 | [`dese_day_program_fy1990_2006.csv`](../dese_day_program_fy1990_2006.csv) | DESE's older "day program" spending per pupil, by program and in total, for every district, FY1990 to FY2006. Total day-program spending and average membership from FY1997. |
 | [`dese_day_program_state_fy1989_2006.csv`](../dese_day_program_state_fy1989_2006.csv) | DESE's published statewide day-program averages, FY1989 to FY2006. |
 

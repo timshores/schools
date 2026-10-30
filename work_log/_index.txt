@@ -2,6 +2,9 @@
 
 Session files (newest first):
 
+  2026-10-30_session16_explorer_since_1990.txt
+    2026-10-30 (Session 16) - Explorer "Since 1990": FY1990-FY2008 Data, NCES Enrollment, Former Districts
+
   2026-10-30_session15_dese_archive_fy1990_2008.txt
     2026-10-30 (Session 15) - DESE Per-Pupil Archive FY1990-FY2008: Normalized CSVs, Source Files, QA
 
