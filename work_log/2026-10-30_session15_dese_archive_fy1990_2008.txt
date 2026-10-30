@@ -16,7 +16,7 @@ Changes:
 
 2. ppe_report/update_dese_history.py (new) writes:
    - data/dese_expenditures_fy2005_2008.csv: functional categories and FTE, FY2005-FY2008,
-     328-329 districts a year, same columns and labels as dese_expenditures.csv ("Classroom and
+     328 districts a year, same columns and labels as dese_expenditures.csv ("Classroom and
      Specialist Teachers" renamed "Teachers"; Total In-District computed). From the calcfunctional
      workbooks' long Data sheets: FY2005 (calcfunctional05final), FY2006 (data06 in
      calcfunctional08final, the January 2007 run), FY2007 (calcfunctional07dec), FY2008.
@@ -51,3 +51,20 @@ functional sheets.
 
 The explorer integration plan is in the private seahag repo,
 context/schools/explorer-history-plan.md (explorer prompt log #140).
+
+Follow-up (same day):
+
+6. DESE's statewide row (code 999) had leaked into the district files: 16 FY2006 rows in
+   dese_expenditures_fy2005_2008.csv (from calcfunctional08final's data06 sheet) and 3 FY2005 rows
+   in dese_day_program_fy1990_2006.csv (from "ppx vs funct"). read_functional and read_fy05_day
+   now skip code 999, as read_fy06_day already did. The functional file has 328 districts every
+   year (the 329 in FY2006 was the state row); nothing else changed.
+
+7. Checked for FY1990-FY1996 enrollment by district, which the reports don't print (their integrated
+   cost tables count each town's resident pupils, a different count): NCES's Common Core of Data
+   district directory (via educationdata.urban.org, the source of nces_ma_districts.csv) has fall
+   enrollment for Massachusetts districts from 1989-90. It covers every day-program district each
+   year but Heath, Gosnold and Farmington River in some years, and 15 regional vocational districts
+   and the 3 county agricultural schools in FY1991. Against DESE's average membership in FY1997 and
+   FY1998 its median ratio is 1.000, the middle 90% between 0.94 and 1.09; vocational and
+   agricultural schools differ most. Not yet added to the data.

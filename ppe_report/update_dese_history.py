@@ -210,7 +210,8 @@ def read_fy05_day():
     out = []
     for r in range(sh.nrows):
         v = sh.row_values(r)
-        if num(v[0]) is None or not str(v[1]).strip():
+        # 999 is the state total
+        if num(v[0]) is None or not str(v[1]).strip() or int(float(v[0])) == 999:
             continue
         out.append((int(float(v[0])), str(v[1]).strip(), num(v[2]), num(v[3]), num(v[4]), r + 1))
     return out
@@ -253,8 +254,8 @@ def read_functional(fname, sheet):
             if off is None:
                 continue
         lea, name, sum_id, label = v[1 + off], v[2 + off], num(v[3 + off]), str(v[4 + off]).strip()
-        # Codes below 100 are text ("001"), the rest numbers (100.0)
-        if not re.fullmatch(r"\d{1,3}(\.0)?", str(lea).strip()) or not sum_id:
+        # Codes below 100 are text ("001"), the rest numbers (100.0); 999 is the state total
+        if not re.fullmatch(r"\d{1,3}(\.0)?", str(lea).strip()) or not sum_id or int(float(lea)) == 999:
             continue
         d = out.setdefault(int(lea), {"name": str(name).strip(), "fte": {}, "cats": {}, "rows": {}})
         vals = [num(x) for x in v[7 + off:13 + off]]
