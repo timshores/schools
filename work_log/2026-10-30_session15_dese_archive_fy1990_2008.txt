@@ -1,0 +1,50 @@
+2026-10-30 (Session 15) - DESE per-pupil archive, FY1990-FY2008: normalized CSVs and source files
+
+Tim: DESE's Public Records Center sent its older per-pupil expenditure files, back to FY1990, in
+formats unlike the Hub data. Normalize them to plug into the explorer, publish the CSVs and the
+source files on GitHub, and plan the explorer's integration (an on/off switch for the full data
+set, and a year slider for the range).
+
+Changes:
+
+1. ppe_report/data/dese_archive/ (new): the 25 files as received (17 PDFs, 8 .xls workbooks,
+   107 MB), with README.md listing each file, its fiscal year, what was used, the two measures,
+   and how the scans were read and checked. The Windows Zone.Identifier sidecars were not copied.
+
+2. ppe_report/update_dese_history.py (new) writes:
+   - data/dese_expenditures_fy2005_2008.csv: functional categories and FTE, FY2005-FY2008,
+     328-329 districts a year, same columns and labels as dese_expenditures.csv ("Classroom and
+     Specialist Teachers" renamed "Teachers"; Total In-District computed). From the calcfunctional
+     workbooks' long Data sheets: FY2005 (calcfunctional05final), FY2006 (data06 in
+     calcfunctional08final, the January 2007 run), FY2007 (calcfunctional07dec), FY2008.
+   - data/dese_day_program_fy1990_2006.csv: day-program per pupil by program and total, FY1990-
+     FY2006, 327-358 districts a year; spending and average membership FY1997-FY2006. FY1990-
+     FY1996 from the PDFs' Summary of All Day Programs tables; FY1997-FY2004 from the 5yrpp sheets
+     (latest workbook per year); FY2005 total from "ppx vs funct"; FY2006 from ppx06.
+   - data/dese_day_program_state_fy1989_2006.csv: DESE's statewide averages.
+   - data/dese_archive/qa/: every PDF row with its checks and notes; spikes; functional and state
+     checks.
+
+3. Reading the scans: pdftotext -bbox word positions; figures placed by column centre; rotation
+   corrected per page (header-line slope or column-by-column unwrapping, whichever leaves more rows
+   with totals inside their program range); OCR'd codes repaired from names only on a strong match
+   whose digits fit; split rows rejoined; empty rows dropped. Checks: name vs code (Hub, workbooks,
+   351-town list); total within program range (vocational within 15%, as DESE's own workbooks
+   show); FY1997-FY1999 PDF vs workbook (990 rows, 3,272 figures: 21 rows differ, 2 unreadable
+   tokens, the rest DESE's revisions, 3 confirmed against page images); one-year spikes (8, none
+   OCR). 11 FY1990-FY1996 rows read against page images: 2 corrected (Southwick-Tolland FY1990
+   regular 3,748; Chelsea FY1996 special 11,057), 8 confirmed as printed, 1 split row rejoined.
+   Workbook arithmetic checks all pass; FY2007 matches across the two workbooks.
+
+4. Gotchas: the workbooks store codes below 100 as text ("091") and the rest as numbers (100.0);
+   requirements.txt gains xlrd (for .xls); the PDFs' cover dates go in Last_Updated.
+
+5. data/README.md: a "School districts before FY2009" section and a note on what the script
+   changes.
+
+Not yet read: the FY1990-FY1998 by-function PDFs (rough OCR, old chart of accounts), the
+integrated cost per pupil tables (town level), the workbooks' special education and FY2001
+functional sheets.
+
+The explorer integration plan is in the private seahag repo,
+context/schools/explorer-history-plan.md (explorer prompt log #140).

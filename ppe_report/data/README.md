@@ -20,6 +20,19 @@ itself, it is given too.
 | [census_f33_ma.csv](census_f33_ma.csv) | Revenue by source and spending for every Massachusetts school system, FY2009 to FY2024, with all of the Census Bureau's columns (dollars in thousands) | Census Bureau, [Annual Survey of School System Finances](https://www.census.gov/programs-surveys/school-finances.html) (F-33); Massachusetts rows of each year's national file | October 21, 2026 | `update_census_data.py` |
 | [nces_ma_districts.csv](nces_ma_districts.csv) | The crosswalk from Census and NCES district IDs to DESE's district codes | NCES [Common Core of Data](https://nces.ed.gov/ccd/) district directory, through the Urban Institute's [Education Data Portal](https://educationdata.urban.org/) | October 21, 2026 | `update_census_data.py` |
 
+## School districts before FY2009
+
+DESE's Public Records Center provided its per-pupil expenditure reports and workbooks for FY1990
+to FY2008 in October 2026. They are kept as received in [dese_archive/](dese_archive/), whose
+[README](dese_archive/README.md) lists every file and explains how the scanned reports were read
+and checked.
+
+| File | What it holds | Source | Received | Script |
+| --- | --- | --- | --- | --- |
+| [dese_expenditures_fy2005_2008.csv](dese_expenditures_fy2005_2008.csv) | Spending per pupil by functional category, and FTE enrollment, for every district, FY2005 to FY2008; same columns and labels as `dese_expenditures.csv` | DESE Office of School Finance, functional calculation workbooks (`calcfunctional05final.xls`, `calcfunctional07dec.xls`, `calcfunctional08final.xls`) | October 28, 2026 | `update_dese_history.py` |
+| [dese_day_program_fy1990_2006.csv](dese_day_program_fy1990_2006.csv) | "Day program" spending per pupil by program (regular day, special needs, bilingual, occupational day) and in total, for every district, FY1990 to FY2006; total spending and average membership from FY1997. A narrower measure than the functional total; see the archive README | DESE's printed Per Pupil Expenditures reports, FY1990–FY1996 (scanned PDFs), and the Office of School Finance's workbooks, FY1997–FY2006 | October 28, 2026 | `update_dese_history.py` |
+| [dese_day_program_state_fy1989_2006.csv](dese_day_program_state_fy1989_2006.csv) | DESE's published statewide day-program averages, FY1989 to FY2006 | The same reports and workbooks | October 28, 2026 | `update_dese_history.py` |
+
 ## Chapter 70 formula
 
 | File | What it holds | Source | Retrieved | Script |
@@ -51,7 +64,12 @@ itself, it is given too.
 - **What the scripts change.** `update_census_data.py` keeps only Massachusetts rows and adds DESE's
   district codes. `update_dls_*` and `update_acs_households.py` stack each year's download into one
   long table. `update_inflation_data.py` averages monthly or quarterly index values over each
-  July–June fiscal year. Nothing else is altered.
+  July–June fiscal year. `update_dese_history.py` reads DESE's scanned reports from their OCR text,
+  with two figures corrected by hand from the page image, and renames one category to the Hub's
+  label ("Classroom and Specialist Teachers" to "Teachers"). It also computes FY2005–FY2008 total
+  in-district spending per pupil, which the workbooks do not print, as total spending less payments
+  out of district, over in-district FTE pupils. The archive README gives the checks and every
+  correction. Nothing else is altered.
 - **Not kept here.** The Census Bureau's national F-33 files (`census_raw/`, about 130 MB) and
   DESE's formula spreadsheets (`c70_raw/`) are cached locally and not committed; the links above
   download them.

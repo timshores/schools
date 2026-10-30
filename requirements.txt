@@ -6,3 +6,4 @@ xlsxwriter>=3.2
 geopandas>=0.14
 reportlab>=4.0
 statsmodels>=0.14.5
+xlrd>=2.0
