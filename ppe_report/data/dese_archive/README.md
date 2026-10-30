@@ -3,8 +3,8 @@
 These are the Massachusetts Department of Elementary and Secondary Education's per-pupil
 expenditure reports and workbooks from before FY2009, the first year of the Education-to-Career Hub
 dataset in [`../dese_expenditures.csv`](../dese_expenditures.csv). DESE's Public Records Center
-provided them to Tim Shores in October 2026 in answer to a public records request. The files are
-kept here exactly as received, under the names DESE gave them.
+provided them to Tim Shores in October 2026 in answer to Massachusetts public records request
+P004939-101625. The files are kept here exactly as received, under the names DESE gave them.
 
 The PDFs are scans of DESE's printed reports. DESE made the scans in January 2024 and ran OCR on
 them, so their text can be searched and copied, but the OCR text has errors. The workbooks are the

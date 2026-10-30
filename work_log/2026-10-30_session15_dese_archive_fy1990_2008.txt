@@ -5,6 +5,9 @@ formats unlike the Hub data. Normalize them to plug into the explorer, publish t
 source files on GitHub, and plan the explorer's integration (an on/off switch for the full data
 set, and a year slider for the range).
 
+Source: Massachusetts public records request P004939-101625, answered by DESE's Public Records
+Center in October 2026.
+
 Changes:
 
 1. ppe_report/data/dese_archive/ (new): the 25 files as received (17 PDFs, 8 .xls workbooks,

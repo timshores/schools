@@ -23,7 +23,8 @@ itself, it is given too.
 ## School districts before FY2009
 
 DESE's Public Records Center provided its per-pupil expenditure reports and workbooks for FY1990
-to FY2008 in October 2026. They are kept as received in [dese_archive/](dese_archive/), whose
+to FY2008 in October 2026, in answer to Massachusetts public records request P004939-101625. They
+are kept as received in [dese_archive/](dese_archive/), whose
 [README](dese_archive/README.md) lists every file and explains how the scanned reports were read
 and checked.
 

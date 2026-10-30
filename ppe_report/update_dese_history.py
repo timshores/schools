@@ -2,8 +2,8 @@
 """update_dese_history.py: DESE's per-pupil expenditure files from before FY2009, normalized.
 
 DESE's Education-to-Career Hub dataset behind data/dese_expenditures.csv starts in FY2009. The
-archive in data/dese_archive/ came from DESE's Public Records Center and reaches back to FY1990, in
-two formats: scanned and OCR'd PDF reports for FY1990 to FY1999, and the Office of School Finance's
+archive in data/dese_archive/ came from DESE's Public Records Center, in answer to Massachusetts
+public records request P004939-101625, and reaches back to FY1990, in two formats: scanned and OCR'd PDF reports for FY1990 to FY1999, and the Office of School Finance's
 Excel workbooks for FY2001 to FY2008. This script reads both and writes three CSVs:
 
   data/dese_expenditures_fy2005_2008.csv
@@ -52,6 +52,7 @@ OUT_STATE = DATA / "dese_day_program_state_fy1989_2006.csv"
 
 REPO_URL = "https://github.com/timshores/schools/blob/main/ppe_report/data/dese_archive/"
 RECEIVED = "2026-10-28"  # the date the archive files were received from DESE's Public Records Center
+RECORDS_REQUEST = "P004939-101625"  # the Massachusetts public records request they answered
 SCRIPT = "update_dese_history.py"
 
 FIELDS = ["SY", "DIST_CODE", "DIST_NAME", "IND_CAT", "IND_SUBCAT", "IND_VALUE", "IND_VALUE_TYPE",
