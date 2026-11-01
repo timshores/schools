@@ -20,8 +20,12 @@ Two measures (data/dese_archive/README.md):
 
 Chapter 70 reaches back to FY1993, DESE's first profile year.
 
-Districts in the older files that the Hub no longer has (towns that ran their own schools, a few
-regional and vocational districts) become former districts, with the day program only.
+Former districts: every district in the older files or the Hub that the explorer's FY2025 list
+doesn't have (towns that ran their own schools, regional, vocational and charter districts that
+closed), with all their years and a note on what became of each. The note is built from the
+figures and DESE's regional members list, or from a source in FORMER_NOTES.
+
+Every district and average also gets its payments to out-of-district schools (ood_series).
 """
 
 import re
@@ -53,6 +57,19 @@ NSS = {"Ch70 Aid": "ch70_aid", "Req NSS (minus Ch70)": "required_local",
 FORMER_NAMES = {"Ashfield Plainfield": "Ashfield-Plainfield", "Buckland Shelburne": "Buckland-Shelburne",
                 "Plymouth Carver": "Plymouth-Carver"}
 VOCATIONAL_CODES = {406, 408}
+# Why a former district ended, where a source says so: DESE code -> (sentence, source URL)
+FORMER_NOTES = {
+    35010000: ("Its board of trustees voted on January 17, 2023, to surrender the school's charter, effective June 30, "
+               "2023. DESE's commissioner wrote that the school \u201chas been unable to attract enrollment sufficient to "
+               "maintain financial viability.\u201d",
+               "https://www.doe.mass.edu/bese/docs/fy2023/2023-01/item5.docx"),
+}
+
+
+def english_list(items):
+    items = list(items)
+    return items[0] if len(items) == 1 else " and ".join(items) if len(items) == 2 else \
+        f"{', '.join(items[:-1])}, and {items[-1]}"
 
 
 def slug(name: str) -> str:
@@ -85,6 +102,31 @@ def pack(piv, lines, nss, categories, ys=HIST_YEARS, spent=None):
         "enroll": {key: yseries(lines.get(label), 1, ys) for label, key in ENROLL.items()},
         "nss": {key: yseries(nss[col] if col in nss.columns else None, 0, ys) for col, key in NSS.items()},
     }
+
+
+# What DESE reports as each pupil-count and per-pupil total, for payments to out-of-district schools
+OOD_PARTS = {"total expenditures": "tot", "total in-district expenditures": "ind_pp", "total fte pupils": "tot_fte",
+             "in-district fte pupils": "ind_fte", "out-of-district fte pupils": "ood_fte"}
+
+
+def ood_series(df, names, ys):
+    """Payments to out-of-district schools per out-of-district FTE pupil, pooled over the districts named
+    (lowercase), for the years ys. DESE's Hub has no row for them: they are total spending (per pupil,
+    times all FTE pupils) less in-district spending (per in-district pupil, times those pupils), over
+    out-of-district pupils. For FY2005-FY2008, where DESE printed the figure, this agrees with it to
+    within 0.7%."""
+    sub = df[df["DIST_NAME"].str.lower().isin(names) & df["IND_SUBCAT"].str.lower().isin(OOD_PARTS)]
+    if sub.empty:
+        return [None] * len(ys)
+    w = sub.assign(k=sub["IND_SUBCAT"].str.lower().map(OOD_PARTS)).pivot_table(
+        index=["DIST_NAME", "YEAR"], columns="k", values="IND_VALUE", aggfunc="first")
+    w = w.dropna(subset=[c for c in OOD_PARTS.values() if c in w.columns])
+    if not set(OOD_PARTS.values()) <= set(w.columns) or w.empty:
+        return [None] * len(ys)
+    w = w.assign(dollars=w["tot"] * w["tot_fte"] - w["ind_pp"] * w["ind_fte"])
+    by = w.groupby(level="YEAR")[["dollars", "ood_fte"]].sum()
+    by = by[by["ood_fte"] > 0]
+    return yseries(by["dollars"] / by["ood_fte"], 0, ys)
 
 
 def with_functional(df):
@@ -175,14 +217,21 @@ def history(df, reg, c70, dists, groups, full, towns, categories, ys, regions, n
 
     chunk_of = {e["id"]: e["chunk"] for e in full}
     chunks = {}
+
     def spent(piv, code):
         return set(int(y) for y in piv.index) | set(day.get(code, {}).get("total", {}))
 
+    # Each district's earlier years, and its first year with figures, to find a district that begins as
+    # a former one ends
+    first_of = {}
     for d in dists:
         piv, lines = prepare_district_epp_lines(df_all, d["name"], c70)
+        years_d = spent(piv, d["code"])
+        if years_d:
+            first_of[d["id"]] = min(years_d)
         nss, _e, _f = prepare_district_nss_ch70(df_all, c70, d["name"])
         rec = {"id": d["id"], **pack(piv, lines, nss, categories, spent=spent(piv, d["code"])),
-               **day_fields(day.get(d["code"]), nces.get(d["code"]))}
+               "ood": ood_series(df_all, [d["key"]], HIST_YEARS), **day_fields(day.get(d["code"]), nces.get(d["code"]))}
         chunks.setdefault(chunk_of[d["id"]], []).append(rec)
 
     by_key = {d["key"]: d for d in dists}
@@ -193,7 +242,7 @@ def history(df, reg, c70, dists, groups, full, towns, categories, ys, regions, n
         lines = dict(lines_mean)
         if foundation is not None and len(foundation):
             lines["Foundation Enrollment"] = foundation
-        rec = {"id": eid, **pack(piv, lines, nss, categories),
+        rec = {"id": eid, **pack(piv, lines, nss, categories), "ood": ood_series(df_all, keys, HIST_YEARS),
                **day_average([by_key[k]["code"] for k in keys], day, nces)}
         chunks.setdefault(slug(region) if region else "statewide", []).append(rec)
 
@@ -244,16 +293,55 @@ def history(df, reg, c70, dists, groups, full, towns, categories, ys, regions, n
         entity = {"id": fid, "name": name, "kind": "district", "type": t, "cohort": None, "region": region,
                   "regional": regional, "gateway": False, "cmp": cmp, "chunk": "former",
                   "former": {"first": years[0], "last": years[-1]},
-                  "main": pack(piv, lines, nss, categories, ys, spent=set(years)),
-                  **pack(piv, lines, nss, categories, spent=set(years)), **day_fields(day.get(code), nces.get(code))}
+                  "main": {**pack(piv, lines, nss, categories, ys, spent=set(years)),
+                           "ood": ood_series(df_all, [name.lower()], ys)},
+                  **pack(piv, lines, nss, categories, spent=set(years)), "ood": ood_series(df_all, [name.lower()], HIST_YEARS),
+                  **day_fields(day.get(code), nces.get(code))}
         if member_towns and t == "traditional":
             entity["towns"] = [{"id": x["id"], "name": x["name"], "contribution": None,
                                 "also": districts_of.get(x["id"], [])} for x in member_towns]
             entity["towns_kind"] = "members" if len(member_towns) > 1 else "town"
+        # A district its towns belong to that begins in the year or two after this one ends
+        last = years[-1]
+        entity["_succ"] = sorted({a["id"]: a for x in member_towns for a in districts_of.get(x["id"], [])
+                                  if last < first_of.get(a["id"], 0) <= last + 2}.values(), key=lambda a: a["name"])
+        entity["_code"] = code
         chunks.setdefault("former", []).append(entity)
+        group = "early" if last < START_YEAR else "charter" if t == "charter" else "later"
         former.append({"id": fid, "name": name, "chunk": "former", "type": t, "cohort": None, "region": region,
-                       "regional": regional, "former": entity["former"]})
+                       "regional": regional, "former": {**entity["former"], "group": group}})
     print(f"  history: {len(former)} former districts")
+
+    # What became of each, from the figures: its last year; a district its towns belong to that begins
+    # just after, with the other former districts that end the same year in it; or the districts its
+    # towns belong to today. A sourced reason, where there is one.
+    formers = chunks.get("former", [])
+    for f in formers:
+        last = f["former"]["last"]
+        parts = [f"Its last figures are for FY{last}."]
+        succ = f.pop("_succ")
+        code = f.pop("_code")
+        towns = f.get("towns", [])
+        if succ:
+            s0 = succ[0]
+            begins = first_of[s0["id"]]
+            partners = [g for g in formers if g["former"]["last"] == last and any(
+                a["id"] == s0["id"] for x in g.get("towns", []) for a in x["also"])]
+            names = list(dict.fromkeys(x["name"] for g in partners for x in g.get("towns", [])))
+            parts.append(f"From FY{begins}, {english_list(names)} belong{'s' if len(names) == 1 else ''} to "
+                         f"{s0['name']}, a district whose figures begin that year.")
+            if begins > last + 1:
+                parts.append(f"No figures cover FY{last + 1}.")
+        elif towns:
+            now = list(dict.fromkeys(a["name"] for x in towns for a in x["also"]))
+            if now:
+                who = english_list([x["name"] for x in towns])
+                parts.append(f"{who} now belong{'s' if len(towns) == 1 else ''} to {english_list(now)}.")
+        source = None
+        if code in FORMER_NOTES:
+            text, source = FORMER_NOTES[code]
+            parts.append(text)
+        f["note"] = {"text": " ".join(parts), "source": source}
 
     meta = {"years": HIST_YEARS, "functional_from": FUNCTIONAL_FROM, "day": [HIST_FIRST, DAY_LAST],
             "membership_from": MEMBERSHIP_FROM, "chapter70_from": CHAPTER70_FROM,

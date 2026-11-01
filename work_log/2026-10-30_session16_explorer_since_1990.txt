@@ -46,3 +46,25 @@ Website (mywebsite, not committed: for Tim's review on localhost): the Since 199
 slider over FY1990-FY2025 with a mark at FY2005, the dashed older-measure line and the comparison's,
 program lines on request, the older measure's own comparison table, earlier counts on the
 enrollment chart, former districts in the menus, and a Data tab section.
+
+Follow-up, 2026-10-31 (Tim: segregate former districts; say why each ended; keep payments to
+out-of-district schools):
+
+5. Payments to out-of-district schools. The Hub (FY2009 on) has no such row: its nine categories
+   are per in-district pupil and leave tuition out. ood_series() works it out from DESE's totals:
+   Total Expenditures per pupil x Total FTE, less Total In-District Expenditures x In-District FTE,
+   over Out-of-District FTE; averages pool dollars over pupils. Checks: FY2005-FY2008, where DESE
+   printed the figure, agree within 0.7% (1,249 rows); FY2009 derived over FY2008 printed, median
+   1.036, middle 80% 0.84-1.25; no negative values. Every district and average gets "ood", FY2005
+   on. Statewide, FY2025 out-of-district FTE falls 7% (81,283 to 75,631) while payments rise 6%
+   ($2.55B to $2.70B), so per pupil jumps 14%; in DESE's data, not ours.
+
+6. Former districts: each gets a note on what became of it, from the figures (its last year; a
+   district its towns belong to whose figures begin within two years after, with the other former
+   districts that end the same year in it; else the districts its towns belong to today, from
+   DESE's FY2025 regional members list). FORMER_NOTES holds sourced reasons; one so far, Paulo
+   Freire Social Justice Charter School (trustees voted January 17, 2023 to surrender its charter,
+   effective June 30, 2023; DESE memo, BESE January 2023, item 5). No complete public list of
+   closures and mergers turned up: DESE's charter factsheet lists charter closures, and regional
+   formation dates are scattered. The menu list carries a group: ended before FY2009, FY2009 or
+   later, charter.

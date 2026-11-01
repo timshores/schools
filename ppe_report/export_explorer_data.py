@@ -20,6 +20,10 @@ Census's local revenue leaves out much of what the town spends on its schools
 districts get Census's latest totals instead, so the explorer can say so.
 Aggregates pool their regional members, weighted by in-district FTE.
 
+Payments to out-of-district schools, per out-of-district FTE pupil, come from DESE's
+totals, which the nine categories leave out (explorer_history.ood_series). The years
+before START_YEAR, for the "Since 1990" switch, are explorer_history.py's.
+
 Towns: general fund spending and revenue per resident (DLS Schedule A), with
 population peer groups and the same kinds of averages; the cities whose school
 districts are very large stand apart from them. Each town's property: assessed
@@ -45,7 +49,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from explorer_history import HIST_YEARS, history
+from explorer_history import HIST_YEARS, history, ood_series
 from school_shared import (CANON_CATS_BOTTOM_TO_TOP, IN_DISTRICT_FTE_KEY, LATEST_YEAR, START_YEAR, get_cohort_label,
                            get_cohort_range, get_cohort_short_label, get_enrollment_group, latest_indistrict_fte,
                            load_data, prepare_aggregate_nss_ch70_weighted, prepare_district_epp_lines,
@@ -1331,7 +1335,8 @@ def main(site: Path):
         cmp = {**cmp, "gateway": "cohort-gateway" if eid != "cohort-gateway" else None}
         averages.append({"id": eid, "name": name, "kind": "average", "scope": scope, "cohort": cohort,
                          "region": region, "members": len(members), "cmp": cmp,
-                         "chunk": slug(region) if region else "statewide", **pack(piv, lines, nss), **rev})
+                         "chunk": slug(region) if region else "statewide", **pack(piv, lines, nss),
+                         "ood": ood_series(df, keys, YEARS), **rev})
 
     full = []
     for d in sorted(dists, key=lambda d: d["name"]):
@@ -1350,7 +1355,8 @@ def main(site: Path):
                      **({"community": types[d["id"]]} if d["id"] in types else {}),
                      **({"income": d["income"]} if d["income"] else {}),
                      "chunk": chunk_of(rk, d["type"]),
-                     **pack(piv, lines, nss), **revenue_fields(census, [d["code"]], regional)})
+                     **pack(piv, lines, nss), "ood": ood_series(df, [d["key"]], YEARS),
+                     **revenue_fields(census, [d["code"]], regional)})
 
     towns_index, town_chunks, all_towns = None, {}, []
     if all(p.exists() for p in (DLS_CSV, POP_CSV, MEMBERS_CSV)):
