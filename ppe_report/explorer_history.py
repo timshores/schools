@@ -1,19 +1,20 @@
 """
-The explorer's earlier years, FY1990 to FY2008, for its "Since 1990" switch.
+The explorer's earlier years, FY1990 to FY2004, for its "Since 1990" switch.
 
 export_explorer_data.py calls history() once it has built the explorer's districts and averages.
 Every district and average gets a record of yearly series over HIST_YEARS, which the explorer puts
-in front of its FY2009-on series when the switch is on, in files of their own
+in front of its own years, FY2005 on, when the switch is on, in files of their own
 (districts-history/<chunk>.json) that load only then.
 
 Two measures (data/dese_archive/README.md):
 - Functional, FY2005-FY2008 (data/dese_expenditures_fy2005_2008.csv): the explorer's own measure,
-  so these years extend its spending columns, enrollment and averages, computed with the same
-  functions as FY2009 on. The file's payments to out-of-district schools, per out-of-district
-  pupil, are left out: the Hub has no such row, and the shared functions would fold it into
-  "Other".
+  so the export stacks these years under the Hub's (with_functional) and the explorer's own years
+  begin with them, EXPLORER_START. The file's payments to out-of-district schools, per
+  out-of-district pupil, are left out: the Hub has no such row, and the shared functions would
+  fold it into "Other".
 - Day program, FY1990-FY2006 (data/dese_day_program_fy1990_2006.csv): DESE's older, narrower
-  measure, kept apart as its own series. A district's total and its programs; an average's total
+  measure, kept apart as its own series over DAY_YEARS, which run two years into the explorer's
+  own, so the switch shows both measures for FY2005 and FY2006. A district's total and its programs; an average's total
   only, weighted by DESE's average membership from FY1997 and, before that, by NCES fall
   enrollment (data/nces_ma_enrollment_fy1990_2006.csv), since DESE's reports for those years give
   no pupils. Program averages would need each program's pupils, which no source gives.
@@ -33,13 +34,17 @@ from pathlib import Path
 
 import pandas as pd
 
-from school_shared import (START_YEAR, coalesce_year_column, prepare_aggregate_nss_ch70_weighted,
-                           prepare_district_epp_lines, prepare_district_nss_ch70, prepare_western_epp_lines)
+from school_shared import (coalesce_year_column, prepare_aggregate_nss_ch70_weighted, prepare_district_epp_lines,
+                           prepare_district_nss_ch70, prepare_western_epp_lines)
 
 HIST_FIRST = 1990
-HIST_YEARS = list(range(HIST_FIRST, START_YEAR))
 FUNCTIONAL_FROM = 2005
+# The explorer's own years begin with DESE's functional measure; the report keeps FY2009
+# (school_shared.START_YEAR)
+EXPLORER_START = FUNCTIONAL_FROM
+HIST_YEARS = list(range(HIST_FIRST, EXPLORER_START))
 DAY_LAST = 2006
+DAY_YEARS = list(range(HIST_FIRST, DAY_LAST + 1))
 MEMBERSHIP_FROM = 1997
 CHAPTER70_FROM = 1993
 FUNC_CSV = Path("data/dese_expenditures_fy2005_2008.csv")
@@ -85,9 +90,9 @@ def yseries(s, digits, ys):
     return [None if (y not in s.index or pd.isna(s[y])) else round(float(s[y]), digits) for y in ys]
 
 
-def from_dict(d, digits):
-    """{fy: value} to values for HIST_YEARS."""
-    return [None if d.get(y) is None else round(float(d[y]), digits) for y in HIST_YEARS]
+def from_dict(d, digits, ys=HIST_YEARS):
+    """{fy: value} to values for the years ys."""
+    return [None if d.get(y) is None else round(float(d[y]), digits) for y in ys]
 
 
 def pack(piv, lines, nss, categories, ys=HIST_YEARS, spent=None):
@@ -130,15 +135,17 @@ def ood_series(df, names, ys):
 
 
 def with_functional(df):
-    """The Hub's rows with FY2005-FY2008 stacked under them, for the shared functions."""
+    """The Hub's rows with FY2005-FY2008 stacked under them, for the shared functions. The Hub's
+    other columns stay, empty in the stacked years."""
     h = pd.read_csv(FUNC_CSV, dtype={"DIST_CODE": str})
     h = h[h["IND_SUBCAT"] != OUT_OF_DISTRICT]
     h = coalesce_year_column(h)
     for c in ("DIST_NAME", "IND_CAT", "IND_SUBCAT"):
         h[c] = h[c].astype(str).str.strip()
     h["IND_VALUE"] = pd.to_numeric(h["IND_VALUE"], errors="coerce")
-    cols = ["DIST_NAME", "IND_CAT", "IND_SUBCAT", "IND_VALUE", "YEAR"]
-    return pd.concat([h[cols], df[cols]], ignore_index=True)
+    h["DIST_CODE"] = h["DIST_CODE"].astype(df["DIST_CODE"].dtype)
+    cols = ["DIST_CODE", "DIST_NAME", "IND_CAT", "IND_SUBCAT", "IND_VALUE", "YEAR"]
+    return pd.concat([h[cols], df], ignore_index=True)
 
 
 def load_day():
@@ -171,11 +178,11 @@ def day_fields(rec, nces_d):
     NCES fall enrollment where DESE gives no pupils."""
     if not rec:
         return {}
-    day = {"total": from_dict(rec.get("total", {}), 0)}
+    day = {"total": from_dict(rec.get("total", {}), 0, DAY_YEARS)}
     for k in PROGRAMS:
         if rec.get(k):
-            day[k] = from_dict(rec[k], 0)
-    return {"day": day, "day_memb": from_dict(rec.get("memb", {}), 1), "nces": from_dict(nces_d or {}, 0)}
+            day[k] = from_dict(rec[k], 0, DAY_YEARS)
+    return {"day": day, "day_memb": from_dict(rec.get("memb", {}), 1, DAY_YEARS), "nces": from_dict(nces_d or {}, 0)}
 
 
 def day_average(codes, day, nces):
@@ -196,23 +203,24 @@ def day_average(codes, day, nces):
         total[fy] = sum(v * w for v, w in pairs) / wsum
         (memb if fy >= MEMBERSHIP_FROM else fall)[fy] = wsum / len(pairs)
         n[fy] = len(pairs)
-    return {"day": {"total": from_dict(total, 0)}, "day_memb": from_dict(memb, 1), "nces": from_dict(fall, 0),
-            "day_n": from_dict(n, 0)}
+    return {"day": {"total": from_dict(total, 0, DAY_YEARS)}, "day_memb": from_dict(memb, 1, DAY_YEARS),
+            "nces": from_dict(fall, 0), "day_n": from_dict(n, 0, DAY_YEARS)}
 
 
 def history(df, reg, c70, dists, groups, full, towns, categories, ys, regions, norm, exclude):
     """({chunk: [records]}, the meta's "history" entry, the former districts' menu list).
 
+    df: the Hub's rows with FY2005-FY2008 stacked under them (with_functional);
     dists: export_explorer_data.explorer_districts() with ids; groups: its averages, as
     (id, name, scope, cohort, region, members, cmp); full: the explorer's district entities, with
     their towns; towns: every full town (for former districts' regions and links); ys: the explorer's
     own years, which former districts' Hub figures fill; regions: the EOHHS regions; norm: the
     export's town-name key; exclude: the districts the explorer leaves out, lowercase."""
-    df_all = with_functional(df)
+    df_all = df
     day, nces = load_day(), load_nces()
-    names_2008 = set(df_all.loc[df_all["YEAR"] == START_YEAR - 1, "DIST_NAME"].str.lower())
-    matched = sum(d["key"] in names_2008 for d in dists)
-    print(f"  history: {matched} of {len(dists)} districts in the FY{START_YEAR - 1} functional data; "
+    names_first = set(df_all.loc[df_all["YEAR"] == EXPLORER_START, "DIST_NAME"].str.lower())
+    matched = sum(d["key"] in names_first for d in dists)
+    print(f"  history: {matched} of {len(dists)} districts in the FY{EXPLORER_START} functional data; "
           f"{sum(d['code'] in day for d in dists)} with day-program figures")
 
     chunk_of = {e["id"]: e["chunk"] for e in full}
@@ -307,7 +315,7 @@ def history(df, reg, c70, dists, groups, full, towns, categories, ys, regions, n
                                   if last < first_of.get(a["id"], 0) <= last + 2}.values(), key=lambda a: a["name"])
         entity["_code"] = code
         chunks.setdefault("former", []).append(entity)
-        group = "early" if last < START_YEAR else "charter" if t == "charter" else "later"
+        group = "early" if last < EXPLORER_START else "charter" if t == "charter" else "later"
         former.append({"id": fid, "name": name, "chunk": "former", "type": t, "cohort": None, "region": region,
                        "regional": regional, "former": {**entity["former"], "group": group}})
     print(f"  history: {len(former)} former districts")

@@ -58,7 +58,7 @@ ID_COLS = ["STATE", "IDCENSUS", "PID6", "UNIT_TYPE", "FIPST", "NAME", "CONUM", "
 POP_URL = "https://www2.census.gov/programs-surveys/popest/datasets/"
 # (file, {fiscal year: column}): each fiscal year's estimate and the vintage it comes from
 POP_FILES = [
-    ("2000-2010/intercensal/cities/sub-est00int.csv", {2009: "POPESTIMATE2008", 2010: "POPESTIMATE2009"}),
+    ("2000-2010/intercensal/cities/sub-est00int.csv", {fy: f"POPESTIMATE{fy - 1}" for fy in range(2005, 2011)}),
     ("2010-2020/cities/SUB-EST2020_25.csv", {fy: f"POPESTIMATE{fy - 1}" for fy in range(2011, 2021)}),
     ("2020-2024/cities/totals/sub-est2024_25.csv",
      {2021: "ESTIMATESBASE2020", **{fy: f"POPESTIMATE{fy - 1}" for fy in range(2022, 2026)}}),

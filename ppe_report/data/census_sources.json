@@ -5,7 +5,7 @@
  "crosswalk": "NCES Common Core of Data district directory, via educationdata.urban.org",
  "town_population": "Census Bureau subcounty population estimates: 2000-2010/intercensal/cities/sub-est00int.csv, 2010-2020/cities/SUB-EST2020_25.csv, 2020-2024/cities/totals/sub-est2024_25.csv",
  "town_population_years": [
-  2009,
+  2005,
   2025
  ],
  "downloaded": "2026-10-21"

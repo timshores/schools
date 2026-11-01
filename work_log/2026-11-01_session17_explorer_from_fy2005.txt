@@ -1,0 +1,54 @@
+2026-11-01 (Session 17) - Explorer: its own years begin at FY2005, for districts and towns
+
+Tim (seahag prompt log #152): "Since we now have a district apples:apples going back to 2005, let's
+begin the default time range at 2005. Can we get the same time range for towns?"
+
+The PDF report is unchanged: school_shared.START_YEAR stays 2009. Only the explorer's export moves.
+
+Changes:
+
+1. explorer_history.py: EXPLORER_START = FUNCTIONAL_FROM = 2005. HIST_YEARS is now FY1990-FY2004;
+   the day-program series run over DAY_YEARS, FY1990-FY2006, two years into the explorer's own, so
+   Since 1990 still shows both measures for FY2005 and FY2006. with_functional() keeps DIST_CODE and
+   the Hub's other columns, and is now applied once, by the export, before everything; history()
+   takes the stacked frame. Former districts' "early" group is now "ended before FY2005"; none ended
+   FY2005-FY2008, so the groups hold the same districts.
+
+2. export_explorer_data.py: YEARS = FY2005..LATEST_YEAR, from EXPLORER_START; every meta "start" is
+   2005. Districts, averages, towns, Commonwealth and the map all run from FY2005.
+   - The CSVs behind the explorer start at FY2005; districts-spending-per-pupil.csv adds the
+     FY2005-FY2008 rows from dese_expenditures_fy2005_2008.csv, with the archive README as their
+     source_url (FUNC_LAST, URL_DESE_ARCHIVE).
+   - Households: FY2005-FY2008 have none. The old rule would have given them the 2005-2009 release,
+     the same count for five years.
+   - Income per resident (DOR) begins at FY2007. property_series() averaged it with zeros for
+     FY2005-FY2006 and divided the tax bill by them, writing Infinity into the town JSON, which
+     Vite refuses to parse. It now averages only towns with a figure; earlier years are empty.
+   - map_data combined(): a town split between two districts got each district's own enrollment
+     change, labeled with the years both share. With Berkley's own district now reaching FY2005 and
+     Somerset Berkley Regional starting FY2012, the label (FY2012-FY2025) no longer matched the
+     figure. Each district's change is now taken over the shared years. Berkley -6.5% (was -11.3%
+     live, from mismatched years), Somerset -11.3% (was -30.6%).
+
+3. update_census_data.py: town population from the 2000-2010 intercensal file now covers FY2005-FY2010
+   (July 1, 2004-2009); it covered FY2009-FY2010 before. census_town_population.csv runs FY2005-FY2025,
+   351 towns a year; only the population step was rerun (the F-33 files were not refetched).
+
+Checks:
+- Baseline: the unchanged export reproduced the site's committed JSON exactly, apart from build dates.
+- Districts and averages: 6,912 series; FY2009 on unchanged, and FY2005-FY2008 equal to what the
+  history files held, except Worthington's Chapter 70 FY2005-FY2008 and Warwick's foundation
+  enrollment (0): the history files showed Chapter 70 only in years a district reported spending,
+  the main export never has (Worthington FY2009-FY2014 is already shown live), and these years now
+  follow the main rule. The history files hold FY1990-FY2004, and the day series are unchanged.
+- 65 former districts: their main series gained FY2005-FY2008 from their old history; nothing else moved.
+- Towns: no FY2009-on value changed; every series has FY2005-FY2008 figures except households
+  (none) and levy (from FY2007). No zeros stand in for missing years (scanned every series).
+- Commonwealth: 5,265 series gained FY2005-FY2008, FY2009 on unchanged. Map: 1,707 growth figures
+  now run from FY2005 rather than FY2009.
+
+Site (mywebsite, uncommitted): default window FY2005-FY2025; Since 1990 adds FY1990-FY2004; the
+Data tab, switch tip, menus and source list say so; the town spending tile names the first year
+with a figure (per household: FY2009), and "Not filed" no longer counts years without a household
+count. tsc and build clean; checked in a browser at the default, Since 1990, towns per resident and
+per household, Commonwealth, the cap tab, and two former districts.

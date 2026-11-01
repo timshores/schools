@@ -2,8 +2,8 @@
 Export the data behind the interactive explorer at timshores.com/mass-school-spending.
 
 Every Massachusetts school district (traditional, vocational and charter, less a
-few special-purpose state schools) and every city and town, FY START_YEAR..
-LATEST_YEAR. Districts: per-pupil expenditure by category, enrollment, and
+few special-purpose state schools) and every city and town, FY EXPLORER_START (2005, the
+first year of DESE's functional measure)..LATEST_YEAR; the PDF report keeps FY2009. Districts: per-pupil expenditure by category, enrollment, and
 Chapter 70 / net school spending per foundation pupil, from the same functions
 the PDF report uses, so the explorer and the report agree; districts join size
 cohorts by the report's rule (get_enrollment_group), applied statewide.
@@ -21,8 +21,10 @@ districts get Census's latest totals instead, so the explorer can say so.
 Aggregates pool their regional members, weighted by in-district FTE.
 
 Payments to out-of-district schools, per out-of-district FTE pupil, come from DESE's
-totals, which the nine categories leave out (explorer_history.ood_series). The years
-before START_YEAR, for the "Since 1990" switch, are explorer_history.py's.
+totals, which the nine categories leave out (explorer_history.ood_series). FY2005-FY2008 come
+from DESE's archive (data/dese_expenditures_fy2005_2008.csv), stacked under the Hub's rows
+(explorer_history.with_functional). The years before EXPLORER_START, for the "Since 1990"
+switch, are explorer_history.py's.
 
 Towns: general fund spending and revenue per resident (DLS Schedule A), with
 population peer groups and the same kinds of averages; the cities whose school
@@ -49,13 +51,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from explorer_history import HIST_YEARS, history, ood_series
-from school_shared import (CANON_CATS_BOTTOM_TO_TOP, IN_DISTRICT_FTE_KEY, LATEST_YEAR, START_YEAR, get_cohort_label,
+from explorer_history import EXPLORER_START, FUNC_CSV, HIST_YEARS, history, ood_series, with_functional
+from school_shared import (CANON_CATS_BOTTOM_TO_TOP, IN_DISTRICT_FTE_KEY, LATEST_YEAR, get_cohort_label,
                            get_cohort_range, get_cohort_short_label, get_enrollment_group, latest_indistrict_fte,
                            load_data, prepare_aggregate_nss_ch70_weighted, prepare_district_epp_lines,
                            prepare_district_nss_ch70, prepare_western_epp_lines)
 
-YEARS = list(range(START_YEAR, LATEST_YEAR + 1))
+YEARS = list(range(EXPLORER_START, LATEST_YEAR + 1))
 ENROLL = {"In-District FTE Pupils": "in_district", "Foundation Enrollment": "foundation",
           "Out-of-District FTE Pupils": "out_of_district"}
 NSS = {"Ch70 Aid": "ch70_aid", "Req NSS (minus Ch70)": "required_local",
@@ -141,8 +143,8 @@ SF_BILL_CSV = Path("data/dls_single_family_tax_bill.csv")
 LEVY_CSV = Path("data/dls_levy_capacity.csv")
 # Households: ACS five-year estimates (update_acs_households.py). Each fiscal year takes the
 # release ending the calendar year it begins (FY2025: 2020-2024); FY2009 takes the first
-# release, 2005-2009. A town missing from a release (ten whose Census codes changed in 2010
-# are missing from 2005-2009) takes the next one.
+# release, 2005-2009, and earlier years have none. A town missing from a release (ten whose
+# Census codes changed in 2010 are missing from 2005-2009) takes the next one.
 HH_CSV = Path("data/census_town_households.csv")
 # Town outlines for the map, with land areas (update_town_boundaries.py)
 BOUNDARIES_JSON = Path("data/town_boundaries.json")
@@ -200,6 +202,9 @@ REVENUE_LABELS = {
 
 # Ultimate sources, for the CSVs' source_url columns
 URL_DESE_EXPEND = "https://educationtocareer.data.mass.gov/d/er3w-dyti"
+# FY2005-FY2008: DESE's workbooks, from a public records request, as received and read
+URL_DESE_ARCHIVE = "https://github.com/timshores/schools/blob/main/ppe_report/data/dese_archive/README.md"
+FUNC_LAST = 2008
 URL_C70_PROFILE = "https://www.doe.mass.edu/finance/chapter70/profile.xlsx"
 URL_C70_REGIONAL = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}-reg.xlsx"
 URL_CENSUS_FILE = "https://www2.census.gov/programs-surveys/school-finances/tables/{fy}/secondary-education-finance/elsec{yy:02d}.{ext}"
@@ -352,8 +357,10 @@ def property_series(prop, ks, population):
     b = b[b["Single-Family Parcels"] > 0]
     bill = (b["Single-Family Tax Bill"] * b["Single-Family Parcels"]).groupby(level="FY").sum() / \
         b["Single-Family Parcels"].groupby(level="FY").sum()
-    b_pop = pop(b.index)
-    income = (b["DOR Income Per Capita"] * b_pop).groupby(level="FY").sum() / b_pop.groupby(level="FY").sum()
+    # DOR's income per resident begins at FY2007; a year without it has none, rather than an income of 0
+    bi = b[b["DOR Income Per Capita"] > 0]
+    bi_pop = pop(bi.index)
+    income = (bi["DOR Income Per Capita"] * bi_pop).groupby(level="FY").sum() / bi_pop.groupby(level="FY").sum()
     # The tax rate on single-family homes, per $1,000: the bills over the homes' value
     rate = (b["Single-Family Tax Bill"] * b["Single-Family Parcels"]).groupby(level="FY").sum() / \
         b["Single-Family Values"].groupby(level="FY").sum() * 1000
@@ -582,6 +589,8 @@ def load_households(pop):
     out = {}
     for k in set(hh["key"].dropna()):
         for fy in YEARS:
+            if fy < first:
+                continue
             v = min(max(fy - 1, first), last)
             n = by.get((k, v)) or by.get((k, v + 1))
             if n:
@@ -764,9 +773,13 @@ def map_data(districts, towns, cap, cpi, org4):
         mix = [None if a is None or b is None else (w1 * a + w2 * b) / (w1 + w2) for a, b in zip(p1, p2)]
         if (g := growth(mix)):
             out["ppe"] = g
-        c1, c2 = change(entity[d1]["enroll"]["in_district"]), change(entity[d2]["enroll"]["in_district"])
-        if c1 and c2:
-            out["enroll"] = [round((w1 * c1[0] + w2 * c2[0]) / (w1 + w2), 4), max(c1[1], c2[1]), min(c1[2], c2[2])]
+        # Each district's change over the years both have, so the figure covers the years it's labeled with
+        v1, v2 = entity[d1]["enroll"]["in_district"], entity[d2]["enroll"]["in_district"]
+        e1, e2 = ends(v1), ends(v2)
+        if e1 and e2 and (a := max(e1[0], e2[0])) < (b := min(e1[1], e2[1])) and all(
+                v and v > 0 for v in (v1[a], v2[a], v1[b], v2[b])):
+            c1, c2 = v1[b] / v1[a] - 1, v2[b] / v2[a] - 1
+            out["enroll"] = [round((w1 * c1 + w2 * c2) / (w1 + w2), 4), YEARS[a], YEARS[b]]
         if n1 and n2:
             req = w1 * n1["req"] + w2 * n2["req"]
             out["above"] = [round((w1 * n1["above"] + w2 * n2["above"]) / req, 4), n1["fy"]]
@@ -831,7 +844,7 @@ def map_data(districts, towns, cap, cpi, org4):
     # Where each income fifth begins, so the map's income colors are exactly the fifths
     def fifth_cuts(xs):
         return [min(x["income_pc"] for x in xs if x["fifth"] == f) for f in (2, 3, 4, 5)] if xs else None
-    return {"meta": {"built": dt.date.today().isoformat(), "start": START_YEAR, "latest": LATEST_YEAR,
+    return {"meta": {"built": dt.date.today().isoformat(), "start": EXPLORER_START, "latest": LATEST_YEAR,
                      "cap_fy": cap_year, "width": geo["width"], "height": geo["height"],
                      "outlines": geo["source"],
                      "fifths": {"towns": fifth_cuts([t["income"] for t in towns if t.get("income")]),
@@ -1041,7 +1054,7 @@ def town_data(dists, reg, latest, area=None, fifths=None):
 
     index = {
         "meta": {
-            "years": YEARS, "latest": latest, "start": START_YEAR, "built": dt.date.today().isoformat(),
+            "years": YEARS, "latest": latest, "start": EXPLORER_START, "built": dt.date.today().isoformat(),
             "members_fy": latest, "regions": REGIONS,
             "apart": sorted(names[k] for k in apart),
             # July 1 of this year sets each town's peer group
@@ -1086,21 +1099,25 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
         frame.to_csv(out_dir / name, index=False)
         written.append(f"{name} ({len(frame):,} rows, {(out_dir / name).stat().st_size / 1024:.0f} KB)")
 
-    # DESE expenditures per pupil and enrollment, wide: one column per DESE subcategory
-    exp = pd.read_csv(EXP_CSV, dtype={"DIST_CODE": str})
-    exp = exp[exp["DIST_CODE"].astype(int).floordiv(10000).isin(orgs) & exp["SY"].between(START_YEAR, latest)
+    # DESE expenditures per pupil and enrollment, wide: one column per DESE subcategory. FY2005-FY2008
+    # from DESE's archive, which also printed payments to out-of-district schools per pupil
+    exp = pd.concat([pd.read_csv(FUNC_CSV, dtype={"DIST_CODE": str}), pd.read_csv(EXP_CSV, dtype={"DIST_CODE": str})],
+                    ignore_index=True)
+    exp = exp[exp["DIST_CODE"].astype(int).floordiv(10000).isin(orgs) & exp["SY"].between(EXPLORER_START, latest)
               & exp["IND_CAT"].isin(["Expenditures Per Pupil", "Student Enrollment"])]
     exp = exp.assign(column=exp["IND_CAT"].map({"Expenditures Per Pupil": "Per pupil: ", "Student Enrollment": "Enrollment: "})
                      + exp["IND_SUBCAT"])
     wide = exp.pivot_table(index=["SY", "DIST_CODE", "DIST_NAME"], columns="column", values="IND_VALUE", aggfunc="first")
     wide = wide.reset_index().rename(columns={"SY": "fiscal_year", "DIST_CODE": "dese_code", "DIST_NAME": "district"})
-    wide["source_url"] = URL_DESE_EXPEND
-    wide["source_updated"] = json.loads(Path("data/dese_sources.json").read_text())["expenditures_last_updated"]
+    hub = wide["fiscal_year"] > FUNC_LAST
+    wide["source_url"] = [URL_DESE_EXPEND if h else URL_DESE_ARCHIVE for h in hub]
+    updated = json.loads(Path("data/dese_sources.json").read_text())["expenditures_last_updated"]
+    wide["source_updated"] = [updated if h else None for h in hub]
     save("districts-spending-per-pupil.csv", wide.sort_values(["district", "fiscal_year"]))
 
     # DESE Chapter 70 profiles, DESE's own columns
     c70 = pd.read_csv(C70_CSV, dtype={"Org4Code": str})
-    c70 = c70[c70["Org4Code"].astype(int).isin(orgs) & c70["fy"].between(START_YEAR, latest)].copy()
+    c70 = c70[c70["Org4Code"].astype(int).isin(orgs) & c70["fy"].between(EXPLORER_START, latest)].copy()
     # FY2023 required and actual NSS that update_dese_data.py restored from DESE's August 2025 file
     raw = pd.read_excel("data/dese_c70_profile.xlsx", sheet_name="DataC70", header=None, dtype=object).iloc[4:, [1, 3, 8, 9, 10]]
     raw.columns = ["Org4Code", "fy", "rqdnss", "rqdnss2", "actualNSS"]
@@ -1147,7 +1164,7 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
     if all_towns:
         keys = {norm(x["name"]): x for x in all_towns}
         dls = pd.read_csv(DLS_CSV, dtype={"DOR_CODE": str})
-        dls = dls[dls["FY"].between(START_YEAR, latest) & dls["Municipality"].map(norm).isin(keys)]
+        dls = dls[dls["FY"].between(EXPLORER_START, latest) & dls["Municipality"].map(norm).isin(keys)]
         pop = pd.read_csv(POP_CSV).assign(key=lambda d: d["Town"].map(norm))
         pop = pop.set_index(["key", "FY"])
         for kind, total, name in [("Expenditures", "Total Expenditures", "towns-spending.csv"),
@@ -1184,7 +1201,7 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
     if all_towns and all(p.exists() for p in (LA4_CSV, EQV_CSV, SF_BILL_CSV)):
         keys = {norm(x["name"]): x for x in all_towns}
         la4 = pd.read_csv(LA4_CSV, dtype={"DOR_CODE": str})
-        la4 = la4[la4["FY"].between(START_YEAR, latest)]
+        la4 = la4[la4["FY"].between(EXPLORER_START, latest)]
         order = [c for cats in PROPERTY_TYPES.values() for c in cats] + [LA4_EXEMPT]
         wide = []
         for measure in ("Parcels", "Value"):
@@ -1210,7 +1227,7 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
                                    "source_url"]].sort_values(["town", "valuation_year"]))
         if LEVY_CSV.exists():
             levy = pd.read_csv(LEVY_CSV, dtype={"DOR_CODE": str})
-            levy = levy[levy["FY"].between(START_YEAR, latest)].rename(columns={"FY": "fiscal_year", "DOR_CODE": "dor_code",
+            levy = levy[levy["FY"].between(EXPLORER_START, latest)].rename(columns={"FY": "fiscal_year", "DOR_CODE": "dor_code",
                                                                                 "Municipality": "town"})
             levy["source_url"] = URL_LEVY
             save("towns-levy.csv", levy.sort_values(["town", "fiscal_year"]))
@@ -1239,7 +1256,7 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
         save("towns-households.csv", hh.sort_values(["town", "acs_five_year_ending"]))
 
     cpi = pd.read_csv("data/inflation_indices.csv")
-    cpi = cpi[cpi["fiscal_year"].between(START_YEAR, latest)][["fiscal_year", "cpi_u_northeast"]]
+    cpi = cpi[cpi["fiscal_year"].between(EXPLORER_START, latest)][["fiscal_year", "cpi_u_northeast"]]
     save("cpi.csv", cpi.assign(average_of="July-June monthly CPI-U Northeast, not seasonally adjusted", source_url=URL_BLS))
     print(f"{out_dir}: " + "; ".join(written))
 
@@ -1252,6 +1269,7 @@ def write_json(path: Path, content) -> int:
 
 def main(site: Path):
     df, reg, c70 = load_data()
+    df = with_functional(df)
     idx = pd.read_csv("data/inflation_indices.csv").set_index("fiscal_year")["cpi_u_northeast"]
     census = pd.read_csv(CENSUS_CSV, dtype={"Org4Code": str, "NCESID": str}) if CENSUS_CSV.exists() else None
     if census is None:
@@ -1378,7 +1396,7 @@ def main(site: Path):
     index = {
         "meta": {
             "title": "Massachusetts school spending",
-            "years": YEARS, "latest": LATEST_YEAR, "start": START_YEAR,
+            "years": YEARS, "latest": LATEST_YEAR, "start": EXPLORER_START,
             "built": dt.date.today().isoformat(),
             "categories": CANON_CATS_BOTTOM_TO_TOP,
             "cohorts": {k: cohorts[k] for k in COHORT_ORDER + ["GATEWAY"]},
