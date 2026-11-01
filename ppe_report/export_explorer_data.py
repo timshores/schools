@@ -983,7 +983,8 @@ def town_data(dists, reg, latest, area=None, fifths=None):
     def average(aid, name, scope, group, region, ks, **fields):
         """A pooled per-resident average; pop is the members' combined population."""
         return {"id": aid, "name": name, "kind": "average", "scope": scope, "peer": group, "region": region,
-                "members": len(ks), "chunk": slug(region) if region else "statewide", **fields,
+                "members": len(ks), "member_ids": [slug(names[k]) for k in sorted(ks, key=lambda k: names[k])],
+                "chunk": slug(region) if region else "statewide", **fields,
                 "pop": series(pd.Series({fy: sum(population.get((k, fy), 0) for k in ks) for fy in YEARS}), 0),
                 "hh": series(pd.Series({fy: sum(households.get((k, fy), 0) for k in ks) or None for fy in YEARS}), 0),
                 **town_series(dls[dls["key"].isin(ks)], population), **property_series(prop, ks, population)}
@@ -1352,7 +1353,8 @@ def main(site: Path):
             rev |= revenue_fields(census, regional, True)
         cmp = {**cmp, "gateway": "cohort-gateway" if eid != "cohort-gateway" else None}
         averages.append({"id": eid, "name": name, "kind": "average", "scope": scope, "cohort": cohort,
-                         "region": region, "members": len(members), "cmp": cmp,
+                         "region": region, "members": len(members),
+                         "member_ids": [d["id"] for d in sorted(members, key=lambda d: d["name"])], "cmp": cmp,
                          "chunk": slug(region) if region else "statewide", **pack(piv, lines, nss),
                          "ood": ood_series(df, keys, YEARS), **rev})
 
@@ -1429,14 +1431,14 @@ def main(site: Path):
     sizes = {"explorer.json": write_json(json_dir / "explorer.json", index)}
     for chunk in sorted({e["chunk"] for e in full + averages}):
         sizes[f"districts/{chunk}.json"] = write_json(json_dir / "districts" / f"{chunk}.json",
-                                                      {"entities": [e for e in averages + full if e["chunk"] == chunk]})
+                                                      {"entities": [shipped(e) for e in averages + full if e["chunk"] == chunk]})
     for chunk, xs in sorted(hist_chunks.items()):
         sizes[f"districts-history/{chunk}.json"] = write_json(json_dir / "districts-history" / f"{chunk}.json",
                                                               {"entities": xs})
     if towns_index:
         sizes["towns.json"] = write_json(json_dir / "towns.json", towns_index)
         for chunk, xs in sorted(town_chunks.items()):
-            sizes[f"towns/{chunk}.json"] = write_json(json_dir / "towns" / f"{chunk}.json", {"towns": xs})
+            sizes[f"towns/{chunk}.json"] = write_json(json_dir / "towns" / f"{chunk}.json", {"towns": [shipped(x) for x in xs]})
     if towns_index:
         common = commonwealth_data(dists, full, load_property())
         sizes["commonwealth.json"] = write_json(json_dir / "commonwealth.json", common)
@@ -1462,6 +1464,29 @@ def main(site: Path):
     write_csvs(csv_dir, [(e["id"], e["name"], e_code // 10000) for e, e_code in
                          ((e, next(d["code"] for d in dists if d["id"] == e["id"])) for e in full)],
                all_towns, census, LATEST_YEAR)
+    write_groups(csv_dir, json_dir, averages, full, [t for xs in town_chunks.values() for t in xs])
+
+
+def shipped(x):
+    """A record as the explorer loads it: an average's member list is for the groups page alone"""
+    return {k: v for k, v in x.items() if k != "member_ids"}
+
+
+def write_groups(csv_dir: Path, json_dir: Path, averages, districts, towns):
+    """Every average the explorer offers and its members, as the explorer counts them (the Data tab
+    gives each group's rule): groups.json for the groups page, which reads it when the site is built,
+    and groups.csv beside the other CSVs, one row per member."""
+    name_of = {e["id"]: e["name"] for e in districts} | {t["id"]: t["name"] for t in towns if t["kind"] == "town"}
+    views = (("districts", "school districts", averages), ("towns", "towns", [t for t in towns if t["kind"] == "average"]))
+    write_json(json_dir / "groups.json", {key: [{"id": a["id"], "name": a["name"], "scope": a["scope"],
+                                                 "members": [{"id": m, "name": name_of[m]} for m in a["member_ids"]]}
+                                                for a in avgs] for key, _, avgs in views})
+    rows = [{"view": view, "group_id": a["id"], "group": a["name"], "scope": a["scope"], "members": a["members"],
+             "member_id": m, "member": name_of[m]}
+            for _, view, avgs in views for a in avgs for m in a["member_ids"]]
+    frame = pd.DataFrame(rows)
+    frame.to_csv(csv_dir / "groups.csv", index=False)
+    print(f"  groups.json, groups.csv: {frame['group_id'].nunique()} groups, {len(frame):,} members")
 
 
 if __name__ == "__main__":

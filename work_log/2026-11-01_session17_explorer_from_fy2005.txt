@@ -52,3 +52,11 @@ Data tab, switch tip, menus and source list say so; the town spending tile names
 with a figure (per household: FY2009), and "Not filed" no longer counts years without a household
 count. tsc and build clean; checked in a browser at the default, Since 1990, towns per resident and
 per household, Commonwealth, the cap tab, and two former districts.
+
+Later the same day (seahag prompt log #157-#158): groups and their members.
+
+4. export_explorer_data.py: each district and town average carries member_ids (its members' ids in
+   name order), used only by write_groups(), which writes src/data/massppe/groups.json for the site's
+   groups page (read at build, never shipped to the explorer) and public/.../data/groups.csv, one row
+   per member (88 groups, 3,971 rows). shipped() leaves member_ids out of the explorer's region files,
+   so they are unchanged.
