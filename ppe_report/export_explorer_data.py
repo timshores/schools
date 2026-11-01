@@ -1,5 +1,5 @@
 """
-Export the data behind the interactive explorer at timshores.com/mass-school-spending.
+Export the data behind the interactive explorer at timshores.com/muni-spending.
 
 Every Massachusetts school district (traditional, vocational and charter, less a
 few special-purpose state schools) and every city and town, FY EXPLORER_START (2005, the
@@ -38,7 +38,7 @@ src/data/massppe/, where the page imports it, so it ships as compressed, hashed
 JavaScript chunks (the host compresses JavaScript but not JSON). explorer.json
 and towns.json hold the averages and a light list; each region's full district
 and town data is its own file under districts/ and towns/, loaded when first
-needed. The CSVs of source data go to public/mass-school-spending/data/.
+needed. The CSVs of source data go to public/muni-spending/data/.
 
     python export_explorer_data.py ../../mywebsite
 """
@@ -1424,7 +1424,7 @@ def main(site: Path):
     }
 
     json_dir = site / "src" / "data" / "massppe"
-    csv_dir = site / "public" / "mass-school-spending" / "data"
+    csv_dir = site / "public" / "muni-spending" / "data"
     for sub in ("districts", "towns", "districts-history"):  # stale region files would ship as dead chunks
         for f in (json_dir / sub).glob("*.json"):
             f.unlink()

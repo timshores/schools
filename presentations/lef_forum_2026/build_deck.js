@@ -75,7 +75,7 @@ pres.defineSlideMaster({
   objects: [
     { placeholder: { options: { name: "title", type: "title", x: 0.6, y: 0.35, w: 12.1, h: 1.05,
       fontSize: 32, bold: true, color: C.text2, valign: "middle", align: "left", margin: 0 }, text: "" } },
-    { text: { text: `Data: Massachusetts DESE, FY${F}–FY${L}. Analysis: Tim Shores, with Claude Code. Report: timshores.com/portfolio · Explorer: timshores.com/mass-school-spending`,
+    { text: { text: `Data: Massachusetts DESE, FY${F}–FY${L}. Analysis: Tim Shores, with Claude Code. Report: timshores.com/portfolio · Explorer: timshores.com/muni-spending`,
       options: { x: 0.6, y: 6.95, w: 11.2, h: 0.3, fontSize: 10, color: C.accent6, margin: 0 } } },
   ],
   slideNumber: { x: 12.2, y: 6.95, w: 0.5, h: 0.3, fontSize: 10, color: C.accent6, align: "right" },
@@ -229,7 +229,7 @@ pres.addSection({ title: "Inflation" });
     `How to read it: the first bar is what each district spent per pupil in FY${F}. The second is the same spending in FY${L} dollars, what it would take today to buy what that money bought then. The third is what the district spent in FY${L}. The gap between the first two bars is inflation; only the gap between the last two is growth.`,
     `Leverett: ${usd(ppe("Leverett", F))} in FY${F} is ${usd(real("Leverett", F))} in FY${L} dollars, against ${usd(ppe("Leverett", L))} spent in FY${L}. Inflation accounts for ${inflShare("Leverett")}% of the increase. Amherst-Pelham Regional: ${usd(ppe("Amherst-Pelham Regional", F))}, ${usd(real("Amherst-Pelham Regional", F))}, ${usd(ppe("Amherst-Pelham Regional", L))}; inflation is ${inflShare("Amherst-Pelham Regional")}% of the increase.`,
     `Prices here are the CPI-U for the Northeast, averaged over each July–June fiscal year. The report's inflation addendum also uses the federal price index for what state and local governments buy, mostly labor; by that measure the real growth is smaller still.`,
-    "The FY2025 dollars switch in the online explorer does this for every district and town: timshores.com/mass-school-spending.",
+    "The FY2025 dollars switch in the online explorer does this for every district and town: timshores.com/muni-spending.",
   ]);
 }
 
@@ -336,7 +336,7 @@ pres.addSection({ title: "Town budget" });
     `Leverett's town budget is about the size of similar towns' per resident (${usd(lev.spend_per_resident)} against ${usd(peers.spend_per_resident)}), and its residents pay about the same in taxes (${usd(lev.taxes_per_resident)} against ${usd(peers.taxes_per_resident)}). Within that budget, education takes ${share(lev.education_share)}, against ${share(peers.education_share)} for the ${peers.members} Western MA towns of 1,000–2,499 residents: ${usd(lev.education_per_resident)} per resident against ${usd(peers.education_per_resident)}.`,
     `Education in Schedule A is the town's own school department plus its assessments from regional and vocational districts. Health insurance and pensions for a town's school employees usually sit in fixed costs instead, so education's true share is if anything larger.`,
     `What the state formula requires: in FY${L}, Chapter 70 set Leverett's required local contribution at ${contrib.join(" and ")}.`,
-    `Per-resident figures divide each town's FY${L} dollars by its Census population estimate (Leverett: ${Math.round(lev.population).toLocaleString("en-US")}). Every town is in the online explorer's Towns tab: timshores.com/mass-school-spending.`,
+    `Per-resident figures divide each town's FY${L} dollars by its Census population estimate (Leverett: ${Math.round(lev.population).toLocaleString("en-US")}). Every town is in the online explorer's Towns tab: timshores.com/muni-spending.`,
   ]);
 }
 

@@ -123,7 +123,7 @@ def main():
     out["cpi_u_northeast_fy"] = {int(y): float(idx[y]) for y in years if y in idx.index}
 
     # Town budgets (DLS Schedule A general fund), through the explorer's own export so the
-    # deck and timshores.com/mass-school-spending agree: the ARPS towns, Western MA towns of
+    # deck and timshores.com/muni-spending agree: the ARPS towns, Western MA towns of
     # Leverett's size (1,000-2,499 residents), all Western MA towns
     import export_explorer_data as ex
     dists = ex.explorer_districts(df, reg)

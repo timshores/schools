@@ -1,7 +1,7 @@
 # Source data
 
 The files here are the public data behind the
-[Massachusetts school spending explorer](https://timshores.com/mass-school-spending/) and the
+[Massachusetts municipal spending explorer](https://timshores.com/muni-spending/) and the
 Western Massachusetts per-pupil expenditure report. Each comes from a state or federal agency, and
 the script named beside it downloads it again. The scripts change only the layout: rows are kept as
 each agency published them, apart from the notes below. `export_explorer_data.py` turns these files
