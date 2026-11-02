@@ -989,7 +989,12 @@ def town_data(dists, reg, latest, area=None, fifths=None):
                 "hh": series(pd.Series({fy: sum(households.get((k, fy), 0) for k in ks) or None for fy in YEARS}), 0),
                 **town_series(dls[dls["key"].isin(ks)], population), **property_series(prop, ks, population)}
 
-    averages = [average("towns-statewide", "Statewide towns average", "state", None, None, pooled, cmp={})]
+    # Two statewide averages: without the cities whose school districts are very large (the default
+    # comparison), and every city and town
+    averages = [average("towns-statewide", f"Statewide towns average, without the {len(apart)} largest cities", "state",
+                        None, None, pooled, cmp={}),
+                average("towns-statewide-all", f"Statewide towns average, all {len(keys)} cities and towns", "state",
+                        None, None, list(keys), cmp={"state": "towns-statewide"})]
     for rk, rl in REGIONS.items():
         ks = [k for k in pooled if region_of[k] == rk]
         averages.append(average(f"towns-region-{slug(rk)}", f"{rl} towns average", "region", None, rk, ks,
@@ -1034,6 +1039,7 @@ def town_data(dists, reg, latest, area=None, fifths=None):
             averages.append(average(f"towns-type-{t}", name, "type", None, None, ks, cmp={"state": "towns-statewide"}))
     for a in averages:
         a["cmp"]["gateway"] = "towns-gateway" if a["id"] != "towns-gateway" else None
+        a["cmp"]["state_all"] = "towns-statewide-all" if a["id"] != "towns-statewide-all" else None
     have = {a["id"] for a in averages}
     chunks = {}
     for a in averages:
@@ -1043,7 +1049,7 @@ def town_data(dists, reg, latest, area=None, fifths=None):
         k = norm(x["name"])
         x["cmp"] = {"peer": f"{pid}-{slug(rk)}" if pid and rk and f"{pid}-{slug(rk)}" in have else None,
                     "peer_state": pid, "region": f"towns-region-{slug(rk)}" if rk else None, "state": "towns-statewide",
-                    "gateway": "towns-gateway",
+                    "state_all": "towns-statewide-all", "gateway": "towns-gateway",
                     "type": f"towns-type-{type_of[k]['type']}" if k in type_of and f"towns-type-{type_of[k]['type']}" in have else None,
                     "fifth": f"towns-fifth-{fifths[k]['fifth']}" if fifths and k in fifths else None}
         if k in type_of:
@@ -1294,8 +1300,14 @@ def main(site: Path):
     print(f"  {len(dists)} districts: " + ", ".join(f"{k} {sum(d['cohort'] == k for d in dists)}" for k in COHORT_ORDER))
 
     # Averages. Region and statewide averages are traditional districts, less the very large.
-    pooled = [d for d in dists if d["type"] == "traditional" and d["cohort"] != "XLARGE"]
-    groups = [("statewide", "Statewide average", "state", None, None, pooled, {})]
+    # Two statewide averages: without the very large districts (the default comparison), as the report
+    # kept Springfield out of its Western MA average, and every traditional district
+    traditional = [d for d in dists if d["type"] == "traditional"]
+    pooled = [d for d in traditional if d["cohort"] != "XLARGE"]
+    groups = [("statewide", f"Statewide average, without the {len(traditional) - len(pooled)} largest", "state", None, None,
+               pooled, {}),
+              ("statewide-all", "Statewide average, all traditional districts", "state", None, None, traditional,
+               {"state": "statewide"})]
     for rk, rl in REGIONS.items():
         groups.append((f"region-{slug(rk)}", f"{rl} average", "region", None, rk,
                        [d for d in pooled if d["region"] == rk], {"state": "statewide"}))
@@ -1351,7 +1363,8 @@ def main(site: Path):
         rev = {"rev_members": len(regional)}
         if census is not None and len(regional) >= MIN_REVENUE_MEMBERS:
             rev |= revenue_fields(census, regional, True)
-        cmp = {**cmp, "gateway": "cohort-gateway" if eid != "cohort-gateway" else None}
+        cmp = {**cmp, "gateway": "cohort-gateway" if eid != "cohort-gateway" else None,
+               "state_all": "statewide-all" if eid != "statewide-all" else None}
         averages.append({"id": eid, "name": name, "kind": "average", "scope": scope, "cohort": cohort,
                          "region": region, "members": len(members),
                          "member_ids": [d["id"] for d in sorted(members, key=lambda d: d["name"])], "cmp": cmp,
@@ -1369,7 +1382,7 @@ def main(site: Path):
                      "region": rk, "regional": regional, "fte": round(d["fte"], 1), "gateway": d["gateway"],
                      "cmp": {"cohort": rc if rc in have else None, "cohort_state": f"cohort-{k.lower()}",
                              "region": f"region-{slug(rk)}" if rk else None, "state": "statewide",
-                             "gateway": "cohort-gateway",
+                             "gateway": "cohort-gateway", "state_all": "statewide-all",
                              "type": f"type-{types[d['id']]['type']}" if d["id"] in types else None,
                              "fifth": f"fifth-{d['income']['fifth']}" if d["income"] else None},
                      **({"community": types[d["id"]]} if d["id"] in types else {}),

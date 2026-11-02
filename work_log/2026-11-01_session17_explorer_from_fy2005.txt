@@ -60,3 +60,13 @@ Later the same day (seahag prompt log #157-#158): groups and their members.
    groups page (read at build, never shipped to the explorer) and public/.../data/groups.csv, one row
    per member (88 groups, 3,971 rows). shipped() leaves member_ids out of the explorer's region files,
    so they are unchanged.
+
+Later still (seahag prompt log #175-#176): two statewide averages.
+
+5. export_explorer_data.py: alongside the statewide average without the very large districts
+   ("statewide", now named "Statewide average, without the 10 largest", still the default
+   comparison), one with every traditional district ("statewide-all", 286); for towns, likewise
+   ("towns-statewide", without the 10 cities those districts serve; "towns-statewide-all", all
+   351). Every district, town and average gets cmp.state_all pointing at the new one. Checked: the
+   existing averages' figures are unchanged; only names, the new averages, and the state_all links
+   differ. The 10 teach 23% of traditional districts' pupils; the 10 cities hold 24% of residents.
