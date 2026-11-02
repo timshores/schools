@@ -2,6 +2,12 @@
 
 Session files (newest first):
 
+  2026-11-02_session18_map_years.txt
+    2026-11-02 (Session 18) - Explorer Map: Its Measures Year by Year (Years Range, Play), Education's Share
+
+  2026-11-01_session17_explorer_from_fy2005.txt
+    2026-11-01 (Session 17) - Explorer: Its Own Years Begin at FY2005, for Districts and Towns
+
   2026-10-30_session16_explorer_since_1990.txt
     2026-10-30 (Session 16) - Explorer "Since 1990": FY1990-FY2008 Data, NCES Enrollment, Former Districts
 

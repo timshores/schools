@@ -1,0 +1,40 @@
+2026-11-02 (Session 18) - Explorer Map: Its Measures Year by Year (Years Range, Play), Education's Share
+
+Tim (seahag prompt log #184): a year slider for the map's measures with years, so readers can see
+which years a change covers and measure enrollment change over other spans; a Play button that runs a
+one-year measure from its first year to its latest; figures that round to zero shown without a sign;
+Education's share of spending on the map.
+
+Changes:
+
+1. export_explorer_data.py, map_series() (new), called from map_data(): the map's measures year by year,
+   along FY2005 to the cap tab's latest year (FY2027), trailing years without a value left off.
+   Towns: spending per resident (spend_total / pop), population, equalized value per resident, room
+   under the levy limit, the single-family bill's share of income, education's share of spending,
+   residents per square mile (population over land area), and the cap's change per household with no
+   cap. That last: each history year's no-cap target is cey times the year's total target over its
+   total cey (as cap_data's factor and the cap tab's year-by-year chart), over that year's ACS
+   households, FY2009 on; FY2026 and FY2027 are the cap tab's own figures, so the latest year matches
+   map.json. Districts: in-district spending per pupil, in-district enrollment, actual spending above
+   required, Chapter 70 aid, and required spending (aid plus required local), each per foundation
+   pupil, and students per square mile (foundation enrollment over the member towns' land area, as
+   district_types counts members; the last year is the community type's own FY2026 figure). cpi along
+   the same years; "w" on each split town: its pupils in its elementary and its secondary district,
+   the weights map_data already used for "all".
+
+2. Written to its own file, src/data/massppe/map-years.json (620 KB, 248 KB gzipped): the site's map
+   draws from map.json and loads the years after. map.json is unchanged but for one new figure,
+   "edu" (education's share, each town's latest year), from the new edu_share(t), which map_series
+   also uses; it's the explorer tile's rule (education over all functions, per resident).
+
+3. The site computes growth and change in the browser on the years chosen, by map_data's rules
+   (trend growth before and after inflation, each fitted on its own; change between the first and
+   last positive values; a split town's two districts combined by "w").
+
+Checks: every other data file identical to before the export (built dates aside). In the browser, with
+the years loaded, every measure's default figures match map.json's own in 30 of 36 views (layer x
+grades x measure x dollars). The six that differ do so by design: a level is now one year for every
+town or district, so the 11 districts without FY2025 above-required figures and the 5 towns without
+FY2025 Schedule A show no data for FY2025 where map.json carried an earlier year; split towns' aid
+share is FY2025 where it was FY2024 (map_data waited for above-required too); and town density moves
+by one in the last digit for 71 towns, from population over area unrounded.

@@ -681,6 +681,18 @@ def district_types(dists, c70, area):
     return out
 
 
+def edu_share(t):
+    """Education's share of a town's general fund spending each year: its spending per resident on
+    education over its spending per resident on every function, as the explorer's tile figures it"""
+    spend = t.get("spend") or {}
+    out = []
+    for y in range(len(YEARS)):
+        parts = [s[y] for s in spend.values()]
+        edu = spend.get("education", [None] * len(YEARS))[y]
+        out.append(None if not spend or edu is None or any(p is None for p in parts) or not sum(parts) else edu / sum(parts))
+    return out
+
+
 def map_data(districts, towns, cap, cpi, org4):
     """map.json: the Commonwealth tab's map. Each town's outline, the district that serves its
     elementary grades and its secondary grades, and a few measures of how towns and districts
@@ -787,6 +799,7 @@ def map_data(districts, towns, cap, cpi, org4):
         return out
     used = set()
     out_towns = []
+    weights = {}  # a split town's pupils in its elementary and its secondary district
     cap_year = cap["meta"]["latest"]
     cap_towns = {t["id"]: t for t in cap["years"][str(cap_year)]["towns"]}
     for t in towns:
@@ -802,7 +815,10 @@ def map_data(districts, towns, cap, cpi, org4):
         high = regs[-1] if regs else own[0] if own else None
         used |= {elem, high} - {None}
         kind_of = {d["id"]: d["kind"] for d in ds}
-        both = combined([(i, pupils(i, t["name"], kind_of[i])) for i in (elem, high)]) if elem and high and elem != high else None
+        pair = [(i, pupils(i, t["name"], kind_of[i])) for i in (elem, high)] if elem and high and elem != high else None
+        both = combined(pair) if pair else None
+        if both and all(w for _, w in pair):
+            weights[t["id"]] = [round(w, 1) for _, w in pair]
         c = cap_towns.get(t["id"])
         hh = t["hh"][-1] if t.get("hh") else None
         v = {
@@ -812,6 +828,7 @@ def map_data(districts, towns, cap, cpi, org4):
             "levy_room": latest([None if m is None or x is None or not m else (m - x) / m
                                  for x, m in zip(t.get("levy_total") or [], t.get("levy_max") or [])]),
             "bill_income": latest(t["sf_bill_income"]) if t.get("sf_bill_income") else None,
+            "edu": latest(edu_share(t)),
             "cap_hh": [round((c["nocap"] - c["target"]) / c["hh"]), cap_year] if c and c.get("hh") else None,
         }
         com = t.get("community") or {}
@@ -844,13 +861,116 @@ def map_data(districts, towns, cap, cpi, org4):
     # Where each income fifth begins, so the map's income colors are exactly the fifths
     def fifth_cuts(xs):
         return [min(x["income_pc"] for x in xs if x["fifth"] == f) for f in (2, 3, 4, 5)] if xs else None
+    series = map_series(entity, sorted(used), towns, out_towns, cap, cpi, org4, mem, ppe_of, weights)
     return {"meta": {"built": dt.date.today().isoformat(), "start": EXPLORER_START, "latest": LATEST_YEAR,
                      "cap_fy": cap_year, "width": geo["width"], "height": geo["height"],
                      "outlines": geo["source"],
                      "fifths": {"towns": fifth_cuts([t["income"] for t in towns if t.get("income")]),
                                 "districts": fifth_cuts([e["income"] for e in districts if e.get("income")]),
                                 "year": max((t["income"]["year"] for t in towns if t.get("income")), default=None)}},
-            "towns": out_towns, "districts": out_districts}
+            "towns": out_towns, "districts": out_districts, "series": series}
+
+
+def map_series(entity, used, towns, out_towns, cap, cpi, org4, mem, ppe_of, weights):
+    """The map's measures year by year, so it can show any span of years for a change and any year for a
+    level: every array runs along "years", FY{EXPLORER_START} to the cap tab's latest year, trailing
+    years without a value left off. Growth and change are figured in the browser, by the same rules as
+    map_data (trend growth on the years chosen, before and after inflation with "cpi"; change between the
+    first and last years with a value). Towns: spending per resident, population, property value per
+    resident, room under the levy limit, the tax bill's share of income, education's share of spending,
+    residents per square mile, and the cap's change per household with no cap (FY2009 on, the first year
+    with a household count; FY2026 and FY2027 as the cap tab figures them). Districts: in-district
+    spending per pupil, in-district enrollment, actual spending above required, Chapter 70 aid, and
+    required spending, each per foundation pupil, and students per square mile (the last year, the
+    latest foundation enrollment, as the community types count it). "w": a split town's pupils in its
+    elementary and its secondary district, for combining the two."""
+    cap_years = sorted(int(y) for y in cap["years"])
+    axis = YEARS + [y for y in cap_years if y > LATEST_YEAR]
+    at = {y: i for i, y in enumerate(axis)}
+
+    def trim(vals, digits=None):
+        out = [None if v is None or v != v else (round(v, digits) if digits is not None else round(v)) for v in vals]
+        while out and out[-1] is None:
+            out.pop()
+        return out if any(v is not None for v in out) else None
+
+    def on_axis(vals, years=YEARS):
+        row = [None] * len(axis)
+        for v, y in zip(vals, years):
+            if y in at:
+                row[at[y]] = v
+        return row
+
+    area = land_areas()
+    towns_of = {}
+    for o, tn in zip(mem["Org4Code"].astype(int), mem["Town"]):
+        towns_of.setdefault(o, []).append(norm(tn))
+
+    # The cap's change per household: each history year's no-cap targets keep that year's statewide total;
+    # the cap tab's own years replace them, so the latest year is the figure map_data shows
+    H = cap.get("history") or {}
+    hyears = H.get("years") or []
+    factor = {}
+    for j, y in enumerate(hyears):
+        pairs = [(h["cey"][j], h["target"][j]) for h in H["towns"].values() if h["cey"][j] is not None and h["target"][j] is not None]
+        if pairs and sum(c for c, _ in pairs):
+            factor[y] = sum(t for _, t in pairs) / sum(c for c, _ in pairs)
+    cap_town = {y: {t["id"]: t for t in cap["years"][str(y)]["towns"]} for y in cap_years}
+
+    s_towns = {}
+    for t, o in zip(towns, out_towns):
+        k = norm(t["name"])
+        pop = t["pop"]
+        edu = edu_share(t)
+        hh = t.get("hh") or [None] * len(YEARS)
+        cap_hh = [None] * len(axis)
+        h = H.get("towns", {}).get(t["id"])
+        for j, y in enumerate(hyears):
+            if y not in at:
+                continue
+            if y in cap_town:
+                c = cap_town[y].get(t["id"])
+                if c and c.get("hh"):
+                    cap_hh[at[y]] = (c["nocap"] - c["target"]) / c["hh"]
+            elif h and y <= LATEST_YEAR and y in factor and h["cey"][j] is not None and h["target"][j] is not None and hh[YEARS.index(y)]:
+                cap_hh[at[y]] = (round(h["cey"][j] * factor[y]) - h["target"][j]) / hh[YEARS.index(y)]
+        row = {
+            "spend": trim(on_axis([None if s is None or not p else s / p for s, p in zip(t["spend_total"], pop)]), 2),
+            "pop": trim(on_axis(pop)),
+            "eqv": trim(on_axis(t["eqv"])) if t.get("eqv") else None,
+            "levy_room": trim(on_axis([None if m is None or x is None or not m else (m - x) / m
+                                       for x, m in zip(t.get("levy_total") or [], t.get("levy_max") or [])]), 4),
+            "bill_income": trim(on_axis(t["sf_bill_income"]), 4) if t.get("sf_bill_income") else None,
+            "edu": trim(on_axis(edu), 4),
+            "density": trim(on_axis([None if p is None or not area.get(k) else p / area[k] for p in pop]), 1),
+            "cap_hh": trim(cap_hh),
+        }
+        s_towns[t["id"]] = {m: v for m, v in row.items() if v}
+        if t["id"] in weights:
+            s_towns[t["id"]]["w"] = weights[t["id"]]
+
+    s_districts = {}
+    for i in used:
+        e = entity[i]
+        nss = e.get("nss") or {}
+        ks = towns_of.get(org4.get(i), []) if e.get("regional") else [norm(e["name"])]
+        sqmi = sum(area[x] for x in ks) if ks and all(x in area for x in ks) else None
+        dens = on_axis([None if f is None or not sqmi else f / sqmi for f in e["enroll"]["foundation"]])
+        com = e.get("community") or {}
+        if com.get("fy") in at:
+            dens[at[com["fy"]]] = com["density"]
+        row = {
+            "ppe": trim(on_axis(ppe_of(i))),
+            "enroll": trim(on_axis(e["enroll"]["in_district"]), 1),
+            "above": trim(on_axis(nss.get("above_required") or [])),
+            "aid": trim(on_axis(nss.get("ch70_aid") or [])),
+            "req": trim(on_axis([None if a is None or r is None else a + r
+                                 for a, r in zip(nss.get("ch70_aid") or [], nss.get("required_local") or [])])),
+            "density": trim(dens, 1),
+        }
+        s_districts[i] = {m: v for m, v in row.items() if v}
+    return {"years": axis, "cpi": [round(cpi[y], 3) if y in cpi else None for y in axis],
+            "towns": s_towns, "districts": s_districts}
 
 
 def explorer_districts(df, reg):
@@ -1464,6 +1584,8 @@ def main(site: Path):
                 towns_only = [t for t in all_towns if t["kind"] == "town"]
                 mp = map_data(full, towns_only, cap, {int(y): float(idx[y]) for y in YEARS if y in idx.index},
                               {d["id"]: d["code"] // 10000 for d in dists})
+                # The years behind the map's measures, a file of their own: the map draws without them
+                sizes["map-years.json"] = write_json(json_dir / "map-years.json", mp.pop("series"))
                 sizes["map.json"] = write_json(json_dir / "map.json", mp)
                 print(f"  map.json: {len(mp['towns'])} towns, {len(mp['districts'])} districts")
             else:
