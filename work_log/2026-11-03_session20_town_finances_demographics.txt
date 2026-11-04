@@ -1,0 +1,45 @@
+2026-11-03 (Session 20) - Explorer Towns: Reserves, Levy Ceiling and Votes, Debt, Capital, Labor Force, Residents
+
+Tim (seahag prompt log #190, #192): the town files he downloaded from the DLS Data Analytics and
+Resources Bureau (override capacity as a share of the levy ceiling, override and exclusion votes, capital
+projects, debt and bond ratings, labor force), and Census figures on race, disability, sex and age.
+
+Changes:
+
+1. update_dls_fiscal_data.py (new): fetches ten DLS Gateway reports itself, the same reports as Tim's
+   downloads (row counts match): certified free cash and stabilization balances with DLS's operating budget,
+   long-term debt, authorized and unissued debt, Moody's and S&P ratings (one agency at a time, islCompany),
+   net excludable debt by vote, the labor force (DLS leaves its codes blank; matched by name), the four
+   Prop 2 1/2 vote reports in one file, and Schedule A Part 4 capital projects (one year and amount type
+   at a time). Writes data/dls_*.csv and dls_fiscal_sources.json. DLS's "operating budget" equals its
+   Revenue by Source total without enterprise and CPA funds, to the cent, so that report isn't needed.
+
+2. update_acs_demographics.py (new): B01001, B03002, B18101 for the four five-year releases that don't
+   overlap (2005-2009, 2010-2014, 2015-2019, 2020-2024), from the summary files (no API key): the
+   Massachusetts zip's members by range request through 2020, each table's national file for 2024. Checks
+   that sexes, age groups, and race groups each add to the population. Eleven towns the Census Bureau
+   later re-coded have no 2005-2009 row; seven re-coded for 2020-2024 join by name through the population
+   file, which lists both codes.
+
+3. export_explorer_data.py: load_fiscal(), fiscal_series() for every town and town average: reserves at
+   each fiscal year's end (June 30 stabilization balances and the free cash certified as of the next
+   July 1), the operating budget, debt outstanding and unissued, capital projects by purpose, per resident
+   and pooled; debt service and debt over EQV; the labor force (calendar year Y at FY Y+1, as the
+   population); override capacity as a share of the ceiling and the ceiling per resident; vote counts since
+   FY2005; each measure's newest dollars past the axis (FY2026), the newest year 90% of a group's towns
+   report. town_ratings(), town_votes() (votes.json, every town's votes, loaded only when a list opens).
+   load_demographics(), demo_series(): counts pooled, each release at FY+1. fiscal_shares() for four map
+   measures. Eight DLS CSVs and towns-demographics.csv for the Data tab.
+
+   Not built: a statewide budget-vs-actual gap. Schedule A's General Fund report offers Revenues and
+   Expenditures only, no transfers out, while the operating budget includes appropriations to
+   stabilization and capital funds (Amherst FY2024: $103.7M budget, $84.3M Schedule A spending), so the gap
+   would count savings as money unspent.
+
+   Checks: Amherst end of FY2026 reserves $12,223,807 free cash + $25,098,848 stabilization against a
+   $105,444,302 budget (35%); override capacity FY2026 $36,299,102 of a $105,641,755 ceiling; S&P AA+
+   (2026); 18 votes.
+
+4. mywebsite: Reserves, Long-term debt, Capital projects, Residents by age, Residents by race and
+   ethnicity panels; levy ceiling line, override capacity and the vote list in the levy panel; labor force
+   in the population panel; three tiles; four map measures; Data tab sources and methods.

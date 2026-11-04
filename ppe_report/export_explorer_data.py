@@ -150,11 +150,30 @@ LA4_CSV = Path("data/dls_la4_parcels.csv")
 EQV_CSV = Path("data/dls_eqv.csv")
 SF_BILL_CSV = Path("data/dls_single_family_tax_bill.csv")
 LEVY_CSV = Path("data/dls_levy_capacity.csv")
+# Reserves, debt, capital projects, Prop 2 1/2 votes, labor force (update_dls_fiscal_data.py)
+FREE_CASH_CSV = Path("data/dls_free_cash.csv")
+STAB_CSV = Path("data/dls_stabilization.csv")
+DEBT_CSV = Path("data/dls_long_term_debt.csv")
+AUTH_DEBT_CSV = Path("data/dls_authorized_debt.csv")
+RATINGS_CSV = Path("data/dls_bond_ratings.csv")
+VOTES_CSV = Path("data/dls_prop25_votes.csv")
+CAPITAL_CSV = Path("data/dls_capital_projects.csv")
+LABOR_CSV = Path("data/dls_labor_force.csv")
+FISCAL_SOURCES = Path("data/dls_fiscal_sources.json")
+# Schedule A Part 4's purposes, bottom to top
+CAPITAL = {"Schools": "schools", "Municipal Buildings": "buildings", "Highways (Chapter 90)": "highways",
+           "Water": "water", "Sewer": "sewer", "Landfill": "landfill", "Other": "other"}
+VOTE_KINDS = {"Override or underride": "override", "Debt exclusion": "debt", "Capital exclusion": "capital",
+              "Stabilization fund": "stabilization"}
 # Households: ACS five-year estimates (update_acs_households.py). Each fiscal year takes the
 # release ending the calendar year it begins (FY2025: 2020-2024); FY2009 takes the first
 # release, 2005-2009, and earlier years have none. A town missing from a release (ten whose
 # Census codes changed in 2010 are missing from 2005-2009) takes the next one.
 HH_CSV = Path("data/census_town_households.csv")
+# Residents by sex, age, race and Hispanic origin, and disability, ACS five-year releases that don't overlap
+DEMO_CSV = Path("data/census_town_demographics.csv")
+DEMO_COLS = ["population", "male", "female", "age_under_18", "age_18_24", "age_25_44", "age_45_64", "age_65_up",
+             "white", "black", "asian", "other_race", "hispanic", "disability_universe", "disability"]
 # Town outlines for the map, with land areas (update_town_boundaries.py)
 BOUNDARIES_JSON = Path("data/town_boundaries.json")
 # Community types, by the Commonwealth's own lines where it draws them. The Inner Core is Boston and
@@ -444,6 +463,132 @@ def property_series(prop, ks, population):
     }
 
 
+def load_fiscal():
+    """Reserves, budgets, debt, capital projects, ratings, votes and labor force by town key; None where
+    update_dls_fiscal_data.py hasn't run."""
+    if not all(p.exists() for p in (FREE_CASH_CSV, STAB_CSV, DEBT_CSV, AUTH_DEBT_CSV, CAPITAL_CSV, LABOR_CSV, VOTES_CSV)):
+        return None
+    read = lambda path, fy: (pd.read_csv(path, dtype={"DOR_CODE": str})  # noqa: E731
+                             .assign(key=lambda d: d["Municipality"].map(norm)).rename(columns={fy: "FY"}))
+    fc = read(FREE_CASH_CSV, "Fiscal Year")
+    # Free cash certified as of July 1 is the year before's June 30 balance: FY2027's is FY2026's year-end
+    fc = fc.assign(FY=fc["FY"] - 1).set_index(["key", "FY"])
+    stab = read(STAB_CSV, "Schedule A Fiscal Year").set_index(["key", "FY"])
+    debt = read(DEBT_CSV, "Fiscal Year").set_index(["key", "FY"])
+    auth = read(AUTH_DEBT_CSV, "Fiscal Year").set_index(["key", "FY"])
+    cap = read(CAPITAL_CSV, "Fiscal Year")
+    cap = cap[cap["Type"] == "Expenditures"].set_index(["key", "FY"])
+    # The labor force is a calendar year's average; the year before a fiscal year's July 1 population
+    # estimate begins it centers on that day, so calendar 2022 sits at FY2023, as the population does
+    labor = read(LABOR_CSV, "Year")
+    labor = labor.assign(FY=labor["FY"] + 1).set_index(["key", "FY"])
+    levy = pd.read_csv(LEVY_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Municipality"].map(norm)).set_index(["key", "FY"])
+    ratings = pd.read_csv(RATINGS_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Name"].map(norm))
+    votes = pd.read_csv(VOTES_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Municipality"].map(norm))
+    return {"fc": fc, "stab": stab, "debt": debt, "auth": auth, "cap": cap, "labor": labor, "levy": levy,
+            "ratings": ratings, "votes": votes}
+
+
+def fiscal_series(fiscal, ks, population):
+    """Reserves, the operating budget, debt and capital projects per resident, the labor force, and
+    override capacity, for one town or pooled over a group (ks); each year counts the towns with a
+    figure for it. Reserves are at each fiscal year's end: June 30's stabilization balances and the
+    free cash certified from that balance sheet. latest: the newest year-end's dollars, which the
+    explorer's axis stops short of (reserves to FY2026, levy capacity to FY2026)."""
+    if fiscal is None:
+        return {}
+    ks = set(ks)
+    mine = lambda df: df[df.index.get_level_values("key").isin(ks)]  # noqa: E731
+
+    def per_resident(df, cols):
+        """{col: per-resident series} over YEARS, each year pooled over the towns with that column"""
+        out = {}
+        for c, key in cols.items():
+            x = df[c].dropna()
+            res = pd.Series([population.get(i, 0) for i in x.index], index=x.index)
+            out[key] = series(x.groupby(level="FY").sum() / res.groupby(level="FY").sum(), 0)
+        return out
+
+    def latest(df, cols):
+        """The newest year nine in ten of the group's reporting towns have every column for, in dollars,
+        summed over those towns (a town's own newest year)"""
+        x = df[list(cols)].dropna()
+        if x.empty:
+            return None
+        n = x.groupby(level="FY").size()
+        fy = int(n[n >= 0.9 * n.max()].index.max())
+        row = x.xs(fy, level="FY").sum()
+        return {"fy": fy, **{key: round(float(row[c])) for c, key in cols.items()}}
+
+    fc, stab, debt, auth, cap = (mine(fiscal[k]) for k in ("fc", "stab", "debt", "auth", "cap"))
+    res_cols = {"Stabilization Fund Balance": "stab", "Special Purpose Stabilization Fund Balance": "sp_stab"}
+    both = stab[list(res_cols) + ["Operating Budget"]].join(fc[["Certified Free Cash as of 7/1"]], how="inner")
+    out = {
+        "reserves": {**per_resident(both, res_cols), **per_resident(both, {"Certified Free Cash as of 7/1": "free_cash"})},
+        "budget": per_resident(stab, {"Operating Budget": "v"})["v"],
+        "reserves_latest": latest(both, {**res_cols, "Certified Free Cash as of 7/1": "free_cash", "Operating Budget": "budget"}),
+        "debt": {**per_resident(debt, {"Total Outstanding Debt (Schedule A Part 10)": "outstanding"}),
+                 **per_resident(auth, {"Unissued Debt": "unissued"})},
+        "capital": per_resident(cap, {c: k for c, k in CAPITAL.items()}),
+    }
+    d = debt[["GF Debt Service (Schedule A Part 2)", "Total Budget", "Total Outstanding Debt (Schedule A Part 10)",
+              "Equalized Values (EQV)"]].dropna().groupby(level="FY").sum()
+    out["debt_service"] = series(d["GF Debt Service (Schedule A Part 2)"] / d["Total Budget"] * 100, 2)
+    out["debt_eqv"] = series(d["Total Outstanding Debt (Schedule A Part 10)"] / d["Equalized Values (EQV)"] * 100, 2)
+    out["debt_latest"] = latest(debt, {"Total Outstanding Debt (Schedule A Part 10)": "outstanding",
+                                      "GF Debt Service (Schedule A Part 2)": "service", "Total Budget": "budget"})
+    lab = mine(fiscal["labor"])[["Labor Force", "Employed", "Unemployed"]].dropna().groupby(level="FY").sum()
+    out["labor"] = {"force": series(lab["Labor Force"], 0), "employed": series(lab["Employed"], 0),
+                    "rate": series(lab["Unemployed"] / lab["Labor Force"] * 100, 1)}
+    out["labor_latest"] = int(lab.index.max()) - 1 if len(lab) else None  # its calendar year
+    lv = mine(fiscal["levy"])[["Override Capacity", "Levy Ceiling", "Levy Limit w/o Debt & Capital Exclusions"]].dropna()
+    lsum = lv.groupby(level="FY").sum()
+    out["override_pct"] = series(lsum["Override Capacity"] / lsum["Levy Ceiling"] * 100, 1)
+    out["levy_ceiling_pr"] = per_resident(lv, {"Levy Ceiling": "v"})["v"]
+    out["override_latest"] = latest(lv, {"Override Capacity": "capacity", "Levy Ceiling": "ceiling"})
+    # Prop 2 1/2 votes since the explorer's first year: held and won, by kind
+    v = fiscal["votes"][fiscal["votes"]["key"].isin(ks) & (fiscal["votes"]["Fiscal Year"] >= EXPLORER_START)]
+    out["votes"] = {VOTE_KINDS[k]: [int((v["Vote"] == k).sum()), int(((v["Vote"] == k) & (v["Win / Loss"] == "WIN")).sum())]
+                    for k in VOTE_KINDS}
+    return out
+
+
+def town_votes(fiscal, names):
+    """votes.json: every town's Prop 2 1/2 votes, newest first, as DLS lists them: fiscal year, date,
+    kind (override, underride, debt or capital exclusion, stabilization fund), department, purpose,
+    amount, won, yes and no votes."""
+    v = fiscal["votes"].copy()
+    v["yes"] = v["Yes Votes"].fillna(v["Number Yes"])
+    v["no"] = v["No Votes"].fillna(v["Number No"])
+    v["kind"] = [VOTE_KINDS[k] if k != "Override or underride" else (t or "Override").lower()
+                 for k, t in zip(v["Vote"], v["Vote Type"].fillna(""))]
+    v["date"] = pd.to_datetime(v["Vote Date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    out = {}
+    for k, g in v[v["key"].isin(names)].sort_values(["date", "Fiscal Year"], ascending=False).groupby("key", sort=False):
+        out[slug(names[k])] = [[int(r["Fiscal Year"]), r["date"] if isinstance(r["date"], str) else None, r["kind"],
+                                (r["Department"] or "").strip().capitalize() if isinstance(r["Department"], str) else None,
+                                r["Description"].strip() if isinstance(r["Description"], str) else None,
+                                None if pd.isna(r["Amount"]) else round(float(r["Amount"])),
+                                r["Win / Loss"] == "WIN",
+                                None if pd.isna(r["yes"]) else int(r["yes"]), None if pd.isna(r["no"]) else int(r["no"])]
+                               for _, r in g.iterrows()]
+    return out
+
+
+def town_ratings(fiscal, k):
+    """A town's bond ratings by agency: [year, rating] each year DLS lists one."""
+    r = fiscal["ratings"][fiscal["ratings"]["key"] == k] if fiscal is not None else None
+    if r is None or r.empty:
+        return {}
+    years = [c for c in r.columns if str(c).isdigit()]
+    out = {}
+    for _, row in r.iterrows():
+        got = [[int(y), row[y].strip()] for y in years if isinstance(row[y], str) and row[y].strip()]
+        if got:
+            out["moodys" if row["Rating Agency"].startswith("Mood") else "sp"] = got
+    return {"ratings": out} if out else {}
+
+
 # Commonwealth tab: every district in DESE's Chapter 70 profiles, with its member towns'
 # property and income pooled, for scatterplots of any two measures
 VALLEY_COUNTIES = {"Franklin", "Hampshire", "Hampden"}
@@ -634,6 +779,34 @@ def cap_data(all_towns):
             "years": years, "history": history}
 
 
+def load_demographics(pop):
+    """(town key, ACS release's last year) -> its counts; empty if update_acs_demographics.py hasn't run. A town
+    the Census Bureau gave a new code keeps both in the population file, so both find it."""
+    if not DEMO_CSV.exists():
+        return {}
+    key_of = pop.drop_duplicates("COUSUB_FIPS").set_index("COUSUB_FIPS")["key"]
+    d = pd.read_csv(DEMO_CSV, dtype={"COUSUB_FIPS": str}).assign(key=lambda x: x["COUSUB_FIPS"].map(key_of))
+    return {(k, int(v)): row for k, v, row in zip(d["key"], d["Vintage"], d[DEMO_COLS].to_dict("records")) if isinstance(k, str)}
+
+
+def demo_series(demo, ks):
+    """The towns' combined counts, each release at the fiscal year after its five years end (2020-2024 at FY2025),
+    as the households are; a release counts the towns it has."""
+    if not demo:
+        return {}
+    vintages = sorted({v for _, v in demo})
+    out = {c: [None] * len(YEARS) for c in DEMO_COLS}
+    for v in vintages:
+        if v + 1 not in YEARS:
+            continue
+        rows = [demo[(k, v)] for k in ks if (k, v) in demo]
+        for c in DEMO_COLS:
+            vals = [r[c] for r in rows if r[c] == r[c] and r[c] is not None]
+            if rows and len(vals) == len(rows):
+                out[c][YEARS.index(v + 1)] = round(sum(vals))
+    return {"demo": out} if any(x is not None for x in out["population"]) else {}
+
+
 def load_households(pop):
     """(town key, fiscal year) -> households; empty if update_acs_households.py hasn't run."""
     if not HH_CSV.exists():
@@ -748,6 +921,17 @@ def edu_share(t):
         edu = spend.get("education", [None] * len(YEARS))[y]
         out.append(None if not spend or edu is None or any(p is None for p in parts) or not sum(parts) else edu / sum(parts))
     return out
+
+
+def fiscal_shares(t):
+    """A town's fiscal measures for the map, each year as a share: override capacity of the levy ceiling, reserves of
+    the operating budget, general fund debt service of the budget, and the unemployment rate (2022 at FY2023)."""
+    pct = lambda vals: [None if v is None else v / 100 for v in vals] if vals else None  # noqa: E731
+    res = t.get("reserves")
+    reserves = ([None if t["budget"][i] in (None, 0) or any(res[k][i] is None for k in res)
+                 else sum(res[k][i] for k in res) / t["budget"][i] for i in range(len(YEARS))] if res and t.get("budget") else None)
+    return {"override": pct(t.get("override_pct")), "reserves": reserves, "debt_service": pct(t.get("debt_service")),
+            "unemp": pct((t.get("labor") or {}).get("rate"))}
 
 
 def map_data(districts, towns, cap, cpi, org4):
@@ -887,6 +1071,7 @@ def map_data(districts, towns, cap, cpi, org4):
             "bill_income": latest(t["sf_bill_income"]) if t.get("sf_bill_income") else None,
             "edu": latest(edu_share(t)),
             "cap_hh": [round((c["nocap"] - c["target"]) / c["hh"]), cap_year] if c and c.get("hh") else None,
+            **{k: latest(vals) for k, vals in fiscal_shares(t).items() if vals},
         }
         com = t.get("community") or {}
         if com:
@@ -1001,6 +1186,7 @@ def map_series(entity, used, towns, out_towns, cap, cpi, org4, mem, ppe_of, weig
             "edu": trim(on_axis(edu), 4),
             "density": trim(on_axis([None if p is None or not area.get(k) else p / area[k] for p in pop]), 1),
             "cap_hh": trim(cap_hh),
+            **{k: trim(on_axis(vals), 4) for k, vals in fiscal_shares(t).items() if vals},
         }
         s_towns[t["id"]] = {m: v for m, v in row.items() if v}
         if t["id"] in weights:
@@ -1085,6 +1271,7 @@ def town_data(dists, reg, latest, area=None, fifths=None):
     pop = pd.read_csv(POP_CSV, dtype={"COUSUB_FIPS": str}).assign(key=lambda d: d["Town"].map(norm))
     population = {(k, fy): p for k, fy, p in zip(pop["key"], pop["FY"], pop["Population"])}
     households = load_households(pop)
+    demo = load_demographics(pop)
     county = pop.sort_values("FY").groupby("key")["County"].last().to_dict()
     members = pd.read_csv(MEMBERS_CSV, dtype={"Org4Code": str}).assign(key=lambda d: d["Town"].map(norm))
     c70 = pd.read_csv(C70_CSV, dtype={"Org4Code": str})
@@ -1092,6 +1279,9 @@ def town_data(dists, reg, latest, area=None, fifths=None):
     prop = load_property()
     if prop is None:
         print("  [WARN] property data missing (run update_dls_property_data.py); no property panels")
+    fiscal = load_fiscal()
+    if fiscal is None:
+        print("  [WARN] reserves, debt and votes missing (run update_dls_fiscal_data.py); no fiscal panels")
     names = dls.drop_duplicates("key").set_index("key")["Municipality"].to_dict()
     keys = sorted(names)
     missing = [k for k in keys if (k, latest) not in population]
@@ -1155,6 +1345,7 @@ def town_data(dists, reg, latest, area=None, fifths=None):
                      "pop": series(pd.Series({fy: population.get((k, fy)) for fy in YEARS}), 0),
                      "hh": series(pd.Series({fy: households.get((k, fy)) for fy in YEARS}), 0),
                      **town_series(dls[dls["key"] == k], population), **property_series(prop, [k], population),
+                     **fiscal_series(fiscal, [k], population), **town_ratings(fiscal, k), **demo_series(demo, [k]),
                      "districts": schools})
 
     def average(aid, name, scope, group, region, ks, **fields):
@@ -1164,7 +1355,8 @@ def town_data(dists, reg, latest, area=None, fifths=None):
                 "chunk": slug(region) if region else "statewide", **fields,
                 "pop": series(pd.Series({fy: sum(population.get((k, fy), 0) for k in ks) for fy in YEARS}), 0),
                 "hh": series(pd.Series({fy: sum(households.get((k, fy), 0) for k in ks) or None for fy in YEARS}), 0),
-                **town_series(dls[dls["key"].isin(ks)], population), **property_series(prop, ks, population)}
+                **town_series(dls[dls["key"].isin(ks)], population), **property_series(prop, ks, population),
+                **fiscal_series(fiscal, ks, population), **demo_series(demo, ks)}
 
     # Two statewide averages: without the cities whose school districts are very large (the default
     # comparison), and every city and town
@@ -1253,6 +1445,9 @@ def town_data(dists, reg, latest, area=None, fifths=None):
                             "average single-family tax bill",
             },
             "property": prop is not None,
+            "fiscal": ({k: v.get("data_current_as_of") for k, v in json.loads(FISCAL_SOURCES.read_text()).items()
+                        if isinstance(v, dict)} | {"labor_latest": int(fiscal["labor"].index.get_level_values("FY").max()) - 1}
+                       if fiscal is not None else None),
             "c70_target": C70_TARGET,
         },
         "averages": [{"id": a["id"], "name": a["name"], "scope": a["scope"], "peer": a["peer"], "region": a["region"],
@@ -1457,6 +1652,35 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
                                 "Households": "households", "Source": "source_url"})
         hh.insert(1, "acs_five_year_span", (hh["acs_five_year_ending"] - 4).astype(str) + "-" + hh["acs_five_year_ending"].astype(str))
         save("towns-households.csv", hh.sort_values(["town", "acs_five_year_ending"]))
+    if all_towns and DEMO_CSV.exists():
+        dm = pd.read_csv(DEMO_CSV, dtype={"COUSUB_FIPS": str})
+        pop = pd.read_csv(POP_CSV, dtype={"COUSUB_FIPS": str})
+        dm.insert(2, "town", dm["COUSUB_FIPS"].map(pop.drop_duplicates("COUSUB_FIPS").set_index("COUSUB_FIPS")["Town"]))
+        dm.insert(1, "acs_five_year_span", (dm["Vintage"] - 4).astype(str) + "-" + dm["Vintage"].astype(str))
+        dm["tables"] = "B01001 (sex, age), B03002 (race, Hispanic or Latino origin), B18101 (disability, 2012 releases on)"
+        dm["source_url"] = "https://www2.census.gov/programs-surveys/acs/summary_file/"
+        save("towns-demographics.csv", dm.rename(columns={"Vintage": "acs_five_year_ending", "COUSUB_FIPS": "census_cousub_fips"})
+             .sort_values(["town", "acs_five_year_ending"]))
+
+    # DLS reserves, debt, ratings, votes, capital projects and labor force, DLS's own columns
+    if all_towns and FISCAL_SOURCES.exists():
+        keys = {norm(x["name"]) for x in all_towns}
+        src = json.loads(FISCAL_SOURCES.read_text())
+        for path, key, name in [(FREE_CASH_CSV, "free_cash", "towns-free-cash.csv"),
+                                (STAB_CSV, "stabilization", "towns-stabilization.csv"),
+                                (DEBT_CSV, "long_term_debt", "towns-debt.csv"),
+                                (AUTH_DEBT_CSV, "authorized_debt", "towns-authorized-debt.csv"),
+                                (RATINGS_CSV, "bond_ratings", "towns-bond-ratings.csv"),
+                                (VOTES_CSV, "votes: Override or underride", "towns-prop25-votes.csv"),
+                                (CAPITAL_CSV, "capital_projects", "towns-capital-projects.csv"),
+                                (LABOR_CSV, "labor_force", "towns-labor-force.csv")]:
+            f = pd.read_csv(path, dtype={"DOR_CODE": str})
+            town_col = "Name" if "Name" in f.columns else "Municipality"
+            f = f[f[town_col].map(norm).isin(keys)]
+            f["source_url"] = (f["Vote"].map(lambda k: src[f"votes: {k}"]["source"]) if "Vote" in f.columns
+                               else src[key]["source"])
+            f["data_current_as_of"] = src[key]["data_current_as_of"]
+            save(name, f)
 
     cpi = pd.read_csv("data/inflation_indices.csv")
     cpi = cpi[cpi["fiscal_year"].between(EXPLORER_START, latest)][["fiscal_year", "cpi_u_northeast"]]
@@ -1660,6 +1884,10 @@ def main(site: Path):
                                                               {"entities": xs})
     if towns_index:
         sizes["towns.json"] = write_json(json_dir / "towns.json", towns_index)
+        fiscal = load_fiscal()
+        if fiscal is not None:  # every town's Prop 2 1/2 votes, loaded when a town's list opens
+            sizes["votes.json"] = write_json(json_dir / "votes.json", town_votes(
+                fiscal, {norm(x["name"]): x["name"] for x in all_towns if x["kind"] == "town"}))
         for chunk, xs in sorted(town_chunks.items()):
             sizes[f"towns/{chunk}.json"] = write_json(json_dir / "towns" / f"{chunk}.json", {"towns": [shipped(x) for x in xs]})
     if towns_index:

@@ -1,0 +1,51 @@
+{
+ "downloaded": "2026-11-03",
+ "free_cash": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Dashboard.Cat_1_Reports.CertifiedFreeCashBudget351",
+  "data_current_as_of": "2026-11-03"
+ },
+ "stabilization": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Dashboard.Cat_1_Reports.StablPerBudget351",
+  "data_current_as_of": "2026-11-03"
+ },
+ "long_term_debt": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Dashboard.Cat_6_Reports.LongTermDebt351",
+  "data_current_as_of": "2026-11-03"
+ },
+ "authorized_debt": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Dashboard.Cat_6_Reports.TotalAuthUnisDebt351",
+  "data_current_as_of": "2026-11-03"
+ },
+ "bond_ratings": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=DLS_Bond_Ratings",
+  "data_current_as_of": "2026-11-03"
+ },
+ "debt_exclusion_levy": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Votes.Prop2_5.DebtExclusionLevyAmt",
+  "data_current_as_of": "2026-11-03"
+ },
+ "labor_force": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Dashboard.TrendAnalysisReports.LaborForce",
+  "data_current_as_of": "2026-11-03"
+ },
+ "votes: Override or underride": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Votes.Prop2_5.OverrideUnderride",
+  "data_current_as_of": "2026-11-03"
+ },
+ "votes: Debt exclusion": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Votes.Prop2_5.DebtExclusionVotes",
+  "data_current_as_of": "2026-11-03"
+ },
+ "votes: Capital exclusion": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Votes.Prop2_5.Capital",
+  "data_current_as_of": "2026-11-03"
+ },
+ "votes: Stabilization fund": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Votes.Prop2_5.Stabilization",
+  "data_current_as_of": "2026-11-03"
+ },
+ "capital_projects": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=ScheduleA.CapitalProjects.CapitalProjects",
+  "data_current_as_of": "2026-11-03"
+ }
+}

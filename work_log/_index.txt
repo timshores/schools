@@ -2,6 +2,9 @@
 
 Session files (newest first):
 
+  2026-11-03_session20_town_finances_demographics.txt
+    2026-11-03 (Session 20) - Explorer Towns: Reserves, Levy Ceiling and Votes, Debt, Capital, Labor Force, Residents
+
   2026-11-03_session19_special_education.txt
     2026-11-03 (Session 19) - Explorer: Special Education Spending and the Circuit Breaker
 
