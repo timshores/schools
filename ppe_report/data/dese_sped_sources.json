@@ -1,0 +1,13 @@
+{
+ "sped": {
+  "source": "Special Education Direct Expenditure Trends: https://www.doe.mass.edu/research/radar/",
+  "url": "https://www.doe.mass.edu/research/radar/direct-expenditure-trends.xlsx",
+  "file_date": "2026-05-12"
+ },
+ "circuit_breaker": {
+  "source": "https://educationtocareer.data.mass.gov/Finance-and-Budget/Special-Education-Circuit-Breaker-Reimbursements/ab34-d3ma/about_data",
+  "url": "https://educationtocareer.data.mass.gov/resource/ab34-d3ma.csv?$limit=100000&$order=fy,dist_code",
+  "last_updated": "2026-10-07"
+ },
+ "downloaded": "2026-11-03"
+}

@@ -1,0 +1,55 @@
+2026-11-03 (Session 19) - Explorer: Special Education Spending and the Circuit Breaker
+
+Tim (seahag prompt log #189, #190): more detailed special education costs for each district, with the
+grants that go with them, after his PNGs from last fall's data storytelling collaboration
+(special_ed_subcategories.png, special_ed_cb_timeseries.png, both citing DESE's RADAR page).
+
+Changes:
+
+1. update_dese_sped_data.py (new). Downloads two DESE sources:
+   - RADAR's Special Education Direct Expenditure Trends workbook
+     (https://www.doe.mass.edu/research/radar/direct-expenditure-trends.xlsx, kept in data/ as
+     dese_sped_direct_expenditure_trends.xlsx), its "data" sheet: every district's direct special
+     education spending, FY2008-FY2025, in eight categories (teaching, other instructional, in-district
+     transportation, Massachusetts public schools and collaboratives, private and out-of-state schools,
+     out-of-district transportation, non-public health services, spending from grants and revolving
+     funds), with the categories' sum and the district's total spending. Written to
+     data/dese_sped_expenditures.csv; the script checks that the categories add to DESE's sum column
+     (they do, to the dollar). The workbook is dated in its header (2026-05-12).
+   - E2C Hub ab34-d3ma, Special Education Circuit Breaker Reimbursements, FY2006-FY2026: students
+     claimed, costs claimed, threshold, net claims, reimbursement by category, quarterly, extraordinary
+     relief and supplemental payments. FY is the year paid. Written to data/dese_circuit_breaker.csv.
+   data/dese_sped_sources.json records both.
+   Neither source includes charter schools.
+
+2. export_explorer_data.py: sped_pupils() (each district's FTE pupils in district and out, by year) and
+   sped_fields(), called for every district and district average. Spending per category per FTE pupil
+   in district and out, pooled over an average's districts (dollars over pupils); special education's
+   share of total spending (DESE's sum over its total); the average district's pupils, for Totals.
+   Circuit Breaker: what the state paid (quarterly + extraordinary relief + supplemental; the
+   component reimbursements don't reconcile with it in 187 of 6,007 rows, because of prior-year
+   adjustments), costs claimed and costs above the threshold, each per FTE pupil; students claimed
+   per district. In an average every member counts, a district with no claim as paid nothing, from
+   the dataset's first year (FY2006) on. meta.sped gives the years; two CSVs for the Data tab:
+   districts-special-education.csv and districts-circuit-breaker.csv.
+
+   Checks: Amherst FY2025, $8,152 per pupil x 1,213.8 pupils = $9,894,898 against DESE's $9,896,319;
+   Circuit Breaker FY2025 $234,263 against DESE's $234,031 (rounding per pupil). Amherst-Pelham FY2025
+   Circuit Breaker $801,627 against $801,866. 360 of 433 entities have both; the 73 without are charters.
+
+3. mywebsite (explorer.ts, index.astro): two panels after Revenue on the Districts tab, "Special
+   education spending per pupil by category" (stacked, legend toggles, comparison, trend, tables, the
+   share of spending in the subtitle and tooltip) and "Special education costs the state paid back"
+   (Circuit Breaker by the year paid, with students and costs claimed in the tooltip and full table).
+   The eight colors' order passes the dataviz palette check's adjacent-pair tests on the page's manila
+   (worst colorblind pair in the 6-8 band, legal with the stack's gaps, legend and tables).
+
+Not done: federal IDEA allocations by district (not found as a bulk file yet).
+
+4. Tim (#191): one chart. The Circuit Breaker panel folds into the special education one as a line, and
+   the line is keyed to the year of the costs it repays rather than the year paid: sped_fields gives
+   year Y the claim and the quarterly and supplemental payments in the FY Y+1 row (CB_NEXT_YEAR) and the
+   extraordinary relief in the FY Y row, over the years the claims cover (FY2005-FY2025). Amherst
+   FY2024 = $234,031 (paid FY2025), FY2025 = $254,080 (paid FY2026). districts-circuit-breaker.csv keeps
+   DESE's year paid. On the page: special education after spending by category; out-of-district after
+   enrollment.

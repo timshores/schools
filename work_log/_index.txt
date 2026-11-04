@@ -2,6 +2,9 @@
 
 Session files (newest first):
 
+  2026-11-03_session19_special_education.txt
+    2026-11-03 (Session 19) - Explorer: Special Education Spending and the Circuit Breaker
+
   2026-11-02_session18_map_years.txt
     2026-11-02 (Session 18) - Explorer Map: Its Measures Year by Year (Years Range, Play), Education's Share
 

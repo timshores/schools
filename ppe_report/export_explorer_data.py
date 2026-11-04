@@ -93,6 +93,15 @@ GATEWAY_CITIES = ["Attleboro", "Barnstable", "Brockton", "Chelsea", "Chicopee", 
                   "Westfield", "Worcester"]
 
 CENSUS_CSV = Path("data/census_f33_ma.csv")
+# DESE special education spending and Circuit Breaker payments (update_dese_sped_data.py)
+SPED_CSV = Path("data/dese_sped_expenditures.csv")
+CB_CSV = Path("data/dese_circuit_breaker.csv")
+SPED_SOURCES = Path("data/dese_sped_sources.json")
+# Special education's categories, bottom to top: in the district's own schools, then out of district, then
+# what grants and revolving funds paid (RADAR's Special Education Direct Expenditure Trends)
+SPED = ["teaching", "other_instructional", "in_transport", "ma_public", "private", "ood_transport", "health", "grants"]
+# A year's claim is paid the next year, in quarterly payments and any supplement; extraordinary relief, the same year
+CB_NEXT_YEAR = ["tot_qtly_payment", "addl_suppl_payment"]
 # DESE numbers regional academic districts from 0600; DIST_CODE is that times 10000
 REGIONAL_MIN_CODE = 6000000
 # An aggregate with fewer regional members than this gets no revenue average
@@ -208,6 +217,7 @@ FUNC_LAST = 2008
 URL_C70_PROFILE = "https://www.doe.mass.edu/finance/chapter70/profile.xlsx"
 URL_C70_REGIONAL = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}-reg.xlsx"
 URL_CENSUS_FILE = "https://www2.census.gov/programs-surveys/school-finances/tables/{fy}/secondary-education-finance/elsec{yy:02d}.{ext}"
+URL_CB = "https://educationtocareer.data.mass.gov/d/ab34-d3ma"
 URL_DLS = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=ScheduleA.GenFund_MAIN"
 URL_POP = "https://www2.census.gov/programs-surveys/popest/datasets/"
 URL_BLS = "https://data.bls.gov/timeseries/CUUR0100SA0"
@@ -269,6 +279,53 @@ def revenue_fields(census, codes, regional):
     r = latest.iloc[0]
     return {"rev_check": {"fy": int(r["FY"]), "revenue": int(r["TOTALREV"]) * 1000,
                           "expenditure": int(r["TOTALEXP"]) * 1000}}
+
+
+def sped_pupils(df):
+    """Each district's FTE pupils in district and out, by year: everyone its special education spending serves,
+    as DESE counts them for total spending per pupil."""
+    rows = df[(df["IND_CAT"].str.lower() == "student enrollment") &
+              df["IND_SUBCAT"].str.lower().isin([IN_DISTRICT_FTE_KEY, "out-of-district fte pupils"])]
+    out = rows.groupby(["DIST_CODE", "YEAR"])["IND_VALUE"].sum().reset_index()
+    return out.rename(columns={"YEAR": "FY", "IND_VALUE": "pupils"}).astype({"DIST_CODE": int, "FY": int})
+
+
+def sped_fields(sped, cb, pupils, codes):
+    """Special education spending by category, and what the state paid back through the Circuit Breaker for
+    the same year's costs, per FTE pupil (in district and out), pooled over the districts' codes; special
+    education's share of their spending; and the pupils and students claimed of their average district (one
+    district's own)."""
+    if sped is None:
+        return {}
+    s = sped[sped["DIST_CODE"].isin(codes)].merge(pupils, on=["DIST_CODE", "FY"])
+    s = s[s["pupils"] > 0]
+    if s.empty:
+        return {}
+    by = s.groupby("FY")
+    sums = by.sum(numeric_only=True)
+    out = {"sped": {k: series(sums[k] / sums["pupils"], 0) for k in SPED},
+           "sped_share": series(sums["sped_total"] / sums["total_exp"] * 100, 1),
+           "sped_fte": series(sums["pupils"] / by.size(), 1)}
+    if cb is not None:
+        # By the year of the costs, as the columns are: the claim the next year's row carries and what it paid,
+        # and the year's own extraordinary relief. Every member in the year counts, one with no claim as repaid
+        # nothing, over the years the dataset's claims cover.
+        mine = cb[cb["DIST_CODE"].isin(codes)]
+        claim = mine.assign(FY=mine["FY"] - 1, repaid=mine[CB_NEXT_YEAR].fillna(0).sum(axis=1))
+        claim = claim[["DIST_CODE", "FY", "repaid", "students", "tot_elig_expenses", "tot_net_claim"]]
+        p = pupils[pupils["DIST_CODE"].isin(codes) & (pupils["pupils"] > 0) &
+                   pupils["FY"].between(cb["FY"].min() - 1, cb["FY"].max() - 1)]
+        c = p.merge(claim, on=["DIST_CODE", "FY"], how="left").merge(
+            mine[["DIST_CODE", "FY", "extra_relief_payment"]], on=["DIST_CODE", "FY"], how="left")
+        c["paid"] = c["repaid"].fillna(0) + c["extra_relief_payment"].fillna(0)
+        cs = c.groupby("FY")
+        csum = cs.sum(numeric_only=True)
+        out["cb"] = {"paid": series(csum["paid"] / csum["pupils"], 0),
+                     "claimed": series(csum["tot_elig_expenses"] / csum["pupils"], 0),
+                     "above": series(csum["tot_net_claim"] / csum["pupils"], 0),
+                     "students": series(csum["students"] / cs.size(), 1),
+                     "fte": series(csum["pupils"] / cs.size(), 1)}
+    return out
 
 
 # Region for the few towns with no school district of their own (Monroe, Tyringham,
@@ -1288,6 +1345,25 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
                              for fy in out["fiscal_year"]]
         save("districts-revenue.csv", out.sort_values(["census_name", "fiscal_year"]))
 
+    # DESE special education spending and Circuit Breaker payments, in dollars, as DESE published them
+    if SPED_CSV.exists():
+        src = json.loads(SPED_SOURCES.read_text())
+        names = {org: n for _, n, org in districts}
+        sp = pd.read_csv(SPED_CSV, dtype={"DIST_CODE": str})
+        sp = sp[sp["DIST_CODE"].astype(int).floordiv(10000).isin(orgs) & sp["FY"].between(EXPLORER_START, latest)]
+        sp = sp.rename(columns={"FY": "fiscal_year", "DIST_CODE": "dese_code", "DIST_NAME": "radar_name"})
+        sp.insert(2, "district", sp["dese_code"].astype(int).floordiv(10000).map(names))
+        sp["source_url"], sp["source_dated"] = src["sped"]["url"], src["sped"]["file_date"]
+        save("districts-special-education.csv", sp.sort_values(["district", "fiscal_year"]))
+        if CB_CSV.exists():
+            cbs = pd.read_csv(CB_CSV, dtype={"DIST_CODE": str})
+            cbs = cbs[cbs["DIST_CODE"].astype(int).floordiv(10000).isin(orgs) & cbs["FY"].between(EXPLORER_START, latest + 1)]
+            cbs = cbs.rename(columns={"FY": "fiscal_year_paid", "DIST_CODE": "dese_code", "DIST_NAME": "dese_name",
+                                      "students": "elig_stu_claim_cnt"})
+            cbs.insert(2, "district", cbs["dese_code"].astype(int).floordiv(10000).map(names))
+            cbs["source_url"], cbs["source_updated"] = URL_CB, src["circuit_breaker"]["last_updated"]
+            save("districts-circuit-breaker.csv", cbs.sort_values(["district", "fiscal_year_paid"]))
+
     if all_towns:
         keys = {norm(x["name"]): x for x in all_towns}
         dls = pd.read_csv(DLS_CSV, dtype={"DOR_CODE": str})
@@ -1406,6 +1482,11 @@ def main(site: Path):
                  (df["IND_SUBCAT"].str.lower() == IN_DISTRICT_FTE_KEY)]
         fte = fte.rename(columns={"YEAR": "FY", "IND_VALUE": "FTE"})[["DIST_CODE", "FY", "FTE"]]
         census = census.merge(fte.astype({"DIST_CODE": int, "FY": int}), on=["DIST_CODE", "FY"], how="left")
+    sped = pd.read_csv(SPED_CSV, dtype={"DIST_CODE": int}) if SPED_CSV.exists() else None
+    cb = pd.read_csv(CB_CSV, dtype={"DIST_CODE": int}) if CB_CSV.exists() else None
+    if sped is None:
+        print(f"  [WARN] {SPED_CSV} not found (run update_dese_sped_data.py); no special education panels")
+    pupils = sped_pupils(df)
 
     dists = explorer_districts(df, reg)
     gateway = {norm(c) for c in GATEWAY_CITIES}
@@ -1489,7 +1570,8 @@ def main(site: Path):
                          "region": region, "members": len(members),
                          "member_ids": [d["id"] for d in sorted(members, key=lambda d: d["name"])], "cmp": cmp,
                          "chunk": slug(region) if region else "statewide", **pack(piv, lines, nss),
-                         "ood": ood_series(df, keys, YEARS), **rev})
+                         "ood": ood_series(df, keys, YEARS), **rev,
+                         **sped_fields(sped, cb, pupils, [d["code"] for d in members])})
 
     full = []
     for d in sorted(dists, key=lambda d: d["name"]):
@@ -1509,7 +1591,8 @@ def main(site: Path):
                      **({"income": d["income"]} if d["income"] else {}),
                      "chunk": chunk_of(rk, d["type"]),
                      **pack(piv, lines, nss), "ood": ood_series(df, [d["key"]], YEARS),
-                     **revenue_fields(census, [d["code"]], regional)})
+                     **revenue_fields(census, [d["code"]], regional),
+                     **sped_fields(sped, cb, pupils, [d["code"]])})
 
     towns_index, town_chunks, all_towns = None, {}, []
     if all(p.exists() for p in (DLS_CSV, POP_CSV, MEMBERS_CSV)):
@@ -1540,11 +1623,18 @@ def main(site: Path):
             "history": hist_meta,
             "revenue": ({"first": int(census["FY"].min()), "latest": int(census["FY"].max()),
                          "min_members": MIN_REVENUE_MEMBERS} if census is not None else None),
+            "sped": ({"first": int(sped["FY"].min()), "latest": int(sped["FY"].max()),
+                      "cb_first": int(cb["FY"].min()) if cb is not None else None,
+                      "cb_latest": int(cb["FY"].max()) if cb is not None else None,
+                      **{k: v for k, v in json.loads(SPED_SOURCES.read_text()).items() if k == "downloaded"}}
+                     if sped is not None else None),
             "sources": {
                 "expenditures": "DESE District Expenditures by Spending Category (E2C Hub er3w-dyti)",
                 "chapter70": "DESE Chapter 70 District Profiles",
                 "cpi": "BLS CPI-U Northeast (CUUR0100SA0), July-June fiscal-year averages",
                 "revenue": "Census Bureau Annual Survey of School System Finances (F-33), Massachusetts",
+                "sped": "DESE Special Education Direct Expenditure Trends (RADAR)",
+                "circuit_breaker": "DESE Special Education Circuit Breaker Reimbursements (E2C Hub ab34-d3ma)",
             },
         },
         # A light list for the menus; each entity's data is in its chunk's file
