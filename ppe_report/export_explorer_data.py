@@ -1291,14 +1291,16 @@ def map_data(districts, towns, cap, cpi, org4, town_avgs=(), district_avgs=()):
     for layer, units in (("towns", towns), ("districts", [entity[i] for i in sorted(used)])):
         groupings[layer] = []
         for key, label, ordered in MAP_GROUPINGS[layer]:
-            # Within its region. A district whose region has too few of its size is in the statewide group, as its
-            # comparison falls back; a town stays in its region's group, however few share it, an outlier there
-            # (Tim, #219)
+            # Within its region: a town or district whose region has too few of its size for a comparison group
+            # stays in its region's group of that size, however few share it, a regional outlier there (Tim, #219,
+            # #221); the explorer compares it with the statewide group. With no region, the statewide group.
             fallback = {"peer": "peer_state", "cohort": "cohort_state"}.get(key)
             def group_of(u):
                 c = u.get("cmp") or {}
-                if key == "peer" and not c.get("peer") and c.get("peer_state") and u.get("region"):
-                    return f"{c['peer_state']}-{slug(u['region'])}"
+                if fallback and not c.get(key) and c.get(fallback) and u.get("region"):
+                    mine = f"{c[fallback]}-{slug(u['region'])}"
+                    if mine in by_id:
+                        return mine
                 return c.get(key) or (c.get(fallback) if fallback else None)
             of = {u["id"]: group_of(u) for u in units}
             of = {u: g for u, g in of.items() if g in by_id}
@@ -2025,6 +2027,18 @@ def main(site: Path):
             if len(ms) >= MIN_AVERAGE_MEMBERS:
                 groups.append((f"cohort-{k.lower()}-{slug(rk)}", cohort_name(k, rk), "region-cohort", k, rk, ms,
                                {"cohort_state": f"cohort-{k.lower()}", "region": f"region-{slug(rk)}", "state": "statewide"}))
+    # The map's enrollment groups within a region (Tim, #221): every size in every region, the very large
+    # included, where the explorer has no comparison group for it; one with fewer than MIN_AVERAGE_MEMBERS
+    # districts is a regional outlier. Only the map has them: the explorer compares these districts with the
+    # statewide group of their size.
+    map_only = []
+    for k in SIZE_COHORTS:
+        short = COHORT_TEXT[k][1] if k in COHORT_TEXT else get_cohort_short_label(k)
+        for rk, rl in REGIONS.items():
+            ms = [d for d in dists if d["cohort"] == k and d["region"] == rk]
+            if ms and f"cohort-{k.lower()}-{slug(rk)}" not in {g[0] for g in groups}:
+                map_only.append((f"cohort-{k.lower()}-{slug(rk)}", f"{rl} {short} enrollment group", "region-cohort", k, rk,
+                                 ms, {"outlier": len(ms) < MIN_AVERAGE_MEMBERS}))
     # Community types: rural (and DESE's three rural tiers), suburban and other, Boston and the Gateway Cities
     types = district_types(dists, c70, land_areas())
     for d in dists:
@@ -2054,8 +2068,8 @@ def main(site: Path):
                        None, None, ms, {"type": "type-rural", "state": "statewide"}))
     have = {g[0] for g in groups}
 
-    averages = []
-    for eid, name, scope, cohort, region, members, cmp in groups:
+    averages, map_averages = [], []
+    for eid, name, scope, cohort, region, members, cmp in groups + map_only:
         keys = [d["key"] for d in members]
         _t, piv, _sum, lines_mean = prepare_western_epp_lines(df, reg, "all_western", c70, districts=keys)
         nss, _e, foundation = prepare_aggregate_nss_ch70_weighted(df, c70, keys)
@@ -2066,9 +2080,12 @@ def main(site: Path):
         rev = {"rev_members": len(regional)}
         if census is not None and len(regional) >= MIN_REVENUE_MEMBERS:
             rev |= revenue_fields(census, regional, True)
+        outlier = cmp.pop("outlier", None)
         cmp = {**cmp, "gateway": "cohort-gateway" if eid != "cohort-gateway" else None,
                "state_all": "statewide-all" if eid != "statewide-all" else None}
-        averages.append({"id": eid, "name": name, "kind": "average", "scope": scope, "cohort": cohort,
+        (averages if outlier is None else map_averages).append({
+                         "id": eid, "name": name, "kind": "average", "scope": scope, "cohort": cohort,
+                         **({"outlier": True} if outlier else {}),
                          "region": region, "members": len(members),
                          "member_ids": [d["id"] for d in sorted(members, key=lambda d: d["name"])], "cmp": cmp,
                          "chunk": slug(region) if region else "statewide", **pack(piv, lines, nss),
@@ -2195,7 +2212,7 @@ def main(site: Path):
                 mp = map_data(full, towns_only, cap, {int(y): float(idx[y]) for y in YEARS if y in idx.index},
                               {d["id"]: d["code"] // 10000 for d in dists},
                               [t for xs in town_chunks.values() for t in xs if t["kind"] != "town"] + town_outliers,
-                              averages)
+                              averages + map_averages)
                 # The years behind the map's measures, a file of their own: the map draws without them
                 sizes["map-years.json"] = write_json(json_dir / "map-years.json", mp.pop("series"))
                 sizes["map.json"] = write_json(json_dir / "map.json", mp)

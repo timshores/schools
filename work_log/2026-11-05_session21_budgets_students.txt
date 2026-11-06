@@ -98,3 +98,12 @@ Changes:
    averages but kept out of towns.json, the town chunks and groups.json, so the explorer's comparisons and pickers
    don't offer them and still fall back to the statewide group. map_data's town "peer" grouping uses them; map.json
    groups carry "outlier": true. The districts' within-region grouping keeps its statewide fallback.
+
+12. Tim (#221, 2026-11-06): the districts' "Enrollment group, within its region" as the towns' (#219): a district
+   whose region has too few of its size stays in its region's group, a regional outlier there, and each region has
+   its own very large group (no statewide Very large group on the map). The district averages loop builds the map's
+   groups beside the explorer's (map_only, 13: every size in every region with no comparison group, the very large
+   included; outlier where fewer than MIN_AVERAGE_MEMBERS), kept out of explorer.json and groups.json; map_data's
+   within-region grouping takes a unit's own region's group for either layer (group_of). Nahant: Northeast MA Tiny,
+   a regional outlier; Northeast MA and Southeast MA Very large have three districts each, the others one. The
+   explorer still compares these districts with the statewide group of their size.
