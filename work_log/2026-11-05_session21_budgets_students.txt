@@ -1,0 +1,100 @@
+2026-11-05 (Session 21) - Explorer Districts: Budgeted and Actual Net School Spending, Students
+
+Tim (seahag prompt log #205, #206): level-services budgets for each district, to see districts approving
+budgets that fall short of or exceed them, and students by demographics, as DESE's school profiles show.
+Level services isn't collected by the state (each district works it out, and defines it, for itself), so the
+budget panel uses what DESE does collect: each district's approved budget against what it spent.
+
+Changes:
+
+1. update_dese_nss_budgets.py (new): DESE's net school spending compliance summaries. Each year's workbook gives
+   every district's required and actual NSS for the year and its required and budgeted NSS for the next, from
+   its End-of-Year Report. DESE links FY2021 on (comply-fy20XX.xlsx); FY2010 to FY2020, under older names
+   (comply10.xls ... comply19.xlsx, comply-fy2020.xlsx), survive only on the Internet Archive, some only in later
+   captures (an earlier capture can be DESE's HTML page; is_workbook() checks the file's first bytes). Archived
+   copies are kept in data/dese_nss_compliance/ and reused. Columns found by their header words, which moved over
+   the years. Writes data/dese_nss_budgets.csv (one row per district and year: the budget from the year before's
+   file, the actual from the year's own) and dese_nss_budget_sources.json (each file's address and capture).
+   Budgets FY2011-FY2026, 333 districts.
+
+   Checks: Leverett FY2026 budget $2,924,227 (FY2025 file); statewide, actual NSS runs 0.2-0.9% under budget
+   every year FY2011-FY2025; Amherst and Amherst-Pelham within 2.5% either way. Leverett spent within 0.3% of
+   its budget FY2011-FY2013 and 15-17% under FY2023-FY2025: flagged to Tim, not explained.
+
+2. update_dese_enrollment.py (new): E2C Hub dataset t8td-gens (Enrollment: Grade, Race/Ethnicity, Gender, and
+   Selected Populations), district rows, SY1992-SY2026, to data/dese_enrollment.csv. A year with no students
+   has its zero percents blanked; race percents add to 100% in every row but one (SY2008 Southeastern Regional
+   Vocational, 103%), reported as a warning.
+
+3. export_explorer_data.py: budget_fields() (budgeted NSS per foundation pupil, pooled over the districts with a
+   budget and pupils; actual against budget in percent, pooled over those with both; FY2026's budget against
+   FY2025's actual and budget and FY2026's requirement), student_fields() (race and ethnicity in five groups, as
+   the towns' residents are grouped; students with disabilities, English learners, low income, economically
+   disadvantaged, high needs; each in percent, pooled by counts; FY2026 past the axis). meta.budgets,
+   meta.students. CSVs for the Data tab: districts-nss-budgets.csv, districts-students.csv.
+
+4. mywebsite: three district panels, "Budgeted and actual net school spending" (budget, actual, required lines;
+   under them, each year's spending against its budget, the comparison's as dots), "Students by race and
+   ethnicity" (shares, a group's trend and comparison once chosen), "Students in selected groups" (the district's
+   and the comparison's lines; low income's three measures drawn apart, with no trend). Data tab sources and
+   methods.
+
+5. Tim (#207): more map measures and correlations from the new data. export_explorer_data.py district_shares()
+   (students with disabilities, English learners, low income from FY2022, high needs, students of color, special
+   education's share of spending, spending against budget, as fractions) and town_shares() (residents 65 and older,
+   of color, with a disability, long-term debt per resident), into map.json (latest, and for a split town the two
+   districts weighted by its pupils), map-years.json (year by year), and commonwealth.json (the district shares
+   and payments per out-of-district pupil). Town overrides passed since FY2005, counted from the passed votes.
+
+   Correlations, Spearman's rho over the 288 traditional districts with 20 or more pupils, Boston and
+   Provincetown left out as the Commonwealth tab does, FY2025: low income against income per capita -0.83 and the
+   average tax bill -0.79 (expected); payments per out-of-district pupil against income +0.66 and low income -0.64;
+   English learners and students of color against foundation enrollment +0.58 and +0.59; spending as a share of
+   the requirement against low income -0.52; Chapter 70 aid per pupil against low income +0.74 (the formula's own:
+   its foundation budget adds for low-income students). Spending against budget is weak: FY2025's gap against
+   FY2026's budget growth -0.39, which is mechanical (growth is measured from FY2025's actual, which underspending
+   lowers), and the five-year average gap against foundation enrollment +0.32 (smaller districts spend further
+   under budget).
+   Tested in the tab itself, every pair of 0.4 or more with a new measure: two pass its gallery test (no caution
+   but shared towns) and join the gallery, spending against the requirement and the low-income share (rho -0.53,
+   all district types) and students of color and enrollment (+0.56, no caution). Out-of-district payments against
+   income or low income, and English learners against enrollment, show uneven spread; they stay in the picker.
+
+6. Tim (#208): the map's groupings. export_explorer_data.py map_data(..., town_avgs, district_avgs): MAP_GROUPINGS,
+   each town's and district's group from its cmp (region, size, size within region, community type, income fifth;
+   districts by cohort), and each group's values from its average (town_values, district_values, now functions
+   shared with towns and districts); map_series rows for the groups (town_row, district_row). map.json groupings
+   and groups; map-years.json groups. 79 groups.
+
+7. Tim (#213): town averages by school arrangement. town_data(): setup_of() from each town's districts (vocational
+   aside): no district (5 towns, which tuition their pupils out), regional districts only (117), their own and a
+   regional one (44), their own for every grade (185); averages towns-schools-*, scope "schools", and cmp.schools on
+   each town. map_data groupings: towns' "School districts"; the within-region groupings (towns' peer, districts'
+   cohort) fall back to the statewide group where the region has too few, as the explorer's comparisons do; the
+   districts' "Size cohort" is "Size cohort, statewide". FY2025: the no-district towns' residents are 33% 65 and
+   older (17% in towns with their own district for every grade), and their reserves 64% of their budgets.
+
+8. Tim (#215): the site says "size peer group" for the report's cohorts, for districts as for towns. cohort_name():
+   "Western MA Tiny peer group average"; MAP_GROUPINGS: "Size peer group, statewide" and "Size peer group, within
+   its region" on both layers. Ids, URLs and CSV columns keep "cohort"; the report itself is unchanged.
+
+9. Tim (#217): "Why would Springfield not be in a size peer group?" The ten cities whose districts are very large
+   stood apart from every town average, peer groups included, so the town map left them in no group. Now every city
+   and town is in a population group (the site's name for the code's peer groups): TOWN_PEERS splits the top band
+   at 100,000, 50,000-99,999 (18 towns) and 100,000 or more (9: Boston, Worcester, Springfield, Cambridge, Lowell,
+   Brockton, Lynn, Quincy, New Bedford), so the largest have a group of their own as the very large districts do;
+   peer_of() no longer leaves them out, and the peer and region-peer averages draw on every town. They still stand
+   apart from the statewide (default) and regional averages. Ids towns-50000-plus gives way to towns-50000-99999
+   and towns-100000-plus.
+
+10. Tim (#217): the site's names. cohort_name(): "Western MA Tiny enrollment group average"; MAP_GROUPINGS:
+   "Enrollment group, statewide / within its region" for districts, "Population group, ..." for towns. The site
+   says "Population" for what it called "Residents". Ids, URLs and CSV columns keep "cohort" and "peer".
+
+11. Tim (#219): on the map's "Population group, within its region", every town stays in its region; where a
+   region has fewer than MIN_AVERAGE_MEMBERS towns of a size, the group is marked an outlier rather than the towns
+   moved to the statewide group. town_data() returns the outlier groups (12 FY2025: the Boston area's four, each
+   region's 100,000 or more, Western MA's 50,000-99,999, Southeast MA's under 1,000 and 1,000-2,499), built as
+   averages but kept out of towns.json, the town chunks and groups.json, so the explorer's comparisons and pickers
+   don't offer them and still fall back to the statewide group. map_data's town "peer" grouping uses them; map.json
+   groups carry "outlier": true. The districts' within-region grouping keeps its statewide fallback.

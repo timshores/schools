@@ -43,3 +43,19 @@ Changes:
 4. mywebsite: Reserves, Long-term debt, Capital projects, Residents by age, Residents by race and
    ethnicity panels; levy ceiling line, override capacity and the vote list in the levy panel; labor force
    in the population panel; three tiles; four map measures; Data tab sources and methods.
+
+5. Tim (#193): passed votes on the charts. town_passed(): each town's passed Prop 2 1/2 votes from FY2005,
+   [fiscal year, kind, amount or None, "Department: purpose"], 3,952 in all, in the town records so the
+   default-on marks need no extra file. The site draws them (charts.ts Marks) on the levy, debt, capital
+   projects, and, when turned on, spending charts.
+
+6. Tim (#195): a clearer picture of how a surplus becomes free cash. DLS's Free Cash Use report is a Tableau
+   view with no data behind it; the Bureau of Accounts' Free Cash Proof Comparison (BalanceSheet.
+   FreecashProofComp) is the calculation itself. update_dls_fiscal_data.py free_cash_proof(): one request
+   per town (its form takes one at a time), table tblProofCompare, every year (FY2021-FY2026, the year
+   being the June 30 balance sheet's); data/dls_free_cash_proof.csv, a column per line. The lines from
+   revenue deficits to other adjustments add up to identified free cash in all 1,918 town-years (checked).
+   The export groups them (PROOF_GROUPS: carried, unspent, receipts, state_aid, other_rev, adjust) per
+   resident, pooled, with the newest year's dollars. Amherst FY2026: $5.6M of FY2025's free cash not
+   appropriated, $4.0M local receipts above the estimate, $0.75M unspent appropriations, -$0.05M state
+   aid, $1.9M adjustments: $12.24M identified, $12.22M certified.

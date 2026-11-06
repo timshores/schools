@@ -2,6 +2,9 @@
 
 Session files (newest first):
 
+  2026-11-05_session21_budgets_students.txt
+    2026-11-05 (Session 21) - Explorer Districts: Budgeted and Actual Net School Spending, Students
+
   2026-11-03_session20_town_finances_demographics.txt
     2026-11-03 (Session 20) - Explorer Towns: Reserves, Levy Ceiling and Votes, Debt, Capital, Labor Force, Residents
 

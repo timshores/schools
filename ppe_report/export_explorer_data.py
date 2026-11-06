@@ -27,8 +27,8 @@ from DESE's archive (data/dese_expenditures_fy2005_2008.csv), stacked under the 
 switch, are explorer_history.py's.
 
 Towns: general fund spending and revenue per resident (DLS Schedule A), with
-population peer groups and the same kinds of averages; the cities whose school
-districts are very large stand apart from them. Each town's property: assessed
+population groups and the same kinds of averages; the cities whose school
+districts are very large stand apart from the statewide and regional ones. Each town's property: assessed
 value per resident and parcels by type (the assessors' LA-4), equalized
 valuation (EQV) per resident, and the average single-family tax bill, from
 update_dls_property_data.py.
@@ -86,7 +86,7 @@ MIN_AVERAGE_MEMBERS = 3
 # Gateway Cities, as the Commonwealth lists them (M.G.L. c. 23A, s. 3A: population 35,000-
 # 250,000, median household income and bachelor's attainment below the state's). The list
 # dates from 2014. Their districts and the cities themselves get averages of their own,
-# alongside their size cohorts and peer groups.
+# alongside their enrollment and population groups.
 GATEWAY_CITIES = ["Attleboro", "Barnstable", "Brockton", "Chelsea", "Chicopee", "Everett", "Fall River", "Fitchburg",
                   "Haverhill", "Holyoke", "Lawrence", "Leominster", "Lowell", "Lynn", "Malden", "Methuen",
                   "New Bedford", "Peabody", "Pittsfield", "Quincy", "Revere", "Salem", "Springfield", "Taunton",
@@ -104,6 +104,17 @@ SPED = ["teaching", "other_instructional", "in_transport", "ma_public", "private
 CB_NEXT_YEAR = ["tot_qtly_payment", "addl_suppl_payment"]
 # DESE numbers regional academic districts from 0600; DIST_CODE is that times 10000
 REGIONAL_MIN_CODE = 6000000
+BUDGET_CSV = Path("data/dese_nss_budgets.csv")
+BUDGET_SOURCES = Path("data/dese_nss_budget_sources.json")
+ENROLL_CSV = Path("data/dese_enrollment.csv")
+ENROLL_SOURCES = Path("data/dese_enrollment_sources.json")
+# Students by race and ethnicity, as the towns' residents are grouped: Hispanic or Latino of any race, each race
+# of those who aren't, and the smaller groups together
+STUDENT_RACE = {"white": ["wh_pct"], "black": ["baa_pct"], "asian": ["as_pct"], "other_race": ["aian_pct", "nhpi_pct", "mnhl_pct"],
+                "hispanic": ["hl_pct"]}
+# Students in selected groups: low income through FY2014 and from FY2022, two measures, and economically
+# disadvantaged between, each its own series
+STUDENT_GROUPS = {"swd": "swd", "el": "el", "low_income": "li", "econ": "ecd", "high_needs": "hn"}
 # An aggregate with fewer regional members than this gets no revenue average
 MIN_REVENUE_MEMBERS = 3
 # Revenue sources, bottom to top in the explorer's stack: Census F-33 item codes
@@ -160,6 +171,12 @@ VOTES_CSV = Path("data/dls_prop25_votes.csv")
 CAPITAL_CSV = Path("data/dls_capital_projects.csv")
 LABOR_CSV = Path("data/dls_labor_force.csv")
 FISCAL_SOURCES = Path("data/dls_fiscal_sources.json")
+PROOF_CSV = Path("data/dls_free_cash_proof.csv")
+# The free cash proof's lines, grouped for the chart, bottom to top: what carried over, what went unspent, revenue
+# above its estimates, and the adjustments (owed taxes and the like) that can take some back
+PROOF_GROUPS = {"carried": ["prior_not_appropriated"], "unspent": ["unexpended"], "receipts": ["local_receipts"],
+                "state_aid": ["state_aid"], "other_rev": ["not_estimated", "overlay_surplus"],
+                "adjust": ["revenue_deficits", "negative_prior", "receivables", "adjustment_change", "other_adjustments"]}
 # Schedule A Part 4's purposes, bottom to top
 CAPITAL = {"Schools": "schools", "Municipal Buildings": "buildings", "Highways (Chapter 90)": "highways",
            "Water": "water", "Sewer": "sewer", "Landfill": "landfill", "Other": "other"}
@@ -207,9 +224,12 @@ LA4_EXEMPT = "Exempt Parcel Count & Value"
 C70_TARGET = {"fy": 2025, "eqv_year": 2022, "income_year": 2021, "property_pct": 0.3906, "income_pct": 1.4312,
               "target_share": 59, "cap": 82.5, "capped_towns": 182}
 
-# Peer groups by population: the estimate behind the latest fiscal year (July 2024 for
-# FY2025), as district cohorts use latest-year enrollment. Round bounds; statewide
-# FY2025: 26, 42, 98, 103, 55 and 27 towns (the last 17 without the very large cities).
+# Population groups (the site's name; "peer groups" in the code): the estimate behind the
+# latest fiscal year (July 2024 for FY2025), as district cohorts use latest-year enrollment.
+# Round bounds. Every city and town is in one (Tim, #217: Springfield had none); the top
+# band splits at 100,000 so the largest cities, which stand apart from the statewide and
+# regional averages, have a group of their own rather than outweighing the 50,000s, as the
+# very large districts have theirs. FY2025: 26, 42, 98, 103, 55, 18 and 9 towns.
 # (id suffix, lowest population, first population above the group, label)
 TOWN_PEERS = [
     ("under-1000", 0, 1000, "under 1,000"),
@@ -217,7 +237,8 @@ TOWN_PEERS = [
     ("2500-9999", 2500, 10000, "2,500–9,999"),
     ("10000-24999", 10000, 25000, "10,000–24,999"),
     ("25000-49999", 25000, 50000, "25,000–49,999"),
-    ("50000-plus", 50000, None, "50,000 or more"),
+    ("50000-99999", 50000, 100000, "50,000–99,999"),
+    ("100000-plus", 100000, None, "100,000 or more"),
 ]
 
 
@@ -237,6 +258,7 @@ URL_C70_PROFILE = "https://www.doe.mass.edu/finance/chapter70/profile.xlsx"
 URL_C70_REGIONAL = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}-reg.xlsx"
 URL_CENSUS_FILE = "https://www2.census.gov/programs-surveys/school-finances/tables/{fy}/secondary-education-finance/elsec{yy:02d}.{ext}"
 URL_CB = "https://educationtocareer.data.mass.gov/d/ab34-d3ma"
+URL_STUDENTS = "https://educationtocareer.data.mass.gov/d/t8td-gens"
 URL_DLS = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=ScheduleA.GenFund_MAIN"
 URL_POP = "https://www2.census.gov/programs-surveys/popest/datasets/"
 URL_BLS = "https://data.bls.gov/timeseries/CUUR0100SA0"
@@ -344,6 +366,70 @@ def sped_fields(sped, cb, pupils, codes):
                      "above": series(csum["tot_net_claim"] / csum["pupils"], 0),
                      "students": series(csum["students"] / cs.size(), 1),
                      "fte": series(csum["pupils"] / cs.size(), 1)}
+    return out
+
+
+def budget_fields(budgets, c70, codes):
+    """Budgeted net school spending per foundation pupil, pooled over the districts' codes that year with a budget
+    and pupils; actual spending against the budget, in percent, pooled over those with both, as DESE paired them;
+    and the newest budget, a year past the axis, against the year before's actual and budget."""
+    if budgets is None:
+        return {}
+    leas = {c // 10000 for c in codes}
+    b = budgets[budgets["lea"].isin(leas)]
+    fe = c70[c70["Org4Code"].isin(leas)][["Org4Code", "YEAR", "distfoundenro"]].rename(
+        columns={"Org4Code": "lea", "YEAR": "fy", "distfoundenro": "fe"})
+    m = b.merge(fe, on=["lea", "fy"], how="left")
+    have = m.dropna(subset=["budgeted_nss"])
+    have = have[have["fe"] > 0]
+    if have.empty:
+        return {}
+    per = have.groupby("fy")[["budgeted_nss", "fe"]].sum()
+    both = m.dropna(subset=["budgeted_nss", "actual_nss"]).groupby("fy")[["budgeted_nss", "actual_nss"]].sum()
+    out = {"nss_budget": series(per["budgeted_nss"] / per["fe"], 0),
+           "nss_gap": series((both["actual_nss"] / both["budgeted_nss"] - 1) * 100, 1)}
+    nxt = LATEST_YEAR + 1
+    now = m[m["fy"] == nxt].set_index("lea")["budgeted_nss"].dropna()
+    if not now.empty:
+        act = m[m["fy"] == LATEST_YEAR].set_index("lea")["actual_nss"].dropna()
+        bud = m[m["fy"] == LATEST_YEAR].set_index("lea")["budgeted_nss"].dropna()
+        req = m[m["fy"] == nxt].set_index("lea")["budget_required_nss"].dropna()
+        ka, kb, kr = now.index.intersection(act.index), now.index.intersection(bud.index), now.index.intersection(req.index)
+        out["nss_budget_next"] = {
+            "fy": nxt,
+            "vs_actual": round(float(now[ka].sum() / act[ka].sum() - 1) * 100, 1) if len(ka) else None,
+            "vs_budget": round(float(now[kb].sum() / bud[kb].sum() - 1) * 100, 1) if len(kb) else None,
+            "vs_required": round(float(now[kr].sum() / req[kr].sum() - 1) * 100, 1) if len(kr) else None,
+            # One district's own dollars; an average's would be a sum no one budgeted
+            "budget": round(float(now.sum())) if len(leas) == 1 else None,
+        }
+    return out
+
+
+def student_fields(enr, codes):
+    """Students by race and ethnicity and in selected groups, in percent of all students, pooled over the districts'
+    codes (each measure over the districts that report it that year); the students of their average district (one
+    district's own); and the newest year's figures, a year past the axis."""
+    if enr is None:
+        return {}
+    rows = enr[enr["DIST_CODE"].isin(codes) & (enr["total_cnt"] > 0)]
+    if rows.empty:
+        return {}
+    def pooled(part, has):
+        r = rows[has]
+        by = r.assign(part=part[has]).groupby("FY")[["part", "total_cnt"]].sum()
+        return by["part"] / by["total_cnt"] * 100
+    race = {k: pooled(sum(rows[c].fillna(0) for c in cs) * rows["total_cnt"], rows[cs[0]].notna())
+            for k, cs in STUDENT_RACE.items()}
+    groups = {k: pooled(rows[f"{c}_cnt"], rows[f"{c}_cnt"].notna()) for k, c in STUDENT_GROUPS.items()}
+    by = rows.groupby("FY")
+    total = by["total_cnt"].sum() / by.size()
+    out = {"students": {"total": series(total, 1), "race": {k: series(v, 1) for k, v in race.items()},
+                        "groups": {k: series(v, 1) for k, v in groups.items()}}}
+    nxt = LATEST_YEAR + 1
+    if nxt in total.index:
+        out["students_next"] = {"fy": nxt, "total": round(float(total[nxt]), 1),
+                                **{k: round(float(v[nxt]), 1) for k, v in groups.items() if nxt in v.index and pd.notna(v[nxt])}}
     return out
 
 
@@ -484,9 +570,16 @@ def load_fiscal():
     labor = labor.assign(FY=labor["FY"] + 1).set_index(["key", "FY"])
     levy = pd.read_csv(LEVY_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Municipality"].map(norm)).set_index(["key", "FY"])
     ratings = pd.read_csv(RATINGS_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Name"].map(norm))
+    # The proof's year is the fiscal year whose June 30 balance sheet it reads, as the reserves' are
+    proof = None
+    if PROOF_CSV.exists():
+        proof = pd.read_csv(PROOF_CSV).assign(key=lambda d: d["Municipality"].map(norm))
+        for g, lines in PROOF_GROUPS.items():
+            proof[g] = proof[lines].fillna(0).sum(axis=1)
+        proof = proof.set_index(["key", "FY"])
     votes = pd.read_csv(VOTES_CSV, dtype={"DOR_CODE": str}).assign(key=lambda d: d["Municipality"].map(norm))
     return {"fc": fc, "stab": stab, "debt": debt, "auth": auth, "cap": cap, "labor": labor, "levy": levy,
-            "ratings": ratings, "votes": votes}
+            "ratings": ratings, "votes": votes, "proof": proof}
 
 
 def fiscal_series(fiscal, ks, population):
@@ -546,6 +639,12 @@ def fiscal_series(fiscal, ks, population):
     out["override_pct"] = series(lsum["Override Capacity"] / lsum["Levy Ceiling"] * 100, 1)
     out["levy_ceiling_pr"] = per_resident(lv, {"Levy Ceiling": "v"})["v"]
     out["override_latest"] = latest(lv, {"Override Capacity": "capacity", "Levy Ceiling": "ceiling"})
+    # What each year's free cash was made of, per resident, and the newest year's dollars
+    if fiscal["proof"] is not None:
+        pr = mine(fiscal["proof"])
+        out["fc_proof"] = per_resident(pr, {g: g for g in PROOF_GROUPS})
+        out["fc_identified"] = per_resident(pr, {"identified": "v"})["v"]
+        out["fc_proof_latest"] = latest(pr, {**{g: g for g in PROOF_GROUPS}, "identified": "identified"})
     # Prop 2 1/2 votes since the explorer's first year: held and won, by kind
     v = fiscal["votes"][fiscal["votes"]["key"].isin(ks) & (fiscal["votes"]["Fiscal Year"] >= EXPLORER_START)]
     out["votes"] = {VOTE_KINDS[k]: [int((v["Vote"] == k).sum()), int(((v["Vote"] == k) & (v["Win / Loss"] == "WIN")).sum())]
@@ -573,6 +672,23 @@ def town_votes(fiscal, names):
                                 None if pd.isna(r["yes"]) else int(r["yes"]), None if pd.isna(r["no"]) else int(r["no"])]
                                for _, r in g.iterrows()]
     return out
+
+
+def town_passed(fiscal, k):
+    """A town's Prop 2 1/2 votes that passed, from the explorer's first year: [fiscal year, kind, amount or None,
+    purpose], for the marks on its charts. Debt exclusions carry no amount in DLS's records."""
+    if fiscal is None:
+        return {}
+    v = fiscal["votes"]
+    v = v[(v["key"] == k) & (v["Win / Loss"] == "WIN") & (v["Fiscal Year"] >= EXPLORER_START)]
+    out = []
+    for _, r in v.sort_values(["Fiscal Year", "Vote Date"]).iterrows():
+        kind = VOTE_KINDS[r["Vote"]] if r["Vote"] != "Override or underride" else str(r["Vote Type"] or "Override").lower()
+        dept = r["Department"].strip().capitalize() if isinstance(r["Department"], str) else ""
+        desc = r["Description"].strip() if isinstance(r["Description"], str) else ""
+        what = ": ".join(x for x in (dept, desc) if x)  # as the list under the levy chart gives it
+        out.append([int(r["Fiscal Year"]), kind, None if pd.isna(r["Amount"]) else round(float(r["Amount"])), what[:90]])
+    return {"passed": out} if out else {}
 
 
 def town_ratings(fiscal, k):
@@ -663,6 +779,10 @@ def commonwealth_data(dists, full, prop):
             "sf_bill": w.get("sf_bill") or [None] * len(YEARS),
             "bill_income": w.get("sf_bill_income") or [None] * len(YEARS),
             "res_share": [r(ratio(a, b), 4) for a, b in zip(homes, values)],
+            # The district's own: its students' shares, special education's share, spending against its budget, and
+            # payments per out-of-district pupil
+            **({k: x for k, x in district_shares(e).items() if k != "high_needs"} if e else {}),
+            "ood_pp": (e.get("ood") if e else None) or [None] * len(YEARS),
         }
         off = [(org, fy) not in ran for fy in YEARS]
         if all(off):
@@ -934,7 +1054,47 @@ def fiscal_shares(t):
             "unemp": pct((t.get("labor") or {}).get("rate"))}
 
 
-def map_data(districts, towns, cap, cpi, org4):
+def frac(vals, start=None):
+    """Percents as fractions, for the map's and the Commonwealth tab's shares; years before start left off"""
+    return [None if v is None or (start and y < start) else round(v / 100, 4) for v, y in zip(vals or [None] * len(YEARS), YEARS)]
+
+
+def district_shares(e):
+    """A district's students and budget measures, year by year, as fractions: its students with disabilities,
+    English learners, low income (the measure DESE has used since FY2022), high needs and students of color; special
+    education's share of its spending; and its spending against its budget"""
+    st = e.get("students") or {}
+    g, race = st.get("groups") or {}, st.get("race") or {}
+    return {"swd": frac(g.get("swd")), "el": frac(g.get("el")), "low_income": frac(g.get("low_income"), 2022),
+            "high_needs": frac(g.get("high_needs")),
+            "soc": [None if w is None else round(1 - w / 100, 4) for w in race.get("white") or [None] * len(YEARS)],
+            "sped_share": frac(e.get("sped_share")), "gap": frac(e.get("nss_gap"))}
+
+
+def town_shares(t):
+    """A town's residents 65 and older, of color (all but non-Hispanic white), and with a disability, as fractions
+    of its residents (the last of those not living in institutions), each census release at its fiscal year; and its
+    long-term debt per resident"""
+    dm = t.get("demo") or {}
+    of = lambda part, whole: [None if p is None or not w else round(p / w, 4) for p, w in
+                              zip(dm.get(part) or [None] * len(YEARS), dm.get(whole) or [None] * len(YEARS))]
+    return {"older": of("age_65_up", "population"),
+            "poc": [None if x is None else round(1 - x, 4) for x in of("white", "population")],
+            "disability": of("disability", "disability_universe"),
+            "debt_pc": (t.get("debt") or {}).get("outstanding") or [None] * len(YEARS)}
+
+
+# The map's groupings: each town's or district's comparison group of one kind, as its cmp names it, in the order
+# the groups run (by size, or income, or density); ordered groupings color their groups on one ramp
+MAP_GROUPINGS = {
+    "towns": [("region", "Region", False), ("peer_state", "Population group, statewide", True), ("peer", "Population group, within its region", False),
+              ("type", "Community type", True), ("fifth", "Income fifth", True), ("schools", "School districts", True)],
+    "districts": [("region", "Region", False), ("cohort_state", "Enrollment group, statewide", True), ("cohort", "Enrollment group, within its region", False),
+                  ("type", "Community type", True), ("fifth", "Income fifth", True)],
+}
+
+
+def map_data(districts, towns, cap, cpi, org4, town_avgs=(), district_avgs=()):
     """map.json: the Commonwealth tab's map. Each town's outline, the district that serves its
     elementary grades and its secondary grades, and a few measures of how towns and districts
     have changed. Growth is the trend's, as the explorer's charts draw it: the least-squares line's
@@ -1033,6 +1193,12 @@ def map_data(districts, towns, cap, cpi, org4):
                 v and v > 0 for v in (v1[a], v2[a], v1[b], v2[b])):
             c1, c2 = v1[b] / v1[a] - 1, v2[b] / v2[a] - 1
             out["enroll"] = [round((w1 * c1 + w2 * c2) / (w1 + w2), 4), YEARS[a], YEARS[b]]
+        s1, s2 = district_shares(entity[d1]), district_shares(entity[d2])
+        for k in s1:
+            both_k = [j for j, (a, b) in enumerate(zip(s1[k], s2[k])) if a is not None and b is not None]
+            if both_k:
+                j = both_k[-1]
+                out[k] = [round((w1 * s1[k][j] + w2 * s2[k][j]) / (w1 + w2), 4), YEARS[j]]
         if n1 and n2:
             req = w1 * n1["req"] + w2 * n2["req"]
             out["above"] = [round((w1 * n1["above"] + w2 * n2["above"]) / req, 4), n1["fy"]]
@@ -1043,6 +1209,52 @@ def map_data(districts, towns, cap, cpi, org4):
     weights = {}  # a split town's pupils in its elementary and its secondary district
     cap_year = cap["meta"]["latest"]
     cap_towns = {t["id"]: t for t in cap["years"][str(cap_year)]["towns"]}
+
+    def town_values(t):
+        """A town's measures, or a town average's: the ones figured for one town alone (the cap, overrides passed,
+        density, income fifths) a town's only"""
+        c = cap_towns.get(t["id"])
+        v = {
+            "spend": growth(ratio(t["spend_total"], t["pop"])),
+            "pop": change(t["pop"]),
+            "eqv": growth(t["eqv"]) if t.get("eqv") else None,
+            "levy_room": latest([None if m is None or x is None or not m else (m - x) / m
+                                 for x, m in zip(t.get("levy_total") or [], t.get("levy_max") or [])]),
+            "bill_income": latest(t["sf_bill_income"]) if t.get("sf_bill_income") else None,
+            "edu": latest(edu_share(t)),
+            "cap_hh": [round((c["nocap"] - c["target"]) / c["hh"]), cap_year] if c and c.get("hh") else None,
+            **{k: latest(vals) for k, vals in fiscal_shares(t).items() if vals},
+            **{k: latest(vals) for k, vals in town_shares(t).items()},
+            # Overrides its voters passed, FY2005 on
+            "overrides": [sum(1 for fy, kind, *_ in t.get("passed") or [] if kind == "override"),
+                          max([fy for fy, *_ in t.get("passed") or []], default=LATEST_YEAR)] if t["kind"] == "town" else None,
+        }
+        com = t.get("community") or {}
+        if com:
+            v["density"] = [com["density"], com["fy"]]
+        if t.get("income"):
+            v["income"] = [t["income"]["income_pc"], t["income"]["year"]]
+        return {m: x for m, x in v.items() if x is not None}
+
+    def district_values(e):
+        """A district's measures, or a district average's"""
+        ppe = [None if all(s[y] is None for s in e["ppe"].values()) else sum(s[y] or 0 for s in e["ppe"].values())
+               for y in range(len(YEARS))]
+        nss = e.get("nss") or {}
+        req = [None if a is None or r is None else a + r for a, r in zip(nss.get("ch70_aid", []), nss.get("required_local", []))]
+        v = {
+            "ppe": growth(ppe),
+            "enroll": change(e["enroll"]["in_district"]),
+            "above": latest(ratio(nss.get("above_required", []), req)) if req else None,
+            "aid": latest(ratio(nss.get("ch70_aid", []), req)) if req else None,
+            **{k: latest(vals) for k, vals in district_shares(e).items()},
+        }
+        com = e.get("community") or {}
+        if com:
+            v["density"] = [com["density"], com["fy"]]
+        if e.get("income"):
+            v["income"] = [e["income"]["income_pc"], e["income"]["year"]]
+        return {m: x for m, x in v.items() if x is not None}
     for t in towns:
         k = norm(t["name"])
         if k not in outline:
@@ -1060,60 +1272,55 @@ def map_data(districts, towns, cap, cpi, org4):
         both = combined(pair) if pair else None
         if both and all(w for _, w in pair):
             weights[t["id"]] = [round(w, 1) for _, w in pair]
-        c = cap_towns.get(t["id"])
-        hh = t["hh"][-1] if t.get("hh") else None
-        v = {
-            "spend": growth(ratio(t["spend_total"], t["pop"])),
-            "pop": change(t["pop"]),
-            "eqv": growth(t["eqv"]) if t.get("eqv") else None,
-            "levy_room": latest([None if m is None or x is None or not m else (m - x) / m
-                                 for x, m in zip(t.get("levy_total") or [], t.get("levy_max") or [])]),
-            "bill_income": latest(t["sf_bill_income"]) if t.get("sf_bill_income") else None,
-            "edu": latest(edu_share(t)),
-            "cap_hh": [round((c["nocap"] - c["target"]) / c["hh"]), cap_year] if c and c.get("hh") else None,
-            **{k: latest(vals) for k, vals in fiscal_shares(t).items() if vals},
-        }
+        v = town_values(t)
         com = t.get("community") or {}
-        if com:
-            v["density"] = [com["density"], com["fy"]]
-        if t.get("income"):
-            v["income"] = [t["income"]["income_pc"], t["income"]["year"]]
         out_towns.append({"id": t["id"], "name": t["name"], "d": outline[k], "elem": elem, "high": high, "ct": com.get("type"),
-                          "v": {m: x for m, x in v.items() if x is not None}, **({"all": both} if both else {})})
+                          "v": v, **({"all": both} if both else {})})
 
     out_districts = {}
     for i in sorted(used):
         e = entity[i]
-        ppe = [None if all(s[y] is None for s in e["ppe"].values()) else sum(s[y] or 0 for s in e["ppe"].values())
-               for y in range(len(YEARS))]
-        nss = e.get("nss") or {}
-        req = [None if a is None or r is None else a + r for a, r in zip(nss.get("ch70_aid", []), nss.get("required_local", []))]
-        v = {
-            "ppe": growth(ppe),
-            "enroll": change(e["enroll"]["in_district"]),
-            "above": latest(ratio(nss.get("above_required", []), req)) if req else None,
-            "aid": latest(ratio(nss.get("ch70_aid", []), req)) if req else None,
-        }
         com = e.get("community") or {}
-        if com:
-            v["density"] = [com["density"], com["fy"]]
-        if e.get("income"):
-            v["income"] = [e["income"]["income_pc"], e["income"]["year"]]
-        out_districts[i] = {"name": e["name"], "ct": com.get("type"), "v": {m: x for m, x in v.items() if x is not None}}
+        out_districts[i] = {"name": e["name"], "ct": com.get("type"), "v": district_values(e)}
     # Where each income fifth begins, so the map's income colors are exactly the fifths
     def fifth_cuts(xs):
         return [min(x["income_pc"] for x in xs if x["fifth"] == f) for f in (2, 3, 4, 5)] if xs else None
-    series = map_series(entity, sorted(used), towns, out_towns, cap, cpi, org4, mem, ppe_of, weights)
+    # The groupings: each town's and district's group of each kind, and each group's values, as its own average's
+    by_id = {a["id"]: a for a in [*town_avgs, *district_avgs]}
+    groupings = {}
+    for layer, units in (("towns", towns), ("districts", [entity[i] for i in sorted(used)])):
+        groupings[layer] = []
+        for key, label, ordered in MAP_GROUPINGS[layer]:
+            # Within its region. A district whose region has too few of its size is in the statewide group, as its
+            # comparison falls back; a town stays in its region's group, however few share it, an outlier there
+            # (Tim, #219)
+            fallback = {"peer": "peer_state", "cohort": "cohort_state"}.get(key)
+            def group_of(u):
+                c = u.get("cmp") or {}
+                if key == "peer" and not c.get("peer") and c.get("peer_state") and u.get("region"):
+                    return f"{c['peer_state']}-{slug(u['region'])}"
+                return c.get(key) or (c.get(fallback) if fallback else None)
+            of = {u["id"]: group_of(u) for u in units}
+            of = {u: g for u, g in of.items() if g in by_id}
+            ids = list(dict.fromkeys(a["id"] for a in (town_avgs if layer == "towns" else district_avgs) if a["id"] in set(of.values())))
+            groupings[layer].append({"key": key, "label": label, "ordered": ordered, "groups": ids, "of": of})
+    used_groups = sorted({g for gs in groupings.values() for x in gs for g in x["groups"]})
+    groups = {g: {"name": by_id[g]["name"], "members": by_id[g].get("members"),
+                  "v": town_values(by_id[g]) if g in {a["id"] for a in town_avgs} else district_values(by_id[g]),
+                  **({"outlier": True} if by_id[g].get("outlier") else {})} for g in used_groups}
+    series = map_series(entity, sorted(used), towns, out_towns, cap, cpi, org4, mem, ppe_of, weights,
+                        [by_id[g] for g in used_groups if g in {a["id"] for a in town_avgs}],
+                        [by_id[g] for g in used_groups if g in {a["id"] for a in district_avgs}])
     return {"meta": {"built": dt.date.today().isoformat(), "start": EXPLORER_START, "latest": LATEST_YEAR,
                      "cap_fy": cap_year, "width": geo["width"], "height": geo["height"],
                      "outlines": geo["source"],
                      "fifths": {"towns": fifth_cuts([t["income"] for t in towns if t.get("income")]),
                                 "districts": fifth_cuts([e["income"] for e in districts if e.get("income")]),
                                 "year": max((t["income"]["year"] for t in towns if t.get("income")), default=None)}},
-            "towns": out_towns, "districts": out_districts, "series": series}
+            "towns": out_towns, "districts": out_districts, "groupings": groupings, "groups": groups, "series": series}
 
 
-def map_series(entity, used, towns, out_towns, cap, cpi, org4, mem, ppe_of, weights):
+def map_series(entity, used, towns, out_towns, cap, cpi, org4, mem, ppe_of, weights, town_groups=(), district_groups=()):
     """The map's measures year by year, so it can show any span of years for a change and any year for a
     level: every array runs along "years", FY{EXPLORER_START} to the cap tab's latest year, trailing
     years without a value left off. Growth and change are figured in the browser, by the same rules as
@@ -1159,11 +1366,38 @@ def map_series(entity, used, towns, out_towns, cap, cpi, org4, mem, ppe_of, weig
             factor[y] = sum(t for _, t in pairs) / sum(c for c, _ in pairs)
     cap_town = {y: {t["id"]: t for t in cap["years"][str(y)]["towns"]} for y in cap_years}
 
+    def town_row(t):
+        """A town's measures year by year, or a town average's: all but density and the cap, figured for a town alone"""
+        pop = t["pop"]
+        return {
+            "spend": trim(on_axis([None if s is None or not p else s / p for s, p in zip(t["spend_total"], pop)]), 2),
+            "pop": trim(on_axis(pop)),
+            "eqv": trim(on_axis(t["eqv"])) if t.get("eqv") else None,
+            "levy_room": trim(on_axis([None if m is None or x is None or not m else (m - x) / m
+                                       for x, m in zip(t.get("levy_total") or [], t.get("levy_max") or [])]), 4),
+            "bill_income": trim(on_axis(t["sf_bill_income"]), 4) if t.get("sf_bill_income") else None,
+            "edu": trim(on_axis(edu_share(t)), 4),
+            **{k: trim(on_axis(vals), 4) for k, vals in fiscal_shares(t).items() if vals},
+            **{k: trim(on_axis(vals), 0 if k == "debt_pc" else 4) for k, vals in town_shares(t).items()},
+        }
+
+    def district_row(e, ppe):
+        """A district's measures year by year, or a district average's: all but density"""
+        nss = e.get("nss") or {}
+        return {
+            "ppe": trim(on_axis(ppe)),
+            "enroll": trim(on_axis(e["enroll"]["in_district"]), 1),
+            "above": trim(on_axis(nss.get("above_required") or [])),
+            "aid": trim(on_axis(nss.get("ch70_aid") or [])),
+            "req": trim(on_axis([None if a is None or r is None else a + r
+                                 for a, r in zip(nss.get("ch70_aid") or [], nss.get("required_local") or [])])),
+            **{k: trim(on_axis(vals), 4) for k, vals in district_shares(e).items()},
+        }
+
     s_towns = {}
     for t, o in zip(towns, out_towns):
         k = norm(t["name"])
         pop = t["pop"]
-        edu = edu_share(t)
         hh = t.get("hh") or [None] * len(YEARS)
         cap_hh = [None] * len(axis)
         h = H.get("towns", {}).get(t["id"])
@@ -1176,17 +1410,9 @@ def map_series(entity, used, towns, out_towns, cap, cpi, org4, mem, ppe_of, weig
                     cap_hh[at[y]] = (c["nocap"] - c["target"]) / c["hh"]
             elif h and y <= LATEST_YEAR and y in factor and h["cey"][j] is not None and h["target"][j] is not None and hh[YEARS.index(y)]:
                 cap_hh[at[y]] = (round(h["cey"][j] * factor[y]) - h["target"][j]) / hh[YEARS.index(y)]
-        row = {
-            "spend": trim(on_axis([None if s is None or not p else s / p for s, p in zip(t["spend_total"], pop)]), 2),
-            "pop": trim(on_axis(pop)),
-            "eqv": trim(on_axis(t["eqv"])) if t.get("eqv") else None,
-            "levy_room": trim(on_axis([None if m is None or x is None or not m else (m - x) / m
-                                       for x, m in zip(t.get("levy_total") or [], t.get("levy_max") or [])]), 4),
-            "bill_income": trim(on_axis(t["sf_bill_income"]), 4) if t.get("sf_bill_income") else None,
-            "edu": trim(on_axis(edu), 4),
+        row = town_row(t) | {
             "density": trim(on_axis([None if p is None or not area.get(k) else p / area[k] for p in pop]), 1),
             "cap_hh": trim(cap_hh),
-            **{k: trim(on_axis(vals), 4) for k, vals in fiscal_shares(t).items() if vals},
         }
         s_towns[t["id"]] = {m: v for m, v in row.items() if v}
         if t["id"] in weights:
@@ -1202,18 +1428,16 @@ def map_series(entity, used, towns, out_towns, cap, cpi, org4, mem, ppe_of, weig
         com = e.get("community") or {}
         if com.get("fy") in at:
             dens[at[com["fy"]]] = com["density"]
-        row = {
-            "ppe": trim(on_axis(ppe_of(i))),
-            "enroll": trim(on_axis(e["enroll"]["in_district"]), 1),
-            "above": trim(on_axis(nss.get("above_required") or [])),
-            "aid": trim(on_axis(nss.get("ch70_aid") or [])),
-            "req": trim(on_axis([None if a is None or r is None else a + r
-                                 for a, r in zip(nss.get("ch70_aid") or [], nss.get("required_local") or [])])),
-            "density": trim(dens, 1),
-        }
+        row = district_row(e, ppe_of(i)) | {"density": trim(dens, 1)}
         s_districts[i] = {m: v for m, v in row.items() if v}
+    # The group averages, as the map colors a town by its group's
+    s_groups = {t["id"]: {m: v for m, v in town_row(t).items() if v} for t in town_groups}
+    for e in district_groups:
+        ppe = [None if all(x[y] is None for x in e["ppe"].values()) else sum(x[y] or 0 for x in e["ppe"].values())
+               for y in range(len(YEARS))]
+        s_groups[e["id"]] = {m: v for m, v in district_row(e, ppe).items() if v}
     return {"years": axis, "cpi": [round(cpi[y], 3) if y in cpi else None for y in axis],
-            "towns": s_towns, "districts": s_districts}
+            "towns": s_towns, "districts": s_districts, "groups": s_groups}
 
 
 def explorer_districts(df, reg):
@@ -1256,16 +1480,21 @@ def chunk_of(region, kind="traditional"):
 
 
 def cohort_name(k, region=None):
-    """'Statewide Tiny cohort average', 'Western MA Tiny cohort average', 'Very large districts average'"""
+    """'Statewide Tiny enrollment group average', 'Western MA Tiny enrollment group average', 'Very large districts
+    average'. The site calls the report's size cohorts enrollment groups, as it calls the towns' population groups
+    (Tim, #217; #215 had "size peer groups" for both)"""
     if k in ("XLARGE", "VOCATIONAL", "CHARTER"):
         return {"XLARGE": "Very large districts average", "VOCATIONAL": "Vocational districts average",
                 "CHARTER": "Charter schools average"}[k]
-    return f"{REGIONS[region] if region else 'Statewide'} {get_cohort_short_label(k)} cohort average"
+    return f"{REGIONS[region] if region else 'Statewide'} {get_cohort_short_label(k)} enrollment group average"
 
 
 def town_data(dists, reg, latest, area=None, fifths=None):
     """The town view: (towns.json content, {chunk: full towns}, every full town, each
-    district's towns). dists: explorer_districts() with each district's explorer id."""
+    district's towns, the map's outlier groups). dists: explorer_districts() with each district's
+    explorer id. The outlier groups are the population groups within a region that have too few
+    towns for a comparison (fewer than MIN_AVERAGE_MEMBERS): the map keeps such towns in their
+    region, marked as outliers, while the explorer compares them with the statewide group."""
     dls = pd.read_csv(DLS_CSV, dtype={"DOR_CODE": str})
     dls = dls[dls["FY"].isin(YEARS)].assign(key=lambda d: d["Municipality"].map(norm))
     pop = pd.read_csv(POP_CSV, dtype={"COUSUB_FIPS": str}).assign(key=lambda d: d["Town"].map(norm))
@@ -1304,7 +1533,8 @@ def town_data(dists, reg, latest, area=None, fifths=None):
         elif norm(d["name"]) in own_of:
             district_towns[d["id"]], towns_kind[d["id"]] = [norm(d["name"])], "town"
 
-    # The cities whose own school districts are very large stand apart from the averages
+    # The cities whose own school districts are very large stand apart from the statewide and regional averages;
+    # they are in their population groups, as the very large districts are in theirs
     apart = {k for k, d in own_of.items() if d["cohort"] == "XLARGE"}
     pooled = [k for k in keys if k not in apart]
     gateway = {norm(c) for c in GATEWAY_CITIES}
@@ -1312,8 +1542,6 @@ def town_data(dists, reg, latest, area=None, fifths=None):
         raise ValueError(f"Gateway Cities missing from the town list: {sorted(gateway - set(keys))}")
 
     def peer_of(k):
-        if k in apart:
-            return None
         n = population[(k, latest)]
         return next(f"towns-{sfx}" for sfx, lo, hi, _ in TOWN_PEERS if lo <= n and (hi is None or n < hi))
 
@@ -1345,7 +1573,8 @@ def town_data(dists, reg, latest, area=None, fifths=None):
                      "pop": series(pd.Series({fy: population.get((k, fy)) for fy in YEARS}), 0),
                      "hh": series(pd.Series({fy: households.get((k, fy)) for fy in YEARS}), 0),
                      **town_series(dls[dls["key"] == k], population), **property_series(prop, [k], population),
-                     **fiscal_series(fiscal, [k], population), **town_ratings(fiscal, k), **demo_series(demo, [k]),
+                     **fiscal_series(fiscal, [k], population), **town_ratings(fiscal, k), **town_passed(fiscal, k),
+                     **demo_series(demo, [k]),
                      "districts": schools})
 
     def average(aid, name, scope, group, region, ks, **fields):
@@ -1369,19 +1598,23 @@ def town_data(dists, reg, latest, area=None, fifths=None):
         averages.append(average(f"towns-region-{slug(rk)}", f"{rl} towns average", "region", None, rk, ks,
                                 cmp={"state": "towns-statewide"}))
     have = {a["id"] for a in averages}
+    outliers = []
     for sfx, lo, hi, label in TOWN_PEERS:
         pid = f"towns-{sfx}"
         phrase = f"towns {label}" if label.startswith("under") else f"towns of {label}"
-        ks = [k for k in pooled if peer_of(k) == pid]
+        ks = [k for k in keys if peer_of(k) == pid]
         averages.append(average(pid, f"{phrase[0].upper()}{phrase[1:]} average", "peer", pid, None, ks,
                                 ref=f"the average for {phrase}", label=f"{label} residents", cmp={"state": "towns-statewide"}))
         for rk, rl in REGIONS.items():
-            ks = [k for k in pooled if peer_of(k) == pid and region_of[k] == rk]
+            ks = [k for k in keys if peer_of(k) == pid and region_of[k] == rk]
             if len(ks) >= MIN_AVERAGE_MEMBERS:
                 averages.append(average(f"{pid}-{slug(rk)}", f"{rl} {phrase} average", "region-peer", pid, rk, ks,
                                         ref=f"the average for {rl} {phrase}", label=f"{label} residents",
                                         cmp={"peer_state": pid, "region": f"towns-region-{slug(rk)}",
                                              "state": "towns-statewide"}))
+            elif ks:
+                outliers.append(average(f"{pid}-{slug(rk)}", f"{rl} {phrase}", "region-peer", pid, rk, ks,
+                                        outlier=True, cmp={}))
     # Gateway Cities: the Commonwealth's list, very large cities included
     averages.append(average("towns-gateway", "Gateway Cities average", "group", None, None, sorted(gateway),
                             cmp={"state": "towns-statewide"}))
@@ -1406,6 +1639,20 @@ def town_data(dists, reg, latest, area=None, fifths=None):
         ks = [k for k in keys if type_of.get(k, {}).get("type") == t]
         if ks:
             averages.append(average(f"towns-type-{t}", name, "type", None, None, ks, cmp={"state": "towns-statewide"}))
+    # School districts: how much of its schooling a town runs itself. None (it tuitions its pupils to other districts),
+    # regional districts only, its own district and a regional one (one for its elementary grades, the other for its
+    # secondary, or for some of each), or its own for every grade; vocational districts aside
+    def setup_of(x):
+        kinds = {d["kind"] for d in x.get("districts") or []}
+        own, reg = "town" in kinds, "regional" in kinds
+        return "own" if own and not reg else "own-regional" if own else "regional" if reg else "none"
+    setup = {norm(x["name"]): setup_of(x) for x in full}
+    for sk, name in (("none", "Towns with no school district average"), ("regional", "Towns in regional districts only average"),
+                     ("own-regional", "Towns with their own district and a regional one average"),
+                     ("own", "Towns with their own district for every grade average")):
+        ks = [k for k in keys if setup.get(k) == sk]
+        if ks:
+            averages.append(average(f"towns-schools-{sk}", name, "schools", None, None, ks, cmp={"state": "towns-statewide"}))
     for a in averages:
         a["cmp"]["gateway"] = "towns-gateway" if a["id"] != "towns-gateway" else None
         a["cmp"]["state_all"] = "towns-statewide-all" if a["id"] != "towns-statewide-all" else None
@@ -1420,7 +1667,8 @@ def town_data(dists, reg, latest, area=None, fifths=None):
                     "peer_state": pid, "region": f"towns-region-{slug(rk)}" if rk else None, "state": "towns-statewide",
                     "state_all": "towns-statewide-all", "gateway": "towns-gateway",
                     "type": f"towns-type-{type_of[k]['type']}" if k in type_of and f"towns-type-{type_of[k]['type']}" in have else None,
-                    "fifth": f"towns-fifth-{fifths[k]['fifth']}" if fifths and k in fifths else None}
+                    "fifth": f"towns-fifth-{fifths[k]['fifth']}" if fifths and k in fifths else None,
+                    "schools": f"towns-schools-{setup[k]}" if f"towns-schools-{setup.get(k)}" in have else None}
         if k in type_of:
             x["community"] = type_of[k]
         if fifths and k in fifths:
@@ -1433,7 +1681,7 @@ def town_data(dists, reg, latest, area=None, fifths=None):
             "years": YEARS, "latest": latest, "start": EXPLORER_START, "built": dt.date.today().isoformat(),
             "members_fy": latest, "regions": REGIONS,
             "apart": sorted(names[k] for k in apart),
-            # July 1 of this year sets each town's peer group
+            # July 1 of this year sets each town's population group
             "peer_year": latest - 1,
             "peers": [{"id": f"towns-{sfx}", "label": f"{label} residents"} for sfx, _, _, label in TOWN_PEERS],
             "sources": {
@@ -1464,7 +1712,7 @@ def town_data(dists, reg, latest, area=None, fifths=None):
 
     links = {eid: {"towns": [town_link(eid, k) for k in ks], "towns_kind": towns_kind[eid]}
              for eid, ks in district_towns.items()}
-    return index, chunks, full, links
+    return index, chunks, full, links, outliers
 
 
 def write_csvs(out_dir: Path, districts, all_towns, census, latest):
@@ -1558,6 +1806,27 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
             cbs.insert(2, "district", cbs["dese_code"].astype(int).floordiv(10000).map(names))
             cbs["source_url"], cbs["source_updated"] = URL_CB, src["circuit_breaker"]["last_updated"]
             save("districts-circuit-breaker.csv", cbs.sort_values(["district", "fiscal_year_paid"]))
+
+    # DESE's budgeted and actual net school spending, in dollars, as its compliance summaries reported them
+    names = {org: n for _, n, org in districts}
+    if BUDGET_CSV.exists():
+        src = json.loads(BUDGET_SOURCES.read_text())
+        bd = pd.read_csv(BUDGET_CSV, dtype={"lea": int})
+        bd = bd[bd["lea"].isin(orgs) & bd["fy"].between(EXPLORER_START, latest + 1)]
+        bd = bd.rename(columns={"fy": "fiscal_year", "lea": "dese_lea", "district": "dese_name"})
+        bd.insert(2, "district", bd["dese_lea"].map(names))
+        urls = {v["file"]: v["url"] for v in src["files"].values()}
+        bd["budget_source_url"], bd["actual_source_url"] = bd["budget_file"].map(urls), bd["actual_file"].map(urls)
+        save("districts-nss-budgets.csv", bd.drop(columns=["budget_file", "actual_file"]).sort_values(["district", "fiscal_year"]))
+    # DESE's students by race and ethnicity, gender, and selected groups, as its profiles show them
+    if ENROLL_CSV.exists():
+        src = json.loads(ENROLL_SOURCES.read_text())
+        st = pd.read_csv(ENROLL_CSV, dtype={"DIST_CODE": str})
+        st = st[st["DIST_CODE"].astype(int).floordiv(10000).isin(orgs) & st["FY"].between(EXPLORER_START, latest + 1)]
+        st = st.rename(columns={"FY": "school_year", "DIST_CODE": "dese_code", "DIST_NAME": "dese_name"})
+        st.insert(2, "district", st["dese_code"].astype(int).floordiv(10000).map(names))
+        st["source_url"], st["source_updated"] = URL_STUDENTS, src["last_updated"]
+        save("districts-students.csv", st.sort_values(["district", "school_year"]))
 
     if all_towns:
         keys = {norm(x["name"]): x for x in all_towns}
@@ -1673,7 +1942,10 @@ def write_csvs(out_dir: Path, districts, all_towns, census, latest):
                                 (RATINGS_CSV, "bond_ratings", "towns-bond-ratings.csv"),
                                 (VOTES_CSV, "votes: Override or underride", "towns-prop25-votes.csv"),
                                 (CAPITAL_CSV, "capital_projects", "towns-capital-projects.csv"),
-                                (LABOR_CSV, "labor_force", "towns-labor-force.csv")]:
+                                (LABOR_CSV, "labor_force", "towns-labor-force.csv"),
+                                (PROOF_CSV, "free_cash_proof", "towns-free-cash-proof.csv")]:
+            if not path.exists() or key not in src:
+                continue
             f = pd.read_csv(path, dtype={"DOR_CODE": str})
             town_col = "Name" if "Name" in f.columns else "Municipality"
             f = f[f[town_col].map(norm).isin(keys)]
@@ -1711,6 +1983,12 @@ def main(site: Path):
     if sped is None:
         print(f"  [WARN] {SPED_CSV} not found (run update_dese_sped_data.py); no special education panels")
     pupils = sped_pupils(df)
+    budgets = pd.read_csv(BUDGET_CSV, dtype={"lea": int}) if BUDGET_CSV.exists() else None
+    if budgets is None:
+        print(f"  [WARN] {BUDGET_CSV} not found (run update_dese_nss_budgets.py); no budget panel")
+    enr = pd.read_csv(ENROLL_CSV, dtype={"DIST_CODE": int}) if ENROLL_CSV.exists() else None
+    if enr is None:
+        print(f"  [WARN] {ENROLL_CSV} not found (run update_dese_enrollment.py); no students panels")
 
     dists = explorer_districts(df, reg)
     gateway = {norm(c) for c in GATEWAY_CITIES}
@@ -1795,7 +2073,9 @@ def main(site: Path):
                          "member_ids": [d["id"] for d in sorted(members, key=lambda d: d["name"])], "cmp": cmp,
                          "chunk": slug(region) if region else "statewide", **pack(piv, lines, nss),
                          "ood": ood_series(df, keys, YEARS), **rev,
-                         **sped_fields(sped, cb, pupils, [d["code"] for d in members])})
+                         **sped_fields(sped, cb, pupils, [d["code"] for d in members]),
+                         **budget_fields(budgets, c70, [d["code"] for d in members]),
+                         **student_fields(enr, [d["code"] for d in members])})
 
     full = []
     for d in sorted(dists, key=lambda d: d["name"]):
@@ -1816,11 +2096,14 @@ def main(site: Path):
                      "chunk": chunk_of(rk, d["type"]),
                      **pack(piv, lines, nss), "ood": ood_series(df, [d["key"]], YEARS),
                      **revenue_fields(census, [d["code"]], regional),
-                     **sped_fields(sped, cb, pupils, [d["code"]])})
+                     **sped_fields(sped, cb, pupils, [d["code"]]),
+                     **budget_fields(budgets, c70, [d["code"]]),
+                     **student_fields(enr, [d["code"]])})
 
-    towns_index, town_chunks, all_towns = None, {}, []
+    towns_index, town_chunks, all_towns, town_outliers = None, {}, [], []
     if all(p.exists() for p in (DLS_CSV, POP_CSV, MEMBERS_CSV)):
-        towns_index, town_chunks, all_towns, links = town_data(dists, reg, LATEST_YEAR, land_areas(), town_fifths)
+        towns_index, town_chunks, all_towns, links, town_outliers = town_data(dists, reg, LATEST_YEAR, land_areas(),
+                                                                              town_fifths)
         for e in full:
             e.update(links.get(e["id"], {}))
     else:
@@ -1852,6 +2135,13 @@ def main(site: Path):
                       "cb_latest": int(cb["FY"].max()) if cb is not None else None,
                       **{k: v for k, v in json.loads(SPED_SOURCES.read_text()).items() if k == "downloaded"}}
                      if sped is not None else None),
+            "budgets": ({"first": int(budgets.dropna(subset=["budgeted_nss"])["fy"].min()),
+                         "latest": int(budgets.dropna(subset=["budgeted_nss"])["fy"].max()),
+                         **{k: v for k, v in json.loads(BUDGET_SOURCES.read_text()).items() if k in ("downloaded", "not_found")}}
+                        if budgets is not None else None),
+            "students": ({"first": int(enr["FY"].min()), "latest": int(enr["FY"].max()),
+                          **{k: v for k, v in json.loads(ENROLL_SOURCES.read_text()).items() if k in ("downloaded", "last_updated")}}
+                         if enr is not None else None),
             "sources": {
                 "expenditures": "DESE District Expenditures by Spending Category (E2C Hub er3w-dyti)",
                 "chapter70": "DESE Chapter 70 District Profiles",
@@ -1859,6 +2149,8 @@ def main(site: Path):
                 "revenue": "Census Bureau Annual Survey of School System Finances (F-33), Massachusetts",
                 "sped": "DESE Special Education Direct Expenditure Trends (RADAR)",
                 "circuit_breaker": "DESE Special Education Circuit Breaker Reimbursements (E2C Hub ab34-d3ma)",
+                "budgets": "DESE Net School Spending compliance summaries (budgeted and actual NSS)",
+                "students": "DESE Enrollment: Grade, Race/Ethnicity, Gender, and Selected Populations (E2C Hub t8td-gens)",
             },
         },
         # A light list for the menus; each entity's data is in its chunk's file
@@ -1901,7 +2193,9 @@ def main(site: Path):
             if BOUNDARIES_JSON.exists():
                 towns_only = [t for t in all_towns if t["kind"] == "town"]
                 mp = map_data(full, towns_only, cap, {int(y): float(idx[y]) for y in YEARS if y in idx.index},
-                              {d["id"]: d["code"] // 10000 for d in dists})
+                              {d["id"]: d["code"] // 10000 for d in dists},
+                              [t for xs in town_chunks.values() for t in xs if t["kind"] != "town"] + town_outliers,
+                              averages)
                 # The years behind the map's measures, a file of their own: the map draws without them
                 sizes["map-years.json"] = write_json(json_dir / "map-years.json", mp.pop("series"))
                 sizes["map.json"] = write_json(json_dir / "map.json", mp)

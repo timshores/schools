@@ -1,0 +1,98 @@
+{
+ "source": "DESE, Compliance With Net School Spending Requirements: https://www.doe.mass.edu/finance/chapter70/compliance.html",
+ "files": {
+  "2010": {
+   "file": "comply10.xls",
+   "url": "https://web.archive.org/web/20150910045956id_/https://www.doe.mass.edu/finance/chapter70/comply10.xls",
+   "archived": "20150910",
+   "districts": 328
+  },
+  "2011": {
+   "file": "comply11.xls",
+   "url": "https://web.archive.org/web/20150910113451id_/http://www.doe.mass.edu/finance/chapter70/comply11.xls",
+   "archived": "20150910",
+   "districts": 328
+  },
+  "2012": {
+   "file": "comply12.xlsx",
+   "url": "https://web.archive.org/web/20170513015147id_/https://www.doe.mass.edu/finance/chapter70/comply12.xlsx",
+   "archived": "20170513",
+   "districts": 326
+  },
+  "2013": {
+   "file": "comply13.xlsx",
+   "url": "https://web.archive.org/web/20150910113446id_/https://www.doe.mass.edu/finance/chapter70/comply13.xlsx",
+   "archived": "20150910",
+   "districts": 324
+  },
+  "2014": {
+   "file": "comply14.xlsx",
+   "url": "https://web.archive.org/web/20200119000858id_/https://www.doe.mass.edu/finance/chapter70/comply14.xlsx",
+   "archived": "20200119",
+   "districts": 325
+  },
+  "2015": {
+   "file": "comply15.xlsx",
+   "url": "https://web.archive.org/web/20200120221642id_/https://www.doe.mass.edu/finance/chapter70/comply15.xlsx",
+   "archived": "20200120",
+   "districts": 322
+  },
+  "2016": {
+   "file": "comply16.xlsx",
+   "url": "https://web.archive.org/web/20210710012642id_/https://www.doe.mass.edu/finance/chapter70/comply16.xlsx",
+   "archived": "20210710",
+   "districts": 322
+  },
+  "2017": {
+   "file": "comply17.xlsx",
+   "url": "https://web.archive.org/web/20240912053358id_/https://www.doe.mass.edu/finance/chapter70/comply17.xlsx",
+   "archived": "20240912",
+   "districts": 322
+  },
+  "2018": {
+   "file": "comply18.xlsx",
+   "url": "https://web.archive.org/web/20250131111354id_/http://www.doe.mass.edu/finance/chapter70/comply18.xlsx",
+   "archived": "20250131",
+   "districts": 322
+  },
+  "2019": {
+   "file": "comply19.xlsx",
+   "url": "https://web.archive.org/web/20250131114005id_/https://www.doe.mass.edu/finance/chapter70/comply19.xlsx",
+   "archived": "20250131",
+   "districts": 320
+  },
+  "2020": {
+   "file": "comply-fy2020.xlsx",
+   "url": "https://web.archive.org/web/20250831200215id_/https://www.doe.mass.edu/finance/chapter70/comply-fy2020.xlsx",
+   "archived": "20250831",
+   "districts": 318
+  },
+  "2021": {
+   "file": "comply-fy2021.xlsx",
+   "url": "https://www.doe.mass.edu/finance/chapter70/comply-fy2021.xlsx",
+   "districts": 318
+  },
+  "2022": {
+   "file": "comply-fy2022.xlsx",
+   "url": "https://www.doe.mass.edu/finance/chapter70/comply-fy2022.xlsx",
+   "districts": 318
+  },
+  "2023": {
+   "file": "comply-fy2023.xlsx",
+   "url": "https://www.doe.mass.edu/finance/chapter70/comply-fy2023.xlsx",
+   "districts": 318
+  },
+  "2024": {
+   "file": "comply-fy2024.xlsx",
+   "url": "https://www.doe.mass.edu/finance/chapter70/comply-fy2024.xlsx",
+   "districts": 318
+  },
+  "2025": {
+   "file": "comply-fy2025.xlsx",
+   "url": "https://www.doe.mass.edu/finance/chapter70/comply-fy2025.xlsx",
+   "districts": 318
+  }
+ },
+ "not_found": [],
+ "downloaded": "2026-11-05"
+}

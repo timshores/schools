@@ -1,0 +1,6 @@
+{
+ "source": "https://educationtocareer.data.mass.gov/Students-and-Teachers/Enrollment-Grade-Race-Ethnicity-Gender-and-Selected-Populations/t8td-gens/about_data",
+ "url": "https://educationtocareer.data.mass.gov/resource/t8td-gens.csv?$limit=100000&$where=org_type='District'&$order=sy,dist_code",
+ "last_updated": "2026-10-23",
+ "downloaded": "2026-11-05"
+}

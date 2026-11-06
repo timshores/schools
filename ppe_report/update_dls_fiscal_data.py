@@ -18,6 +18,10 @@ capital projects and labor force from the DLS Municipal Databank, for the explor
                                       expenditures by purpose, FY2002 on
     data/dls_labor_force.csv          labor force, employed, unemployed, unemployment rate,
                                       by calendar year, 1990 on
+    data/dls_free_cash_proof.csv      the Bureau of Accounts' free cash proof: what each year's free
+                                      cash was made of (local receipts and state aid above or below
+                                      their estimates, appropriations left unspent, the year before's
+                                      free cash not spent, adjustments), FY2021 on
 
 Every report is a Logi form of checkbox lists (municipalities, years, and for votes the
 department, result and type); this asks for every choice at once and exports the report's
@@ -60,6 +64,26 @@ VOTES = {
     "Stabilization fund": "Votes.Prop2_5.Stabilization",
 }
 CAPITAL = "ScheduleA.CapitalProjects.CapitalProjects"
+PROOF = "BalanceSheet.FreecashProofComp"
+# The proof's lines, as DLS heads them, and the short names this file gives them. The lines from revenue_deficits
+# to other_adjustments add up to identified free cash, each with its own sign; certified_prior and certified are the
+# certifications either side of the year.
+PROOF_LINES = {
+    "Free Cash Certified Prior Year": "certified_prior",
+    "Current Year Calculation": "certified",
+    "Revenue Deficits": "revenue_deficits",
+    "Excess/Shortfall Local Receipts (CL#6)": "local_receipts",
+    "Add Actual Revenue Received but not Estimated (CL#7)": "not_estimated",
+    "Excess/Shortfall Cherry Sheet Receipts (CL#8)": "state_aid",
+    "Add Unencumbered/Unexpended Appropriations (CL#11)": "unexpended",
+    "Subtract Negative Free Cash Certified July 1 Prior Year": "negative_prior",
+    "Add Prior Year Free Cash Not Appropriated (CL#12)": "prior_not_appropriated",
+    "Add Overlay Surplus Closed (CL#13)": "overlay_surplus",
+    "Prior & Current Year Outstanding Receivables Total": "receivables",
+    "Net Change in Adjustment to Free Cash": "adjustment_change",
+    "Other Adjustments": "other_adjustments",
+    "Identified Free Cash July 1,": "identified",
+}
 
 
 def form(report: str) -> tuple[list[tuple[str, str]], str, str | None]:
@@ -106,6 +130,38 @@ def tidy(df: pd.DataFrame, codes: dict[str, str] | None = None) -> pd.DataFrame:
     return df
 
 
+def free_cash_proof() -> tuple[pd.DataFrame, str]:
+    """Every town's free cash proof, one request a town (the form takes one at a time): a row per town and year,
+    the year being the fiscal year whose June 30 balance sheet the proof reads."""
+    page = fetch(f"{BASE}?rdReport={PROOF}").decode("utf-8", errors="ignore")
+    munis = re.findall(r'VALUE="([^"]*)"', re.search(r'NAME="islMuniCCP".*?</SELECT>', page, re.S | re.I).group(0), re.I)
+    years = re.findall(r'name="iclYearCCP"[^>]*value="([^"]*)"', page)
+    current = re.search(r"current as of\s*(\d{1,2}/\d{1,2}/\d{4})", re.sub(r"<[^>]+>", " ", page))
+    as_of = dt.datetime.strptime(current.group(1), "%m/%d/%Y").date().isoformat() if current else ""
+    rows = []
+    for m in munis:
+        raw = export(PROOF, "tblProofCompare", [("islMuniCCP", m)] + [("iclYearCCP", y) for y in years], header=None)
+        head = [str(v).strip() for v in raw.iloc[0]]
+        for _, r in raw.iloc[1:].iterrows():
+            line = re.sub(r"\s+", " ", str(r.iloc[0])).strip()
+            if line not in PROOF_LINES:
+                continue
+            for y, v in zip(head[1:], r.iloc[1:]):
+                if y.isdigit():
+                    s = str(v).replace(",", "").strip()
+                    s = "-" + s[1:-1] if s.startswith("(") and s.endswith(")") else s
+                    rows.append({"Municipality": m, "FY": int(y), "line": PROOF_LINES[line], "amount": pd.to_numeric(s, errors="coerce")})
+    long = pd.DataFrame(rows)
+    wide = long.pivot_table(index=["Municipality", "FY"], columns="line", values="amount", aggfunc="first").reset_index()
+    parts = ["revenue_deficits", "local_receipts", "not_estimated", "state_aid", "unexpended", "negative_prior",
+             "prior_not_appropriated", "overlay_surplus", "receivables", "adjustment_change", "other_adjustments"]
+    off = (wide[parts].sum(axis=1) - wide["identified"]).abs() > 2
+    if off.any():
+        raise ValueError(f"{int(off.sum())} proofs whose lines don't add to identified free cash, e.g. "
+                         f"{wide[off].iloc[0][['Municipality', 'FY']].to_dict()}")
+    return wide[["Municipality", "FY", "certified_prior", *parts, "identified", "certified"]], as_of
+
+
 def main():
     today = dt.date.today()
     sources = {"downloaded": today.isoformat()}
@@ -150,6 +206,11 @@ def main():
     cap.to_csv(DATA_DIR / "dls_capital_projects.csv", index=False)
     print(f"  {DATA_DIR / 'dls_capital_projects.csv'}: {len(cap):,} rows, current as of {as_of}")
     sources["capital_projects"] = {"source": f"{BASE}?rdReport={CAPITAL}", "data_current_as_of": as_of}
+
+    proof, as_of = free_cash_proof()
+    proof.to_csv(DATA_DIR / "dls_free_cash_proof.csv", index=False)
+    print(f"  {DATA_DIR / 'dls_free_cash_proof.csv'}: {len(proof):,} town-years, FY{proof['FY'].min()}-FY{proof['FY'].max()}")
+    sources["free_cash_proof"] = {"source": f"{BASE}?rdReport={PROOF}", "data_current_as_of": as_of}
 
     SOURCES_JSON.write_text(json.dumps(sources, indent=1) + "\n")
     print(f"  {SOURCES_JSON}")
