@@ -179,7 +179,7 @@ def main():
     has = [t for t in towns if t["foundation"]]
     closed = sum(d["target"] for d in dese.values() if d["foundation"]) / sum(t["cey"] for t in has)
     f_none = bisect(towns, total, None)
-    nocap = {t["lea"]: (js_round(t["cey"] * f_none) if t["foundation"] else 0) for t in towns}
+    nocap = {t["lea"]: js_round(t["cey"] * f_none) for t in towns}
     off4 = [lea for lea, v in nocap.items() if abs(v - site_towns[lea]["nocap"]) > 1]
     f100, f100x = bisect(towns, total, 1.0), exact(towns, total, 1.0)
     f825 = bisect(towns, total, 0.825)
@@ -188,7 +188,8 @@ def main():
          f"- No-cap targets by the bisection against cap.json's: {351 - len(off4)} of 351 within $1.",
          f"- A 100% cap: the bisection's factor {f100:.10f}, the exact solution's {f100x:.10f}.",
          f"- At DESE's 82.5% cap the bisection gives {f825:.10f}: today's percentages, as it should.",
-         f"- Gosnold, with a foundation budget of $0, has no target under any cap in both.")
+         "- A town with a foundation budget of $0 (Gosnold) takes no part in setting the factor in either; with no cap "
+         "its target is its yield times the factor, as in Naughton's workbook (Tim, #243), and under any cap $0.")
 
     # 5. Naughton's workbook
     nw = naughton(n_path)
@@ -196,21 +197,18 @@ def main():
     d100 = [abs(alt100[l] - v) for l, v in nw[1.0].items()]
     dnone = [(abs(nocap[l] - v), l) for l, v in nw[None].items()]
     d825 = [abs(dese[l]["target"] - v) for l, v in nw[0.825].items()]
-    # A town with no foundation budget is where the two models differ by design: he gives it a no-cap target
     zero = {l for l, d in dese.items() if not d["foundation"]}
-    rest = [(d, l) for d, l in dnone if l not in zero]
+    rest = dnone
     worst = max(rest)
     sums = sum(nw[None].values()), sum(nocap.values())
     link(5, "An outside calculation: Michael Naughton's workbook", max(d100) <= 1 and worst[0] <= 1 and max(d825) <= 1,
          f"- Workbook: {NAUGHTON_URL} (posted on {NAUGHTON_PAGE}), SHA-256 `{n_sha}`.",
          f"- At DESE's 82.5% cap: {sum(1 for d in d825 if d == 0)} of {len(d825)} towns match DESE's targets exactly.",
          f"- At a 100% cap: {sum(1 for d in d100 if d == 0)} of {len(d100)} towns match exactly, all within ${max(d100):,.0f}.",
-         f"- With no cap: {sum(1 for d, _ in rest if d == 0)} of the {len(rest)} towns with a foundation budget match "
-         f"exactly, all within ${worst[0]:,.0f}.",
-         *[f"- {dese[l]['town']}, with a foundation budget of $0: he gives it a no-cap target of ${nw[None].get(l, 0):,.0f}; "
-           "the model gives it none, since the formula asks a town for a share of its foundation budget. That accounts "
-           f"for the difference in the totals, give or take rounding: his ${sums[0]:,.0f}, the model's ${sums[1]:,.0f} "
-           f"(DESE's, ${total:,.0f})."
+         f"- With no cap: {sum(1 for d, _ in rest if d == 0)} of {len(rest)} towns match exactly, all within ${worst[0]:,.0f}.",
+         *[f"- {dese[l]['town']}, with a foundation budget of $0: his no-cap target ${nw[None].get(l, 0):,.0f}, the model's "
+           f"${nocap[l]:,.0f}. Both leave it out of the factor and then give it its yield, so with no cap the targets "
+           f"total more than DESE's: his ${sums[0]:,.0f}, the model's ${sums[1]:,.0f} (DESE's, ${total:,.0f})."
            for l in sorted(zero)],
          "- His workbook starts from the same DESE spreadsheet, so agreement shows the arithmetic is reproducible, not "
          "that DESE's figures are right.")

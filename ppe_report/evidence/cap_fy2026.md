@@ -26,15 +26,15 @@ Written by `evidence/cap_fy2026.py` on 2026-11-08. Every link passed. What this 
 - No-cap targets by the bisection against cap.json's: 351 of 351 within $1.
 - A 100% cap: the bisection's factor 0.8298916680, the exact solution's 0.8298916680.
 - At DESE's 82.5% cap the bisection gives 0.9999999988: today's percentages, as it should.
-- Gosnold, with a foundation budget of $0, has no target under any cap in both.
+- A town with a foundation budget of $0 (Gosnold) takes no part in setting the factor in either; with no cap its target is its yield times the factor, as in Naughton's workbook (Tim, #243), and under any cap $0.
 
 ## 5. An outside calculation: Michael Naughton's workbook: PASS
 
 - Workbook: https://masspromise2invest.org/wp-content/uploads/2025/10/fy26-chapter-70-cap-comparisons.xlsx (posted on https://masspromise2invest.org/information-2/), SHA-256 `5087dc59fb14e8e67c23149cc8890a969424e2e4e14e14b1d2fc7b0d94b3555b`.
 - At DESE's 82.5% cap: 351 of 351 towns match DESE's targets exactly.
 - At a 100% cap: 297 of 351 towns match exactly, all within $1.
-- With no cap: 281 of the 350 towns with a foundation budget match exactly, all within $1.
-- Gosnold, with a foundation budget of $0: he gives it a no-cap target of $563,230; the model gives it none, since the formula asks a town for a share of its foundation budget. That accounts for the difference in the totals, give or take rounding: his $9,036,315,385, the model's $9,035,752,144 (DESE's, $9,035,752,151).
+- With no cap: 282 of 351 towns match exactly, all within $1.
+- Gosnold, with a foundation budget of $0: his no-cap target $563,230, the model's $563,230. Both leave it out of the factor and then give it its yield, so with no cap the targets total more than DESE's: his $9,036,315,385, the model's $9,036,315,374 (DESE's, $9,035,752,151).
 - His workbook starts from the same DESE spreadsheet, so agreement shows the arithmetic is reproducible, not that DESE's figures are right.
 
 ## 6. The cap tab's own model: PASS

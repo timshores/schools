@@ -73,6 +73,13 @@ from school_shared import (CANON_CATS_BOTTOM_TO_TOP, EXCEL_FILE, IN_DISTRICT_FTE
 # Districts: every traditional, vocational and charter district with latest-year enrollment and spending, less
 # the special-purpose state schools explorer_common.EXCLUDE_DISTRICTS names
 SCHOOL_TYPES = {"Traditional": "traditional", "Vocational": "vocational", "Charter": "charter"}
+# Districts the regions sheet (E2C_Hub_MA_DESE_Data.xlsx, District Regions, made by ../school-regions.py) couldn't
+# place on the map of EOHHS regions: it guessed a town from the district's name, which put Franklin County RVT (in
+# Turners Falls, a village of Montague) in the town of Franklin's region, or left the region unknown. Each is placed
+# here by the town of its address in DESE's school profiles (profiles.doe.mass.edu, read 2026-11-08), in that town's
+# region, which town_context checks (Tim, #243). Four-digit code: (town, region).
+HOST_TOWNS = {818: ("Montague", "Western"), 915: ("Walpole", "Metro West"), 910: ("Dighton", "Southeast"),
+              878: ("Franklin", "Central"), 879: ("Bourne", "Southeast"), 860: ("Palmer", "Western")}
 # Size cohorts for traditional districts (the report's), then groups by type
 SIZE_COHORTS = ["TINY", "SMALL", "MEDIUM", "LARGE", "XLARGE"]
 COHORT_ORDER = SIZE_COHORTS + ["VOCATIONAL", "CHARTER"]
@@ -771,7 +778,9 @@ def nocap_factor(targets, yields, foundations):
     """The factor that takes the 82.5% cap off a year's Chapter 70 targets (cap_data): the capped targets' total
     over the uncapped combined effort yields' total, so the targets still add up to 59% of all foundation
     budgets; a town's no-cap target is its yield times it, rounded. A town with no foundation budget (Gosnold, with
-    no pupils of its own) has no target under any cap, so it takes no share of the total (#242). cap_data, the map's
+    no pupils of its own) takes no part in setting the factor (#242). With no cap it still gets a target, its yield
+    times the factor, as Michael Naughton's FY2026 workbook gives it (Tim, #243: defer to his figures); under any cap,
+    a share of a $0 budget is $0. So with no cap the targets total that much more than DESE's. cap_data, the map's
     yearly figures (map_series) and towns-chapter70-targets.csv (targets_csv) figure it this way (#237), as the cap
     tab does in the browser (cap.ts solve)."""
     has = [f is not None and f > 0 for f in foundations]
@@ -793,7 +802,7 @@ def cap_data(all_towns, src):
     stays, so both statewide percentages fall by one factor: the capped targets' total over
     the uncapped combined effort yields' total. A town's target is then its yield times that
     factor. evidence/cap_fy2026.py checks it against DESE's spreadsheet and Michael Naughton's FY2026 workbook:
-    every town within $1, but Gosnold, which has no foundation budget and no target here (he gives it one)."""
+    every town within $1, Gosnold included (nocap_factor)."""
     tw, population, households = src.tw, src.population, src.households
     last_pop = int(src.pop["FY"].max())
     # Taxable real estate parcels: the latest LA-4 year every town has filed
@@ -810,7 +819,7 @@ def cap_data(all_towns, src):
         if missing:
             raise ValueError(f"FY{fy} formula towns not in the town list: {missing}")
         factor = nocap_factor(g["target"], g["cey"], g["foundation"])
-        nocap = (g["cey"] * factor).round().where(g["foundation"] > 0, 0)
+        nocap = (g["cey"] * factor).round()
         income_year, eqv_year = int(g["income_year"].iloc[0]), int(g["eqv_year"].iloc[0])
         capped = pd.Series(at_cap(g["target"], g["cey"], g["foundation"]), index=g.index)
         change = nocap - g["target"]
@@ -1425,7 +1434,7 @@ def map_series(entity, used, towns, cap, cpi, org4, src, weights, town_groups=()
                 if c and c.get("hh"):
                     cap_hh[at[y]] = (c["nocap"] - c["target"]) / c["hh"]
             elif h and y <= LATEST_YEAR and y in factor and h["cey"][j] is not None and h["target"][j] is not None and hh[YEARS.index(y)]:
-                nocap = round(h["cey"][j] * factor[y]) if h["foundation"][j] else 0
+                nocap = round(h["cey"][j] * factor[y])
                 cap_hh[at[y]] = (nocap - h["target"][j]) / hh[YEARS.index(y)]
         row = town_row(t) | {
             "density": trim(on_axis([None if p is None or not area.get(k) else p / area[k] for p in pop]), 1),
@@ -1485,9 +1494,11 @@ def explorer_districts(hub, defs):
             cohort = "XLARGE" if group == "SPRINGFIELD" else group
         else:
             cohort = kind.upper()
-        out.append({"key": key, "name": present[key], "code": int(code[key]), "org": int(code[key]) // 10000,
+        org = int(code[key]) // 10000
+        out.append({"key": key, "name": present[key], "code": int(code[key]), "org": org,
                     "type": kind, "cohort": cohort, "fte": fte,
-                    "region": r["EOHHS_REGION"] if r["EOHHS_REGION"] in REGIONS else None})
+                    "region": HOST_TOWNS[org][1] if org in HOST_TOWNS
+                    else r["EOHHS_REGION"] if r["EOHHS_REGION"] in REGIONS else None})
     return out
 
 
@@ -1595,6 +1606,9 @@ def town_context(dists, latest, src):
             (by_org[o] for o in src.members.loc[src.members["key"] == k, "Org4Code"] if o in by_org),
             key=lambda d: d["type"] != "traditional")
         tc.region[k] = next((d["region"] for d in mine if d["region"]), None) or COUNTY_REGION.get(src.county.get(k))
+    for org, (town, region) in HOST_TOWNS.items():
+        if tc.region.get(norm(town)) != region:
+            raise ValueError(f"HOST_TOWNS: {town} is in {tc.region.get(norm(town))}, not {region} (district {org:04d})")
     return tc
 
 
@@ -1980,7 +1994,7 @@ def targets_csv(src):
     # Each town's yield times the year's factor, as cap.json figures it (nocap_factor), in floating point: multiplying
     # the yield by the targets' total first, in 64-bit integers, overflowed for Boston (-$407,169,082 for FY2026; #237)
     factor = tw["fy"].map({fy: nocap_factor(g["target"], g["cey"], g["foundation"]) for fy, g in tw.groupby("fy")})
-    tw["target_without_cap"] = (tw["cey"].astype(float) * factor).round().where(tw["foundation"] > 0, 0)
+    tw["target_without_cap"] = (tw["cey"].astype(float) * factor).round()
     tw["change_without_cap"] = tw["target_without_cap"] - tw["target"]
     tw["without_cap_method"] = ("computed here: combined effort yield times (statewide targets / statewide yields), "
                                 "so targets still total 59% of foundation budgets")

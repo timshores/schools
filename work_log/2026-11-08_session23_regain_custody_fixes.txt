@@ -65,3 +65,14 @@ figures in cap.json, map-years.json and towns-chapter70-targets.csv; the CSV not
    by design (he gives it $563,230, the model none). The site's Sources and method now says so and links the record.
    These are AI-written checks of one DESE spreadsheet; only Naughton's is another person's calculation, from the
    same spreadsheet.
+
+8. Tim (#243): Gosnold as Naughton has it. It still takes no part in setting the no-cap factor, but with no cap its
+   target is its yield times the factor ($563,230 in FY2026), so the no-cap targets total that much more than DESE's.
+   The evidence record: every town within $1 of Naughton's workbook, 282 exactly.
+   Regions: the District Regions sheet (E2C_Hub_MA_DESE_Data.xlsx) was made by ../school-regions.py, not DESE; where
+   a district had no outline to place, it searched the district's name for a town, which put Franklin County RVT
+   (Turners Falls, in Montague) in the town of Franklin's region, Central, and left four others unknown. HOST_TOWNS
+   places those six by the town of their address in DESE's school profiles (read 2026-11-08), in that town's region,
+   and town_context fails the export if a host town's region ever disagrees.
+   DLS's "operating budget" (stabilization report) and "Total Budget" (debt report), both shown as the operating
+   budget: the same figure in all 8,395 town-years the two files share. Nothing to change.
