@@ -2,6 +2,8 @@
 
 Written by `evidence/cap.py` on 2026-11-08. What this is and isn't: see the script's docstring. These are AI-written checks of DESE's spreadsheets; only link 5, where there is one, is another person's calculation, and it starts from the same spreadsheet.
 
+**To accept a year:** read its links below, then add the year to `REVIEWED` in `evidence/cap.py` with who and when (`2026: "Tim Shores, 2026-11-09"`), or ask Claude to, and rerun the script. The year's heading here, and the cap tab's Show the work, then say it was reviewed instead of "not yet reviewed".
+
 ## FY2026: 6 of 6 links pass; not yet reviewed by a person
 
 ### 1. DESE's workbook to the pipeline's CSV: PASS
