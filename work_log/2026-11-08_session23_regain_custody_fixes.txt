@@ -76,3 +76,9 @@ figures in cap.json, map-years.json and towns-chapter70-targets.csv; the CSV not
    and town_context fails the export if a host town's region ever disagrees.
    DLS's "operating budget" (stabilization report) and "Total Budget" (debt report), both shown as the operating
    budget: the same figure in all 8,395 town-years the two files share. Nothing to change.
+
+9. Pass 3 (#244): the evidence record covers every year the cap tab shows. evidence/cap_fy2026.py is now
+   evidence/cap.py, writing evidence/cap.md (FY2026: 6 of 6 links; FY2027: 5 of 5, no outside calculation for that
+   year) and a summary to the site's src/data/massppe/evidence.json, which the tab's "Show the work" reads for its
+   status line. REVIEWED stays empty until a person has read a year's record and accepted it; until then the site
+   says no person has reviewed the checks.

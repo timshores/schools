@@ -1,8 +1,9 @@
 """
-The evidence record for the explorer's no-cap counterfactual, FY2026 (Project Regain Custody, Pass 2; seahag
-prompt log #242). The cap tab says what each town's Chapter 70 target local contribution would be under another
-cap, or none, keeping the statewide total. This checks every link from DESE's own spreadsheet to the figures the
-site draws, and writes what it found to evidence/cap_fy2026.md.
+The evidence record for the explorer's cap tab (Project Regain Custody, Passes 2 and 3; seahag prompt log #242,
+#244). The cap tab says what each town's Chapter 70 target local contribution would be under another cap, or none,
+keeping the statewide total. For each year it shows, this checks every link from DESE's own spreadsheet to the
+figures the site draws. It writes what it found to evidence/cap.md, and a summary to the site's
+src/data/massppe/evidence.json, which the tab's "Show the work" reads.
 
     1. DESE's workbook -> data/dese_c70_townwide.csv: every town's figures, read again from the cached workbook
        cell by cell (openpyxl), not by update_c70_formula.py's pandas path
@@ -11,14 +12,16 @@ site draws, and writes what it found to evidence/cap_fy2026.md.
     3. the CSV -> the site's cap.json, town by town
     4. the model, two ways: the pipeline's closed form (nocap_factor) and a bisection like the cap tab's
        (cap.ts solve), with no cap and with a 100% cap, solved a third way for the cap, exactly
-    5. an outside calculation: Michael Naughton's FY2026 workbook, which MASS Promise to Invest posted
+    5. an outside calculation, where one exists: Michael Naughton's FY2026 workbook, which MASS Promise to Invest
+       posted
     6. the screen: the cap tab's own model (mywebsite src/lib/massppe/capModel.ts), run on cap.json by mywebsite's
        check:units, which every build runs: its no-cap targets and required contributions against the pipeline's
 
 These are checks an AI wrote of figures from one DESE spreadsheet. Only link 5 is someone else's calculation, and
-it starts from the same spreadsheet. None of this is independent verification of DESE's figures.
+it starts from the same spreadsheet. None of this is independent verification of DESE's figures. A year counts as
+reviewed only when a person has read its record and accepted it (REVIEWED).
 
-    python evidence/cap_fy2026.py [SITE_ROOT]    # from ppe_report; SITE_ROOT defaults to ../../mywebsite
+    python evidence/cap.py [SITE_ROOT]    # from ppe_report; SITE_ROOT defaults to ../../mywebsite
 Downloads the two workbooks into data/c70_raw/ (git ignores it) if they aren't there. Exits 1 if a link fails.
 """
 
@@ -34,16 +37,20 @@ from pathlib import Path
 
 import openpyxl
 
-FY = 2026
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 RAW = ROOT / "data" / "c70_raw"
-DESE_URL = f"https://www.doe.mass.edu/finance/chapter70/fy{FY}/chapter-{FY}.xlsm"
-NAUGHTON_URL = "https://masspromise2invest.org/wp-content/uploads/2025/10/fy26-chapter-70-cap-comparisons.xlsx"
+DESE_URL = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}.xlsm"
+# Outside calculations by year: Michael Naughton's workbook, which MASS Promise to Invest posted on its information page
+NAUGHTON = {2026: "https://masspromise2invest.org/wp-content/uploads/2025/10/fy26-chapter-70-cap-comparisons.xlsx"}
 NAUGHTON_PAGE = "https://masspromise2invest.org/information-2/"
+RECORD_URL = "https://github.com/timshores/schools/blob/main/ppe_report/evidence/cap.md"
+# Years a person has read the record for and accepted: fiscal year -> who and when. Empty until then; the site says
+# "checked, not yet reviewed" for a year that isn't here.
+REVIEWED: dict[int, str] = {}
 TOWNWIDE_CSV = ROOT / "data" / "dese_c70_townwide.csv"
 SHEET = "Townwide Contributions"
-OUT = HERE / f"cap_fy{FY}.md"
+OUT = HERE / "cap.md"
 
 
 def cached(url, name):
@@ -126,17 +133,17 @@ def exact(towns, total, cap):
     raise ValueError("no factor reaches the total")
 
 
-def main():
-    site = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent.parent / "mywebsite"
-    lines, failed = [], []
+def check_year(FY, site):
+    """One year's links: (the record's lines, the failed links' numbers, how many links ran)"""
+    lines, failed, ran = [], [], []
 
     def link(n, title, ok, *body):
-        lines.extend([f"## {n}. {title}: {'PASS' if ok else 'FAIL'}", "", *body, ""])
+        lines.extend([f"### {n}. {title}: {'PASS' if ok else 'FAIL'}", "", *body, ""])
+        ran.append(n)
         if not ok:
             failed.append(n)
 
-    dese_path, dese_sha = cached(DESE_URL, f"chapter-{FY}.xlsm")
-    n_path, n_sha = cached(NAUGHTON_URL, "fy26-chapter-70-cap-comparisons.xlsx")
+    dese_path, dese_sha = cached(DESE_URL.format(fy=FY), f"chapter-{FY}.xlsm")
     dese, rates = dese_sheet(dese_path)
     csv_rows = {int(r["lea"]): r for r in csv.DictReader(TOWNWIDE_CSV.open()) if int(r["fy"]) == FY}
     cap = json.loads((site / "src/data/massppe/cap.json").read_text())
@@ -148,7 +155,7 @@ def main():
     off = [(lea, f) for lea, d in dese.items() for f in fields
            if d[f] is not None and abs(d[f] - float(csv_rows[lea][f] or "nan")) > 0.5]
     link(1, "DESE's workbook to the pipeline's CSV", len(dese) == 351 and not off and set(dese) == set(csv_rows),
-         f"- Workbook: {DESE_URL}, SHA-256 `{dese_sha}`, read cell by cell.",
+         f"- Workbook: {DESE_URL.format(fy=FY)}, SHA-256 `{dese_sha}`, read cell by cell.",
          f"- {len(dese)} towns; {len(fields)} figures each ({', '.join(fields)}); {len(off)} differ from "
          f"`data/dese_c70_townwide.csv` by more than $0.50." + (f" First: {off[:3]}" if off else ""))
 
@@ -191,7 +198,12 @@ def main():
          "- A town with a foundation budget of $0 (Gosnold) takes no part in setting the factor in either; with no cap "
          "its target is its yield times the factor, as in Naughton's workbook (Tim, #243), and under any cap $0.")
 
-    # 5. Naughton's workbook
+    # 5. Naughton's workbook, for the years he figured
+    if FY not in NAUGHTON:
+        lines.extend(["### 5. An outside calculation: none for this year", "",
+                      f"- No one outside this project has published FY{FY} targets under another cap to compare with.", ""])
+        return lines, failed, ran
+    n_path, n_sha = cached(NAUGHTON[FY], Path(NAUGHTON[FY]).name)
     nw = naughton(n_path)
     alt100 = {t["lea"]: js_round(0 if not t["foundation"] else min(t["cey"] * f100, t["foundation"])) for t in towns}
     d100 = [abs(alt100[l] - v) for l, v in nw[1.0].items()]
@@ -202,7 +214,7 @@ def main():
     worst = max(rest)
     sums = sum(nw[None].values()), sum(nocap.values())
     link(5, "An outside calculation: Michael Naughton's workbook", max(d100) <= 1 and worst[0] <= 1 and max(d825) <= 1,
-         f"- Workbook: {NAUGHTON_URL} (posted on {NAUGHTON_PAGE}), SHA-256 `{n_sha}`.",
+         f"- Workbook: {NAUGHTON[FY]} (posted on {NAUGHTON_PAGE}), SHA-256 `{n_sha}`.",
          f"- At DESE's 82.5% cap: {sum(1 for d in d825 if d == 0)} of {len(d825)} towns match DESE's targets exactly.",
          f"- At a 100% cap: {sum(1 for d in d100 if d == 0)} of {len(d100)} towns match exactly, all within ${max(d100):,.0f}.",
          f"- With no cap: {sum(1 for d, _ in rest if d == 0)} of {len(rest)} towns match exactly, all within ${worst[0]:,.0f}.",
@@ -213,24 +225,43 @@ def main():
          "- His workbook starts from the same DESE spreadsheet, so agreement shows the arithmetic is reproducible, not "
          "that DESE's figures are right.")
 
-    # 6. The screen: the browser's model, run by mywebsite's own check
+    return lines, failed, ran
+
+
+def main():
+    site = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent.parent / "mywebsite"
+    cap = json.loads((site / "src/data/massppe/cap.json").read_text())
+    years = sorted(int(y) for y in cap["years"])
+    # 6. The screen, once for every year: the browser's model, run by mywebsite's own check
     run = subprocess.run(["npm", "run", "--silent", "check:units"], cwd=site, capture_output=True, text=True)
     said = (run.stdout + run.stderr).strip().splitlines()
     cap_fails = [l.strip() for l in said if "cap model" in l]
-    link(6, "The cap tab's own model", run.returncode == 0 and not cap_fails,
-         "- `npm run check:units` in mywebsite runs `capModel.ts`, the model the cap tab draws with, on cap.json, for "
-         "every year it has: each town's no-cap target against the pipeline's, within $1, and each required "
-         "contribution the model's rules reproduce from today's targets.",
-         f"- It reported: {said[-1] if said else 'nothing'}" + (f" Failures: {cap_fails}" if cap_fails else ""))
-
-    head = [f"# Evidence record: the no-cap counterfactual, FY{FY}", "",
-            f"Written by `evidence/cap_fy{FY}.py` on {dt.date.today().isoformat()}. "
-            f"{'Every link passed.' if not failed else f'Failed: links {failed}.'} What this is and isn't: see the "
-            "script's docstring. These are AI-written checks of one DESE spreadsheet's figures; only link 5 is "
-            "another person's calculation, and it starts from the same spreadsheet.", ""]
-    OUT.write_text("\n".join(head + lines))
-    print(f"[evidence] cap FY{FY}: {6 - len(failed)} of 6 links pass -> {OUT.relative_to(ROOT)}")
-    sys.exit(1 if failed else 0)
+    screen_ok = run.returncode == 0 and not cap_fails
+    screen = [f"## 6. The cap tab's own model, every year: {'PASS' if screen_ok else 'FAIL'}", "",
+              "- `npm run check:units` in mywebsite runs `capModel.ts`, the model the cap tab draws with, on cap.json, for "
+              "every year it has: each town's no-cap target against the pipeline's, within $1, and each required "
+              "contribution the model's rules reproduce from today's targets.",
+              f"- It reported: {said[-1] if said else 'nothing'}" + (f" Failures: {cap_fails}" if cap_fails else ""), ""]
+    today = dt.date.today().isoformat()
+    lines, summary = [], {}
+    for fy in years:
+        ls, failed, ran = check_year(fy, site)
+        n = len(ran) + 1
+        passed = n - len(failed) - (0 if screen_ok else 1)
+        lines += [f"## FY{fy}: {passed} of {n} links pass" + (f"; reviewed by {REVIEWED[fy]}" if fy in REVIEWED else
+                  "; not yet reviewed by a person"), "", *ls]
+        summary[str(fy)] = {"links": n, "passed": passed, "outside": fy in NAUGHTON, "reviewed": REVIEWED.get(fy)}
+    head = ["# Evidence record: the cap tab's targets under another cap", "",
+            f"Written by `evidence/cap.py` on {today}. What this is and isn't: see the script's docstring. These are "
+            "AI-written checks of DESE's spreadsheets; only link 5, where there is one, is another person's "
+            "calculation, and it starts from the same spreadsheet.", ""]
+    OUT.write_text("\n".join(head + lines + screen))
+    (site / "src/data/massppe/evidence.json").write_text(json.dumps(
+        {"cap": {"checked": today, "record": RECORD_URL, "years": summary}}, indent=1) + "\n")
+    ok = all(v["passed"] == v["links"] for v in summary.values())
+    print(f"[evidence] cap: " + "; ".join(f"FY{y} {v['passed']} of {v['links']}" for y, v in summary.items())
+          + f" -> {OUT.relative_to(ROOT)}, {site.name}/src/data/massppe/evidence.json")
+    sys.exit(0 if ok else 1)
 
 
 if __name__ == "__main__":
