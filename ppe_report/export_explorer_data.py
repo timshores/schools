@@ -138,6 +138,8 @@ DLS_CSV = Path("data/dls_schedule_a_general_fund.csv")
 POP_CSV = Path("data/census_town_population.csv")
 MEMBERS_CSV = Path("data/dese_c70_regional_members.csv")
 C70_CSV = Path("data/dese_c70_profile.csv")
+# The Chapter 70 profiles' row for the state as a whole
+STATE_TOTAL_ORG = "0000"
 EXP_CSV = Path("data/dese_expenditures.csv")
 # Schedule A functions, bottom to top in the explorer's stack
 TOWN_SPEND = {
@@ -222,7 +224,7 @@ LA4_EXEMPT = "Exempt Parcel Count & Value"
 # FY2025 Chapter 70 (DESE white paper, Appendix A): the uniform percentages applied to each
 # town's 2022 EQV and 2021 income, the statewide target local share, and the cap
 C70_TARGET = {"fy": 2025, "eqv_year": 2022, "income_year": 2021, "property_pct": 0.3906, "income_pct": 1.4312,
-              "target_share": 59, "cap": 82.5, "capped_towns": 182}
+              "target_share": 59, "cap": 82.5}
 
 # Population groups (the site's name; "peer groups" in the code): the estimate behind the
 # latest fiscal year (July 2024 for FY2025), as district cohorts use latest-year enrollment.
@@ -680,7 +682,9 @@ def commonwealth_data(dists, full, src):
     """commonwealth.json: per district and year, its Chapter 70 figures and spending (DESE)
     and its towns' wealth (DLS), pooled over member towns. EQV is the latest as of each
     fiscal year's January 1 valuation date (EQV of January 1, 2022 for FY2023 and FY2024)."""
-    c70 = src.c70[src.c70["fy"].isin(YEARS) & ~src.c70["District"].str.contains("TOTAL|COUNTY", na=False)]
+    # Every district but the state total (code 0000). Matching "COUNTY" in the name had also dropped four vocational
+    # districts DESE names that way: Franklin County, Tri County, Bristol County and Norfolk County (#242)
+    c70 = src.c70[src.c70["fy"].isin(YEARS) & (src.c70["Org4Code"] != STATE_TOTAL_ORG)]
     prop, population, county = src.prop, src.population, src.county
     names = src.dls[["Municipality"]].drop_duplicates().assign(
         key=lambda d: d["Municipality"].map(norm)).set_index("key")["Municipality"].to_dict()
@@ -763,12 +767,24 @@ def commonwealth_data(dists, full, src):
             "districts": out}
 
 
-def nocap_factor(targets, yields):
+def nocap_factor(targets, yields, foundations):
     """The factor that takes the 82.5% cap off a year's Chapter 70 targets (cap_data): the capped targets' total
     over the uncapped combined effort yields' total, so the targets still add up to 59% of all foundation
-    budgets; a town's no-cap target is its yield times it, rounded. cap_data, the map's yearly figures
-    (map_series) and towns-chapter70-targets.csv (targets_csv) figure it this way (#237)."""
-    return sum(targets) / sum(yields)
+    budgets; a town's no-cap target is its yield times it, rounded. A town with no foundation budget (Gosnold, with
+    no pupils of its own) has no target under any cap, so it takes no share of the total (#242). cap_data, the map's
+    yearly figures (map_series) and towns-chapter70-targets.csv (targets_csv) figure it this way (#237), as the cap
+    tab does in the browser (cap.ts solve)."""
+    has = [f is not None and f > 0 for f in foundations]
+    return sum(t for t, h in zip(targets, has) if h) / sum(c for c, h in zip(yields, has) if h)
+
+
+def at_cap(targets, yields, foundations):
+    """Whether the cap held each town's target below its combined effort yield: DESE's target is the lesser of the
+    yield and the cap's share of the foundation budget, so a capped town's target is below its yield. The cap
+    tab's every count of towns at the cap uses this test (#242); it agrees town for town with DESE's maximum local
+    contribution column in FY2026 and FY2027."""
+    return [f is not None and f > 0 and t is not None and c is not None and t < c - 1
+            for t, c, f in zip(targets, yields, foundations)]
 
 
 def cap_data(all_towns, src):
@@ -792,10 +808,10 @@ def cap_data(all_towns, src):
         missing = sorted(set(g["key"]) - set(by_key))
         if missing:
             raise ValueError(f"FY{fy} formula towns not in the town list: {missing}")
-        factor = nocap_factor(g["target"], g["cey"])
-        nocap = (g["cey"] * factor).round()
+        factor = nocap_factor(g["target"], g["cey"], g["foundation"])
+        nocap = (g["cey"] * factor).round().where(g["foundation"] > 0, 0)
         income_year, eqv_year = int(g["income_year"].iloc[0]), int(g["eqv_year"].iloc[0])
-        capped = (g["target"] >= g["max_local"]) & (g["foundation"] > 0)
+        capped = pd.Series(at_cap(g["target"], g["cey"], g["foundation"]), index=g.index)
         change = nocap - g["target"]
         towns = []
         for (_, r), nc, cap in zip(g.iterrows(), nocap, capped):
@@ -832,7 +848,7 @@ def cap_data(all_towns, src):
     # How far districts spend above the required minimum (actual net school spending over required),
     # the latest year with actual spending reported
     c70 = src.c70
-    c70 = c70[(c70["fy"] == LATEST_YEAR) & ~c70["District"].str.contains("TOTAL|COUNTY", na=False)
+    c70 = c70[(c70["fy"] == LATEST_YEAR) & (c70["Org4Code"] != STATE_TOTAL_ORG)
               & (c70["actualNSS"] > 0) & (c70["rqdnss2"] > 0)]
     ratio = c70["actualNSS"] / c70["rqdnss2"]
     spending = {"fy": LATEST_YEAR, "districts": int(len(c70)), "above": int((ratio > 1.0005).sum()),
@@ -856,7 +872,10 @@ def cap_data(all_towns, src):
         g = g.set_index("fy")
         hist_towns[by_key[k]["id"]] = {c: [dollars(g[c].get(y)) if y in g.index else None for y in hy]
                                        for c in ("cey", "foundation", "target", "required")}
-    history = {"years": hy, "source": SOURCE_URLS["c70_key_factors"],
+    # Each year's count of towns at the cap, by the cap tab's one test (at_cap), for About the data's FY2025 count
+    capped_by_year = [sum(at_cap(*([t[c][i] for t in hist_towns.values()] for c in ("target", "cey", "foundation"))))
+                      for i in range(len(hy))]
+    history = {"years": hy, "source": SOURCE_URLS["c70_key_factors"], "capped": capped_by_year,
                "towns": hist_towns}
     return {"meta": {"built": dt.date.today().isoformat(), "latest": max(int(y) for y in years), "spending": spending},
             "years": years, "history": history}
@@ -1288,8 +1307,19 @@ def map_data(districts, towns, cap, cpi, org4, src, town_avgs=(), district_avgs=
         for key, label, ordered in MAP_GROUPINGS[layer]:
             of = {u["id"]: map_group_of(u, key, by_id) for u in units}
             of = {u: g for u, g in of.items() if g in by_id}
-            ids = list(dict.fromkeys(a["id"] for a in (town_avgs if layer == "towns" else district_avgs) if a["id"] in set(of.values())))
-            groupings[layer].append({"key": key, "label": label, "ordered": ordered, "groups": ids, "of": of})
+            # Colored by region, a town or district its region's average leaves out (the very large) shows the group
+            # that pools it instead, so each group's count in the key and the figure each place shows are the average's
+            # own (#242). `of` keeps its region, which the groupings within regions outline.
+            apart = {}
+            if key == "region":
+                home = "towns-apart" if layer == "towns" else "cohort-xlarge"
+                apart = {u: home for u, g in of.items() if u not in set(by_id[g]["member_ids"])}
+                assert set(apart) <= set(by_id[home]["member_ids"]), f"{layer}: left out of a region but not in {home}"
+            ids = list(dict.fromkeys(a["id"] for a in (town_avgs if layer == "towns" else district_avgs)
+                                     if a["id"] in set(of.values()) - set(apart.values())))
+            ids += sorted(set(apart.values()))  # last, as the map lists a statewide group within regions
+            groupings[layer].append({"key": key, "label": label, "ordered": ordered, "groups": ids, "of": of,
+                                     **({"apart": apart} if apart else {})})
     used_groups = sorted({g for gs in groupings.values() for x in gs for g in x["groups"]})
     town_ids = {a["id"] for a in town_avgs}
     cap_year = cap["meta"]["latest"]
@@ -1347,9 +1377,10 @@ def map_series(entity, used, towns, cap, cpi, org4, src, weights, town_groups=()
     hyears = H.get("years") or []
     factor = {}
     for j, y in enumerate(hyears):
-        pairs = [(h["cey"][j], h["target"][j]) for h in H["towns"].values() if h["cey"][j] is not None and h["target"][j] is not None]
-        if pairs and sum(c for c, _ in pairs):
-            factor[y] = nocap_factor([t for _, t in pairs], [c for c, _ in pairs])
+        rows = [(h["cey"][j], h["target"][j], h["foundation"][j]) for h in H["towns"].values()
+                if h["cey"][j] is not None and h["target"][j] is not None]
+        if rows and sum(c for c, _, f in rows if f):
+            factor[y] = nocap_factor([t for _, t, _ in rows], [c for c, _, _ in rows], [f for _, _, f in rows])
     cap_town = {y: {t["id"]: t for t in cap["years"][str(y)]["towns"]} for y in cap_years}
 
     def town_row(t):
@@ -1393,7 +1424,8 @@ def map_series(entity, used, towns, cap, cpi, org4, src, weights, town_groups=()
                 if c and c.get("hh"):
                     cap_hh[at[y]] = (c["nocap"] - c["target"]) / c["hh"]
             elif h and y <= LATEST_YEAR and y in factor and h["cey"][j] is not None and h["target"][j] is not None and hh[YEARS.index(y)]:
-                cap_hh[at[y]] = (round(h["cey"][j] * factor[y]) - h["target"][j]) / hh[YEARS.index(y)]
+                nocap = round(h["cey"][j] * factor[y]) if h["foundation"][j] else 0
+                cap_hh[at[y]] = (nocap - h["target"][j]) / hh[YEARS.index(y)]
         row = town_row(t) | {
             "density": trim(on_axis([None if p is None or not area.get(k) else p / area[k] for p in pop]), 1),
             "cap_hh": trim(cap_hh),
@@ -1629,12 +1661,11 @@ def town_groups(tc, fifths, type_of, setup):
     """The towns' comparison groups, as Groups, in the order the explorer lists them, with the map's regional
     outliers among them (outlier True): the town counterpart of district_groups"""
     keys, state = tc.keys, {"state": "towns-statewide"}
-    # Two statewide averages: without the cities whose school districts are very large (the default
-    # comparison), and every city and town
-    groups = [Group("towns-statewide", f"Statewide towns average, without the {len(tc.apart)} largest cities", "state",
-                    None, None, tc.pooled, {}),
-              Group("towns-statewide-all", f"Statewide towns average, all {len(keys)} cities and towns", "state",
-                    None, None, list(keys), state)]
+    # Two statewide averages: every city and town, the default (Tim, #242), and the same without the cities whose
+    # school districts are very large
+    groups = [Group("towns-statewide", f"Statewide towns average, without the {len(tc.apart)} cities with very large "
+                    "districts", "state", None, None, tc.pooled, {}),
+              Group("towns-statewide-all", "Statewide towns average", "state", None, None, list(keys), state)]
     for rk, rl in REGIONS.items():
         groups.append(Group(f"towns-region-{slug(rk)}", f"{rl} towns average", "region", None, rk,
                             [k for k in tc.pooled if tc.region[k] == rk], state))
@@ -1647,6 +1678,10 @@ def town_groups(tc, fifths, type_of, setup):
                                  lambda rk: {"peer_state": pid, "region": f"towns-region-{slug(rk)}", "state": "towns-statewide"})
     # Gateway Cities: the Commonwealth's list, very large cities included
     groups.append(Group("towns-gateway", "Gateway Cities average", "group", None, None, sorted(tc.gateway), state))
+    # The cities the region averages leave out, together: the map's region grouping shows them as this group,
+    # where it had shown each with the region average that leaves it out (#242)
+    groups.append(Group("towns-apart", "Cities with very large school districts average", "apart", None, None,
+                        sorted(tc.apart), state))
     # Income fifths, as the cap tab counts them; every town of each, the very large cities included. Community types
     # and school districts likewise; a kind no town is of has no group
     kinds = [(f"towns-fifth-{f}", f"Towns in the {word} income fifth average", "fifth",
@@ -1781,7 +1816,8 @@ def chapter70_csv(src, orgs, names, latest):
         if r["fy"] == 2023 and r["Org4Code"] in raw.index and any(
                 abs(float(raw.at[r["Org4Code"], f] or 0) - float(r[f] or 0)) > 1 for f in ("rqdnss", "rqdnss2", "actualNSS")):
             notes.append("FY2023 rqdnss, rqdnss2 and actualNSS from DESE's August 2025 profile: the March 2026 "
-                         "profile assigns this year's regional district values to the wrong districts")
+                         "profile assigns some districts' FY2023 values, most of them regional districts', to the "
+                         "wrong districts")
         if not r["actualNSS"] or float(r["actualNSS"]) <= 0:
             notes.append("actualNSS 0 means DESE has not reported actual spending; the explorer treats it as missing")
         return "; ".join(notes)
@@ -1942,8 +1978,8 @@ def targets_csv(src):
     tw = src.tw.copy()
     # Each town's yield times the year's factor, as cap.json figures it (nocap_factor), in floating point: multiplying
     # the yield by the targets' total first, in 64-bit integers, overflowed for Boston (-$407,169,082 for FY2026; #237)
-    factor = tw.groupby("fy")["target"].transform("sum") / tw.groupby("fy")["cey"].transform("sum")
-    tw["target_without_cap"] = (tw["cey"].astype(float) * factor).round()
+    factor = tw["fy"].map({fy: nocap_factor(g["target"], g["cey"], g["foundation"]) for fy, g in tw.groupby("fy")})
+    tw["target_without_cap"] = (tw["cey"].astype(float) * factor).round().where(tw["foundation"] > 0, 0)
     tw["change_without_cap"] = tw["target_without_cap"] - tw["target"]
     tw["without_cap_method"] = ("computed here: combined effort yield times (statewide targets / statewide yields), "
                                 "so targets still total 59% of foundation budgets")
@@ -2160,20 +2196,19 @@ def shared_cmp(g, gateway, state_all):
 
 
 def district_groups(dists, defs):
-    """(the explorer's comparison groups, the map's groups within a region it has none of), as Groups. Region and
-    statewide averages are traditional districts, less the very large. Two statewide averages: without the very
-    large districts (the default comparison), as the report kept Springfield out of its Western MA average, and
-    every traditional district. The map's enrollment groups within a region (Tim, #221): every size in every
-    region, the very large included, where the explorer has no comparison group for it; one with fewer than
-    MIN_AVERAGE_MEMBERS districts is a regional outlier. Only the map has them: the explorer compares these districts
-    with the statewide group of their size."""
+    """(the explorer's comparison groups, the map's groups within a region it has none of), as Groups. Region
+    averages are traditional districts, less the very large, as the report kept Springfield out of its Western MA
+    average. Two statewide averages: every traditional district, the default (Tim, #242), and the same without the
+    very large districts. Vocational and charter schools stand apart from both. The map's enrollment groups within a
+    region (Tim, #221): every size in every region, the very large included, where the explorer has no comparison
+    group for it; one with fewer than MIN_AVERAGE_MEMBERS districts is a regional outlier. Only the map has them: the
+    explorer compares these districts with the statewide group of their size."""
     traditional = [d for d in dists if d["type"] == "traditional"]
     pooled = [d for d in traditional if d["cohort"] != "XLARGE"]
     state = {"state": "statewide"}
-    groups = [Group("statewide", f"Statewide average, without the {len(traditional) - len(pooled)} largest", "state",
-                    None, None, pooled, {}),
-              Group("statewide-all", "Statewide average, all traditional districts", "state", None, None, traditional,
-                    state)]
+    groups = [Group("statewide", f"Statewide average, without the {len(traditional) - len(pooled)} very large districts",
+                    "state", None, None, pooled, {}),
+              Group("statewide-all", "Statewide average", "state", None, None, traditional, state)]
     for rk, rl in REGIONS.items():
         groups.append(Group(f"region-{slug(rk)}", f"{rl} average", "region", None, rk,
                             [d for d in pooled if d["region"] == rk], state))

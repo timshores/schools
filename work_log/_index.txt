@@ -2,6 +2,9 @@
 
 Session files (newest first):
 
+  2026-11-08_session23_regain_custody_fixes.txt
+    2026-11-08 (Session 23) - Explorer: Fixes from the Audit Ledger (Project Regain Custody)
+
   2026-11-07_session22_refactoring.txt
     2026-11-07 (Session 22) - Explorer: Fixes and Refactoring from a Code Review
 

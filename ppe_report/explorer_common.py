@@ -111,8 +111,9 @@ def ood_per_pupil(df, names):
     """Payments to out-of-district schools per out-of-district FTE pupil by year, pooled over the districts named
     (lowercase); None without the figures. DESE's Hub has no row for them: they are total spending (per pupil,
     times all FTE pupils) less in-district spending (per in-district pupil, times those pupils), over
-    out-of-district pupils. For FY2005-FY2008, where DESE printed the figure, this agrees with it to
-    within 0.7%."""
+    out-of-district pupils. DESE printed the figure for FY2005-FY2008, but those years' in-district totals were
+    computed from it (update_dese_history.py), so this gives it back by construction and checks nothing; no DESE
+    figure tests the method from FY2009 (#242)."""
     sub = df[df["DIST_NAME"].str.lower().isin(names) & df["IND_SUBCAT"].str.lower().isin(OOD_PARTS)]
     if sub.empty:
         return None

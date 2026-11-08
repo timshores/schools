@@ -1,0 +1,55 @@
+2026-11-08 (Session 23) - Explorer: Fixes from the Audit Ledger (Project Regain Custody)
+
+Tim (seahag prompt log #240-#242): an audit of the explorer's measures and claims (seahag
+context/regain-custody/ledger.csv and pass1-findings.md) found eight statements on the site that the code or data
+don't support, each checked a second time from the code and data. Tim: fix the eight, fix everything that can be
+fixed; the cap tab uses DESE's terms; "Statewide" means every traditional district by default, with a second
+average without the ten very large districts (charter and vocational schools stay their own groups). This file
+records the pipeline's share.
+
+Check used throughout: each change exported to a scratch directory and compared with the site's data
+(check_explorer_data.py diff), then exported to the site and checked with shape.
+
+1. Statewide. Two averages each for districts and towns, as before, but renamed, and the one of all is the
+   explorer's usual comparison: "Statewide average" (every traditional district) and "Statewide average, without
+   the 10 very large districts"; "Statewide towns average" (all 351) and "Statewide towns average, without the 10
+   cities with very large districts". The ids are unchanged (statewide-all, statewide; towns-statewide-all,
+   towns-statewide), so old links keep their meaning. The site lists Statewide first.
+
+2. The map's region grouping. Region averages leave out the ten very large districts and their cities, but the map
+   colored each with its region's average and counted it in the key ("Western MA towns (101 towns)", 100 pooled;
+   Springfield's tooltip gave the Western MA average). The region grouping now carries `apart`: each place its
+   region's average leaves out, shown in the group that pools it: on the town layer a new average,
+   towns-apart, "Cities with very large school districts average" (also a comparison group on the Towns tab), and
+   on the district layer the Very large enrollment group. `of` keeps each place's region, which the groupings within
+   regions outline. An assertion fails the export if a place left out of its region isn't in that group.
+
+3. The Chapter 70 profiles' "COUNTY" filter. commonwealth_data and cap_data's spending summary dropped every row
+   whose name contains TOTAL or COUNTY. No row is a county total: the filter removed four vocational districts DESE
+   names that way (Franklin County, Tri County, Bristol County, Norfolk County; 571, 942, 511 and 248 foundation
+   pupils in FY2025), and Essex County (Essex Agricultural) before FY2015. Both now drop only the state total, by
+   its code (STATE_TOTAL_ORG = "0000"). commonwealth.json 329 -> 334 districts; the cap tab's districts spending
+   above their requirement, FY2025: 307 of 335 -> 310 of 339.
+
+4. The Chapter 70 cap. nocap_factor leaves out a town with no foundation budget (Gosnold, no pupils of its own): it
+   has no target under any cap, where the model had given it a no-cap target of $582,615 and counted it among the
+   towns "asked for less because of the cap" (103 -> 102 in FY2027). Every other town's no-cap target rises by
+   about 0.006%; the map's change per household moves by $1 in places. at_cap() is now the one test for a town at
+   the cap (the target below the combined effort yield; it agrees town for town with DESE's maximum local
+   contribution column in FY2026 and FY2027), used for cap.json's flags and for a new history.capped, each year's
+   count, which About the data now reads for FY2025 (182) where it was typed by hand. C70_TARGET's capped_towns,
+   which nothing read, is gone. targets_csv and the map's yearly figures use the same factor.
+
+5. FY2023 net school spending. The note in districts-chapter70.csv said the March 2026 profile misassigns "regional
+   district values"; four of the 90 districts aren't regional (Bellingham, Lawrence, Northampton,
+   Northampton-Smith). It now says "some districts' FY2023 values, most of them regional districts'". About the
+   data now discloses the substitution and Source files lists dese_c70_fy2023_reference.csv.
+
+6. explorer_common.ood_per_pupil's docstring said the method agrees with DESE's printed figures within 0.7% for
+   FY2005-FY2008. It can't disagree: update_dese_history.py builds those years' in-district totals from the printed
+   out-of-district payments, so the check is circular, and the 0.7% was computed nowhere (a rerun gives 0.73%).
+   Corrected here and on the site.
+
+Diff of the site's data, before and after: the renamed averages; the new town average and the map groupings'
+`apart`; five districts added to commonwealth.json; cap.json's history.capped and spending counts; the no-cap
+figures in cap.json, map-years.json and towns-chapter70-targets.csv; the CSV note. Nothing else.
