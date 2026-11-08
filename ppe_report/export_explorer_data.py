@@ -792,7 +792,8 @@ def cap_data(all_towns, src):
     82.5% cap. Without it, DESE's rule that targets add up to 59% of all foundation budgets
     stays, so both statewide percentages fall by one factor: the capped targets' total over
     the uncapped combined effort yields' total. A town's target is then its yield times that
-    factor. (This reproduces Michael Naughton's FY2026 'NO Cap' targets to within 0.01%.)"""
+    factor. evidence/cap_fy2026.py checks it against DESE's spreadsheet and Michael Naughton's FY2026 workbook:
+    every town within $1, but Gosnold, which has no foundation budget and no target here (he gives it one)."""
     tw, population, households = src.tw, src.population, src.households
     last_pop = int(src.pop["FY"].max())
     # Taxable real estate parcels: the latest LA-4 year every town has filed

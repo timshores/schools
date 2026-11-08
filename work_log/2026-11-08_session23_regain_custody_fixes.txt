@@ -53,3 +53,15 @@ Check used throughout: each change exported to a scratch directory and compared 
 Diff of the site's data, before and after: the renamed averages; the new town average and the map groupings'
 `apart`; five districts added to commonwealth.json; cap.json's history.capped and spending counts; the no-cap
 figures in cap.json, map-years.json and towns-chapter70-targets.csv; the CSV note. Nothing else.
+
+7. Pass 2: an evidence record for the cap tab's no-cap counterfactual, FY2026 (ppe_report/evidence/cap_fy2026.py,
+   which writes evidence/cap_fy2026.md and exits 1 if a link fails). Six links: DESE's workbook, read again cell by
+   cell, against data/dese_c70_townwide.csv; DESE's formula restated (yield, maximum, target, the 59% total); the CSV
+   against cap.json; the model two ways (the closed form and a bisection, and a 100% cap solved exactly); Michael
+   Naughton's FY2026 workbook, downloaded from MASS Promise to Invest's site into data/c70_raw/ (ignored by git; the
+   same bytes as the copy Tim sent); and mywebsite's check:units, which runs the cap tab's own model (capModel.ts)
+   on cap.json. Result: all six pass. With Gosnold out of the model (item 4), every town's no-cap target matches
+   Naughton's within $1 (281 of 350 exactly), where none had matched exactly before; Gosnold is the one difference,
+   by design (he gives it $563,230, the model none). The site's Sources and method now says so and links the record.
+   These are AI-written checks of one DESE spreadsheet; only Naughton's is another person's calculation, from the
+   same spreadsheet.
