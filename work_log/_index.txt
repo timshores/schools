@@ -2,6 +2,9 @@
 
 Session files (newest first):
 
+  2026-11-07_session22_refactoring.txt
+    2026-11-07 (Session 22) - Explorer: Fixes and Refactoring from a Code Review
+
   2026-11-05_session21_budgets_students.txt
     2026-11-05 (Session 21) - Explorer Districts: Budgeted and Actual Net School Spending, Students
 

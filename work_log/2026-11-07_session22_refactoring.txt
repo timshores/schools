@@ -1,0 +1,19 @@
+2026-11-07 (Session 22) - Explorer: Fixes and Refactoring from a Code Review
+
+Tim (seahag prompt log #236, #237): a read-only review of mywebsite and this pipeline found about 50 refactoring
+opportunities and a few bugs; Tim asked for all of them, in the order recommended (bugs, cleanups, a safety net,
+then structural work), one item per push. This file records the pipeline's share.
+
+Check used throughout: export_explorer_data.py takes a site root, so each change is exported to a scratch
+directory and compared with the one before (each JSON file as data, meta.built dropped; each CSV as bytes). The
+export reproduced the committed files exactly before any change.
+
+1. Charter schools are not regional (A.2). The export called a district regional when its DESE code was 0600 or
+   more; DESE numbers its newer charter schools from 3500, so 13 of the 72 current charter schools (Argosy
+   Collegiate, Baystate Academy, ...) were flagged regional and given revenue series. The Census F-33 file has no
+   Massachusetts charter school (its one 04xx row is Northampton-Smith, vocational), so every series was empty, and
+   the explorer drew an empty revenue chart for those 13 where the other 59 said revenue isn't available; the
+   charter average claimed 13 regional members. is_regional() now decides it in one place, charter schools
+   excluded, at every test the export made by code (explorer_history.py already excluded them). Diff: only those
+   13 districts' flags and empty series, and the charter average's rev_members (13 -> 0). Tim: charter schools
+   stay their own category, and without revenue data whose provenance is clear, they have no revenue figures.

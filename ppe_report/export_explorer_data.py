@@ -104,6 +104,13 @@ SPED = ["teaching", "other_instructional", "in_transport", "ma_public", "private
 CB_NEXT_YEAR = ["tot_qtly_payment", "addl_suppl_payment"]
 # DESE numbers regional academic districts from 0600; DIST_CODE is that times 10000
 REGIONAL_MIN_CODE = 6000000
+
+
+def is_regional(d):
+    """A regional academic or vocational district. Charter schools are a category of their own, though DESE numbers
+    its newer ones from 3500, past the regional districts' 0600 (#237): taken by the code alone, 13 counted as
+    regional and were given revenue series the Census has no figures for."""
+    return d["type"] != "charter" and d["code"] >= REGIONAL_MIN_CODE
 BUDGET_CSV = Path("data/dese_nss_budgets.csv")
 BUDGET_SOURCES = Path("data/dese_nss_budget_sources.json")
 ENROLL_CSV = Path("data/dese_enrollment.csv")
@@ -964,7 +971,7 @@ def district_members(dists):
     towns_of = {}
     for o, t in zip(mem["Org4Code"].astype(int), mem["Town"]):
         towns_of.setdefault(o, []).append(norm(t))
-    return {d["id"]: towns_of.get(d["code"] // 10000, []) if d["code"] >= REGIONAL_MIN_CODE else [norm(d["name"])]
+    return {d["id"]: towns_of.get(d["code"] // 10000, []) if is_regional(d) else [norm(d["name"])]
             for d in dists if d["type"] == "traditional"}
 
 
@@ -1016,13 +1023,13 @@ def district_types(dists, c70, area):
         if d["type"] != "traditional":
             continue
         org = d["code"] // 10000
-        ks = towns_of.get(org, []) if d["code"] >= REGIONAL_MIN_CODE else [norm(d["name"])]
+        ks = towns_of.get(org, []) if is_regional(d) else [norm(d["name"])]
         if not ks or any(k not in area for k in ks) or org not in fe.index:
             missing.append(d["name"])
             continue
         density = float(fe.loc[org, "distfoundenro"]) / sum(area[k] for k in ks)
         tier = next((i + 1 for i, lim in enumerate(RURAL_STUDENT_TIERS) if density <= lim), None)
-        local = d["code"] < REGIONAL_MIN_CODE
+        local = not is_regional(d)
         kind = ("core" if local and norm(d["name"]) in core else "gateway" if d["gateway"] else "rural" if tier
                 else "suburban")
         out[d["id"]] = {"type": kind, "density": round(density, 1), "tier": tier, "fy": int(fe.loc[org, "fy"])}
@@ -1520,7 +1527,7 @@ def town_data(dists, reg, latest, area=None, fifths=None):
         raise ValueError(f"Towns without population data: {missing}")
 
     by_org = {f"{d['org']:04d}": d for d in dists}
-    own_of = {norm(d["name"]): d for d in dists if d["code"] < REGIONAL_MIN_CODE and d["type"] == "traditional"
+    own_of = {norm(d["name"]): d for d in dists if not is_regional(d) and d["type"] == "traditional"
               and norm(d["name"]) in names}
     member_towns = {org: [{"name": names.get(mk, town), "id": slug(names[mk]) if mk in names else None, "key": mk}
                           for mk, town in zip(g["key"], g["Town"])]
@@ -2076,7 +2083,7 @@ def main(site: Path):
         lines = dict(lines_mean)
         if foundation is not None and len(foundation):
             lines["Foundation Enrollment"] = foundation
-        regional = [d["code"] for d in members if d["code"] >= REGIONAL_MIN_CODE]
+        regional = [d["code"] for d in members if is_regional(d)]
         rev = {"rev_members": len(regional)}
         if census is not None and len(regional) >= MIN_REVENUE_MEMBERS:
             rev |= revenue_fields(census, regional, True)
@@ -2099,7 +2106,7 @@ def main(site: Path):
         piv, lines = prepare_district_epp_lines(df, d["name"], c70)
         nss, _e, _f = prepare_district_nss_ch70(df, c70, d["name"])
         k, rk = d["cohort"], d["region"]
-        regional = d["code"] >= REGIONAL_MIN_CODE
+        regional = is_regional(d)
         rc = f"cohort-{k.lower()}-{slug(rk)}" if rk else None
         full.append({"id": d["id"], "name": d["name"], "kind": "district", "type": d["type"], "cohort": k,
                      "region": rk, "regional": regional, "fte": round(d["fte"], 1), "gateway": d["gateway"],
