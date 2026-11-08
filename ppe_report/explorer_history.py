@@ -173,6 +173,24 @@ def load_nces():
     return out
 
 
+def drop_empty(rec):
+    """A current district's or an average's record less the series with no figure in them. Before FY2005 its
+    spending comes from DESE's day-program reports alone, so the series cut like the explorer's own years (spending
+    by category, in- and out-of-district pupils, out-of-district payments) were all null: 487 KB of nulls (#237).
+    The explorer reads a missing series as nulls. A former district's record keeps its whole shape."""
+    def empty(v):
+        return (isinstance(v, list) and all(x is None for x in v)) or (isinstance(v, dict) and all(map(empty, v.values())))
+    out = {}
+    for k, v in rec.items():
+        if isinstance(v, dict):
+            kept = {kk: vv for kk, vv in v.items() if not empty(vv)}
+            if kept:
+                out[k] = kept
+        elif not empty(v):
+            out[k] = v
+    return out
+
+
 def day_fields(rec, nces_d):
     """A district's day-program series: total and programs per pupil, DESE's average membership, and
     NCES fall enrollment where DESE gives no pupils."""
@@ -188,8 +206,8 @@ def day_fields(rec, nces_d):
 def day_average(codes, day, nces):
     """An average's day-program total per pupil, each year over its members that reported one, weighted
     by DESE's average membership from FY1997 and NCES fall enrollment before; with the average member's
-    pupils by each count, and how many districts each year counts."""
-    total, memb, fall, n = {}, {}, {}, {}
+    pupils by each count."""
+    total, memb, fall = {}, {}, {}
     for fy in range(HIST_FIRST, DAY_LAST + 1):
         pairs = []
         for c in codes:
@@ -202,9 +220,8 @@ def day_average(codes, day, nces):
         wsum = sum(w for _, w in pairs)
         total[fy] = sum(v * w for v, w in pairs) / wsum
         (memb if fy >= MEMBERSHIP_FROM else fall)[fy] = wsum / len(pairs)
-        n[fy] = len(pairs)
     return {"day": {"total": from_dict(total, 0, DAY_YEARS)}, "day_memb": from_dict(memb, 1, DAY_YEARS),
-            "nces": from_dict(fall, 0), "day_n": from_dict(n, 0, DAY_YEARS)}
+            "nces": from_dict(fall, 0)}
 
 
 def history(df, reg, c70, dists, groups, full, towns, categories, ys, regions, norm, exclude):
@@ -240,7 +257,7 @@ def history(df, reg, c70, dists, groups, full, towns, categories, ys, regions, n
         nss, _e, _f = prepare_district_nss_ch70(df_all, c70, d["name"])
         rec = {"id": d["id"], **pack(piv, lines, nss, categories, spent=spent(piv, d["code"])),
                "ood": ood_series(df_all, [d["key"]], HIST_YEARS), **day_fields(day.get(d["code"]), nces.get(d["code"]))}
-        chunks.setdefault(chunk_of[d["id"]], []).append(rec)
+        chunks.setdefault(chunk_of[d["id"]], []).append(drop_empty(rec))
 
     by_key = {d["key"]: d for d in dists}
     for eid, _name, _scope, _cohort, region, members, _cmp in groups:
@@ -252,7 +269,7 @@ def history(df, reg, c70, dists, groups, full, towns, categories, ys, regions, n
             lines["Foundation Enrollment"] = foundation
         rec = {"id": eid, **pack(piv, lines, nss, categories), "ood": ood_series(df_all, keys, HIST_YEARS),
                **day_average([by_key[k]["code"] for k in keys], day, nces)}
-        chunks.setdefault(slug(region) if region else "statewide", []).append(rec)
+        chunks.setdefault(slug(region) if region else "statewide", []).append(drop_empty(rec))
 
     # Former districts: every district in the older files or the Hub that the explorer doesn't list,
     # because it has no FY{latest} figures, less the special-purpose schools it leaves out

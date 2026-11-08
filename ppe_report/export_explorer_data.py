@@ -273,7 +273,6 @@ URL_LA4 = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyT
 URL_EQV = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyTaxInformation.EQV.EQV"
 URL_LEVY = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=Prop2.5.ExcessLevyCapandOverride_10_pres"
 URL_SF_BILL = "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=AverageSingleTaxBill.SingleFamTaxBill_wRange"
-URL_C70_WHITEPAPER = "https://www.doe.mass.edu/finance/chapter70/fy2025/chapter-2025-whitepaper.docx"
 URL_C70_FORMULA = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}.xlsm"
 URL_C70_WP = "https://www.doe.mass.edu/finance/chapter70/fy{fy}/chapter-{fy}-whitepaper.docx"
 C70_TOWNWIDE_CSV = Path("data/dese_c70_townwide.csv")
@@ -314,19 +313,12 @@ def revenue_per_pupil(census, codes):
 
 
 def revenue_fields(census, codes, regional):
-    """The entity's revenue fields: per-pupil series when every member is regional,
-    Census's latest totals for a town-run district."""
-    if census is None:
+    """The entity's revenue fields: per-pupil series when every member is regional. A town-run district has none
+    (its Census totals, once written as rev_check, had no reader; #237)."""
+    if census is None or not regional:
         return {}
-    if regional:
-        rev, fte = revenue_per_pupil(census, codes)
-        return {"rev": rev, "rev_fte": fte}
-    latest = census[census["DIST_CODE"].isin(codes)].sort_values("FY").tail(1)
-    if latest.empty:
-        return {}
-    r = latest.iloc[0]
-    return {"rev_check": {"fy": int(r["FY"]), "revenue": int(r["TOTALREV"]) * 1000,
-                          "expenditure": int(r["TOTALEXP"]) * 1000}}
+    rev, fte = revenue_per_pupil(census, codes)
+    return {"rev": rev, "rev_fte": fte}
 
 
 def sped_pupils(df):
@@ -473,7 +465,9 @@ def town_series(rows, population):
                  & (wide[total_col] > 0) & wide["pop"].notna()]
         by_year = w.groupby("FY").sum(numeric_only=True)
         out[kind] = {k: series(by_year[cols].sum(axis=1) / by_year["pop"], 0) for k, cols in groups.items()}
-        out[f"{kind}_total"] = series(by_year[total_col], 0)
+        # The map's spending per resident reads spending's total; revenue's had no reader (#237)
+        if kind == "spend":
+            out["spend_total"] = series(by_year[total_col], 0)
     return out
 
 
@@ -640,7 +634,6 @@ def fiscal_series(fiscal, ks, population):
     lab = mine(fiscal["labor"])[["Labor Force", "Employed", "Unemployed"]].dropna().groupby(level="FY").sum()
     out["labor"] = {"force": series(lab["Labor Force"], 0), "employed": series(lab["Employed"], 0),
                     "rate": series(lab["Unemployed"] / lab["Labor Force"] * 100, 1)}
-    out["labor_latest"] = int(lab.index.max()) - 1 if len(lab) else None  # its calendar year
     lv = mine(fiscal["levy"])[["Override Capacity", "Levy Ceiling", "Levy Limit w/o Debt & Capital Exclusions"]].dropna()
     lsum = lv.groupby(level="FY").sum()
     out["override_pct"] = series(lsum["Override Capacity"] / lsum["Levy Ceiling"] * 100, 1)
@@ -1498,7 +1491,7 @@ def cohort_name(k, region=None):
     return f"{REGIONS[region] if region else 'Statewide'} {get_cohort_short_label(k)} enrollment group average"
 
 
-def town_data(dists, reg, latest, area=None, fifths=None):
+def town_data(dists, latest, area=None, fifths=None):
     """The town view: (towns.json content, {chunk: full towns}, every full town, each
     district's towns, the map's outlier groups). dists: explorer_districts() with each district's
     explorer id. The outlier groups are the population groups within a region that have too few
@@ -1703,7 +1696,7 @@ def town_data(dists, reg, latest, area=None, fifths=None):
             },
             "property": prop is not None,
             "fiscal": ({k: v.get("data_current_as_of") for k, v in json.loads(FISCAL_SOURCES.read_text()).items()
-                        if isinstance(v, dict)} | {"labor_latest": int(fiscal["labor"].index.get_level_values("FY").max()) - 1}
+                        if isinstance(v, dict)}
                        if fiscal is not None else None),
             "c70_target": C70_TARGET,
         },
@@ -2126,7 +2119,7 @@ def main(site: Path):
 
     towns_index, town_chunks, all_towns, town_outliers = None, {}, [], []
     if all(p.exists() for p in (DLS_CSV, POP_CSV, MEMBERS_CSV)):
-        towns_index, town_chunks, all_towns, links, town_outliers = town_data(dists, reg, LATEST_YEAR, land_areas(),
+        towns_index, town_chunks, all_towns, links, town_outliers = town_data(dists, LATEST_YEAR, land_areas(),
                                                                               town_fifths)
         for e in full:
             e.update(links.get(e["id"], {}))

@@ -17,3 +17,16 @@ export reproduced the committed files exactly before any change.
    excluded, at every test the export made by code (explorer_history.py already excluded them). Diff: only those
    13 districts' flags and empty series, and the charter average's rev_members (13 -> 0). Tim: charter schools
    stay their own category, and without revenue data whose provenance is clear, they have no revenue figures.
+
+2. Data nobody reads (B.10). Removed from the export, each checked by grep against mywebsite's TypeScript and
+   .astro files: rev_check (town-run districts' Census totals), towns' rev_total (spend_total stays: the map's
+   spending per resident reads it), labor_latest (each town's, and the metadata's), and the averages' day_n
+   (districts counted each year). explorer_history.drop_empty() leaves out a current district's or an average's
+   series with no figure before FY2005 (spending by category, in- and out-of-district pupils, out-of-district
+   payments: all null, since that history comes from DESE's day-program reports); former districts keep their whole
+   records. districts-history/ 1.25 MB -> 0.72 MB; all explorer data 15.8 MB -> 15.1 MB. Check: every figure in
+   the data before is in the data after, unchanged, except the four fields named; nothing added; the explorer's
+   Since 1990 views (a district, two averages, a charter school, a comparison) render the same.
+   Dead code: district_cache.py and generate_district_cache.py (imported by nothing; their cache read by nothing),
+   with CACHE_DESIGN.md and CAGR_CACHE_DESIGN.md, which described them; URL_C70_WHITEPAPER; town_data's reg
+   parameter (shadowed by a local of the same name).
