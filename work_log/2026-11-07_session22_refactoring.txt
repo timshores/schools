@@ -30,3 +30,11 @@ export reproduced the committed files exactly before any change.
    Dead code: district_cache.py and generate_district_cache.py (imported by nothing; their cache read by nothing),
    with CACHE_DESIGN.md and CAGR_CACHE_DESIGN.md, which described them; URL_C70_WHITEPAPER; town_data's reg
    parameter (shadowed by a local of the same name).
+
+3. A safety net (D.17). ppe_report/check_explorer_data.py: `shape SITE` (no NaN or infinity, which JSON.parse
+   refuses; every series as long as its years: the explorer's 21 from FY2005, the history's 15 from FY1990, the
+   day-program series' 17 to FY2006, a town's votes [held, won]; every district dict of series with one set of
+   keys) and `diff BEFORE AFTER` (each JSON file as data, meta.built dropped; each CSV as bytes). The committed
+   data passes; three faults planted in a copy (a short series, a NaN, a stray key) are each caught. To check a
+   change to the export: export to a scratch directory, `shape` it, `diff` it against mywebsite. mywebsite gained
+   unit cases for its number formats (in every build) and browser checks of the explorer (scripts/check/).
