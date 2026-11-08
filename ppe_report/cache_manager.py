@@ -8,8 +8,8 @@ automatically reloaded unless --force-recompute is specified.
 Usage:
     from cache_manager import use_cache, save_cache
 
-    # Check if cache exists and is valid
-    if use_cache():
+    # Check if cache exists and is newer than its sources
+    if use_cache(sources=[...]):
         df, reg, c70 = load_from_cache()
     else:
         df, reg, c70 = load_data_from_excel()
@@ -131,12 +131,30 @@ def load_from_cache() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     return df, reg, c70
 
 
-def use_cache(force_recompute: bool = False) -> bool:
+def stale_sources(sources) -> list:
+    """
+    The sources modified since the cache was written: any newer than the oldest cache file.
+
+    Args:
+        sources: Paths the cache was built from; those that don't exist are skipped
+
+    Returns:
+        The sources newer than the cache, empty if the cache is fresh
+    """
+    built = min(path.stat().st_mtime for path in CACHE_FILES.values())
+    return [Path(s) for s in sources if Path(s).exists() and Path(s).stat().st_mtime > built]
+
+
+def use_cache(force_recompute: bool = False, sources=()) -> bool:
     """
     Determine whether to use cached data or recompute from source.
 
     Args:
         force_recompute: If True, bypass cache and recompute
+        sources: Paths the cache was built from. A cache older than any of them is stale and is
+                 recomputed, so a refreshed source is never read beside a cache of its old self
+                 (as western_map._is_cache_valid does for its own cache). A fresh checkout can leave
+                 the sources a moment newer than the cache; that recomputes once.
 
     Returns:
         True if cache should be used, False if data should be recomputed
@@ -147,6 +165,12 @@ def use_cache(force_recompute: bool = False) -> bool:
 
     if not cache_exists():
         print("\n[Cache] No cache found - will compute from source")
+        return False
+
+    stale = stale_sources(sources)
+    if stale:
+        print(f"\n[Cache] Stale: {', '.join(str(s) for s in stale)} changed since the cache was saved "
+              "- will compute from source")
         return False
 
     print("\n[Cache] Cache found - loading from cache")

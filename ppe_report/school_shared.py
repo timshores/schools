@@ -574,6 +574,11 @@ def load_data(force_recompute: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame
     """
     Load school district data from Excel or cache.
 
+    The cache (data/cache/*.csv) stands only while it is newer than every source it was built from:
+    the workbook, which always gives the regions, and the refreshed CSVs, which give expenditures and
+    Chapter 70 when they exist. It once stood whatever changed, so a refresh of the sources could run
+    beside a cache of the old ones (export #237); western_map._is_cache_valid checks its own the same way.
+
     Args:
         force_recompute: If True, bypass cache and reload from Excel
 
@@ -582,7 +587,7 @@ def load_data(force_recompute: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame
     """
     # Try to use cache first
     import cache_manager
-    if cache_manager.use_cache(force_recompute):
+    if cache_manager.use_cache(force_recompute, sources=[EXCEL_FILE, REFRESH_EXPEND_CSV, REFRESH_C70_CSV]):
         try:
             df, reg, profile_c70 = cache_manager.load_from_cache()
             # Initialize cohort definitions with cached data
@@ -769,26 +774,34 @@ def _get_enrollment_group_for_boundaries(fte: float, enrollment_groups: Dict[str
     """
     Determine enrollment cohort for a given FTE value using custom boundaries.
 
+    The ranges are whole numbers, closed at both ends (Tiny 0-200, Small 201-800), so an FTE between
+    two of them (200.5, 1600.4) matched none and fell to "SMALL" whatever its size. Each range now
+    runs from just above the one below it to its own top, (200, 800] for Small, the lowest from its
+    own bottom; an FTE no range holds (below the lowest, or NaN) raises rather than joining a group
+    by default (export #237). No district's latest-year FTE falls in a gap, so no cohort changes.
+
     Args:
         fte: Enrollment value
         enrollment_groups: Dict mapping cohort names to (min, max) tuples
 
     Returns: "TINY", "SMALL", "MEDIUM", "LARGE", or "SPRINGFIELD"
     """
-    for group, (min_fte, max_fte) in enrollment_groups.items():
-        if min_fte <= fte <= max_fte:
+    below = None  # the top of the range below
+    for group, (min_fte, max_fte) in sorted(enrollment_groups.items(), key=lambda kv: kv[1][1]):
+        if (min_fte <= fte if below is None else below < fte) and fte <= max_fte:
             return group
-    return "SMALL"  # Default fallback
+        below = max_fte
+    raise ValueError(f"No enrollment group holds {fte} FTE: {enrollment_groups}")
 
-def get_enrollment_group(fte: float) -> str:
+def get_enrollment_group(fte: float, enrollment_groups: Dict[str, Tuple[float, float]] = None) -> str:
     """
-    Determine enrollment cohort for a given FTE value using global boundaries.
+    Determine enrollment cohort for a given FTE value, by _get_enrollment_group_for_boundaries.
+    enrollment_groups: the boundaries, as get_cohort_definitions gives them; by default the global
+    ENROLLMENT_GROUPS, which load_data sets as a side effect (initialize_cohort_definitions), so a
+    caller that has the definitions can pass them rather than depend on that.
     Returns: "TINY", "SMALL", "MEDIUM", "LARGE", or "SPRINGFIELD"
     """
-    for group, (min_fte, max_fte) in ENROLLMENT_GROUPS.items():
-        if min_fte <= fte <= max_fte:
-            return group
-    return "SMALL"  # Default fallback
+    return _get_enrollment_group_for_boundaries(fte, ENROLLMENT_GROUPS if enrollment_groups is None else enrollment_groups)
 
 def get_cohort_label(group: str) -> str:
     """Get the full label for a cohort (e.g., 'Small (0-800 FTE)')."""

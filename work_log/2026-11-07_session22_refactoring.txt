@@ -38,3 +38,25 @@ export reproduced the committed files exactly before any change.
    data passes; three faults planted in a copy (a short series, a NaN, a stray key) are each caught. To check a
    change to the export: export to a scratch directory, `shape` it, `diff` it against mywebsite. mywebsite gained
    unit cases for its number formats (in every build) and browser checks of the explorer (scripts/check/).
+
+4. The pipeline restructured (C.16), output unchanged byte for byte at every step (check_explorer_data.py diff and
+   shape; the export also compared with diff -rq against a baseline). explorer_common.py: what the export and the
+   history pass share (years, ENROLL/NSS, REGIONS, EXCLUDE_DISTRICTS, slug, norm, series, pack, is_regional,
+   with_functional, ood_per_pupil, and Hub, which lower-cases DESE's rows once, indexes each district's once and
+   memoizes, so the history pass reuses the export's figures; history() takes 6 parameters, not 12).
+   read_sources() reads each source once (population was read 7 times, the members file 5). One function each for
+   total spending per pupil, the no-cap factor, required spending per pupil, levy room, vote kind. Writes go to
+   staging directories swapped in at the end, so a failed run leaves the site as it was; check_inputs() fails on a
+   missing input (every input is committed) where WARN let a run ship half its files. cache_manager.stale_sources()
+   treats the cache as stale when it's older than its sources, and --force-recompute forces it (a fresh clone
+   recomputes once: git leaves the sources a moment newer). get_enrollment_group: half-open ranges, raising on
+   NaN or a negative value, where a value between ranges fell to SMALL. main 261 -> 39 lines, write_csvs 243 -> 14
+   plus one function per file, map_data 226 -> 47, town_data 224 -> 28; a Group NamedTuple with its outlier flag.
+   Source URLs in one SOURCE_URLS table. Export time 5:15 -> about 1:40 (explorer_districts 32 s -> 1.7 s,
+   history 142 s -> 5 s). All 227 names other scripts import from the changed modules still resolve.
+   Found on the way and fixed: towns-chapter70-targets.csv multiplied each town's yield by the targets' total in
+   64-bit integers before dividing, which overflowed for Boston: its no-cap target read -$407,169,082 (FY2026) and
+   -$347,580,589 (FY2027). It now takes the yield times the year's factor, as cap.json does: $1,047,625,653 and
+   $1,077,801,854. Only those two rows change.
+   Left: town_entities is the slowest step now (fiscal_series and property_series filter whole frames per town);
+   the PDF side's prepare_western_epp_lines bucket mode still uses closed ranges; data/cache is tracked in git.
