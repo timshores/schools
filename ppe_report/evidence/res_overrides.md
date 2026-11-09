@@ -1,6 +1,6 @@
 # Evidence record: the residential share and Proposition 2½ overrides
 
-Written by `evidence/res_overrides.py` on 2026-11-08. An exploratory finding, which Tim asked for (#247, #248): correlations across the state's towns, not a cause shown. Spearman's ρ throughout; "held steady" means the towns' ranks on income per capita, property value per resident, population and density regressed out of both measures.
+Written by `evidence/res_overrides.py` on 2026-11-09. An exploratory finding, which Tim asked for (#247, #248): correlations across the state's towns, not a cause shown. Spearman's ρ throughout; "held steady" means the towns' ranks on income per capita, property value per resident, population and density regressed out of both measures.
 
 ## The figures the map's note gives
 

@@ -1,0 +1,177 @@
+State,Community,Residential,Commercial_industrial,Working_open_land,Source,Year
+Colorado,Custer County,1.16,0.71,0.54,Haggerty,2000
+Colorado,Sagauche County,1.17,0.53,0.35,"Dirt, Inc.",2001
+Connecticut,Bolton,1.05,0.23,0.5,Geisler,1998
+Connecticut,Brooklyn,1.09,0.17,0.3,Green Valley Institute,2002
+Connecticut,Colchester,1.14,0.18,0.18,Stahl,2013
+Connecticut,Coventry,1.06,0.25,0.25,Green Valley Institute,2008
+Connecticut,Durham,1.07,0.27,0.23,Southern New England Forest Consortium,1995
+Connecticut,Farmington,1.33,0.32,0.31,Southern New England Forest Consortium,1995
+Connecticut,Hebron,1.06,0.47,0.43,American Farmland Trust,1986
+Connecticut,Lebanon,1.12,0.16,0.17,Green Valley Institute,2007
+Connecticut,Litchfield,1.11,0.34,0.34,Southern New England Forest Consortium,1995
+Connecticut,Pomfret,1.06,0.27,0.86,Southern New England Forest Consortium,1995
+Connecticut,Windham,1.15,0.24,0.19,Green Valley Institute,2002
+Florida,Leon County,1.39,0.36,0.42,Dorfman,2004
+Georgia,Appling County,2.27,0.17,0.35,Dorfman,2004
+Georgia,Athens-Clarke County,1.39,0.41,2.04,Dorfman,2004
+Georgia,Brooks County,1.56,0.42,0.39,Dorfman,2004
+Georgia,Carroll County,1.29,0.37,0.55,Dorfman and Black,2002
+Georgia,Cherokee County,1.59,0.12,0.2,Dorfman,2004
+Georgia,Colquitt County,1.28,0.45,0.8,Dorfman,2004
+Georgia,Columbia County,1.16,0.48,0.52,Dorfman,2006
+Georgia,Dooly County,2.04,0.5,0.27,Dorfman,2004
+Georgia,Grady County,1.72,0.1,0.38,Dorfman,2003
+Georgia,Hall County,1.25,0.66,0.22,Dorfman,2004
+Georgia,Jackson County,1.28,0.58,0.15,Dorfman,2008
+Georgia,Jones County,1.23,0.65,0.35,Dorfman,2004
+Georgia,Miller County,1.54,0.52,0.53,Dorfman,2004
+Georgia,Mitchell County,1.39,0.46,0.6,Dorfman,2004
+Georgia,Morgan County,1.42,0.25,0.38,Dorfman,2008
+Georgia,Thomas County,1.64,0.38,0.67,Dorfman,2003
+Georgia,Union County,1.13,0.43,0.72,Dorfman and Lavigno,2006
+Indiana,91 counties and affiliated school corporations,1.17,0.27,0.21,DeBoer,2010
+Idaho,Booneville County,1.06,0.84,0.23,Hartsmans and Meyer,1997
+Idaho,Canyon County,1.08,0.79,0.54,Hartsmans and Meyer,1997
+Idaho,Cassia County,1.19,0.87,0.41,Hartsmans and Meyer,1997
+Idaho,Kootenai County,1.09,0.86,0.28,Hartsmans and Meyer,1997
+Kentucky,Campbell County,1.21,0.3,0.38,American Farmland Trust,2005
+Kentucky,Kenton County,1.19,0.19,0.51,American Farmland Trust,2005
+Kentucky,Lexington-Fayette County,1.64,0.22,0.93,American Farmland Trust,1999
+Kentucky,Oldham County,1.05,0.29,0.44,American Farmland Trust,2003
+Kentucky,Shelby County,1.21,0.24,0.41,American Farmland Trust,2005
+Maine,Bethel,1.29,0.59,0.06,Good,1994
+Maryland,Carroll County,1.15,0.48,0.45,Carroll County Dept. of Management & Budget,1994
+Maryland,Cecil County,1.17,0.34,0.66,American Farmland Trust,2001
+Maryland,Cecil County,1.12,0.28,0.37,Cecil County Office of Economic Development,1994
+Maryland,Frederick County,1.14,0.5,0.53,American Farmland Trust,1997
+Maryland,Harford County,1.11,0.4,0.91,American Farmland Trust,2003
+Maryland,Kent County,1.05,0.64,0.42,American Farmland Trust,2002
+Maryland,Wicomico County,1.21,0.33,0.96,American Farmland Trust,2001
+Massachusetts,Agawam,1.05,0.44,0.31,American Farmland Trust,1992
+Massachusetts,Becket,1.02,0.83,0.72,Southern New England Forest Consortium,1995
+Massachusetts,Dartmouth,1.14,0.51,0.26,American Farmland Trust,2009
+Massachusetts,Deerfield,1.16,0.38,0.29,American Farmland Trust,1992
+Massachusetts,Deerfield,1.14,0.51,0.33,American Farmland Trust,2009
+Massachusetts,Franklin,1.02,0.58,0.4,Southern New England Forest Consortium,1995
+Massachusetts,Gill,1.15,0.43,0.38,American Farmland Trust,1992
+Massachusetts,Great Barrington,1.02,0.58,0.4,Southern New England Forest Consortium,1995
+Massachusetts,Haverhill,1.15,0.43,0.38,American Farmland Trust,1992
+Massachusetts,Leverett,1.15,0.29,0.25,Southern New England Forest Consortium,1995
+Massachusetts,Middleboro,1.08,0.47,0.7,American Farmland Trust,2001
+Massachusetts,Southborough,1.03,0.26,0.45,Adams and Hines,1997
+Massachusetts,Sterling,1.09,0.26,0.34,American Farmland Trust,2009
+Massachusetts,Upton,1.03,0.26,0.45,Adams and Hines,1997
+Massachusetts,Westford,1.09,0.26,0.34,American Farmland Trust,2009
+Massachusetts,Whately,1.0,0.51,0.34,Murray and Catanzaro,2018
+Michigan,Williamstown,1.11,0.34,0.4,Hazler et al.,1992
+Michigan,"Marshall Township, Calhoun County",1.47,0.2,0.27,American Farmland Trust,2001
+Michigan,"Newton Township, Calhoun County",1.2,0.25,0.24,American Farmland Trust,2001
+Michigan,"Scio Township, Washtenaw County",1.4,0.28,0.62,University of Michigan,1994
+Minnesota,Farmington,1.02,0.79,0.77,American Farmland Trust,1994
+Minnesota,Independence,1.03,0.19,0.47,American Farmland Trust,1994
+Minnesota,Lake Elmo,1.07,0.2,0.27,American Farmland Trust,1994
+Montana,Carbon County,1.6,0.21,0.34,Prinzing,1997
+Montana,Flathead County,1.23,0.26,0.34,Citizens for a Better Flathead,1999
+Montana,Gallatin County,1.45,0.16,0.25,Haggerty,1996
+New Hampshire,Brentwood,1.17,0.24,0.83,Brentwood Open Space Task Force,2002
+New Hampshire,Deerfield,1.15,0.22,0.35,Auger,1994
+New Hampshire,Dover,1.15,0.63,0.94,"Kingsley, et al.",1993
+New Hampshire,Exeter,1.07,0.4,0.82,Niebling,1997
+New Hampshire,Fremont,1.04,0.94,0.36,Auger,1994
+New Hampshire,Groton,1.01,0.12,0.88,New Hampshire Wildlife Federation,2001
+New Hampshire,Hookset,1.16,0.43,0.55,Innovative Natural Resource Solutions,2008
+New Hampshire,Lyme,1.05,0.28,0.23,Pickard,2000
+New Hampshire,Milton,1.3,0.35,0.72,Innovative Natural Resource Solutions,2005
+New Hampshire,Mont Vernon,1.03,0.04,0.08,Innovative Natural Resource Solutions,2002
+New Hampshire,Stratham,1.15,0.19,0.4,Auger,1994
+New Jersey,"Freehold Township, Monmouth County",1.51,0.17,0.33,American Farmland Trust,1998
+New Jersey,"Holmdel Township, Monmouth County",1.38,0.21,0.66,American Farmland Trust,1998
+New Jersey,"Middletown Township, Monmouth County",1.14,0.34,0.36,American Farmland Trust,1998
+New Jersey,"Upper Freehold Township, Monmouth County",1.18,0.2,0.35,American Farmland Trust,1998
+New Jersey,"Wall Township, Monmouth County",1.28,0.3,0.54,American Farmland Trust,1998
+New York,Amenia,1.23,0.25,0.17,Bucknall,1989
+New York,Beekman,1.12,0.18,0.48,American Farmland Trust,1989
+New York,Dix,1.51,0.27,0.31,Schuyler County League of Women Voters,1993
+New York,Farmington,1.22,0.27,0.72,Kinsman et al.,1991
+New York,Fishkill,1.23,0.31,0.74,Bucknall,1989
+New York,Hector,1.3,0.15,0.28,Schuyler County League of Women Voters,1993
+New York,Kinderhook,1.05,0.21,0.17,Concerned Citizens of Kinderhoook,1996
+New York,Montour,1.5,0.28,0.29,Schuyler County League of Women Voters,1992
+New York,North East,1.36,0.29,0.21,American Farmland Trust,1989
+New York,Reading,1.88,0.26,0.32,Schuyler County League of Women Voters,1992
+New York,Red Hook,1.11,0.2,0.22,Bucknall,1989
+New York,Rochester,1.27,0.18,0.18,Bonner and Gray,2005
+North Carolina,Alamance County,1.46,0.23,0.59,Renkow,2006
+North Carolina,Catawba County,1.23,0.54,0.75,Renkow,2013
+North Carolina,Chatham County,1.14,0.33,0.58,Renkow,2007
+North Carolina,Craven County,1.1,0.33,0.2,Best,2014
+North Carolina,Davie County,1.14,0.5,0.67,Renkow,2014
+North Carolina,Duplin County,1.14,0.3,0.41,Maddox and Olive,2016
+North Carolina,Durham County,1.15,0.33,0.59,Renkow,2010
+North Carolina,Forsyth County,1.57,0.24,0.46,Renkow,2018
+North Carolina,Franklin County,1.12,0.53,0.77,Renkow,2009
+North Carolina,Gaston County,1.23,0.41,0.89,Renkow,2008
+North Carolina,Guilford County,1.35,0.29,0.62,Renkow,2010
+North Carolina,Henderson County,1.16,0.4,0.97,Renkow,2008
+North Carolina,Iredalell County,1.35,0.3,0.47,Renkow,2015
+North Carolina,Lee County,1.32,0.47,0.31,Olive,2017
+North Carolina,Orange County,1.31,0.24,0.72,Renkow,2006
+North Carolina,Pamlico County,0.99,0.71,0.51,Olive,2015
+North Carolina,Pitt County,1.29,0.36,0.62,Renkow,2013
+North Carolina,Polk County,1.19,0.25,0.69,Olive,2024
+North Carolina,Union County,1.3,0.41,0.24,Dorfman,2004
+North Carolina,Wake County,1.54,0.18,0.49,Renkow,2001
+North Carolina,Wake County,1.09,0.08,0.24,Olive,2024
+North Carolina,Wayne County,1.24,0.34,0.47,Best,2011
+North Carolina,Wilson County,1.08,0.36,0.66,Maddox and Olive,2017
+North Carolina,Yadkin County,1.12,0.38,0.61,Renkow,2011
+Ohio,Butler County,1.12,0.45,0.49,American Farmland Trust,2003
+Ohio,Clark County,1.11,0.38,0.3,American Farmland Trust,2003
+Ohio,"Hocking Township, Fairfield County",1.1,0.27,0.17,Prindle,2002
+Ohio,Knox County,1.05,0.38,0.29,American Farmland Trust,2003
+Ohio,"Liberty Township, Fairfield County",1.15,0.51,0.05,Prindle,2002
+Ohio,"Madison Village, Lake County",1.67,0.2,0.38,American Farmland Trust,1993
+Ohio,"Madison Township, Lake County",1.4,0.25,0.3,American Farmland Trust,1993
+Ohio,"Madison Village, Lake County",1.16,0.32,0.37,American Farmland Trust,2008
+Ohio,"Madison Township, Lake County",1.24,0.33,0.3,American Farmland Trust,2008
+Ohio,"Shalersville Township, Portage County",1.58,0.17,0.31,Postage County Regional Planning Commission,1997
+Pennsylvania,"Allegheny Township, Westmoreland County",1.06,0.14,0.13,Kelsey,1997
+Pennsylvania,"Bedminster Township, Bucks County",1.12,0.05,0.04,Kelsey,1997
+Pennsylvania,"Bethel Township, Lebanon County",1.08,0.17,0.06,Kelsey,1992
+Pennsylvania,"Bingham Township, Potter County",1.56,0.16,0.15,Kelsey,1994
+Pennsylvania,"Buckingham Township, Bucks County",1.04,0.15,0.08,Kelsey,1996
+Pennsylvania,"Carroll Township, Perry County",1.03,0.06,0.02,Kelsey,1992
+Pennsylvania,"Hopewell Township, York County",1.27,0.32,0.59,The South Central Assembly for Effective Government,2002
+Pennsylvania,"Kelly, Township, Pike County",1.48,0.07,0.07,Kelsey,2006
+Pennsylvania,"Lehman Township, Pike County",0.94,0.2,0.27,Kelsey,2006
+Pennsylvania,"Maiden Creek Township, Berks County",1.28,0.11,0.06,Kelsey,1998
+Pennsylvania,"Richmond Township, Berks County",1.24,0.09,0.04,Kelsey,1998
+Pennsylvania,"Shrewsbury Township, York County",1.22,0.15,0.17,The South Central Assembly for Effective Government,2002
+Pennsylvania,"Stewardson Township, Potter County",2.11,0.23,0.31,Kelsey,1994
+Pennsylvania,"Straban Township, Adams County",1.1,0.16,0.06,Kelsey,1992
+Pennsylvania,"Sweden Township, Potter County",1.38,0.07,0.08,Kelsey,1994
+Rhode Island,Hopkinton,1.08,0.31,0.31,Southern New England Forest Consortium,1995
+Rhode Island,Little Compton,1.05,0.56,0.37,Southern New England Forest consortium,1995
+Rhode Island,West Greenwich,1.46,0.4,0.46,Southern New England Forest Consortium,1995
+Tennessee,Blount County,1.23,0.25,0.41,American Farmland Trust,2006
+Tennessee,Robertson County,1.13,0.22,0.57,American Farmland Trust,2006
+Tennessee,Tipton County,1.07,0.32,0.57,American Farmland Trust,2006
+Texas,Bandera County,1.1,0.26,0.26,American Farmland Trust,2002
+Texas,Bexar County,1.15,0.2,0.18,American Farmland Trust,2004
+Texas,Hays County,1.26,0.3,0.33,American Farmland Trust,2000
+Utah,Cache County,1.27,0.25,0.57,Snyder and Ferguson,1994
+Utah,Sevier County,1.11,0.31,0.99,Snyder and Ferguson,1994
+Utah,Utah County,1.23,0.26,0.82,Snyder and Ferguson,1994
+Virginia,Albemarle County,1.32,0.32,0.54,Rephann,2023
+Virginia,Augusta County,1.22,0.2,0.8,Valley Conservation Council,1997
+Virginia,Bedford County,1.07,0.4,0.25,American Farmland Trust,2005
+Virginia,Clarke County,1.24,0.23,0.5,Rephann,2018
+Virginia,Culpepper County,1.22,0.41,0.32,American Farmland Trust,2003
+Virginia,Frederick County,1.19,0.23,0.33,American Farmland Trust,2003
+Virginia,Northampton County,1.13,0.97,0.23,American Farmland Trust,1999
+Washington,Okanogan County,1.06,0.59,0.56,American Farmland Trust,2007
+Washington,Skagit County,1.25,0.3,0.51,American Farmland Trust,1999
+Wisconsin,Dunn,1.02,0.55,0.15,Wisconsin Land Use Research Program,1999
+Wisconsin,Perry,1.2,1.04,0.41,Wisconsin Land Use Research Program,1999
+Wisconsin,Westport,1.11,0.31,0.13,Wisconsin Land Use Research Program,1999

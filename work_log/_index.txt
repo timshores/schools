@@ -2,6 +2,9 @@
 
 Session files (newest first):
 
+  2026-11-09_session24_housing_enrollment.txt
+    2026-11-09 (Session 24) - Explorer: New Growth, and the Housing and Enrollment Tab (MAPC, COCS)
+
   2026-11-08_session23_regain_custody_fixes.txt
     2026-11-08 (Session 23) - Explorer: Fixes from the Audit Ledger (Project Regain Custody)
 

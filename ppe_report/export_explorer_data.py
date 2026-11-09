@@ -170,6 +170,14 @@ LA4_CSV = Path("data/dls_la4_parcels.csv")
 EQV_CSV = Path("data/dls_eqv.csv")
 SF_BILL_CSV = Path("data/dls_single_family_tax_bill.csv")
 LEVY_CSV = Path("data/dls_levy_capacity.csv")
+# New growth: the levy limit's yearly increase from new construction and other new value (update_dls_fiscal_data.py
+# new_growth), and the Housing and enrollment tab's housing counts and outside studies (update_housing_data.py, #249)
+NEW_GROWTH_CSV = Path("data/dls_new_growth.csv")
+HOUSING_CSV = Path("data/census_town_housing.csv")
+MAPC_TYPES_CSV = Path("data/mapc_community_types.csv")
+MAPC_2017_CSV = Path("data/mapc_enrollment_2017.csv")
+COCS_CSV = Path("data/aft_cocs_studies.csv")
+HOUSING_SOURCES = Path("data/housing_sources.json")
 # Reserves, debt, capital projects, Prop 2 1/2 votes, labor force (update_dls_fiscal_data.py)
 FREE_CASH_CSV = Path("data/dls_free_cash.csv")
 STAB_CSV = Path("data/dls_stabilization.csv")
@@ -300,7 +308,8 @@ FISCAL_CSVS = [FREE_CASH_CSV, STAB_CSV, DEBT_CSV, AUTH_DEBT_CSV, RATINGS_CSV, VO
 INPUTS = [EXCEL_FILE, EXP_CSV, C70_CSV, C70_XLSX, DESE_SOURCES, FUNC_CSV, DAY_CSV, NCES_CSV, CPI_CSV, CENSUS_CSV,
           SPED_CSV, CB_CSV, SPED_SOURCES, BUDGET_CSV, BUDGET_SOURCES, ENROLL_CSV, ENROLL_SOURCES, DLS_CSV, POP_CSV,
           MEMBERS_CSV, C70_TOWNWIDE_CSV, C70_TOWNWIDE_SOURCES, C70_HISTORY_CSV, LA4_CSV, EQV_CSV, SF_BILL_CSV, *FISCAL_CSVS, FISCAL_SOURCES,
-          HH_CSV, DEMO_CSV, BOUNDARIES_JSON]
+          HH_CSV, DEMO_CSV, BOUNDARIES_JSON, NEW_GROWTH_CSV, HOUSING_CSV, MAPC_TYPES_CSV, MAPC_2017_CSV, COCS_CSV,
+          HOUSING_SOURCES]
 
 
 def revenue_per_pupil(census, codes):
@@ -457,9 +466,9 @@ def town_series(rows, population):
     return out
 
 
-def load_property(la4, eqv, bills, levy):
+def load_property(la4, eqv, bills, levy, new_growth):
     """LA-4 value and parcels by (town key, FY) and property type, EQV by (town key, year), single-family tax
-    bills and levy capacity by (town key, FY), from the files as read (read_sources)."""
+    bills, levy capacity and new growth by (town key, FY), from the files as read (read_sources)."""
     type_of = {c: t for t, cats in PROPERTY_TYPES.items() for c in cats}
     la4 = la4[la4["FY"].isin(YEARS)].assign(key=lambda d: d["Municipality"].map(norm))
     unknown = set(la4["Category"]) - set(type_of) - {LA4_EXEMPT}
@@ -475,7 +484,10 @@ def load_property(la4, eqv, bills, levy):
     bills = bills[bills["FY"].isin(YEARS)].set_index(["key", "FY"])
     levy = levy.assign(key=lambda d: d["Municipality"].map(norm))
     levy = levy[levy["FY"].isin(YEARS)].set_index(["key", "FY"])
-    return {"value": value, "parcels": parcels, "eqv": eqv.set_index(["key", "Year"])["EQV"], "bills": bills, "levy": levy}
+    ng = new_growth.rename(columns={"Fiscal Year": "FY"}).assign(key=lambda d: d["Municipality"].map(norm))
+    ng = ng[ng["FY"].isin(YEARS)].set_index(["key", "FY"])
+    return {"value": value, "parcels": parcels, "eqv": eqv.set_index(["key", "Year"])["EQV"], "bills": bills, "levy": levy,
+            "new_growth": ng}
 
 
 def property_series(prop, ks, population):
@@ -508,12 +520,17 @@ def property_series(prop, ks, population):
         b["Single-Family Values"].groupby(level="FY").sum() * 1000
     lv = prop["levy"][prop["levy"].index.get_level_values("key").isin(ks)]
     sums = lv[["Total Tax Levy", "Excess Levy Capacity", "Maximum Levy Limit", "Levy Ceiling"]].groupby(level="FY").sum()
+    # New growth over the prior year's levy limit, DLS's own percentage for one town (as a fraction), pooled for a group
+    ng = prop["new_growth"][prop["new_growth"].index.get_level_values("key").isin(ks)].dropna(
+        subset=["Total New Growth Applied to Levy Limit", "Prior Year's Levy Limit"])
+    ng = ng[["Total New Growth Applied to Levy Limit", "Prior Year's Levy Limit"]].groupby(level="FY").sum()
     per = pop(lv.index).groupby(level="FY").sum()
     return {
         # Prop 2 1/2: the levy raised and the capacity left under the limit, per resident and in all
         "levy": {"raised": series(sums["Total Tax Levy"] / per, 0), "unused": series(sums["Excess Levy Capacity"] / per, 0)},
         "levy_total": series(sums["Total Tax Levy"], 0), "levy_max": series(sums["Maximum Levy Limit"], 0),
         "levy_ceiling": series(sums["Levy Ceiling"], 0),
+        "new_growth": series(ng["Total New Growth Applied to Levy Limit"] / ng["Prior Year's Levy Limit"], 4),
         "sf_rate": series(rate, 2),
         "income_pc": series(income, 0),
         "prop": {t: series(v_res[t] if t in v_res.columns else None, 0) for t in PROPERTY_TYPES},
@@ -794,6 +811,93 @@ def at_cap(targets, yields, foundations):
     contribution column in FY2026 and FY2027."""
     return [f is not None and f > 0 and t is not None and c is not None and t < c - 1
             for t, c, f in zip(targets, yields, foundations)]
+
+
+# The Housing and enrollment tab's years (#249): MAPC's 2024 update, rebuilt from the same public counts. Housing units
+# from the April 1, 2010 and 2020 censuses; enrollment of October 1, 2010 and 2019 (the 2010/11 and 2019/20 school
+# years, FY2011 and FY2020 in DESE's files); new growth certified for FY2011 to FY2020, the levy limits of those years
+HOUSING_YEARS = (2010, 2020)
+ENROLL_FY = (2011, 2020)
+# Drawn off the tab's charts of the decade so the rest can spread out, and counted in the fits: Hancock, 87% more housing
+# and 48 students (MAPC's 2024 update draws its chart without it), and Gosnold, whose 4 students were none by 2019/20
+OFF_CHART = {"Hancock", "Gosnold"}
+
+
+def fit(xs, ys):
+    """A straight line through the points (least squares), how much of the spread it accounts for, the chance of a slope
+    this steep arising with none underneath (its two-sided p-value), and Spearman's rho: MAPC's 2024 test, a linear
+    regression of enrollment change on housing change, and the explorer's usual rank correlation"""
+    from scipy import stats
+    r = stats.linregress(xs, ys)
+    return {"n": len(xs), "slope": round(float(r.slope), 4), "intercept": round(float(r.intercept), 4),
+            "r2": round(float(r.rvalue ** 2), 4), "p": round(float(r.pvalue), 4),
+            "rho": round(float(stats.spearmanr(xs, ys).correlation), 4)}
+
+
+def housing_data(src, dists):
+    """The Housing and enrollment tab (Tim, #249): every municipal school district's housing units (the 2010 and 2020
+    censuses), its enrollment (2010/11 and 2019/20) and its town's new growth over those years, as MAPC's 2024 update
+    compared them; the data MAPC published with its 2017 brief; American Farmland Trust's table of cost of community
+    services studies; and the Chapter 70 figures the tab's paragraph on new growth cites. A municipal district is a
+    town's own (DESE's codes 1 to 351), so its pupils and housing are the same town's; regional districts are left out,
+    as MAPC left them out. dists: district_list's, for each district's id in the explorer."""
+    hs = pd.read_csv(HOUSING_CSV, dtype={"COUSUB_FIPS": str}).assign(key=lambda d: d["Town"].map(norm))
+    units = hs.pivot(index="key", columns="Year", values="Housing_units")
+    types = pd.read_csv(MAPC_TYPES_CSV).assign(key=lambda d: d["Town"].map(norm)).set_index("key")
+    enr = src.enr_raw.assign(org=lambda d: d["DIST_CODE"].str[:4].astype(int))
+    enr = enr[(enr["org"] <= 351) & enr["FY"].isin(ENROLL_FY)].pivot(index="org", columns="FY", values="total_cnt")
+    names = src.enr_raw.assign(org=lambda d: d["DIST_CODE"].str[:4].astype(int)).sort_values("FY").groupby("org")["DIST_NAME"].last()
+    ng = src.new_growth.assign(key=lambda d: d["Municipality"].map(norm))
+    ng = ng[ng["Fiscal Year"].between(ENROLL_FY[0], ENROLL_FY[1])]
+    base = ng[ng["Fiscal Year"] == ENROLL_FY[0]].set_index("key")["Prior Year's Levy Limit"]
+    added = ng.groupby("key")[["Residential New Growth Applied to the Levy Limit", "Total New Growth Applied to Levy Limit"]].sum()
+    id_of = {d["code"] // 10000: d["id"] for d in dists}
+    rows = []
+    for org, (e0, e1) in enr.dropna().iterrows():
+        k = norm(names[org])
+        if k not in units.index:
+            raise ValueError(f"no census housing count for {names[org]}")
+        rows.append({"id": id_of.get(org), "name": names[org], "type": types.at[k, "Community_type"],
+                     "mapc": bool(types.at[k, "MAPC_region"]),
+                     "hu": [int(units.at[k, y]) for y in HOUSING_YEARS], "enr": [int(e0), int(e1)],
+                     # New growth applied to the levy limit over the decade, against the limit it started from
+                     "ng_res": round(float(added.at[k, "Residential New Growth Applied to the Levy Limit"] / base[k]), 4),
+                     "ng_all": round(float(added.at[k, "Total New Growth Applied to Levy Limit"] / base[k]), 4),
+                     **({"off": True} if names[org] in OFF_CHART else {})})
+    change = lambda a: a[1] / a[0] - 1  # noqa: E731
+    hu_ch = [change(r["hu"]) * 100 for r in rows]
+    en_ch = [change(r["enr"]) * 100 for r in rows]
+    fits = {"housing": fit(hu_ch, en_ch),
+            "housing_drawn": fit(*zip(*[(h, e) for h, e, r in zip(hu_ch, en_ch, rows) if not r.get("off")])),
+            "ng_res": fit([r["ng_res"] * 100 for r in rows], en_ch), "ng_all": fit([r["ng_all"] * 100 for r in rows], en_ch)}
+
+    # MAPC's 2017 data, as published, with its permits split by type against each town's 2010 census count
+    m17 = pd.read_csv(MAPC_2017_CSV).assign(key=lambda d: d["municipal"].map(norm))
+    mapc17 = []
+    for r in m17.itertuples():
+        hu10 = int(units.at[r.key, 2010])
+        if abs(r.totu10_16 / hu10 * 100 - r.perm1016_p) > 0.02:
+            raise ValueError(f"MAPC's permit share for {r.municipal} isn't its permits over the 2010 census count")
+        mapc17.append({"name": r.municipal, "type": r.comm_type, "hu10": hu10, "sf": int(r.sfu10_16), "mf": int(r.mfu10_16),
+                       "perm": round(float(r.perm1016_p), 2), "enr": [int(r.enroll11), int(r.enroll17)],
+                       "chg": round(float(r.se_chg1117), 2)})
+    for k, col in (("all", "totu10_16"), ("sf", "sfu10_16"), ("mf", "mfu10_16")):
+        fits[f"mapc17_{k}"] = fit([getattr(r, col) / units.at[r.key, 2010] * 100 for r in m17.itertuples()], list(m17["se_chg1117"]))
+
+    cocs = pd.read_csv(COCS_CSV)
+    tw = src.tw[src.tw["fy"] == src.tw["fy"].max()]
+    sources = json.loads(HOUSING_SOURCES.read_text())
+    return {
+        "meta": {"housing_years": list(HOUSING_YEARS), "enroll_fy": list(ENROLL_FY), "sources": sources,
+                 "enroll_source": src.enroll_sources.get("source")},
+        "districts": rows, "fits": fits, "mapc17": mapc17,
+        "cocs": [{"state": r.State, "place": r.Community, "res": r.Residential, "ci": r.Commercial_industrial,
+                  "wol": r.Working_open_land, "by": r.Source, "year": int(r.Year)} for r in cocs.itertuples()],
+        # The formula figures the paragraph on new growth cites, from DESE's spreadsheet for the latest year
+        "c70": {"fy": int(tw["fy"].iloc[0]), "towns": len(tw), "below": int((tw["preliminary"] < tw["target"]).sum()),
+                "above": int((tw["preliminary"] > tw["target"]).sum()), "property_pct": float(tw["property_pct"].iloc[0]),
+                "eqv_year": int(tw["eqv_year"].iloc[0]), "source": tw["source_url"].iloc[0]},
+    }
 
 
 def cap_data(all_towns, src):
@@ -1207,6 +1311,7 @@ def town_measures(t, cpi, cap_towns, cap_year):
         "bill_income": last_value(t["sf_bill_income"]) if t.get("sf_bill_income") else None,
         "edu": last_value(edu_share(t)),
         "res_share": last_value(res_share(t)),
+        "new_growth": last_value(t["new_growth"]) if t.get("new_growth") else None,
         "cap_hh": [round((c["nocap"] - c["target"]) / c["hh"]), cap_year] if c and c.get("hh") else None,
         **{k: last_value(vals) for k, vals in fiscal_shares(t).items() if vals},
         **{k: last_value(vals) for k, vals in town_shares(t).items()},
@@ -1418,6 +1523,7 @@ def map_series(entity, used, towns, cap, cpi, org4, src, weights, town_groups=()
             "bill_income": trim(on_axis(t["sf_bill_income"]), 4) if t.get("sf_bill_income") else None,
             "edu": trim(on_axis(edu_share(t)), 4),
             "res_share": trim(on_axis(res_share(t)), 4),
+            "new_growth": trim(on_axis(t["new_growth"]), 4) if t.get("new_growth") else None,
             **{k: trim(on_axis(vals), 4) for k, vals in fiscal_shares(t).items() if vals},
             **{k: trim(on_axis(vals), 0 if k == "debt_pc" else 4) for k, vals in town_shares(t).items()},
         }
@@ -2116,7 +2222,8 @@ def read_sources():
     s.la4, s.eqv, s.bills = (pd.read_csv(p, dtype={"DOR_CODE": str}) for p in (LA4_CSV, EQV_CSV, SF_BILL_CSV))
     s.fiscal_raw = {p: pd.read_csv(p, dtype={"DOR_CODE": str}) for p in FISCAL_CSVS}
     s.levy = s.fiscal_raw[LEVY_CSV]
-    s.prop = load_property(s.la4, s.eqv, s.bills, s.levy)
+    s.new_growth = pd.read_csv(NEW_GROWTH_CSV, dtype={"DOR_CODE": str})
+    s.prop = load_property(s.la4, s.eqv, s.bills, s.levy, s.new_growth)
     s.fiscal = load_fiscal(s.fiscal_raw)
     s.hh_raw = pd.read_csv(HH_CSV, dtype={"COUSUB_FIPS": str})
     s.households = load_households(s.pop, s.hh_raw)
@@ -2412,6 +2519,7 @@ def write_site(site, out):
             put(f"towns/{chunk}.json", {"towns": [shipped(x) for x in xs]})
         put("commonwealth.json", out.common)
         put("cap.json", out.cap)
+        put("housing.json", out.housing)
         # The years behind the map's measures, a file of their own: the map draws without them
         put("map-years.json", out.map_years)
         put("map.json", out.map)
@@ -2452,6 +2560,10 @@ def main(site: Path, force_recompute=False):
     print(f"  commonwealth.json: {len(out.common['districts'])} districts")
     out.cap = cap_data(all_towns, src)
     print("  cap.json: FY" + ", FY".join(out.cap["years"]))
+    out.housing = housing_data(src, dists)
+    f = out.housing["fits"]["housing"]
+    print(f"  housing.json: {len(out.housing['districts'])} municipal districts (slope {f['slope']:.2f}, p {f['p']:.2f}), "
+          f"{len(out.housing['mapc17'])} in MAPC's 2017 data, {len(out.housing['cocs'])} COCS studies")
     idx = src.cpi.set_index("fiscal_year")["cpi_u_northeast"]
     out.map = map_data(full, [t for t in all_towns if t["kind"] == "town"], out.cap,
                        {int(y): float(idx[y]) for y in YEARS if y in idx.index}, {d["id"]: d["code"] // 10000 for d in dists},

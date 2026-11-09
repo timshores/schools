@@ -1,0 +1,235 @@
+muni_id,municipal,se_chg1117,perm1016_p,comm_type,sfu10_16,mfu10_16,totu10_16,enroll11,enroll17,enr_11_17,mapc
+1,Abington,-4.96,1.77,Developing Suburbs,78,35,113,2016,1916,-100,0
+3,Acushnet,-5.16,2.48,Developing Suburbs,98,4,102,1007,955,-52,0
+5,Agawam,-7.38,1.7,Developing Suburbs,121,85,206,4230,3918,-312,0
+7,Amesbury,-9.85,2.15,Regional Urban Centers,153,0,153,2385,2150,-235,0
+8,Amherst,-7.57,2.02,Regional Urban Centers,92,104,196,1242,1148,-94,0
+9,Andover,-2.74,4.75,Developing Suburbs,254,336,590,6178,6009,-169,0
+10,Arlington,14.89,3.61,Inner Core,45,677,722,4808,5524,716,1
+14,Ashland,2.93,3.77,Maturing Suburbs,132,117,249,2624,2701,77,1
+16,Attleboro,0.92,2.49,Regional Urban Centers,407,41,448,5855,5909,54,0
+17,Auburn,6.77,2.49,Developing Suburbs,170,0,170,2363,2523,160,0
+18,Avon,-7.51,1.7,Maturing Suburbs,28,2,30,772,714,-58,0
+20,Barnstable,19.14,1.3,Maturing Suburbs,312,30,342,4153,4948,795,0
+23,Bedford,9.44,6.43,Maturing Suburbs,249,96,345,2383,2608,225,1
+24,Belchertown,-9.7,4.02,Developing Suburbs,235,0,235,2607,2354,-253,0
+25,Bellingham,-12.08,3.19,Developing Suburbs,200,3,203,2567,2257,-310,1
+26,Belmont,13.7,4.35,Inner Core,133,310,443,3928,4466,538,1
+27,Berkley,3.45,4.62,Developing Suburbs,97,4,101,898,929,31,0
+28,Berlin,-5.47,10.43,Developing Suburbs,84,40,124,201,190,-11,0
+30,Beverly,6.45,1.19,Regional Urban Centers,93,105,198,4251,4525,274,1
+31,Billerica,-15.71,5.71,Maturing Suburbs,384,443,827,5792,4882,-910,0
+35,Boston,-4.95,6.1,Inner Core,282,16335,16617,56037,53263,-2774,1
+36,Bourne,-15.94,2,Maturing Suburbs,202,14,216,2302,1935,-367,0
+38,Boxford,-12.92,1.31,Developing Suburbs,34,2,36,867,755,-112,0
+39,Boylston,-18.16,6.19,Developing Suburbs,108,2,110,358,293,-65,0
+40,Braintree,6.26,2.91,Maturing Suburbs,58,358,416,5467,5809,342,1
+41,Brewster,0.2,1.38,Maturing Suburbs,110,0,110,491,492,1,0
+43,Brimfield,-18.34,4.44,Rural Towns,71,0,71,349,285,-64,0
+44,Brockton,7.22,1.42,Regional Urban Centers,313,191,504,15828,16970,1142,0
+45,Brookfield,-0.31,1.61,Developing Suburbs,24,0,24,319,318,-1,0
+46,Brookline,16.12,0.9,Inner Core,102,137,239,6627,7695,1068,1
+48,Burlington,-3.59,8.16,Maturing Suburbs,291,498,789,3652,3521,-131,1
+49,Cambridge,12.88,5.23,Inner Core,172,2299,2471,6019,6794,775,1
+50,Canton,3.33,7.77,Maturing Suburbs,19,662,681,3218,3325,107,1
+51,Carlisle,-12.2,4.78,Developing Suburbs,58,26,84,672,590,-82,1
+52,Carver,-8.91,1.65,Developing Suburbs,71,5,76,1785,1626,-159,0
+56,Chelmsford,-6.27,1.27,Maturing Suburbs,145,30,175,5307,4974,-333,0
+57,Chelsea,13.79,10.55,Inner Core,3,1329,1332,5570,6338,768,1
+61,Chicopee,-2.44,0.72,Regional Urban Centers,157,24,181,7875,7683,-192,0
+63,Clarksburg,-7.49,1.96,Rural Towns,14,0,14,187,173,-14,0
+64,Clinton,-4.25,2.14,Regional Urban Centers,137,0,137,1955,1872,-83,0
+65,Cohasset,3.32,12.38,Developing Suburbs,149,220,369,1535,1586,51,1
+67,Concord,8.27,15.63,Maturing Suburbs,341,745,1086,1947,2108,161,1
+68,Conway,-20.34,1.08,Rural Towns,9,0,9,177,141,-36,0
+71,Danvers,-7.09,1.31,Maturing Suburbs,104,42,146,3637,3379,-258,1
+72,Dartmouth,-7.8,2.93,Developing Suburbs,330,34,364,3964,3655,-309,0
+73,Dedham,-6.46,1.86,Maturing Suburbs,95,95,190,2879,2693,-186,1
+74,Deerfield,-16.11,0.46,Developing Suburbs,10,0,10,478,401,-77,0
+77,Douglas,-19.82,4.31,Developing Suburbs,142,0,142,1731,1388,-343,0
+78,Dover,-11.86,7.06,Developing Suburbs,139,0,139,548,483,-65,1
+79,Dracut,-12.92,4.28,Developing Suburbs,347,139,486,4018,3499,-519,0
+82,Duxbury,-3.88,6.06,Maturing Suburbs,248,108,356,3247,3121,-126,1
+83,East Bridgewater,-0.52,4.34,Developing Suburbs,211,2,213,2314,2302,-12,0
+85,East Longmeadow,-7.59,3.68,Developing Suburbs,160,65,225,2846,2630,-216,0
+86,Eastham,-12.92,1.91,Maturing Suburbs,114,0,114,209,182,-27,0
+87,Easthampton,-0.32,0.91,Regional Urban Centers,67,2,69,1567,1562,-5,0
+88,Easton,-3.67,8.14,Developing Suburbs,200,464,664,3893,3750,-143,0
+89,Edgartown,6.75,5.65,Developing Suburbs,282,13,295,326,348,22,0
+91,Erving,-17.07,0.74,Rural Towns,6,0,6,164,136,-28,0
+93,Everett,15.24,8.23,Inner Core,105,1271,1376,6142,7078,936,1
+94,Fairhaven,2.02,1.07,Developing Suburbs,80,0,80,1984,2024,40,0
+95,Fall River,2.94,0.82,Regional Urban Centers,330,21,351,9873,10163,290,0
+96,Falmouth,-6.58,2.87,Maturing Suburbs,403,228,631,3710,3466,-244,0
+97,Fitchburg,8.01,0.72,Regional Urban Centers,120,4,124,4881,5272,391,0
+98,Florida,-26.36,0.84,Rural Towns,3,0,3,110,81,-29,0
+99,Foxborough,-8.29,3.21,Developing Suburbs,202,19,221,2836,2601,-235,1
+100,Framingham,5.22,2.35,Regional Urban Centers,290,356,646,8182,8609,427,1
+101,Franklin,-10.28,2.31,Developing Suburbs,191,72,263,6032,5412,-620,1
+103,Gardner,-6.94,2.13,Regional Urban Centers,194,0,194,2563,2385,-178,0
+105,Georgetown,-12.41,3.65,Developing Suburbs,111,0,111,1652,1447,-205,0
+107,Gloucester,-8.52,1.96,Regional Urban Centers,220,65,285,3203,2930,-273,1
+109,Gosnold,-50,0.93,Rural Towns,2,0,2,4,2,-2,0
+110,Grafton,11.04,5.14,Developing Suburbs,369,0,369,2872,3189,317,0
+111,Granby,-33.16,2.76,Developing Suburbs,68,0,68,1131,756,-375,0
+114,Greenfield,-7.15,1.71,Developing Suburbs,35,108,143,1790,1662,-128,0
+117,Hadley,-20.85,2.83,Developing Suburbs,63,0,63,710,562,-148,0
+118,Halifax,-5.73,3.22,Developing Suburbs,93,4,97,628,592,-36,0
+121,Hancock,-25,3,Rural Towns,16,0,16,48,36,-12,0
+122,Hanover,-2.23,3.38,Developing Suburbs,98,66,164,2685,2625,-60,1
+125,Harvard,-11.84,0.39,Developing Suburbs,8,0,8,1267,1117,-150,0
+127,Hatfield,-5.76,2.75,Developing Suburbs,43,0,43,469,442,-27,0
+128,Haverhill,9.52,1.89,Regional Urban Centers,257,229,486,6804,7452,648,0
+131,Hingham,5.29,5.85,Maturing Suburbs,356,168,524,4100,4317,217,1
+133,Holbrook,-1.43,1.26,Maturing Suburbs,54,0,54,1187,1170,-17,1
+135,Holland,-3.27,0.44,Developing Suburbs,6,0,6,245,237,-8,0
+136,Holliston,0.66,6.11,Developing Suburbs,277,34,311,2870,2889,19,1
+137,Holyoke,-9.36,0.33,Regional Urban Centers,32,22,54,5896,5344,-552,0
+138,Hopedale,-11.1,0.57,Developing Suburbs,13,0,13,1279,1137,-142,0
+139,Hopkinton,0.23,18.23,Developing Suburbs,545,390,935,3454,3462,8,1
+141,Hudson,-11.69,2,Developing Suburbs,160,0,160,2993,2643,-350,1
+142,Hull,-20.1,0.92,Maturing Suburbs,53,0,53,1164,930,-234,1
+144,Ipswich,-15.77,3.48,Developing Suburbs,143,66,209,2111,1778,-333,1
+145,Kingston,-14.55,6.63,Developing Suburbs,332,0,332,1189,1016,-173,0
+148,Lanesborough,-19.22,0.88,Rural Towns,13,0,13,255,206,-49,0
+149,Lawrence,8.39,0.7,Regional Urban Centers,49,141,190,12784,13857,1073,0
+150,Lee,-16.57,1.21,Developing Suburbs,37,0,37,821,685,-136,0
+151,Leicester,-15.33,3.04,Developing Suburbs,130,0,130,1859,1574,-285,0
+152,Lenox,-4.49,2.4,Developing Suburbs,73,0,73,801,765,-36,0
+153,Leominster,-2.69,1.76,Regional Urban Centers,249,65,314,6214,6047,-167,0
+154,Leverett,-14.47,2.1,Rural Towns,15,2,17,159,136,-23,0
+155,Lexington,11.09,4.96,Maturing Suburbs,582,14,596,6366,7072,706,1
+157,Lincoln,11.42,4.24,Maturing Suburbs,47,64,111,1077,1200,123,1
+158,Littleton,3.91,10.76,Developing Suburbs,230,144,374,1584,1646,62,1
+159,Longmeadow,-5.65,0.45,Maturing Suburbs,27,0,27,3011,2841,-170,0
+160,Lowell,6,0.98,Regional Urban Centers,240,164,404,13600,14416,816,0
+161,Ludlow,-10.91,2.33,Developing Suburbs,191,4,195,2987,2661,-326,0
+162,Lunenburg,-2.24,11.78,Developing Suburbs,119,368,487,1650,1613,-37,0
+163,Lynn,12.93,0.75,Regional Urban Centers,144,126,270,13547,15299,1752,1
+164,Lynnfield,-4.38,8.66,Maturing Suburbs,144,233,377,2308,2207,-101,1
+165,Malden,0.88,0.25,Inner Core,50,14,64,6565,6623,58,1
+167,Mansfield,-17.99,3.4,Maturing Suburbs,135,162,297,4826,3958,-868,0
+168,Marblehead,-1.93,1.07,Maturing Suburbs,91,4,95,3206,3144,-62,1
+169,Marion,-1.08,3.64,Developing Suburbs,22,67,89,463,458,-5,0
+170,Marlborough,-1.05,1.05,Regional Urban Centers,173,0,173,4573,4525,-48,1
+171,Marshfield,-9.12,2.15,Maturing Suburbs,192,43,235,4671,4245,-426,1
+172,Mashpee,-15.11,5.35,Maturing Suburbs,426,103,529,1767,1500,-267,0
+173,Mattapoisett,-13.71,4.08,Developing Suburbs,133,0,133,518,447,-71,0
+174,Maynard,9.68,2.86,Maturing Suburbs,88,39,127,1312,1439,127,1
+175,Medfield,-11.4,6.56,Maturing Suburbs,124,154,278,2939,2604,-335,1
+176,Medford,-7.47,0.2,Inner Core,17,30,47,4849,4487,-362,1
+177,Medway,-12.27,3.4,Developing Suburbs,129,28,157,2640,2316,-324,1
+178,Melrose,0.61,2.6,Inner Core,55,251,306,3775,3798,23,1
+181,Methuen,-3.04,3.54,Regional Urban Centers,627,23,650,7112,6896,-216,0
+182,Middleborough,-20.1,8.69,Developing Suburbs,266,518,784,3457,2762,-695,0
+184,Middleton,-14.55,8.11,Developing Suburbs,247,0,247,818,699,-119,1
+185,Milford,0.05,2.58,Regional Urban Centers,293,2,295,4185,4187,2,1
+186,Millbury,-6.34,3.27,Developing Suburbs,146,38,184,1844,1727,-117,0
+187,Millis,-9.69,3.04,Developing Suburbs,82,14,96,1465,1323,-142,1
+189,Milton,5.84,0.55,Maturing Suburbs,53,0,53,3921,4150,229,1
+191,Monson,-29.21,2.94,Developing Suburbs,98,3,101,1383,979,-404,0
+196,Nahant,-40.83,0.06,Maturing Suburbs,1,0,1,240,142,-98,1
+197,Nantucket,22.81,6.6,Developing Suburbs,713,54,767,1289,1583,294,0
+198,Natick,13.41,6.9,Maturing Suburbs,227,748,975,4825,5472,647,1
+199,Needham,4.29,5.73,Maturing Suburbs,597,40,637,5358,5588,230,1
+201,New Bedford,0.81,0.27,Regional Urban Centers,113,4,117,12538,12640,102,0
+206,Newburyport,1.24,2,Regional Urban Centers,124,41,165,2267,2295,28,0
+207,Newton,7.48,1.91,Inner Core,472,150,622,11934,12827,893,1
+208,Norfolk,-7.32,10.12,Developing Suburbs,316,0,316,1011,937,-74,1
+209,North Adams,-5.84,0.1,Regional Urban Centers,7,0,7,1557,1466,-91,0
+210,North Andover,2.76,4.69,Developing Suburbs,293,221,514,4638,4766,128,0
+211,North Attleborough,-6.63,1.7,Developing Suburbs,194,3,197,4692,4381,-311,0
+212,North Brookfield,-6.05,0,Developing Suburbs,0,0,0,595,559,-36,0
+213,North Reading,-6.69,2.8,Maturing Suburbs,158,0,158,2675,2496,-179,1
+214,Northampton,-0.22,1.84,Regional Urban Centers,191,43,234,2681,2675,-6,0
+215,Northborough,-9.84,4.1,Developing Suburbs,207,11,218,1900,1713,-187,0
+216,Northbridge,-12.91,4.23,Developing Suburbs,246,15,261,2603,2267,-336,0
+218,Norton,-10.04,4.17,Developing Suburbs,143,138,281,2780,2501,-279,0
+219,Norwell,-6.44,4.71,Developing Suburbs,173,0,173,2343,2192,-151,1
+220,Norwood,-1.24,1.22,Regional Urban Centers,88,64,152,3454,3411,-43,1
+221,Oak Bluffs,7.11,2.99,Developing Suburbs,124,6,130,408,437,29,0
+223,Orange,-19.97,0.33,Developing Suburbs,12,0,12,786,629,-157,0
+224,Orleans,9.14,2.4,Maturing Suburbs,128,0,128,197,215,18,0
+226,Oxford,-14.34,1.57,Developing Suburbs,67,20,87,2029,1738,-291,0
+227,Palmer,-11.86,0.49,Developing Suburbs,11,16,27,1619,1427,-192,0
+229,Peabody,-1.96,0.67,Regional Urban Centers,135,13,148,6075,5956,-119,1
+230,Pelham,10,0.88,Rural Towns,5,0,5,120,132,12,0
+231,Pembroke,-11.13,2.35,Maturing Suburbs,154,0,154,3378,3002,-376,1
+234,Petersham,9.73,0.55,Rural Towns,3,0,3,113,124,11,0
+236,Pittsfield,-8.21,0.38,Regional Urban Centers,65,16,81,5978,5487,-491,0
+238,Plainville,-11.08,6.95,Developing Suburbs,168,74,242,803,714,-89,0
+239,Plymouth,-7.06,6.35,Developing Suburbs,1472,102,1574,8126,7552,-574,0
+240,Plympton,-9.52,3.64,Developing Suburbs,38,0,38,231,209,-22,0
+242,Provincetown,3.2,4.07,Regional Urban Centers,83,100,183,125,129,4,0
+243,Quincy,1.36,1.84,Regional Urban Centers,78,711,789,9125,9249,124,1
+244,Randolph,-1.84,5.01,Maturing Suburbs,149,453,602,2876,2823,-53,1
+246,Reading,-3.03,2.87,Maturing Suburbs,184,92,276,4459,4324,-135,1
+248,Revere,19.62,0.86,Inner Core,40,149,189,6229,7451,1222,1
+249,Richmond,4.22,0.78,Rural Towns,7,0,7,166,173,7,0
+250,Rochester,-14.18,5.84,Developing Suburbs,110,0,110,543,466,-77,0
+251,Rockland,1.5,2.03,Developing Suburbs,116,27,143,2260,2294,34,1
+252,Rockport,-1.9,1.63,Developing Suburbs,64,5,69,946,928,-18,1
+253,Rowe,-10.61,1.32,Rural Towns,3,0,3,66,59,-7,0
+258,Salem,-17.37,0.36,Regional Urban Centers,66,2,68,4565,3772,-793,1
+261,Sandwich,-20.57,1.55,Maturing Suburbs,141,6,147,3432,2726,-706,0
+262,Saugus,-8.63,3.13,Maturing Suburbs,105,232,337,2849,2603,-246,1
+263,Savoy,25.64,2.52,Rural Towns,9,0,9,39,49,10,0
+264,Scituate,-8.39,2.53,Maturing Suburbs,189,14,203,3276,3001,-275,1
+265,Seekonk,-8.73,13.52,Developing Suburbs,230,486,716,2141,1954,-187,0
+266,Sharon,0.96,2.03,Maturing Suburbs,131,0,131,3435,3468,33,1
+269,Sherborn,-0.23,2.21,Developing Suburbs,33,0,33,430,429,-1,1
+271,Shrewsbury,4.26,4.41,Developing Suburbs,403,214,617,5938,6191,253,0
+272,Shutesbury,-17.12,1.27,Rural Towns,11,0,11,146,121,-25,0
+274,Somerville,1.57,2.33,Inner Core,8,779,787,4855,4931,76,1
+275,South Hadley,-9.93,1.96,Developing Suburbs,124,16,140,2075,1869,-206,0
+276,Southampton,-6.64,7.36,Developing Suburbs,172,0,172,557,520,-37,0
+277,Southborough,-13.67,3.35,Maturing Suburbs,108,8,116,1500,1295,-205,1
+278,Southbridge,-3.72,1.39,Regional Urban Centers,97,8,105,2204,2122,-82,0
+281,Springfield,1.67,0.6,Regional Urban Centers,351,18,369,25213,25633,420,0
+284,Stoneham,-7.73,0.87,Maturing Suburbs,75,7,82,2550,2353,-197,1
+285,Stoughton,-5.88,4.78,Maturing Suburbs,166,350,516,3777,3555,-222,1
+287,Sturbridge,-2.34,2.31,Developing Suburbs,92,0,92,939,917,-22,0
+288,Sudbury,-9.43,4.69,Maturing Suburbs,215,64,279,3095,2803,-292,1
+289,Sunderland,49.42,1.56,Developing Suburbs,27,0,27,172,257,85,0
+290,Sutton,-11.27,5.07,Developing Suburbs,172,0,172,1632,1448,-184,0
+291,Swampscott,-1.85,7.34,Maturing Suburbs,25,407,432,2273,2231,-42,1
+292,Swansea,0.59,4.46,Developing Suburbs,283,0,283,2038,2050,12,0
+293,Taunton,1.18,2.52,Regional Urban Centers,359,242,601,7912,8005,93,0
+295,Tewksbury,-12.4,5.22,Maturing Suburbs,430,136,566,4049,3547,-502,0
+296,Tisbury,0,3.59,Developing Suburbs,111,0,111,321,321,0,0
+298,Topsfield,-3.54,5.24,Developing Suburbs,114,0,114,649,626,-23,1
+300,Truro,-20.55,3.67,Rural Towns,113,0,113,146,116,-30,0
+301,Tyngsborough,-11.66,5.99,Developing Suburbs,125,127,252,1939,1713,-226,0
+304,Uxbridge,-5.99,3.68,Developing Suburbs,187,8,195,1952,1835,-117,0
+305,Wakefield,5.33,5.6,Maturing Suburbs,153,435,588,3359,3538,179,1
+306,Wales,-2.96,3.51,Rural Towns,31,0,31,169,164,-5,0
+307,Walpole,-2.68,3.04,Developing Suburbs,265,10,275,3961,3855,-106,1
+308,Waltham,13.87,2.11,Inner Core,209,316,525,4796,5461,665,1
+309,Ware,-3.99,0.85,Developing Suburbs,39,0,39,1277,1226,-51,0
+310,Wareham,-20.2,3.39,Developing Suburbs,202,214,416,3084,2461,-623,0
+314,Watertown,-2.15,9.16,Inner Core,45,1382,1427,2649,2592,-57,1
+315,Wayland,-1.49,4.66,Maturing Suburbs,154,80,234,2686,2646,-40,1
+316,Webster,-1.49,1.14,Regional Urban Centers,91,0,91,1882,1854,-28,0
+317,Wellesley,2.58,6.61,Maturing Suburbs,469,138,607,4892,5018,126,1
+318,Wellfleet,-19.86,2.9,Maturing Suburbs,111,14,125,141,113,-28,0
+321,West Boylston,-4.39,6.15,Developing Suburbs,90,79,169,957,915,-42,0
+322,West Bridgewater,-0.92,4.12,Developing Suburbs,106,4,110,1299,1287,-12,0
+325,West Springfield,4.12,1.13,Regional Urban Centers,106,37,143,3932,4094,162,0
+328,Westborough,8.31,4.29,Developing Suburbs,243,72,315,3513,3805,292,0
+329,Westfield,-6.65,1.07,Regional Urban Centers,138,34,172,5938,5543,-395,0
+330,Westford,-3.23,6.12,Developing Suburbs,472,10,482,5291,5120,-171,0
+331,Westhampton,-5.8,3.16,Rural Towns,14,8,22,138,130,-8,0
+333,Weston,-8.92,4.67,Maturing Suburbs,187,0,187,2365,2154,-211,1
+334,Westport,-20.98,2.52,Developing Suburbs,181,0,181,1835,1450,-385,0
+335,Westwood,0.44,9.02,Maturing Suburbs,130,360,490,3148,3162,14,1
+336,Weymouth,-9.32,4.37,Maturing Suburbs,325,700,1025,6935,6289,-646,1
+337,Whately,-6.52,6.51,Rural Towns,43,0,43,138,129,-9,0
+340,Williamsburg,-5.95,1.27,Rural Towns,15,0,15,168,158,-10,0
+341,Williamstown,10.57,8.72,Developing Suburbs,24,244,268,407,450,43,0
+342,Wilmington,-9.14,3.38,Maturing Suburbs,264,0,264,3732,3391,-341,1
+343,Winchendon,-19.28,4.74,Developing Suburbs,199,0,199,1551,1252,-299,0
+344,Winchester,7.96,3.63,Maturing Suburbs,264,26,290,4282,4623,341,1
+346,Winthrop,0.51,2.91,Inner Core,4,238,242,1961,1971,10,1
+347,Woburn,-3.76,1.61,Regional Urban Centers,235,28,263,4809,4628,-181,1
+348,Worcester,5.32,0.91,Regional Urban Centers,475,205,680,24192,25479,1287,0
+350,Wrentham,-16.11,6.64,Developing Suburbs,255,2,257,1229,1031,-198,1

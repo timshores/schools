@@ -1,0 +1,51 @@
+2026-11-09 (Session 24) - Explorer: New Growth, and the Housing and Enrollment Tab (MAPC, COCS)
+
+Tim (seahag prompt log #249): new growth as a town map measure, with a paragraph on its role in the Chapter 70
+formula; new growth beside enrollment; and a tab of its own for the Metropolitan Area Planning Council's studies of
+housing and school enrollment (October 2017, February 2024), with visualizations from their data and, to be fair, of
+the cost of community services (COCS) studies they answer. Tim's stance on the studies, as on Naughton's cap work:
+curious, open, healthily skeptical, leaning toward embrace. This file records the pipeline's share.
+
+1. update_housing_data.py (new)
+   - Census Bureau decennial redistricting files (P.L. 94-171), 2010 and 2020, table H1: every town's housing units
+     and occupied units -> data/census_town_housing.csv. The Census API now needs a key; the state's zipped files
+     (37 MB, cached in data/census_raw/, not in git) don't. The towns add up to the state's own record in each file
+     (2,808,254 and 2,998,537).
+   - MAPC's community types for all 351 towns, from its public data keys (github.com/MAPC/mapcdatakeys)
+     -> data/mapc_community_types.csv.
+   - The data MAPC published with its 2017 brief -> data/mapc_enrollment_2017.csv, as published.
+   - American Farmland Trust's table of COCS studies (fact sheet, October 2025), read with pdftotext
+     -> data/aft_cocs_studies.csv: 176 rows, 175 outside Indiana, whose medians reproduce AFT's chart ($1.16, $0.30;
+     working land $0.38 against AFT's $0.37). The PDF stays in data/census_raw/: the CSV cites AFT's publication
+     rather than copying it.
+   - data/housing_sources.json.
+
+2. export_explorer_data.py
+   - New growth: load_property reads data/dls_new_growth.csv; property_series adds "new_growth", new growth applied
+     to the levy limit over the prior year's limit (DLS's own percentage, as a fraction, for one town; pooled for a
+     group). The map's town measures and series carry it (key new_growth), FY2005-FY2025, the explorer's years.
+   - housing_data() -> src/data/massppe/housing.json: the 231 municipal districts (DESE codes 1-351) with
+     enrollment in both 2010/11 and 2019/20 (FY2011, FY2020), each with its town's housing units (2010, 2020), its
+     MAPC community type and region, and its town's new growth FY2011-FY2020 (residential and all) over the FY2010
+     levy limit; least-squares fits with p-values and Spearman's rho (scipy), the form of MAPC's 2024 test; MAPC's
+     2017 data with each permit type over the 2010 census count (checked against MAPC's own share for all permits);
+     AFT's table; and the latest year's Chapter 70 figures (towns below and above target, the property percentage
+     and its EQV year). Hancock and Gosnold are drawn off the tab's charts (OFF_CHART) and counted in the fits.
+   - INPUTS adds the new files.
+
+3. Replicating MAPC's 2024 update: every count it gives matches DESE's enrollment and the 2010/2020 censuses: 231
+   districts, 155 lost students, 76 grew or held, 28 grew more than 10%, 22 shrank more than 20%, all public
+   enrollment -0.7%, and its Metro Boston table by community type to the tenth of a percent. The straight line:
+   slope 0.18 points of enrollment per point of housing growth, R^2 0.008, p 0.18, crossing zero housing growth at
+   -6.6% (MAPC: 6 percent). One discrepancy: MAPC gives Hancock 41 to 47 students; 41 is DESE's 2009/10 count, the
+   year before the others. New growth against enrollment: rho 0.04 (residential), p 0.12. MAPC's 2017 data: 234
+   districts, 159 lost students, Hopkinton 18.23% permits and +0.23% enrollment, as the brief says; slope p 0.15.
+
+4. evidence/housing_enrollment.py (new) -> evidence/housing_enrollment.md and evidence.json "housing": 9 links (census
+   totals; MAPC 2024 counts; MAPC's region table; the line; MAPC 2017; AFT's medians; DLS's new growth percentage in
+   every town-year; DESE's FY2027 counts and property percentage; Hancock). 9 of 9 pass. REVIEWED empty.
+
+5. data/README.md: rows for dls_new_growth.csv (missed in session 23's #248) and the four new files.
+
+Run order after an export, as before: evidence/cap.py, bill_income.py, res_overrides.py, housing_enrollment.py (the
+export swaps in a fresh data folder, which drops evidence.json).
