@@ -92,3 +92,9 @@ figures in cap.json, map-years.json and towns-chapter70-targets.csv; the CSV not
     Link 6 now runs the cap tab's own TypeScript (mywebsite scripts/check/cap-model.mjs) on every town, with no cap
     and at 100%, against the record's own arithmetic; link 7 traces the income fifths (DESE income over the Census
     file's July population, the cut, the change by fifth); check:units is link 8. FY2026: 10 of 10; FY2027: 7 of 7.
+
+11. #246: evidence/bill_income.py, the record for the single-family tax bill as a share of income per capita. DLS's
+    own "Average Tax Bill as a % of Income" equals its bill over its income per capita in all 6,812 town-years; the
+    site's town files carry the same share for all 6,439 town-years FY2005-FY2025; Amherst is highest in FY2025
+    (40.76%, then Tisbury, 39.86%), as the map's data has it and About the data now computes; the Amherst Indy
+    reported the same 40.76%. 4 of 4 links. It writes evidence/bill_income.md and its part of evidence.json.
