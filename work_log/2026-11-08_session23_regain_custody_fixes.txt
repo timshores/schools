@@ -82,3 +82,13 @@ figures in cap.json, map-years.json and towns-chapter70-targets.csv; the CSV not
    year) and a summary to the site's src/data/massppe/evidence.json, which the tab's "Show the work" reads for its
    status line. REVIEWED stays empty until a person has read a year's record and accepted it; until then the site
    says no person has reviewed the checks.
+
+10. #246: the cap record grows. Link 5 also compares required contributions with Naughton's (his Comparisons sheet):
+    without DESE's rule that a required contribution can't exceed 90% of the foundation budget (column X; the
+    parameters sheet's "Cap contributions at fixed percentage of foundation"), all 350 towns with figures match
+    within $1; the model keeps the rule, as DESE's spreadsheet has it, and differs only where it applies (33 towns
+    with no cap, 40 at 100%). Acton has no required contribution in the model: DESE's FY2026 sheet gives its prior-year
+    figures as text, which update_c70_formula.py leaves blank (to fix the next time the formula files are fetched).
+    Link 6 now runs the cap tab's own TypeScript (mywebsite scripts/check/cap-model.mjs) on every town, with no cap
+    and at 100%, against the record's own arithmetic; link 7 traces the income fifths (DESE income over the Census
+    file's July population, the cut, the change by fifth); check:units is link 8. FY2026: 10 of 10; FY2027: 7 of 7.
