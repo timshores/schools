@@ -998,6 +998,19 @@ def district_types(dists, c70, area, towns_of):
     return out
 
 
+def res_share(t):
+    """A town's residential property's share of its taxable value each year: single-family homes, condominiums,
+    multifamily (two or more units) and other residential, vacant lots included, over every class, personal property
+    included, from the LA-4 (Tim, #247). The plots' district measure, res_share, adds them the same way."""
+    prop = t.get("prop") or {}
+    col = lambda k, i: (prop.get(k) or [None] * len(YEARS))[i] or 0  # noqa: E731
+    out = []
+    for i in range(len(YEARS)):
+        total = sum(col(k, i) for k in PROPERTY_TYPES)
+        out.append(round(sum(col(k, i) for k in RESIDENTIAL_TYPES) / total, 4) if total else None)
+    return out
+
+
 def edu_share(t):
     """Education's share of a town's general fund spending each year: its spending per resident on
     education over its spending per resident on every function, as the explorer's tile figures it"""
@@ -1193,6 +1206,7 @@ def town_measures(t, cpi, cap_towns, cap_year):
         "levy_room": last_value(levy_room(t)),
         "bill_income": last_value(t["sf_bill_income"]) if t.get("sf_bill_income") else None,
         "edu": last_value(edu_share(t)),
+        "res_share": last_value(res_share(t)),
         "cap_hh": [round((c["nocap"] - c["target"]) / c["hh"]), cap_year] if c and c.get("hh") else None,
         **{k: last_value(vals) for k, vals in fiscal_shares(t).items() if vals},
         **{k: last_value(vals) for k, vals in town_shares(t).items()},
@@ -1403,6 +1417,7 @@ def map_series(entity, used, towns, cap, cpi, org4, src, weights, town_groups=()
             "levy_room": trim(on_axis(levy_room(t)), 4),
             "bill_income": trim(on_axis(t["sf_bill_income"]), 4) if t.get("sf_bill_income") else None,
             "edu": trim(on_axis(edu_share(t)), 4),
+            "res_share": trim(on_axis(res_share(t)), 4),
             **{k: trim(on_axis(vals), 4) for k, vals in fiscal_shares(t).items() if vals},
             **{k: trim(on_axis(vals), 0 if k == "debt_pc" else 4) for k, vals in town_shares(t).items()},
         }

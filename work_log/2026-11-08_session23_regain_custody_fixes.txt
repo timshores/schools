@@ -98,3 +98,9 @@ figures in cap.json, map-years.json and towns-chapter70-targets.csv; the CSV not
     site's town files carry the same share for all 6,439 town-years FY2005-FY2025; Amherst is highest in FY2025
     (40.76%, then Tisbury, 39.86%), as the map's data has it and About the data now computes; the Amherst Indy
     reported the same 40.76%. 4 of 4 links. It writes evidence/bill_income.md and its part of evidence.json.
+
+12. #247: res_share(), each town's residential share of taxable property value by year (single-family, condominium,
+    multifamily and other residential, vacant lots included, over every class, personal property included; the
+    plots' district measure adds them the same way), on the map and in its yearly series. Note for the order of
+    runs: the export swaps in a fresh data folder, which drops evidence.json, so evidence/cap.py and
+    evidence/bill_income.py run after it (they check the exported data anyway).
