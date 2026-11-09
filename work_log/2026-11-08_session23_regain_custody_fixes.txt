@@ -104,3 +104,11 @@ figures in cap.json, map-years.json and towns-chapter70-targets.csv; the CSV not
     plots' district measure adds them the same way), on the map and in its yearly series. Note for the order of
     runs: the export swaps in a fresh data folder, which drops evidence.json, so evidence/cap.py and
     evidence/bill_income.py run after it (they check the exported data anyway).
+
+13. #248: DLS's New Growth Analysis (NewGrowth.NewGrowth_dash_v2_test; the trend report of that name stops at
+    FY2017) into data/dls_new_growth.csv, FY2003-FY2027, residential and total new growth applied to the levy limit.
+    update_dls_fiscal_data.py takes report names now (python update_dls_fiscal_data.py new_growth) to fetch those
+    alone and merge their sources. evidence/res_overrides.py recomputes the map note's finding: towns whose property
+    is mostly homes passed more overrides (78 of 88 in the most residential quarter passed one, 28 of 88 in the
+    least); ρ 0.43 with income, EQV per resident, population and density held steady, 0.23 with non-residential new
+    growth held steady too (residential share and non-residential new growth: ρ -0.81). Exploratory, not causal.

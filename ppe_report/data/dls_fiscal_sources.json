@@ -51,5 +51,9 @@
  "free_cash_proof": {
   "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=BalanceSheet.FreecashProofComp",
   "data_current_as_of": "2026-11-03"
+ },
+ "new_growth": {
+  "source": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=NewGrowth.NewGrowth_dash_v2_test",
+  "data_current_as_of": "2026-11-08"
  }
 }

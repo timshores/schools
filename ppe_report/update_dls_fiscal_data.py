@@ -38,6 +38,7 @@ import datetime as dt
 import io
 import json
 import re
+import sys
 import time
 from pathlib import Path
 
@@ -56,6 +57,9 @@ REPORTS = {
     "bond_ratings": ("DLS_Bond_Ratings", "xtblBondRatings", "dls_bond_ratings.csv"),
     "debt_exclusion_levy": ("Votes.Prop2_5.DebtExclusionLevyAmt", "tblDebtExcLevyAmt", "dls_debt_exclusion_levy.csv"),
     "labor_force": ("Dashboard.TrendAnalysisReports.LaborForce", "tblLaborForce", "dls_labor_force.csv"),
+    # New growth: the levy limit's yearly increase from new construction and other additions to the tax base, with
+    # its residential part, FY2003 on (#248; DLS's New Growth Analysis; the trend report of that name stops at FY2017)
+    "new_growth": ("NewGrowth.NewGrowth_dash_v2_test", "tblNewGrowth", "dls_new_growth.csv"),
 }
 VOTES = {
     "Override or underride": "Votes.Prop2_5.OverrideUnderride",
@@ -164,9 +168,16 @@ def free_cash_proof() -> tuple[pd.DataFrame, str]:
 
 def main():
     today = dt.date.today()
-    sources = {"downloaded": today.isoformat()}
+    # Named reports alone (python update_dls_fiscal_data.py new_growth): fetched, and their sources merged into the
+    # file's, leaving every other file as it is
+    only = set(sys.argv[1:])
+    if only - set(REPORTS):
+        raise SystemExit(f"Not a report here: {sorted(only - set(REPORTS))}; choose from {sorted(REPORTS)}")
+    sources = json.loads(SOURCES_JSON.read_text()) if only else {"downloaded": today.isoformat()}
     codes = None
     for name, (report, table, out) in REPORTS.items():
+        if only and name not in only:
+            continue
         choices, as_of, found = form(report)
         if name == "bond_ratings":  # one agency at a time
             df = pd.concat([tidy(export(report, table or found, choices + [("islCompany", a)])) for a in ("Moodys", "S&P")],
@@ -180,6 +191,9 @@ def main():
         span = f", {int(df[years[0]].min())}-{int(df[years[0]].max())}" if years and pd.api.types.is_numeric_dtype(df[years[0]]) else ""
         print(f"  {DATA_DIR / out}: {len(df):,} rows{span}, current as of {as_of}")
         sources[name] = {"source": f"{BASE}?rdReport={report}", "data_current_as_of": as_of}
+    if only:
+        SOURCES_JSON.write_text(json.dumps(sources, indent=1) + "\n")
+        return
 
     votes = []
     for kind, report in VOTES.items():
