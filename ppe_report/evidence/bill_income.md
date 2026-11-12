@@ -1,6 +1,6 @@
 # Evidence record: the single-family tax bill as a share of income per capita
 
-Written by `evidence/bill_income.py` on 2026-11-09. 4 of 4 links pass; not yet reviewed by a person. These are AI-written checks of one DLS report; the outside report is a newspaper's reading of the same figure.
+Written by `evidence/bill_income.py` on 2026-11-12. 4 of 4 links pass; not yet reviewed by a person. These are AI-written checks of one DLS report; the outside report is a newspaper's reading of the same figure.
 
 **To accept it:** read the links below, then set `REVIEWED` in `evidence/bill_income.py` to who and when, or ask Claude to, and rerun the script.
 

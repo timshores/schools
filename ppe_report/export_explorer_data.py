@@ -976,7 +976,7 @@ def cap_data(all_towns, src):
     if latest_fy not in set(h["fy"]):
         t = tw[tw["fy"] == latest_fy].assign(key=lambda d: d["town"].map(norm))
         h = pd.concat([h, pd.DataFrame({"fy": latest_fy, "key": t["key"], "cey": t["cey"], "foundation": t["foundation"],
-                                        "target": t["target"], "required": t["required"]})], ignore_index=True)
+                                        "target": t["target"], "required": t["required"], "mrgf": t["mrgf"]})], ignore_index=True)
     missing = sorted(set(h["key"]) - set(by_key))
     if missing:
         raise ValueError(f"History towns not in the town list: {missing}")
@@ -986,6 +986,9 @@ def cap_data(all_towns, src):
         g = g.set_index("fy")
         hist_towns[by_key[k]["id"]] = {c: [dollars(g[c].get(y)) if y in g.index else None for y in hy]
                                        for c in ("cey", "foundation", "target", "required")}
+        # The municipal revenue growth factor, a fraction, as DESE gives it (#254)
+        hist_towns[by_key[k]["id"]]["mrgf"] = [None if y not in g.index or pd.isna(g["mrgf"].get(y)) else round(float(g["mrgf"].get(y)), 4)
+                                               for y in hy]
     # Each year's count of towns at the cap, by the cap tab's one test (at_cap), for About the data's FY2025 count
     capped_by_year = [sum(at_cap(*([t[c][i] for t in hist_towns.values()] for c in ("target", "cey", "foundation"))))
                       for i in range(len(hy))]
@@ -1313,6 +1316,7 @@ def town_measures(t, cpi, cap_towns, cap_year):
         "res_share": last_value(res_share(t)),
         "new_growth": last_value(t["new_growth"]) if t.get("new_growth") else None,
         "cap_hh": [round((c["nocap"] - c["target"]) / c["hh"]), cap_year] if c and c.get("hh") else None,
+        "mrgf": [c["mrgf"], cap_year] if c and c.get("mrgf") is not None else None,
         **{k: last_value(vals) for k, vals in fiscal_shares(t).items() if vals},
         **{k: last_value(vals) for k, vals in town_shares(t).items()},
         # Overrides its voters passed, FY2005 on
@@ -1546,10 +1550,13 @@ def map_series(entity, used, towns, cap, cpi, org4, src, weights, town_groups=()
         pop = t["pop"]
         hh = t.get("hh") or [None] * len(YEARS)
         cap_hh = [None] * len(axis)
+        mrgf = [None] * len(axis)
         h = H.get("towns", {}).get(t["id"])
         for j, y in enumerate(hyears):
             if y not in at:
                 continue
+            if h and h.get("mrgf"):
+                mrgf[at[y]] = h["mrgf"][j]
             if y in cap_town:
                 c = cap_town[y].get(t["id"])
                 if c and c.get("hh"):
@@ -1560,6 +1567,7 @@ def map_series(entity, used, towns, cap, cpi, org4, src, weights, town_groups=()
         row = town_row(t) | {
             "density": trim(on_axis([None if p is None or not area.get(k) else p / area[k] for p in pop]), 1),
             "cap_hh": trim(cap_hh),
+            "mrgf": trim(mrgf, 4),
         }
         s_towns[t["id"]] = {m: v for m, v in row.items() if v}
         if t["id"] in weights:
@@ -1679,7 +1687,10 @@ def town_data(dists, latest, src, fifths):
             x["income"] = fifths[k]
         x["chunk"] = chunk_of(rk)
         chunks.setdefault(x["chunk"], []).append(x)
-    return towns_index(tc, averages, full, latest, src), chunks, full, district_links(tc, schools_of), outliers
+    # Each town's municipal revenue growth factor in the contributions' year, for its districts' pages (#254)
+    _h = src.c70_history[src.c70_history["fy"] == latest].dropna(subset=["mrgf"])
+    mrgf_of = {norm(n): round(float(v), 4) for n, v in zip(_h["town"], _h["mrgf"])}
+    return towns_index(tc, averages, full, latest, src), chunks, full, district_links(tc, schools_of, mrgf_of), outliers
 
 
 def town_context(dists, latest, src):
@@ -1884,11 +1895,12 @@ def towns_index(tc, averages, full, latest, src):
     }
 
 
-def district_links(tc, schools_of):
-    """Each district's towns, for its page: what each must contribute to it, and the town's other districts"""
+def district_links(tc, schools_of, mrgf_of):
+    """Each district's towns, for its page: what each must contribute to it, its municipal revenue growth factor that
+    year (mrgf_of, by town key), and the town's other districts"""
     def town_link(eid, k):
         mine = next(s for s in schools_of[k] if s["id"] == eid)
-        return {"id": slug(tc.names[k]), "name": tc.names[k], "contribution": mine["contribution"],
+        return {"id": slug(tc.names[k]), "name": tc.names[k], "contribution": mine["contribution"], "mrgf": mrgf_of.get(k),
                 "also": [{"name": s["name"], "id": s["id"], "kind": s["kind"]} for s in schools_of[k] if s is not mine]}
     return {eid: {"towns": [town_link(eid, k) for k in ks], "towns_kind": tc.towns_kind[eid]}
             for eid, ks in tc.district_towns.items()}

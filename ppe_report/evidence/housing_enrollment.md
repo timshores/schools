@@ -1,6 +1,6 @@
 # Evidence record: the Housing and enrollment tab
 
-Written by `evidence/housing_enrollment.py` on 2026-11-09. 9 of 9 links pass; not yet reviewed by a person. These are AI-written checks of the site's figures against the ones MAPC, AFT, DESE and DLS published.
+Written by `evidence/housing_enrollment.py` on 2026-11-12. 9 of 9 links pass; not yet reviewed by a person. These are AI-written checks of the site's figures against the ones MAPC, AFT, DESE and DLS published.
 
 **To accept it:** read the links below, then set `REVIEWED` in `evidence/housing_enrollment.py` to who and when, or ask Claude to, and rerun the script.
 
