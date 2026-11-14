@@ -2,6 +2,12 @@
 
 Session files (newest first):
 
+  2026-11-14_session26_teachers_and_staff.txt
+    2026-11-14 (Session 26) - Explorer: Teachers and Staff, from DESE's Educator Reports
+
+  2026-11-11_session25_lef_forum_six_slides.txt
+    2026-11-11 (Session 25) - LEF Forum: Tim's Part in Six Slides, with the Four Towns Report
+
   2026-11-09_session24_housing_enrollment.txt
     2026-11-09 (Session 24) - Explorer: New Growth, and the Housing and Enrollment Tab (MAPC, COCS)
 

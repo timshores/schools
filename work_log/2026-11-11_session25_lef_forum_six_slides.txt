@@ -1,0 +1,136 @@
+2026-11-11 - Session 25: LEF forum, Tim's part in six slides
+
+Tim asked for a concise deck (5-6 slides) for the Leverett Education Foundation forum on Saturday, "Why does it
+cost so much to educate our children?", on a new arc: Leverett Elementary, then against inflation, schools our
+size, Western MA and the regions; costs grow at a common rate while enrollment moves by region; and Chapter 70
+fails to pool the risk. The Four Towns Fiscal Study Group's report (October 28, 2026) is acknowledged on slide 1.
+
+Files (presentations/lef_forum_2026/):
+- forum6_data.py -> forum6_data.json: every number, from the explorer's data files
+  (mywebsite/src/data/massppe: explorer.json, districts/*.json, cap.json), so the deck and the explorer agree.
+  FY2005-FY2025, the explorer's window (the earlier deck used the report's FY2009 baseline). The Four Towns
+  figures are typed in from the report.
+- build_forum6.js -> "Why does school cost so much - compared with what - LEF forum 2026-11.pptx", in the earlier
+  deck's look (build_deck.js). Speaker notes on every slide.
+- The earlier seven-slide deck and its script are untouched.
+
+Slides: 1 title and the Four Towns figures; 2 Leverett as spent and in FY2025 dollars (+81%, +12%); 3 growth after
+inflation against neighbors, Western MA, the state and the 21 Western MA districts of 200 or fewer (+57%);
+4 six regions indexed (1.6% to 1.9% a year above inflation) beside enrollment change by region; 5 who pays for net
+school spending, Leverett and statewide, FY2005 and FY2025, with the cap ($1.41 billion; Leverett's FY2027 target
+$345,441 higher), and enrollment and charters as mechanism only; 6 three takeaways and the explorer.
+
+Not measured here: charter tuition or reimbursement, and Leverett's own charter and school-choice flows. Slide 5
+describes the mechanism and its notes say so.
+
+Checked: exported to PDF through Windows PowerPoint and read slide by slide (this machine's LibreOffice has no
+Impress). Not committed.
+
+Later the same day: Tim asked for far fewer words and elements on the slides, with the detail kept for what he
+says. Each slide is now a headline, one chart (two on slide 4) and at most two figures; slide 5 keeps four short
+labels and slide 6 three headings and the explorer's address. The detail moved into the speaker notes, about 1,400
+words. A speaking-notes PDF (each slide's picture over its notes) is made outside the repo from the built deck;
+PowerPoint's own notes-page export failed through COM.
+
+Third pass, same day (Tim): slide 3 is two bar charts, Leverett, Pelham, Shutesbury and the Western MA schools
+their size beside Amherst-Pelham Regional, the Western MA districts its size (801 to 1,600 pupils), Western MA and
+the state. Slide 4's line plot became a map of the six regions (forum6_map.py and forum6_map.mjs write
+region_map.svg and .png from the explorer's outlines), each region shaded by its growth on one fixed scale and
+labelled with it, over a column chart of enrollment change set west to east. Slide 5 gained the Western MA schools
+our size, with a shaded band behind each pair of bars.
+
+Fourth pass, same day (Tim): seven slides. The closing slide is replaced by slide 6, "Four places to push" (the
+cap, uneven aid, falling enrollment, charter schools, each with its ask), and slide 7, "The people working on it"
+(the school administrators, the Leverett Education Foundation, Rural Schools MA, MASS Promise to Invest, the Four
+Towns Fiscal Study Group, the Western Mass legislators, and the explorer). The three budget-season points moved to
+slide 7's notes. Facts in those notes come from DESE's FY2027 Chapter 70 documents (276 districts on minimum aid
+at $160 per pupil; charter reimbursement at 100%, 60%, 40%), masspromise2invest.org (the bills it backs), and
+news reports (rural aid at $12 to $16 million against the commission's $60 million; Lora Wondolowski elected in
+the 1st Franklin district on November 3, 2026). Bill numbers and status were not verified, and the notes say so.
+
+Fifth pass, same day (Tim): slide 4's map is shaded by each region's yearly growth in spending per pupil after
+inflation (compound rate, FY2005 to FY2025; fixed scale 0% to 2.5% a year) and labelled with it, 1.6% to 1.9%.
+A row of the twenty-year totals (+37% to +47%) sits between the map and the enrollment columns, each over its
+region's column. Metro West is too narrow for its label, which now sits below the map with a leader line.
+
+Sixth pass, same day (Tim): the map's shading is stretched across the regions' own range (1.5% to 1.95% a year)
+for contrast, and the totals row is chips in the map's colors. Slide 1 gained a second figure, the Leverett
+Finance Committee's 1% guidance for FY28 (told to Tim that day; the rationale is in the notes as described to
+him: over half the excess levy capacity used, largely on health insurance, with an override vote ahead). Slide 6
+names bills under each lever: S.394 (Lewis, Comerford: state share of the foundation budget), H.517 / S.314
+(Blais, Comerford; Domb a cosponsor: rural schools; Senate redraft S.2870 in Senate Ways and Means since
+12/29/2025), HD.4439 (Gomez, Sabadosa: charter tuition reimbursement; House Rules since 3/27/2025). Numbers
+read from malegislature.gov on 2026-11-11; the campaign site's "H 4439 / S 1237 / S 2178 / H 3619" are docket
+numbers. No bill on the 82.5% cap was found. Slide 7 has the two sites' addresses and the legislators' names.
+
+Seventh pass, same day (Tim): slide 5 lost its side list of the four levers (they are slide 6 now) and gained a
+fourth pair of bars, the 26 gateway cities (cohort-gateway): Chapter 70 pays 72% of their net school spending,
+up from 68%, with 2% above the requirement. The chart runs the slide's full width.
+
+Eighth pass, same day (Tim): slide 1 has a third figure, Leverett's income per resident at 1.4 times Western
+MA's (property value 1.6 times), from the DOR income and equalized valuation in cap.json's FY2027 towns, with
+Western MA pooled across its 101 towns (forum6_data.py, "wealth"). Leverett ranks 23rd and 34th of 101 in
+Western MA and 188th of 351 statewide in income; the notes say both.
+
+Ninth pass, same day (Tim): slide 1's figures are four faint-bordered tiles along the bottom half (1.4x income,
+1.6x property value, 155% tax bill, 1% guidance), with the title across the top.
+Asked whether the Four Towns report's mandatory/discretionary breakdown could be an explorer chart: assessed,
+not built. Debt service and required school contributions match the explorer's data exactly for Leverett;
+regional assessments and retiree costs came from town staff and budget books and have no statewide source.
+
+Tenth pass, same day (Tim): eight slides. A new slide 3 repeats slide 2's chart for Amherst-Pelham Regional
+(+128% as spent, +41% after inflation, enrollment 1,933 to 1,189) in maroon and gold, so the change of district
+is visible.
+
+Tim asked for the v10 speaking notes as an editable .docx: each slide's picture, its notes, a page break per
+slide (Markdown through pandoc, from the built deck's notes). Sent as "LEF forum - Tim - speaking notes v10 -
+2026-11-11.docx". From here, Tim's edits in that file are the speaking notes; the deck's notes pane is not
+updated from it.
+
+Eleventh pass, 2026-11-12 (Tim): nine slides.
+- Map slide (5): no headline (new master "No title"), map height 3.5in to 4.6in, left captions cut to
+  14 point and fewer words. Its notes are unchanged.
+- New slide 7, "The state counts on our revenue growing almost 4% a year": the municipal revenue growth
+  factor for Leverett, Amherst and the median town, FY2007 to FY2027, from
+  ppe_report/data/dese_c70_town_history.csv (FY2007 to FY2026) and dese_c70_townwide.csv (FY2027), read by
+  forum6_data.py into out["mrgf"]. Averages: Leverett 3.85%, Amherst 3.50%, median town 3.81%, median
+  Western MA town 3.66%. Its footer names the Chapter 70 source (master "Content c70"), since these
+  figures aren't inflation-adjusted. The notes walk through Leverett's FY2026 and FY2027 requirement.
+- Sent as "LEF forum - Tim - nine slides v11 - 2026-11-12.pptx" with speaking notes v11 as PDF and .docx.
+- Tim also asked for the growth factor in the explorer: logged as explorer prompt #254, not built.
+
+Twelfth pass, 2026-11-12 (Tim): slide 7 is now a bar chart of average growth factors FY2007 to FY2027
+(Leverett 3.9%, Amherst 3.5%, Pelham 3.4%, Shutesbury 3.3%, median Western MA town 3.7%, median town 3.8%)
+with the 1% FY28 limit as a seventh bar, and a definition of the factor under the headline. Slide 1's 1%
+tile says what 1% is after inflation: forum6_data.py now writes cpi_rate_latest (FY2025, 3.4%) and
+cpi_rate_avg (FY2005 to FY2025, 2.4%); 1.01 / 1.034 - 1 = -2.3%, 1.01 / 1.024 - 1 = -1.4%. Sent as v12.
+
+Explorer, same day (seahag prompt log #254, #255), uncommitted in both repos:
+- export_explorer_data.py: the municipal revenue growth factor goes into cap.json's history (FY2007 to
+  FY2027), the map's town measures (map.json at the cap's year, map-years.json year by year), and each
+  district's towns (the factor in the contributions' year, FY2025).
+- The export clears src/data/massppe, evidence.json included; rerun evidence/cap.py, bill_income.py and
+  housing_enrollment.py after it (done; all links pass).
+- mywebsite: map.ts (the "mrgf" town layer), explorer.ts and explorer.css (the factor beside each member
+  town's contribution on the School districts tab), cap.ts (the "Targets shifted" tile says it is one
+  year's amount).
+
+Thirteenth pass, 2026-11-12 (Tim): Tim edited v12 in PowerPoint and asked that his changes stand.
+build_forum6.js was changed to build them (headlines, labels, colors, type sizes; the record of his edits is
+seahag context/schools/lef-forum-2026-11/tim-edits-v12.diff). Then, at his request:
+- Slides 2 and 3: the enrollment trend as a dashed arrow over the chart (forum6_data.py: enroll, enroll_trend,
+  a least-squares line; Leverett -20%, the Region -39%) and a third figure. The arrow starts at the $8,000
+  level and falls by the trend's percentage; the chart's plot area and axis maximum are fixed to place it.
+- State aid slide: "Rural schools" (type-rural, 79 districts) in place of the Western MA small schools; the
+  four subjects ordered by FY2025 aid share (gateway 72%, state 37%, rural 31%, Leverett 16%).
+- New slide 8 after the growth factor: commercial and industrial share of the levy, FY25, our four towns and
+  six nearby, with the residential shares and Amherst's 30% exempt, typed from the Four Towns report (out["tax_base"]).
+- Leverage points: six, with capital improvements that cut operating costs and the ARPS regional agreement.
+- Speaking notes cut by half: 3,329 words to about 1,600, with the new slide's notes included.
+Sent as "LEF forum - Tim - ten slides v13 - 2026-11-12.pptx" with speaking notes v13 (PDF and .docx).
+
+Fourteenth pass, 2026-11-12 (Tim): Tim's own edits to v13 ported into build_forum6.js (compared by text against
+his file; only slide 9 differs). Slide 9 rebuilt as two columns, state level (teal) and local level (green), three
+cards each: "Uneven aid" and "Falling enrollment" merged as "Rebalance state aid" with S.394 and H.517 / S.314;
+a new local card, "Commercial and industrial tax base diversity". Slide 9's notes rewritten to match.
+Sent as "LEF forum - Tim - ten slides v14 - 2026-11-12.pptx" with speaking notes v14 (PDF and .docx).

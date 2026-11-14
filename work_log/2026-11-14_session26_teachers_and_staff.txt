@@ -1,0 +1,32 @@
+2026-11-14 (Session 26) - Explorer: Teachers and Staff, from DESE's Educator Reports
+
+Tim asked for a DESE School and District Profiles teacher data section on the explorer's School districts tab
+(explorer prompt log #269), after the rural schools story needed Leverett's teacher counts and salaries.
+
+New
+- ppe_report/update_dese_staffing.py: downloads seven statewide reports from profiles.doe.mass.edu/statereport/
+  for every year each offers (one GET for the form, one POST a year): Teacher Data, Teacher Salaries, Teacher by
+  Program Area, Staffing Retention Rates, Staffing Data by Race/Ethnicity and Gender (all staff), Educators by Age
+  Groups (all staff), Educator Evaluation Data (all educators). Writes data/dese_staffing.csv (11,212 rows, 441
+  districts, FY1997-FY2026; one row per district and year, 47 columns) and data/dese_staffing_sources.json.
+  Staffing reports run FY2008-FY2026, salaries FY1997-FY2024, retention FY2009-FY2026, evaluation FY2013-FY2025.
+- The salary report's 2012-13 prints one code against two districts twice (08530000 North Shore and Northeast
+  Metropolitan; 09100000 Bristol County Agricultural and Essex Agricultural Technical): the four rows are dropped,
+  with a WARN. More than six such rows stops the download.
+
+export_explorer_data.py
+- staff_fields(staff, codes): each district's and average's "staff": teachers and all staff (FTE, an average's per
+  district), students per teacher (weighted by teachers), average teacher salary (salary totals over FTE), teachers
+  by program area, staff by race and ethnicity and by age, evaluation ratings (weighted by educators evaluated), and
+  the shares of teachers retained and licensed and of staff who are women.
+- districts-staff.csv (the file's rows for the explorer's districts, FY2005 on); meta.staff and meta.sources.staff.
+- STAFF_CSV and STAFF_SOURCES are inputs: the export stops without them.
+
+Checked
+- check_explorer_data.py shape: 0 problems. diff against the data before: only .staff on every district entity and
+  average, meta.staff, meta.sources.staff, and the new CSV.
+- The export clears src/data/massppe/evidence.json (the evidence scripts write it afterward); restored from git,
+  since nothing it reads changed.
+
+Leverett, for the record: average teacher salary $58,563 in 2023-24, eighth lowest of 396 districts (median district
+$91,219; state $91,014); 15.7 teachers (FTE) and 8.6 students per teacher in 2025-26.

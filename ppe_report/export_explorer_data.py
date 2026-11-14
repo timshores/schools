@@ -115,6 +115,17 @@ BUDGET_CSV = Path("data/dese_nss_budgets.csv")
 BUDGET_SOURCES = Path("data/dese_nss_budget_sources.json")
 ENROLL_CSV = Path("data/dese_enrollment.csv")
 ENROLL_SOURCES = Path("data/dese_enrollment_sources.json")
+# DESE's educator reports, as its School and District Profiles show them (update_dese_staffing.py)
+STAFF_CSV = Path("data/dese_staffing.csv")
+STAFF_SOURCES = Path("data/dese_staffing_sources.json")
+# Teachers by program area, all staff by race and ethnicity and by age group, and evaluation ratings: the
+# explorer's key for each of the file's columns, bottom of the stack first
+STAFF_PROGRAM = {"general": "pa_general", "sped": "pa_sped", "el": "pa_el", "cte": "pa_cte"}
+STAFF_RACE = {"white": ["staff_wh"], "black": ["staff_baa"], "asian": ["staff_as"],
+              "other_race": ["staff_aian", "staff_nhpi", "staff_mnhl"], "hispanic": ["staff_hl"]}
+STAFF_AGE = {"u26": "age_u26", "a26": "age_26_32", "a33": "age_33_40", "a41": "age_41_48", "a49": "age_49_56",
+             "a57": "age_57_64", "a65": "age_65"}
+STAFF_EVAL = {"exemplary": "eval_exemplary", "proficient": "eval_proficient", "needs": "eval_needs", "unsat": "eval_unsat"}
 # Students by race and ethnicity, as the towns' residents are grouped: Hispanic or Latino of any race, each race
 # of those who aren't, and the smaller groups together
 STUDENT_RACE = {"white": ["wh_pct"], "black": ["baa_pct"], "asian": ["as_pct"], "other_race": ["aian_pct", "nhpi_pct", "mnhl_pct"],
@@ -306,7 +317,8 @@ FISCAL_CSVS = [FREE_CASH_CSV, STAB_CSV, DEBT_CSV, AUTH_DEBT_CSV, RATINGS_CSV, VO
 # Every input: load_data's (the workbook and the refreshed DESE files, EXP_CSV and C70_CSV), explorer_history's, and
 # the rest, which read_sources reads. All are committed; check_inputs stops the export without any.
 INPUTS = [EXCEL_FILE, EXP_CSV, C70_CSV, C70_XLSX, DESE_SOURCES, FUNC_CSV, DAY_CSV, NCES_CSV, CPI_CSV, CENSUS_CSV,
-          SPED_CSV, CB_CSV, SPED_SOURCES, BUDGET_CSV, BUDGET_SOURCES, ENROLL_CSV, ENROLL_SOURCES, DLS_CSV, POP_CSV,
+          SPED_CSV, CB_CSV, SPED_SOURCES, BUDGET_CSV, BUDGET_SOURCES, ENROLL_CSV, ENROLL_SOURCES, STAFF_CSV, STAFF_SOURCES,
+          DLS_CSV, POP_CSV,
           MEMBERS_CSV, C70_TOWNWIDE_CSV, C70_TOWNWIDE_SOURCES, C70_HISTORY_CSV, LA4_CSV, EQV_CSV, SF_BILL_CSV, *FISCAL_CSVS, FISCAL_SOURCES,
           HH_CSV, DEMO_CSV, BOUNDARIES_JSON, NEW_GROWTH_CSV, HOUSING_CSV, MAPC_TYPES_CSV, MAPC_2017_CSV, COCS_CSV,
           HOUSING_SOURCES]
@@ -435,6 +447,52 @@ def student_fields(enr, codes):
         out["students_next"] = {"fy": nxt, "total": round(float(total[nxt]), 1),
                                 **{k: round(float(v[nxt]), 1) for k, v in groups.items() if nxt in v.index and pd.notna(v[nxt])}}
     return out
+
+
+def staff_fields(staff, codes):
+    """Teachers and staff from DESE's educator reports, pooled over the districts' codes, each measure over the
+    districts that report it that year: teachers and all staff (FTE) of their average district (one district's
+    own); students per teacher and the average teacher salary, each weighted by its teachers; teachers by program
+    area, staff by race and ethnicity and by age, and evaluation ratings, in percent; and the shares of teachers
+    retained and licensed, and of staff who are women."""
+    rows = staff[staff["DIST_CODE"].isin(codes)]
+    if rows.empty or not rows["teachers_fte"].notna().any():
+        return {}
+    def total(cols, r=rows):
+        return r.groupby("FY")[cols].sum(min_count=1)
+    def average(col):
+        r = rows[rows[col].notna()]
+        by = r.groupby("FY")[col]
+        return by.sum() / by.size()
+    def weighted(col, weight):
+        r = rows[rows[col].notna() & (rows[weight] > 0)]
+        by = r.assign(part=r[col] * r[weight]).groupby("FY")[["part", weight]].sum()
+        return by["part"] / by[weight]
+    def shares(parts):
+        """{key: percent of the parts' sum}, over the rows that report every part"""
+        cols = [c for cs in parts.values() for c in ([cs] if isinstance(cs, str) else cs)]
+        t = total(cols, rows.dropna(subset=cols))
+        whole = t.sum(axis=1)
+        whole = whole[whole > 0]
+        return {k: series(t.loc[whole.index, [cs] if isinstance(cs, str) else cs].sum(axis=1) / whole * 100, 1)
+                for k, cs in parts.items()}
+    kept = total(["tch_kept", "tch_n"], rows[rows["tch_n"] > 0])
+    sex = total(["staff_fe", "staff_ma"], rows.dropna(subset=["staff_fe", "staff_ma"]))
+    pay = total(["salary_total", "salary_fte"], rows[(rows["salary_fte"] > 0) & rows["salary_total"].notna()])
+    rated = rows.dropna(subset=list(STAFF_EVAL.values()))
+    rated = rated[rated["eval_done"] > 0]
+    by = rated.groupby("FY")
+    return {"staff": {
+        "teachers": series(average("teachers_fte"), 1), "all": series(average("staff_fte"), 1),
+        "ratio": series(weighted("students_per_teacher", "teachers_fte"), 1),
+        "salary": series(pay["salary_total"] / pay["salary_fte"], 0),
+        "program": shares(STAFF_PROGRAM), "race": shares(STAFF_RACE), "age": shares(STAFF_AGE),
+        "rating": {k: series(rated.assign(part=rated[c] * rated["eval_done"]).groupby("FY")["part"].sum()
+                             / by["eval_done"].sum(), 1) for k, c in STAFF_EVAL.items()},
+        "rated": series(by["eval_done"].sum() / by.size(), 1),
+        "keep": {"retained": series(kept["tch_kept"] / kept["tch_n"] * 100, 1),
+                 "licensed": series(weighted("licensed_pct", "teachers_fte"), 1),
+                 "women": series(sex["staff_fe"] / (sex["staff_fe"] + sex["staff_ma"]) * 100, 1)}}}
 
 
 # Region for the few towns with no school district of their own (Monroe, Tyringham,
@@ -1920,6 +1978,16 @@ def write_csvs(out_dir: Path, dists, all_towns, src, latest):
     return written
 
 
+def staff_csv(src, orgs, names, latest):
+    """DESE's educator reports, as its profiles show them: a row for each district and school year"""
+    st = by_org(src.staff_raw, orgs)
+    st = st[st["FY"].between(EXPLORER_START, latest + 1)]
+    st = st.rename(columns={"FY": "school_year", "DIST_CODE": "dese_code", "DIST_NAME": "dese_name"})
+    st.insert(2, "district", st["dese_code"].astype(int).floordiv(10000).map(names))
+    st["source_url"], st["source_downloaded"] = src.staff_sources["source"], src.staff_sources["downloaded"]
+    return st.sort_values(["district", "school_year"])
+
+
 def district_csvs(dists, src, latest):
     """(file name, frame) for each district CSV, in the order they're written"""
     orgs = {d["org"] for d in dists}
@@ -1930,6 +1998,7 @@ def district_csvs(dists, src, latest):
     yield from sped_csvs(src, orgs, names, latest)
     yield "districts-nss-budgets.csv", budgets_csv(src, orgs, names, latest)
     yield "districts-students.csv", students_csv(src, orgs, names, latest)
+    yield "districts-staff.csv", staff_csv(src, orgs, names, latest)
 
 
 def by_org(frame, orgs, code="DIST_CODE"):
@@ -2215,7 +2284,9 @@ def read_sources():
     s.sped_raw = pd.read_csv(SPED_CSV, dtype={"DIST_CODE": str})
     s.cb_raw = pd.read_csv(CB_CSV, dtype={"DIST_CODE": str})
     s.enr_raw = pd.read_csv(ENROLL_CSV, dtype={"DIST_CODE": str})
-    s.sped, s.cb, s.enr = (f.astype({"DIST_CODE": int}) for f in (s.sped_raw, s.cb_raw, s.enr_raw))
+    s.staff_raw = pd.read_csv(STAFF_CSV, dtype={"DIST_CODE": str})
+    s.staff_sources = json.loads(STAFF_SOURCES.read_text())
+    s.sped, s.cb, s.enr, s.staff = (f.astype({"DIST_CODE": int}) for f in (s.sped_raw, s.cb_raw, s.enr_raw, s.staff_raw))
     s.budgets = pd.read_csv(BUDGET_CSV, dtype={"lea": int})
     s.sped_sources, s.budget_sources, s.enroll_sources, s.fiscal_sources = (
         json.loads(p.read_text()) for p in (SPED_SOURCES, BUDGET_SOURCES, ENROLL_SOURCES, FISCAL_SOURCES))
@@ -2406,7 +2477,8 @@ def district_average(g, hub, src):
             "ood": hub.ood(keys), **rev,
             **sped_fields(src.sped, src.cb, src.pupils, codes),
             **budget_fields(src.budgets, hub.c70, codes),
-            **student_fields(src.enr, codes)}
+            **student_fields(src.enr, codes),
+            **staff_fields(src.staff, codes)}
 
 
 def district_entity(d, hub, src, have):
@@ -2429,7 +2501,8 @@ def district_entity(d, hub, src, have):
             **revenue_fields(src.census, [d["code"]], regional),
             **sped_fields(src.sped, src.cb, src.pupils, [d["code"]]),
             **budget_fields(src.budgets, hub.c70, [d["code"]]),
-            **student_fields(src.enr, [d["code"]])}
+            **student_fields(src.enr, [d["code"]]),
+            **staff_fields(src.staff, [d["code"]])}
 
 
 def explorer_index(averages, full, former, hist_meta, defs, src):
@@ -2460,6 +2533,8 @@ def explorer_index(averages, full, former, hist_meta, defs, src):
                         **{k: v for k, v in src.budget_sources.items() if k in ("downloaded", "not_found")}},
             "students": {"first": int(enr["FY"].min()), "latest": int(enr["FY"].max()),
                          **{k: v for k, v in src.enroll_sources.items() if k in ("downloaded", "last_updated")}},
+            "staff": {"first": int(src.staff["FY"].min()), "latest": int(src.staff["FY"].max()),
+                      "downloaded": src.staff_sources["downloaded"]},
             "sources": {
                 "expenditures": "DESE District Expenditures by Spending Category (E2C Hub er3w-dyti)",
                 "chapter70": "DESE Chapter 70 District Profiles",
@@ -2469,6 +2544,7 @@ def explorer_index(averages, full, former, hist_meta, defs, src):
                 "circuit_breaker": "DESE Special Education Circuit Breaker Reimbursements (E2C Hub ab34-d3ma)",
                 "budgets": "DESE Net School Spending compliance summaries (budgeted and actual NSS)",
                 "students": "DESE Enrollment: Grade, Race/Ethnicity, Gender, and Selected Populations (E2C Hub t8td-gens)",
+                "staff": "DESE School and District Profiles, statewide educator reports",
             },
         },
         # A light list for the menus; each entity's data is in its chunk's file

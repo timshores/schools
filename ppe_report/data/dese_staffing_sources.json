@@ -1,0 +1,13 @@
+{
+ "source": "https://profiles.doe.mass.edu/statereport/#Educators",
+ "reports": {
+  "teacherdata.aspx": "https://profiles.doe.mass.edu/statereport/teacherdata.aspx",
+  "teachersalaries.aspx": "https://profiles.doe.mass.edu/statereport/teachersalaries.aspx",
+  "programareastaffing.aspx": "https://profiles.doe.mass.edu/statereport/programareastaffing.aspx",
+  "staffingRetentionRates.aspx": "https://profiles.doe.mass.edu/statereport/staffingRetentionRates.aspx",
+  "teacherbyracegender.aspx": "https://profiles.doe.mass.edu/statereport/teacherbyracegender.aspx",
+  "agestaffing.aspx": "https://profiles.doe.mass.edu/statereport/agestaffing.aspx",
+  "educatorevaluationperformance.aspx": "https://profiles.doe.mass.edu/statereport/educatorevaluationperformance.aspx"
+ },
+ "downloaded": "2026-11-14"
+}
