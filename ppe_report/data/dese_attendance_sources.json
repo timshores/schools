@@ -1,0 +1,6 @@
+{
+ "source": "https://educationtocareer.data.mass.gov/Students-and-Teachers/Student-Attendance/ak6h-9k7x/about_data",
+ "url": "https://educationtocareer.data.mass.gov/resource/ak6h-9k7x.csv?$limit=200000&$where=org_type in ('District','State') AND attend_period='End of Year'&$order=sy,dist_code,stu_grp",
+ "last_updated": "2026-09-23",
+ "downloaded": "2026-11-16"
+}

@@ -118,6 +118,26 @@ ENROLL_SOURCES = Path("data/dese_enrollment_sources.json")
 # DESE's educator reports, as its School and District Profiles show them (update_dese_staffing.py)
 STAFF_CSV = Path("data/dese_staffing.csv")
 STAFF_SOURCES = Path("data/dese_staffing_sources.json")
+# DESE's student attendance, end of year, all students (update_dese_attendance.py)
+ATTEND_CSV = Path("data/dese_attendance.csv")
+ATTEND_SOURCES = Path("data/dese_attendance_sources.json")
+# The explorer's key for each of the file's measures: the attendance rate, the shares of students absent, and the
+# average days absent. Rates are fractions of one in the file, percent in the explorer
+ATTEND_SHARES = {"rate": "attend_rate", "abs10": "pct_abs_10_days", "chronic": "pct_chron_abs_10",
+                 "chronic20": "pct_chron_abs_20", "unexcused": "pct_unexc_10_days"}
+ATTEND_DAYS = "cnt_avg_abs"
+# DESE's student groups in the attendance file: the explorer's key for each, DESE's name, and the enrollment
+# column that counts the group's students each October 1, an average's weights (a _pct column is a share of
+# total_cnt). Low income (from FY2022) and economically disadvantaged (to FY2021) are two measures, kept apart
+ATTEND_GROUPS = {
+    "swd": ("Students with Disabilities", "swd_cnt"), "el": ("English Learners", "el_cnt"),
+    "low_income": ("Low Income", "li_cnt"), "econ": ("Economically Disadvantaged", "ecd_cnt"),
+    "high_needs": ("High Needs", "hn_cnt"),
+    "aian": ("American Indian or Alaska Native", "aian_pct"), "asian": ("Asian", "as_pct"),
+    "black": ("Black or African American", "baa_pct"), "hispanic": ("Hispanic or Latino", "hl_pct"),
+    "multi": ("Multi-Race, Not Hispanic or Latino", "mnhl_pct"),
+    "nhpi": ("Native Hawaiian or Other Pacific Islander", "nhpi_pct"), "white": ("White", "wh_pct"),
+    "female": ("Female", "fe_pct"), "male": ("Male", "ma_pct")}
 # Teachers by program area, all staff by race and ethnicity and by age group, and evaluation ratings: the
 # explorer's key for each of the file's columns, bottom of the stack first
 STAFF_PROGRAM = {"general": "pa_general", "sped": "pa_sped", "el": "pa_el", "cte": "pa_cte"}
@@ -294,6 +314,7 @@ SOURCE_URLS = {
     "census_f33": "https://www2.census.gov/programs-surveys/school-finances/tables/{fy}/secondary-education-finance/elsec{yy:02d}.{ext}",
     "circuit_breaker": "https://educationtocareer.data.mass.gov/d/ab34-d3ma",
     "students": "https://educationtocareer.data.mass.gov/d/t8td-gens",
+    "attendance": "https://educationtocareer.data.mass.gov/d/ak6h-9k7x",
     "dls_schedule_a": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=ScheduleA.GenFund_MAIN",
     "dls_la4": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyTaxInformation.LA4.Parcel_counts_vals",
     "dls_eqv": "https://dls-gw.dor.state.ma.us/reports/rdPage.aspx?rdReport=PropertyTaxInformation.EQV.EQV",
@@ -318,6 +339,7 @@ FISCAL_CSVS = [FREE_CASH_CSV, STAB_CSV, DEBT_CSV, AUTH_DEBT_CSV, RATINGS_CSV, VO
 # the rest, which read_sources reads. All are committed; check_inputs stops the export without any.
 INPUTS = [EXCEL_FILE, EXP_CSV, C70_CSV, C70_XLSX, DESE_SOURCES, FUNC_CSV, DAY_CSV, NCES_CSV, CPI_CSV, CENSUS_CSV,
           SPED_CSV, CB_CSV, SPED_SOURCES, BUDGET_CSV, BUDGET_SOURCES, ENROLL_CSV, ENROLL_SOURCES, STAFF_CSV, STAFF_SOURCES,
+          ATTEND_CSV, ATTEND_SOURCES,
           DLS_CSV, POP_CSV,
           MEMBERS_CSV, C70_TOWNWIDE_CSV, C70_TOWNWIDE_SOURCES, C70_HISTORY_CSV, LA4_CSV, EQV_CSV, SF_BILL_CSV, *FISCAL_CSVS, FISCAL_SOURCES,
           HH_CSV, DEMO_CSV, BOUNDARIES_JSON, NEW_GROWTH_CSV, HOUSING_CSV, MAPC_TYPES_CSV, MAPC_2017_CSV, COCS_CSV,
@@ -447,6 +469,53 @@ def student_fields(enr, codes):
         out["students_next"] = {"fy": nxt, "total": round(float(total[nxt]), 1),
                                 **{k: round(float(v[nxt]), 1) for k, v in groups.items() if nxt in v.index and pd.notna(v[nxt])}}
     return out
+
+
+def attendance_fields(att, codes):
+    """Attendance from DESE's end-of-year figures for all students: the attendance rate and four shares of students
+    absent, in percent, and the average days absent. One district's are DESE's own. An average weights each
+    district's by its students on October 1 (att carries them as total_cnt), over the districts with both that
+    year: DESE publishes no counts with these rates. With the newest year's figures, a year past the axis."""
+    rows = att[att["DIST_CODE"].isin(codes)]
+    if rows.empty:
+        return {}
+    cols = {**ATTEND_SHARES, "days": ATTEND_DAYS}
+    def pooled(col):
+        r = rows[rows[col].notna()]
+        if len(codes) == 1:
+            return r.set_index("FY")[col]
+        r = r[r["total_cnt"] > 0]
+        by = r.assign(part=r[col] * r["total_cnt"]).groupby("FY")[["part", "total_cnt"]].sum()
+        return by["part"] / by["total_cnt"]
+    vals = {k: pooled(c) * (1 if k == "days" else 100) for k, c in cols.items()}
+    out = {"attendance": {k: series(v, 1) for k, v in vals.items()}}
+    nxt = LATEST_YEAR + 1
+    newest = {k: round(float(v[nxt]), 1) for k, v in vals.items() if nxt in v.index and pd.notna(v[nxt])}
+    if newest:
+        out["attendance_next"] = {"fy": nxt, **newest}
+    return out
+
+
+def attendance_group_fields(att, codes, ys):
+    """The same measures for each of DESE's student groups, over the attendance file's own years ys:
+    {group: {measure: values}}, without a group DESE reports nothing for, or a measure it never reports for the
+    group. An average weights each district's figure by the group's students on October 1 (att's column w), over the
+    districts with both that year. DESE withholds a small group's figures, so a small district has few groups."""
+    rows = att[att["DIST_CODE"].isin(codes)]
+    cols = {**ATTEND_SHARES, "days": ATTEND_DAYS}
+    out = {}
+    for k, c in cols.items():
+        r = rows[rows[c].notna()]
+        if len(codes) == 1:
+            vals = r.set_index(["key", "FY"])[c]
+        else:
+            r = r[r["w"] > 0]
+            by = r.assign(part=r[c] * r["w"]).groupby(["key", "FY"])[["part", "w"]].sum()
+            vals = by["part"] / by["w"]
+        vals = vals * (1 if k == "days" else 100)
+        for g in vals.index.get_level_values(0).unique():
+            out.setdefault(g, {})[k] = series(vals[g], 1, ys)
+    return {g: out[g] for g in ATTEND_GROUPS if g in out}
 
 
 def staff_fields(staff, codes):
@@ -1988,6 +2057,21 @@ def staff_csv(src, orgs, names, latest):
     return st.sort_values(["district", "school_year"])
 
 
+def attendance_csv(src, orgs, names, latest):
+    """DESE's end-of-year attendance: a row for each district, school year and student group, all students first"""
+    at = by_org(src.attend_all, orgs)
+    at = at[at["FY"].between(EXPLORER_START, latest + 1)].drop(columns=["ORG_TYPE"])
+    # A group DESE withholds every figure for that year has a row of blanks in its file: left out
+    at = at.dropna(subset=[*ATTEND_SHARES.values(), ATTEND_DAYS], how="all")
+    at = at.rename(columns={"FY": "school_year", "DIST_CODE": "dese_code", "DIST_NAME": "dese_name", "GROUP": "student_group"})
+    at.insert(2, "district", at["dese_code"].astype(int).floordiv(10000).map(names))
+    at.insert(4, "student_group", at.pop("student_group"))
+    at = at.assign(first=at["student_group"] != "All Students").sort_values(
+        ["district", "school_year", "first", "student_group"]).drop(columns="first")
+    at["source_url"], at["source_updated"] = SOURCE_URLS["attendance"], src.attend_sources["last_updated"]
+    return at
+
+
 def district_csvs(dists, src, latest):
     """(file name, frame) for each district CSV, in the order they're written"""
     orgs = {d["org"] for d in dists}
@@ -1999,6 +2083,7 @@ def district_csvs(dists, src, latest):
     yield "districts-nss-budgets.csv", budgets_csv(src, orgs, names, latest)
     yield "districts-students.csv", students_csv(src, orgs, names, latest)
     yield "districts-staff.csv", staff_csv(src, orgs, names, latest)
+    yield "districts-attendance.csv", attendance_csv(src, orgs, names, latest)
 
 
 def by_org(frame, orgs, code="DIST_CODE"):
@@ -2287,6 +2372,24 @@ def read_sources():
     s.staff_raw = pd.read_csv(STAFF_CSV, dtype={"DIST_CODE": str})
     s.staff_sources = json.loads(STAFF_SOURCES.read_text())
     s.sped, s.cb, s.enr, s.staff = (f.astype({"DIST_CODE": int}) for f in (s.sped_raw, s.cb_raw, s.enr_raw, s.staff_raw))
+    # All students' rows, each district's: the student groups and the state's own row stay in the file. With each
+    # district's students that October 1, an average's weights
+    att = pd.read_csv(ATTEND_CSV, dtype={"DIST_CODE": str})
+    s.attend_all = att[att["ORG_TYPE"] == "District"]
+    s.attend_raw = att[(att["ORG_TYPE"] == "District") & (att["GROUP"] == "All Students")]
+    s.attend_state = att[(att["ORG_TYPE"] == "State") & (att["GROUP"] == "All Students")]
+    s.attend_sources = json.loads(ATTEND_SOURCES.read_text())
+    s.attend = s.attend_raw.astype({"DIST_CODE": int}).merge(s.enr[["FY", "DIST_CODE", "total_cnt"]], on=["FY", "DIST_CODE"], how="left")
+    # Each student group's rows, with the group's students that October 1 (w)
+    key_of = {name: k for k, (name, _) in ATTEND_GROUPS.items()}
+    grp = s.attend_all[s.attend_all["GROUP"].isin(key_of)].astype({"DIST_CODE": int})
+    grp = grp.assign(key=grp["GROUP"].map(key_of)).merge(s.enr, on=["FY", "DIST_CODE"], how="left", suffixes=("", "_enr"))
+    grp["w"] = float("nan")
+    for k, (_, col) in ATTEND_GROUPS.items():
+        m = grp["key"] == k
+        grp.loc[m, "w"] = grp.loc[m, col] * (grp.loc[m, "total_cnt"] if col.endswith("_pct") else 1)
+    s.attend_groups = grp
+    s.attend_years = list(range(int(att["FY"].min()), int(att["FY"].max()) + 1))
     s.budgets = pd.read_csv(BUDGET_CSV, dtype={"lea": int})
     s.sped_sources, s.budget_sources, s.enroll_sources, s.fiscal_sources = (
         json.loads(p.read_text()) for p in (SPED_SOURCES, BUDGET_SOURCES, ENROLL_SOURCES, FISCAL_SOURCES))
@@ -2458,6 +2561,23 @@ def district_groups(dists, defs):
     return groups, [g for g in regional if g.outlier is not None]
 
 
+def attendance_groups(src, codes):
+    """An entity's attendance: all students' (attendance_fields); the student groups it has (attendance_groups,
+    which the explorer's menu lists) and their figures (attendance_by_group, which ships in a file of its own:
+    write_site); and each measure's highest figure in any year for all students or any group (attendance_max), so
+    the chart keeps one scale whichever group it shows."""
+    out = attendance_fields(src.attend, codes)
+    by = attendance_group_fields(src.attend_groups, codes, src.attend_years)
+    if by:
+        out |= {"attendance_groups": list(by), "attendance_by_group": by}
+    if out:
+        every = [out.get("attendance", {}), {k: [v] for k, v in out.get("attendance_next", {}).items() if k != "fy"}, *by.values()]
+        top = {k: max((v for g in every for v in g.get(k, []) if v is not None), default=None)
+               for k in [*ATTEND_SHARES, "days"]}
+        out["attendance_max"] = {k: v for k, v in top.items() if v is not None}
+    return out
+
+
 def district_average(g, hub, src):
     """A district Group's average: spending, enrollment and Chapter 70 pooled over its members (Hub.aggregate),
     revenue where enough of them are regional, and the rest pooled by DESE code"""
@@ -2478,6 +2598,7 @@ def district_average(g, hub, src):
             **sped_fields(src.sped, src.cb, src.pupils, codes),
             **budget_fields(src.budgets, hub.c70, codes),
             **student_fields(src.enr, codes),
+            **attendance_groups(src, codes),
             **staff_fields(src.staff, codes)}
 
 
@@ -2502,6 +2623,7 @@ def district_entity(d, hub, src, have):
             **sped_fields(src.sped, src.cb, src.pupils, [d["code"]]),
             **budget_fields(src.budgets, hub.c70, [d["code"]]),
             **student_fields(src.enr, [d["code"]]),
+            **attendance_groups(src, [d["code"]]),
             **staff_fields(src.staff, [d["code"]])}
 
 
@@ -2533,6 +2655,9 @@ def explorer_index(averages, full, former, hist_meta, defs, src):
                         **{k: v for k, v in src.budget_sources.items() if k in ("downloaded", "not_found")}},
             "students": {"first": int(enr["FY"].min()), "latest": int(enr["FY"].max()),
                          **{k: v for k, v in src.enroll_sources.items() if k in ("downloaded", "last_updated")}},
+            "attendance": {"first": int(src.attend["FY"].min()), "latest": int(src.attend["FY"].max()),
+                           "groups": {k: name for k, (name, _) in ATTEND_GROUPS.items()},
+                           **{k: v for k, v in src.attend_sources.items() if k in ("downloaded", "last_updated")}},
             "staff": {"first": int(src.staff["FY"].min()), "latest": int(src.staff["FY"].max()),
                       "downloaded": src.staff_sources["downloaded"]},
             "sources": {
@@ -2545,6 +2670,7 @@ def explorer_index(averages, full, former, hist_meta, defs, src):
                 "budgets": "DESE Net School Spending compliance summaries (budgeted and actual NSS)",
                 "students": "DESE Enrollment: Grade, Race/Ethnicity, Gender, and Selected Populations (E2C Hub t8td-gens)",
                 "staff": "DESE School and District Profiles, statewide educator reports",
+                "attendance": "DESE Student Attendance, end of year (E2C Hub ak6h-9k7x)",
             },
         },
         # A light list for the menus; each entity's data is in its chunk's file
@@ -2599,6 +2725,11 @@ def write_site(site, out):
         put("explorer.json", out.index)
         for chunk in sorted({e["chunk"] for e in out.full + out.averages}):
             put(f"districts/{chunk}.json", {"entities": [shipped(e) for e in out.averages + out.full if e["chunk"] == chunk]})
+        # Attendance by student group, a file for each of the districts' files, loaded when a group is picked
+        for chunk in sorted({e["chunk"] for e in out.full + out.averages}):
+            put(f"districts-attendance/{chunk}.json", {"years": out.src.attend_years, "entities": [
+                {"id": e["id"], "groups": e["attendance_by_group"]}
+                for e in out.averages + out.full if e["chunk"] == chunk and e.get("attendance_by_group")]})
         for chunk, xs in sorted(out.hist_chunks.items()):
             put(f"districts-history/{chunk}.json", {"entities": xs})
         put("towns.json", out.towns_index)
@@ -2663,7 +2794,7 @@ def main(site: Path, force_recompute=False):
 
 def shipped(x):
     """A record as the explorer loads it: an average's member list is for the groups page alone"""
-    return {k: v for k, v in x.items() if k != "member_ids"}
+    return {k: v for k, v in x.items() if k not in ("member_ids", "attendance_by_group")}
 
 
 def write_groups(csv_dir: Path, json_dir: Path, averages, districts, towns):

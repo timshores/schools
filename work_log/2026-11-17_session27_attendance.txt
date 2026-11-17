@@ -1,0 +1,43 @@
+2026-11-17 (Session 27) - Explorer: Attendance and Absences, from DESE's Student Attendance
+
+Tim asked for absence data on all Massachusetts students (explorer prompt log #275, 2026-11-16), then for every
+measure on one chart with switches to look at one at a time (#276).
+
+New
+- ppe_report/update_dese_attendance.py (#275): E2C Hub ak6h-9k7x, end-of-year rows for the state and every district,
+  SY2018-SY2026, all students and 14 student groups, six measures. Writes data/dese_attendance.csv (rates as
+  fractions of one) and data/dese_attendance_sources.json. School-level rows and the March snapshots are left out.
+
+export_explorer_data.py
+- attendance_fields(att, codes): each district's and average's "attendance" (rate, abs10, chronic, chronic20,
+  unexcused in percent; days), and "attendance_next", the newest year a year past the axis. All students only.
+  One district's figures are DESE's own. DESE publishes no counts with the rates, so an average weights each
+  district's figure by its October 1 enrollment (dese_enrollment.csv total_cnt), over the districts with both.
+- districts-attendance.csv (all students' rows for the explorer's districts); meta.attendance and
+  meta.sources.attendance; SOURCE_URLS["attendance"]. ATTEND_CSV and ATTEND_SOURCES are inputs.
+
+Student groups (#278)
+- attendance_group_fields(att, codes, ys): the same measures for each of DESE's 14 student groups (ATTEND_GROUPS),
+  over the attendance file's own years. Each entity lists its groups (attendance_groups); the figures
+  (attendance_by_group) are left out of the entity's file (shipped) and written to districts-attendance/<chunk>.json,
+  which the explorer loads when a group is picked. An average weights each district's figure for a group by the
+  group's October 1 students (a _cnt column, or a _pct column times total_cnt). meta.attendance.groups names them.
+- districts-attendance.csv has a row for each district, year and group (student_group), all students first,
+  without the rows DESE leaves blank.
+- Against DESE's state rows, pooled over every district: chronic absence within 1.1 points and days absent within
+  0.4 for students with disabilities, English learners and low income students.
+
+- attendance_max (#280): each measure's highest figure in any year, for all students or any group, on every entity,
+  so the explorer's chart keeps one scale whichever group it shows. attendance_groups(src, codes) now returns all of
+  an entity's attendance fields.
+
+Checked
+- check_explorer_data.py shape: 0 problems. diff against the data before: only .attendance and .attendance_next on
+  every district entity and average, meta.attendance, meta.sources.attendance, and the new CSV. All 387 districts
+  and 46 averages have attendance.
+- The weighting, pooled over every district, against DESE's own state row: within 0.04 points on the attendance
+  rate, 0.2 on chronic absence, 0.9 on absent 10 or more days, 0.7 on unexcused, and 0.3 days on days absent.
+- The export clears src/data/massppe/evidence.json; restored from git, as in session 26.
+
+Leverett, for the record: 7.9% of students chronically absent in 2025-26 (state 17.1%), down from 21.1% in 2021-22;
+attendance rate 94.8%; 9.1 days absent on average.

@@ -2,6 +2,9 @@
 
 Session files (newest first):
 
+  2026-11-17_session27_attendance.txt
+    2026-11-17 (Session 27) - Explorer: Attendance and Absences, from DESE's Student Attendance
+
   2026-11-14_session26_teachers_and_staff.txt
     2026-11-14 (Session 26) - Explorer: Teachers and Staff, from DESE's Educator Reports
 
